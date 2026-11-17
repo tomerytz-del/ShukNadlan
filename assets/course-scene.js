@@ -102,7 +102,7 @@
     '.cs-court h4{font-weight:800;font-size:1.5em;margin:.3em 0}.cs-court p{margin:.2em 0;color:#4a5578}',
     '.cs-court .verdict{display:inline-block;margin-top:.6em;font-weight:900;font-size:1.45em;color:#d92d20;border:3px solid #d92d20;border-radius:6px;padding:.05em .5em;transform:rotate(-6deg) scale(2);opacity:0}',
     '.cs-court.hit .verdict{animation:csStamp2 .35s cubic-bezier(.2,1.4,.4,1) forwards}@keyframes csStamp2{to{transform:rotate(-6deg) scale(1);opacity:1}}',
-    '.cs-badge{position:absolute;z-index:6;top:16%;left:50%;transform:translateX(-50%) scale(.8);opacity:0;background:#1f9d55;color:#fff;font-weight:800;font-size:clamp(13px,2.8cqw,22px);padding:.4em 1em;border-radius:99px;transition:all .4s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}',
+    '.cs-badge{position:absolute;z-index:6;top:16%;left:50%;transform:translateX(-50%) scale(.8);opacity:0;background:#1f9d55;color:#fff;font-weight:800;font-size:clamp(13px,2.8cqw,22px);padding:.4em 1em;border-radius:99px;transition:transform .4s cubic-bezier(.2,1.4,.4,1),opacity .4s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}',
     '.cs-badge.on{opacity:1;transform:translateX(-50%) scale(1)}',
     '.cs-bar{display:flex;align-items:center;gap:10px;padding:8px 4px 2px;color:#fff;direction:rtl}',
     '.cs-btn{width:40px;height:40px;border-radius:50%;border:0;background:#e5c76a;color:#0d1b3d;display:grid;place-items:center;cursor:pointer;flex:none}',
@@ -131,6 +131,8 @@
     eli: { name: 'אלי, הקבלן', pitch: 250, skin: '#d8a07a', hair: '#2e2a26', style: 'short', top: '#e07b39', shirt: '#e07b39', pants: '#3a3f4b', beard: true },
     tal: { name: 'טל, הקונה השני', pitch: 330, skin: '#e9b892', hair: '#6b4a2b', style: 'short', top: '#2f7f6f', shirt: '#2f7f6f', pants: '#2c3550' },
     rina: { name: 'רינה, הדיירת', pitch: 470, skin: '#efc6a6', hair: '#d6d6d6', style: 'bob', top: '#5f8f6b', shirt: '#5f8f6b', pants: '#4a4f63', glasses: true },
+    gil: { name: 'גיל, הפיזיותרפיסט', pitch: 290, skin: '#e6b089', hair: '#1f1a17', style: 'short', top: '#4d8fd1', shirt: '#4d8fd1', pants: '#2c3550' },
+    orit: { name: 'אורית, מנהלת העיזבון', pitch: 540, skin: '#eabf9c', hair: '#7a3b1e', style: 'long', top: '#b5523b', shirt: '#b5523b', pants: '#3b3f58' },
     moshe: { name: 'משה, הבעלים', pitch: 230, skin: '#efc09a', hair: '#b9b9b9', style: 'bald', top: '#8a6d4b', shirt: '#8a6d4b', pants: '#4a3b2a', mus: true }
   };
   function charSvg(L) {

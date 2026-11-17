@@ -12,6 +12,7 @@ MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql
 FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
 PHONE_HASH = ROOT / "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
 MADLAN = ROOT / "supabase/migrations/20271111150000_scraped_lead_madlan.sql"
+BOARD_ROUTING = ROOT / "supabase/migrations/20271115210000_board_lead_routing_log.sql"
 REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 
 SETUP = r"""
@@ -211,8 +212,65 @@ create function public.notifications_suppress_on()
 returns boolean language sql stable as $$ select false $$;
 create function public.scraped_leads_launch_active()
 returns boolean language sql stable as $$ select false $$;
+create table public.lead_routing_log (
+  id uuid primary key default gen_random_uuid(),
+  source text not null,
+  lead_kind text not null,
+  lead_table text not null,
+  lead_id uuid not null,
+  routing text not null,
+  recipients int not null default 0,
+  reason text,
+  summary text,
+  city text,
+  neighborhood_id uuid,
+  deal_type text,
+  property_type text,
+  assigned_agent_id uuid,
+  created_at timestamptz not null default now(),
+  unique (lead_table, lead_id)
+);
+-- כמו בפרודקשן: רק unrouted מעיר את מנהלי הפלטפורמה. assigned לא כותב התראה.
+create function public.alert_platform_admin_on_unrouted_lead()
+returns trigger language plpgsql as $$
+begin
+  if new.routing = 'unrouted' then
+    insert into public.notifications (agent_id, type, title, body, related_lead_id)
+    values (
+      new.assigned_agent_id, 'lead_unrouted', 'ליד חדש שאין למי להפנות',
+      coalesce(new.summary, ''), new.lead_id
+    );
+  end if;
+  return new;
+end $$;
+create trigger lead_routing_alert_platform_admin
+  after insert on public.lead_routing_log
+  for each row execute function public.alert_platform_admin_on_unrouted_lead();
 create function public.log_lead_routing(p jsonb)
-returns void language plpgsql as $$ begin return; end $$;
+returns jsonb language plpgsql as $$
+begin
+  insert into public.lead_routing_log (
+    source, lead_kind, lead_table, lead_id, routing, recipients, reason, summary,
+    city, neighborhood_id, deal_type, property_type, assigned_agent_id
+  )
+  values (
+    coalesce(nullif(btrim(p->>'source'), ''), 'unknown'),
+    coalesce(nullif(btrim(p->>'lead_kind'), ''), 'agent_owner'),
+    coalesce(nullif(btrim(p->>'lead_table'), ''), 'leads'),
+    (p->>'lead_id')::uuid,
+    coalesce(nullif(btrim(p->>'routing'), ''), 'assigned'),
+    coalesce((p->>'recipients')::int, 0),
+    nullif(btrim(p->>'reason'), ''),
+    left(nullif(btrim(p->>'summary'), ''), 300),
+    nullif(btrim(p->>'city'), ''),
+    nullif(p->>'neighborhood_id', '')::uuid,
+    nullif(btrim(p->>'deal_type'), ''),
+    nullif(btrim(p->>'property_type'), ''),
+    nullif(p->>'assigned_agent_id', '')::uuid
+  )
+  on conflict (lead_table, lead_id) do nothing;
+  return jsonb_build_object('success', true);
+end $$;
 create function public.notification_type_enabled(p_agent uuid, p_type text)
 returns boolean language sql stable as $$ select true $$;
 
@@ -989,6 +1047,142 @@ def main():
     """)
     if price != "0" or charged != "100|madlan_free":
         fail(f"ליד מדלן חויב: {price} {charged}")
+
+    # ענף הלוח רושם שורת assigned אחת, והמילוי לאחור רץ פעמיים בלי כפילות
+    # ובלי התראה. push_site_only לא משתנה.
+    psql(db, sql_text=f"""
+      create or replace function public.city_id_for_name(p text)
+      returns uuid language sql stable as $$
+        select '{city}'::uuid where btrim(p) = 'עפולה';
+      $$;
+      create or replace function public.madlan_switchboard_phone(p_phone text)
+      returns boolean language sql immutable as $$
+        select regexp_replace(coalesce(p_phone, ''), '\\D', '', 'g')
+               ~ '^(972)?0?(73|83|93|33)[0-9]{{7}}$';
+      $$;
+      alter table public.leads drop constraint if exists leads_quota_source_check;
+      update public.pricing_config set value = 1 where key = 'scraped_lead_matching_enabled';
+      update public.app_config set value = '50' where key = 'madlan_notify_daily_cap';
+    """)
+    before_routes = psql(db, sql_text="select count(*) from public.lead_routing_log")
+    before_free = psql(db, sql_text="""
+      select count(*) from public.leads
+       where quota_source in ('yad2_free', 'madlan_free')
+    """)
+    before_unrouted = psql(db, sql_text="""
+      select count(*) from public.notifications where type = 'lead_unrouted'
+    """)
+    psql(db, BOARD_ROUTING)
+    psql(db, BOARD_ROUTING)
+    filled = psql(db, sql_text="select count(*) from public.lead_routing_log")
+    if int(filled) != int(before_routes) + int(before_free):
+        fail(f"המילוי לא כיסה כל ליד לוח בלי שורה: {before_routes}+{before_free} -> {filled}")
+    if psql(db, sql_text="select count(*) from public.notifications where type = 'lead_unrouted'") != before_unrouted:
+        fail("המילוי עורר התראה")
+    leaked = psql(db, sql_text="""
+      select count(*) from public.lead_routing_log
+       where summary like '%0520000000%'
+          or coalesce(city, '') like '%0520000000%'
+          or coalesce(property_type, '') like '%0520000000%'
+    """)
+    if leaked != "0":
+        fail("המילוי העתיק טלפון")
+    kept_at = psql(db, sql_text="""
+      select (r.created_at = l.created_at and r.routing = 'assigned'
+              and r.lead_kind = 'agent_owner' and r.recipients = 1)::text
+        from public.lead_routing_log r
+        join public.leads l on l.id = r.lead_id
+       where l.quota_source = 'madlan_free' and l.status = 'unlocked'
+       limit 1
+    """)
+    if kept_at != "true":
+        fail(f"המילוי לא שמר את זמן הליד או את השיוך: {kept_at}")
+    body = BOARD_ROUTING.read_text(encoding="utf-8")
+    lock_at = body.index("pg_advisory_xact_lock")
+    count_at = body.index("select count(*)::int into v_used", lock_at)
+    if lock_at > count_at:
+        fail("המנעול אינו לפני ספירת התקרה")
+    if "v_routed := public.log_lead_routing" not in body:
+        fail("הרישום אינו בהשמה")
+    if "perform public.log_lead_routing" in body or "perform public.scraped_lead_notify_demand" in body:
+        fail("perform של מחולל או של היומן")
+    phone = "0581000091"
+    got = add_lead(f"""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'yad2',
+      'external_ref', 'https://www.yad2.co.il/item/route1',
+      'first_seen_at', now(), 'date_known', true,
+      'city', 'עפולה', 'deal_type', 'sale', 'property_type', 'דירה',
+      'rooms', 4, 'budget', 1400000,
+      'summary', 'דירת 4 חדרים בעפולה',
+      'raw_phone', '{phone}', 'raw_name', 'לא-ביומן')""")
+    if "success" not in got or "consented" not in got:
+        fail(f"ענף הלוח לא שייך ליד: {got}")
+    routed = psql(db, sql_text=f"""
+      select count(*)::text || '|' ||
+             min(r.routing) || '|' || min(r.lead_kind) || '|' ||
+             min(r.recipients)::text || '|' || min(r.assigned_agent_id::text) || '|' ||
+             min(r.source) || '|' ||
+             (bool_or(r.summary like '%{phone}%'
+                      or coalesce(r.city, '') like '%{phone}%'
+                      or coalesce(r.property_type, '') like '%{phone}%'
+                      or coalesce(r.summary, '') like '%לא-ביומן%'))::text || '|' ||
+             (bool_or(r.summary like '%דירה%' and r.property_type = 'דירה'
+                      and r.deal_type = 'sale' and r.city = 'עפולה'))::text || '|' ||
+             (bool_and(s.push_site_only = false and l.quota_source = 'yad2_free'))::text
+        from public.leads l
+        join public.lead_routing_log r on r.lead_table = 'leads' and r.lead_id = l.id
+        join public.scraped_leads s on s.lead_id = l.id
+       where l.source = 'yad2' and l.external_ref = 'yad2.co.il/item/route1'
+    """)
+    if routed != f"1|assigned|agent_owner|1|{a2}|yad2|false|true|true":
+        fail(f"ענף הלוח לא רשם שיוך אחד: {routed}")
+    if psql(db, sql_text="select count(*) from public.notifications where type = 'lead_unrouted'") != before_unrouted:
+        fail("שיוך הלוח עורר התראה למנהלים")
+    wave = psql(db, sql_text="""
+      select count(*)::text || '|' ||
+             count(*) filter (where type = 'open_demand')::text || '|' ||
+             count(*) filter (where type = 'new_lead')::text
+        from public.notifications n
+        join public.leads l on l.id = n.related_lead_id
+       where l.external_ref = 'yad2.co.il/item/route1'
+    """)
+    if wave != "1|0|1":
+        fail(f"הליד החדש לא נשאר עם התראת הליד הקיימת בלבד: {wave}")
+    # מילוי על ליד שכבר יש לו שורה, ועל ליד ישן בלי שורה. פעמיים.
+    psql(db, sql_text=f"""
+      insert into public.leads (
+        id, lead_type, agent_id, status, quota_source, source, city,
+        deal_type, property_type, created_at
+      ) values (
+        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1', 'owner_inbound', '{a2}',
+        'unlocked', 'yad2_free', 'yad2', 'עפולה', 'rent', 'דירת גן',
+        timestamptz '2026-11-15 14:07:38+00'
+      );
+    """)
+    notes_before = psql(db, sql_text="select count(*) from public.notifications")
+    psql(db, BOARD_ROUTING)
+    psql(db, BOARD_ROUTING)
+    again = psql(db, sql_text="""
+      select count(*)::text || '|' || min(routing) || '|' ||
+             min(lead_kind) || '|' || min(recipients)::text || '|' ||
+             (min(created_at) = timestamptz '2026-11-15 14:07:38+00')::text || '|' ||
+             (bool_or(summary like '%052%' or summary like '%058%'))::text
+        from public.lead_routing_log
+       where lead_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1'
+    """)
+    if again != "1|assigned|agent_owner|1|true|false":
+        fail(f"המילוי אינו אידמפוטנטי: {again}")
+    still_one = psql(db, sql_text="""
+      select count(*) from public.lead_routing_log r
+        join public.leads l on l.id = r.lead_id
+       where l.external_ref = 'yad2.co.il/item/route1'
+    """)
+    if still_one != "1":
+        fail(f"הרצה שנייה כפלה את שורת הלוח: {still_one}")
+    if psql(db, sql_text="select count(*) from public.notifications") != notes_before:
+        fail("הרצת המילוי שוב כתבה התראה")
+    if psql(db, sql_text="select count(*) from public.notifications where type = 'lead_unrouted'") != before_unrouted:
+        fail("המילוי השני עורר התראה")
     phone_hash_privilege_check(db)
     print("scraped lead matching: ok")
 

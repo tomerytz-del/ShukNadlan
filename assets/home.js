@@ -88,37 +88,24 @@ function hasPhoto(p){
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 
-/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
-   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
-   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. אותו טיפול
-   בדיוק כמו בתמונת הכתבה (ראו renderArticles). */
-function cssUrl(u){
-  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
-}
-
 /* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
    כמה MB), ובטלפון דף התוצאות הוריד כ-25MB. ‏render/image של Supabase מקטין
    לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
    הנכס כבר עוברת בה (‏heroRenderUrl). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
 function cardImgUrl(url, w){
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.renderUrl(url, w || 640);
   const s = String(url || '');
   const marker = '/storage/v1/object/public/';
   const at = s.indexOf(marker);
   if (at < 0) return s;
   const path = s.slice(at + marker.length).split(/[?#]/)[0];
   if (!path) return s;
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=70';
 }
 
-/* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
+/* התמונה הראשית של נכס היא images[0], כ-<img> עם alt. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
-function thumbStyle(p, i){
-  return hasPhoto(p)
-    ? `background-image:url('${cssUrl(cardImgUrl(p.images[0]))}');background-size:cover;background-position:center`
-    : '';
-}
-
 function thumbFallback(p){
   if (hasPhoto(p)) return '';
   // v10 (סבב 4 חלק 3): שורת תוצאה בלי תמונות - אווטאר ותג "אין תמונות" (assets/no-photo.js)
@@ -1066,7 +1053,7 @@ const PROPERTY_SELECT =
   'location_precision, location_radius_m, ' +
   /* ‏P1-U1: מי מפרסם את הנכס - לסינון משרדים ויועצי נדל״ן לפי התמחות ואזור */
   'agent_id, agency_id, ' +
-  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name)';
+  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name,is_planned)';
 
 const shapeProperty = p => ({
   ...p,
@@ -1075,7 +1062,7 @@ const shapeProperty = p => ({
   agency_logo: p.agencies?.logo_url || '',
   // v10: תמונת השער של המשרד - רמה A של נכס בלי תמונות (assets/no-photo.js)
   agency_cover: p.agencies?.cover_url || '',
-  neighborhood_name: p.neighborhoods?.name || '',
+  neighborhood_name: (p.neighborhoods && !p.neighborhoods.is_planned && p.neighborhoods.name) || '',
 });
 
 /* ---------- MARKET_FILTER: הנכסים של השוק שהדף מציג ----------
@@ -1373,7 +1360,12 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge').limit(200),
+      // license_verified: התג "✓ רישיון מאומת" בכרטיס. אם העמודה עוד לא במסד - חוזרים לשאילתה הישנה.
+      (async () => {
+        const cols = 'id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge';
+        const r = await sb.from('agency_members_public').select(cols + ', license_verified').limit(200);
+        return r.error && /license_verified/.test(String(r.error.message || '')) ? sb.from('agency_members_public').select(cols).limit(200) : r;
+      })(),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
       // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
@@ -3177,7 +3169,7 @@ function mapPopupHtml(p, kind){
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
-    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 400))}" alt="${escAttr(typeof ListingMedia !== 'undefined' ? ListingMedia.alt(p) : '')}" width="400" height="250" loading="lazy" data-full="${escAttr(img)}" onerror="if(!this.dataset.tried&&this.dataset.full){this.dataset.tried='1';this.src=this.dataset.full;return}if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
     (!img && !logo && v10On() ? v10ImgFb('map-pop-thumb is-inline') : '') +
     `<span class="map-pop-body">` +
@@ -4845,16 +4837,11 @@ function hoodChoices(){
   // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
   // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
   //
-  // היוצא מן הכלל היחיד הוא אזור *בתכנון* (is_planned) שאין בו נכסים: שטח
-  // שטרם נבנה אינו "אין כאן כרגע" אלא מקום שאי אפשר לחפש בו דירה, והוא רק
-  // מאריך רשימה שממילא ארוכה. ברגע שייכנס בו נכס ראשון המונה יעלה והוא
-  // יופיע מעצמו, בלי שאיש יגע בהגדרה.
-  //
-  // הבדיקה מול selected ו-draft גם יחד אינה עודפת: קישור עמוק יכול לשאת
-  // מזהה של אזור כזה, והסתרתו הייתה משאירה בחירה פעילה שאי אפשר לבטל.
+  // אזור בתכנון (is_planned) אינו מוצג גם כשיש בו נכס. "B1 אזור בתכנון"
+  // הוא קוד תכנוני, ופין של מרכז העיר נפל בתוכו. selected ו-draft נשארים
+  // כדי שקישור עמוק לא ישאיר בחירה שאי אפשר לבטל.
   return hoodState.rows.slice().filter(h =>
     !h.is_planned ||
-    (hoodState.counts.get(h.id) || 0) > 0 ||
     hoodState.selected.has(h.id) ||
     hoodState.draft.has(h.id)
   ).sort((a, b)=>
@@ -5792,7 +5779,12 @@ function buildSearchRow(p, i){
   row.dataset.propId = p.id;
   row.innerHTML = `
     <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}"><span class="pc-link-text">${escAttr(pcLinkText(p))}</span></a>
-    <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="sr-thumb">${(hasPhoto(p) && typeof ListingMedia !== 'undefined')
+      ? ListingMedia.imgTag(p.images[0], p, {
+          className: 'pc-photo', widths: [400, 800, 1200], srcWidth: 800,
+          sizes: '(min-width:760px) 152px, 104px', width: 800, height: 500, lazy: true,
+        })
+      : (hasPhoto(p) ? `<img class="pc-photo" src="${escAttr(cardImgUrl(p.images[0], 800))}" alt="" width="800" height="500" loading="lazy">` : '')}${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${escAttr(p.title)}</div>
       <div class="sr-meta"><span>${escAttr(locationLabel(p))}</span>${p.property_type ? `<span>${escAttr(p.property_type)}</span>` : ''}${p.agency_name ? `<span>${escAttr(p.agency_name)}</span>` : ''}</div>
@@ -6458,9 +6450,8 @@ function renderBuyerHoods(){
   }
 
   const list = hoodState.rows.filter(h => h.city === buyState.city
-      // אותו כלל כמו ב-hoodChoices: אזור בתכנון שאין בו נכסים אינו מוצג.
-      // "B1 אזור בתכנון" הוא קוד תכנוני פנימי, וגולש/ת אינו/ה יכול/ה לרצות אותו.
-      && (!h.is_planned || (hoodState.counts.get(h.id) || 0) > 0 || buyState.hoods.has(h.id)));
+      // אותו כלל כמו ב-hoodChoices: אזור בתכנון אינו מוצג, גם אם יש בו נכס.
+      && (!h.is_planned || buyState.hoods.has(h.id)));
   if (label) label.hidden = !list.length;
   list.slice()
     .sort((a,b)=> String(a.name).localeCompare(String(b.name), 'he'))
@@ -6812,8 +6803,8 @@ function renderPropertyGrid(properties, isSearchResult){
 /* ‏newestFirst, אריח הנכס (‏propCard) והשורה הדחוסה (‏propRow) עברו
    ל-assets/prop-shelf.js: שלוש התצוגות שהשתמשו בהם — תיבת הנכסים כאן,
    הנכסים בדף המשרד והנכסים בדף הסוכן/ת — מצוירות היום מאותו מנוע.
-   ‏thumbStyle/thumbFallback נשארו כאן, כי שורות התוצאות ובלוני המפה
-   עדיין משתמשים בהם. */
+   ‏thumbFallback נשאר כאן לנכס בלי תמונה. שורת תוצאה ובלון המפה מציירים
+   <img> עם alt דרך ListingMedia, לא רקע CSS. */
 
 /* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
    חיפוש חוץ מרענון העמוד: חיפוש ריק הוא עדיין חיפוש (הוא מסונן לפי סוג
@@ -9083,7 +9074,7 @@ function buildHoodMap(box, hoods){
    העסקאות ויועצי הנדל״ן מוסתרים. בלי שאילתה חדשה ובלי שגיאה בקונסול: הדגל
    הזה נדלק רק אחרי שהמיגרציה רצה. אף אריח אינו מציג 0 או מספר קבוע. */
 const SITE_STATS_READY = false;
-// ‏P1-T3: נדלק רק אחרי docs/proposals/license_verified_gate.sql (ד-1)
+// ‏P1-T3: מונה "מאומתים" מוסתר עד שמחברים אותו ל-license_verified (ב-agency_members_public מ-14.11.2026); הכיבוי הוא החלטה, לא היעדר נתון
 const LICENSE_GATE_LIVE = false;
 const dmStatsState = { source: 'client', cache: null, viewed: false, asked: false };
 function dmStatsMarket(){
@@ -9328,7 +9319,7 @@ function renderV10Fair(){
   const thumbs = live.filter(p => p.images && p.images[0]).slice(0, 2);
   while (thumbs.length < 2) thumbs.push({});
   const thumbHtml = thumbs.map(p => p.images
-    ? `<span class="v10-fair-th"><img src="${escapeHtml(p.images[0])}" alt="" loading="lazy" decoding="async" onerror="v10ImgFail(this)"></span>`
+    ? `<span class="v10-fair-th"><img src="${escapeHtml(cardImgUrl(p.images[0], 400))}" alt="${escapeHtml(typeof ListingMedia !== 'undefined' ? ListingMedia.alt(p) : '')}" width="400" height="250" loading="lazy" decoding="async" data-full="${escapeHtml(p.images[0])}" onerror="if(!this.dataset.tried&&this.dataset.full){this.dataset.tried='1';this.src=this.dataset.full;return}v10ImgFail(this)"></span>`
     : `<span class="v10-fair-th">${v10ImgFb()}</span>`).join('');
   host.innerHTML =
     `<a class="v10-fair" href="/open-house" data-fair-id="${escapeHtml(fairId)}">` +

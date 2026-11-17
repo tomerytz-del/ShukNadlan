@@ -190,6 +190,9 @@ export type PaymentFormRequest = {
   reference: string;
   /** לבקש ממורנינג לשמור את הכרטיס לחיוב חודשי. ראו SAVE_CARD_FIELDS. */
   saveCard?: boolean;
+  /** מספר תשלומים מרבי בכרטיס אשראי (ברירת מחדל 1). תשלומים רגילים ללא ריבית ללקוח/ה;
+   *  התקרה במסוף מורנינג חייבת להיות לפחות זה (נקבעה ל-3, 15.11.2026). */
+  maxPayments?: number;
 };
 
 export type PaymentFormResult =
@@ -283,7 +286,7 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     currency: "ILS",
     vatType: 0,
     amount: req.amount,
-    maxPayments: 1,
+    maxPayments: Math.min(Math.max(Math.floor(req.maxPayments ?? 1), 1), 12),
     group: 100,
     client: {
       name: req.clientName,

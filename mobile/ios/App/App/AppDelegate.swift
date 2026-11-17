@@ -78,6 +78,16 @@ enum ShellUrls {
         return path == "/pricing" || path == "/checkout"
     }
 
+    /// דף של האתר נשאר ב-WebView, גם כשנפתח מ-target=_blank.
+    static func staysInApp(_ raw: String) -> Bool {
+        guard let url = URL(string: raw) else { return false }
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme != "http" && scheme != "https" { return false }
+        var host = (url.host ?? "").lowercased()
+        if host.hasPrefix("www.") { host = String(host.dropFirst(4)) }
+        return host == siteHost || host.hasSuffix("." + siteHost) || host == "localhost"
+    }
+
     private static func isPaymentHost(_ host: String) -> Bool {
         return host == "greeninvoice.co.il" || host.hasSuffix(".greeninvoice.co.il")
             || host == "morning.co" || host.hasSuffix(".morning.co")
@@ -360,6 +370,15 @@ class ShukNavigationProxy: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let main = navigationAction.targetFrame == nil || navigationAction.targetFrame?.isMainFrame == true
         if main, let url = navigationAction.request.url, owner?.consumeNavigation(url, webView: webView) == true {
+            decisionHandler(.cancel)
+            return
+        }
+        // target=_blank לאותו אתר (הקורס, תנאי השימוש, סמל הבית מה-CRM)
+        // נטען באותו WebView. בלי זה וובקיט פותח את ספארי.
+        if navigationAction.targetFrame == nil,
+           let url = navigationAction.request.url,
+           ShellUrls.staysInApp(url.absoluteString) {
+            webView.load(URLRequest(url: url))
             decisionHandler(.cancel)
             return
         }

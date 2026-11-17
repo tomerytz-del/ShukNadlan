@@ -22,6 +22,8 @@ on:
       - "*.html"
       - "assets/*.js"
       - "scripts/check_events.py"
+      - "scripts/contact_inquiry_test.ts"
+      - "assets/contact-inquiry.js"
       - ".github/workflows/events.yml"
   push:
     branches: [main]
@@ -29,6 +31,8 @@ on:
       - "*.html"
       - "assets/*.js"
       - "scripts/check_events.py"
+      - "scripts/contact_inquiry_test.ts"
+      - "assets/contact-inquiry.js"
       - ".github/workflows/events.yml"
   workflow_dispatch:
 
@@ -44,3 +48,6 @@ jobs:
       # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להוסיף ואיפה.
       - name: בדיקת סיווג
         run: python3 scripts/check_events.py
+
+      - name: לחיצת וואטסאפ וחיוג
+        run: node --experimental-strip-types scripts/contact_inquiry_test.ts

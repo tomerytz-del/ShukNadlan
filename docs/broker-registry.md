@@ -280,7 +280,7 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 | `join-agency` | `licenseGate` דורש מספר בלבד. `license_status` - מה מוצג בכרטיס. `set_license` - מספר חדש, נבדק בשמירה |
 | `properties_a_license_hold` | מודעה שנשמרת כ-`active` נשארת `unpublished` עם `license_hold_at` |
 | `agency_members_release_license_hold` | ברגע שהרישיון תקין - המודעות שחיכו עולות לאוויר |
-| `agency_members_public` | כרטיס שהרישיון שלו לא תקין אינו מוצג |
+| `agency_members_public` | כרטיס שהרישיון שלו לא תקין אינו מוצג. `license_verified` (`verified` או `manual`, מ-14.11.2026) מפעיל את התג "✓ רישיון מאומת" ב-`AgentCard`; `unverified` מוצג בלי תג |
 | `agency_is_live()` + `public read agencies` | משרד מוצג רק כשיש בו כרטיס פעיל עם רישיון תקין |
 | `#licenseHoldCard` ב-CRM | הסטטוס, שליחת צילום ותיקון המספר |
 | `propertyStatusLabel()` ב-CRM | "ממתין לאישור רישיון" ברשימת הנכסים, בשבב הסטטוס ובתצוגת המשרד - במקום "ירד מפרסום" |
@@ -321,6 +321,8 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 
 **אין כפילות עם מדריך ההתחלה:** ארבעת הדרבונים שלו נולדים מאירוע ועוסקים בצעדים
 שאחרי הרישיון, ולרישיון עצמו לא היה דרבון.
+
+**חשבון ההדגמה של Google Play (`play.review@shuknadlan.co.il`) מוחרג** ב-`license_reminder_candidates()` (מיגרציה `20271116100000_license_reminder_skip_demo.sql`): אין לו רישיון בכוונה. חשבון הדגמה נוסף יתווסף לאותו תנאי.
 
 בדיקה בלי לשלוח: `license-reminder?dry_run=1` (קורא את `license_reminder_candidates()`).
 

@@ -54,6 +54,6 @@
 סעיף היועצים בדף מצויר ב-`assets/agent-card.js` (‏`AgentCard.html`), הרכיב המשותף של
 §C.4. עד שהמיגרציה `docs/proposals/agent_card_fields.sql` מאושרת (ד-25) הוא בנוי רק מהשדות
 שב-`agency_members_public`: שורת המשנה "ייעוץ נדל״ן · <משרד>" (אין `gender` ציבורי), בלי תג
-רישיון (אין `license_status` ציבורי), בלי שפות ודלי תגובה, וכפתור הוואטסאפ מ-`phone_e164`.
+רישיון מ-`license_verified` (מ-14.11.2026: `verified` או `manual`, המיגרציה `20271114100000`), בלי שפות ודלי תגובה, וכפתור הוואטסאפ מ-`phone_e164`.
 שדה ריק מוסתר. כשהעמודות ייכנסו ל-view, הכרטיס יציג אותן בלי שינוי קוד (`gender`,
-`whatsapp_e164`, `languages`, `photo_focal_x/y`, `license_verified`, `response_bucket`).
+`whatsapp_e164`, `languages`, `photo_focal_x/y`, `response_bucket`).

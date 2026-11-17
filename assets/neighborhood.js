@@ -44,6 +44,8 @@
       price: p.price == null ? null : p.price, price_unit: p.price_unit || null,
       rooms: p.rooms == null ? null : p.rooms, size_sqm: p.size_sqm == null ? null : p.size_sqm,
       built_size_sqm: p.built_size_sqm == null ? null : p.built_size_sqm,
+      city: p.city || (readPayload().city || ''),
+      neighborhood_name: p.neighborhood_name || (readPayload().name || ''),
       image: img, updated_at: p.updated_at || null, created_at: p.created_at || null,
     };
     if (p && (p.vis === true || p.vis === false)) row.vis = p.vis;

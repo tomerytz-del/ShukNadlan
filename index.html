@@ -31,6 +31,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 <script defer src="assets/near-me.js"></script>
 <script defer src="assets/market-soon-strip.js"></script>
 <script defer src="assets/city-menu.js"></script>
+<!-- ייחוס ביקור ראשון. defer: נשמר לפני שליחת טופס, בלי לחסום את הציור.
+     כשל בטעינה לא שובר את הדף. -->
+<script defer src="assets/visit-attr.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/likes-store.js"></script>
 <script src="assets/bot-link.js"></script>
@@ -142,9 +145,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn-gold{background:var(--gold);color:#fff}
-  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,162,39,.35)}
+  @media (hover:hover) and (pointer:fine){.btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,162,39,.35)}}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   .card{background:rgba(255,255,255,.88);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
@@ -315,7 +318,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     font-family:inherit;line-height:1.25;
   }
   .hero-badge-ai{cursor:pointer;transition:background .15s ease,transform .15s ease}
-  .hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}}
   .hero-badge-star{color:var(--brass,#c9a227);font-size:.72rem}
   .hero-badge-sep{opacity:.4;font-weight:400}
   .hero-badge-live{background:rgba(255,255,255,.78);border-color:rgba(14,42,107,.16);color:var(--ink-soft);font-weight:600}
@@ -942,7 +945,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     width:1px;background:var(--line);
   }
   .map-recenter-btn svg{width:14px;height:14px;display:block}
-  .map-recenter-btn:hover{color:#A81E22;transform:scale(1.08)}
+  @media (hover:hover) and (pointer:fine){.map-recenter-btn:hover{color:#A81E22;transform:scale(1.08)}}
   .map-recenter-btn:active{transform:scale(.94)}
   @media(max-width:379px){
     .map-expand-btn{margin-inline-start:0}
@@ -1281,7 +1284,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .buyer-banner .lead-teaser-go{background:#c9a227;color:#0d1b3d}
-  .lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.38)}
+  @media (hover:hover) and (pointer:fine){.lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.38)}}
   .lead-teaser-go-close{display:none}
   .lead-banner.is-open .lead-teaser-go-open{display:none}
   .lead-banner.is-open .lead-teaser-go-close{display:inline}
@@ -1444,7 +1447,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .lead-banner .lead-toggle button.active,
   .lead-banner .owner-toggle button.active{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
   .lead-banner .btn-gold{font-weight:800;box-shadow:0 0 0 1.5px rgba(255,255,255,.35),0 10px 22px rgba(0,0,0,.28)}
-  .lead-banner .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}
+  @media (hover:hover) and (pointer:fine){.lead-banner .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}}
   .lead-banner .btn-gold[disabled],
   .lead-banner .btn-gold:disabled{box-shadow:none;transform:none}
   .lead-banner .wiz-input{box-shadow:inset 0 1px 3px rgba(13,27,61,.16)}
@@ -1788,8 +1791,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .dm-wa svg{width:21px;height:21px}
 
   @media(hover:hover) and (pointer:fine){
-    .dm-item:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(13,27,61,.55)}
-    .dm-item:hover .dm-cover img:not(.is-blur){transform:scale(1.06)}
+    @media (hover:hover) and (pointer:fine){.dm-item:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(13,27,61,.55)}}
+    @media (hover:hover) and (pointer:fine){.dm-item:hover .dm-cover img:not(.is-blur){transform:scale(1.06)}}
   }
   @media(prefers-reduced-motion:reduce){
     .dm-item,.dm-cover img{transition:none}
@@ -1862,6 +1865,15 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     text-align:start;gap:10px 14px;flex-wrap:wrap;
   }
   .articles-all{display:flex;justify-content:flex-end;margin:12px 0 0}
+  /* ‏רצועת הקורס: מתחת לכתבות. ‏html body לפני הסלקטור, כי design-system.css נטען אחרי ה-style (הסקיל home-page) */
+  html body #courseBand .course-band-in{display:flex;align-items:center;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;background:var(--paper-raised);border:1.5px solid var(--line);border-radius:18px;padding:20px 24px;box-shadow:var(--home-card-shadow,none)}
+  html body #courseBand .course-band-eyebrow{font-size:.78rem;font-weight:800;color:#8a6d1a;letter-spacing:.04em;margin:0 0 4px}
+  html body #courseBand h2{margin:0 0 6px;font-size:clamp(1.15rem,2.4vw,1.5rem);line-height:1.25;color:var(--ink)}
+  html body #courseBand p.course-band-sub{margin:0;color:var(--ink-soft);max-width:60ch}
+  html body #courseBand .course-band-btn{flex:none;display:inline-block;background:var(--teal);color:#fff;font-weight:800;border-radius:12px;padding:12px 22px;text-decoration:none}
+  html body #courseBand .course-band-btn:hover{background:var(--gold-dark);color:#fff}
+  html body #courseBand .course-band-btn:focus-visible{outline:3px solid #e5c76a;outline-offset:2px}
+  @media (max-width:560px){html body #courseBand .course-band-in{padding:16px}html body #courseBand .course-band-btn{width:100%;text-align:center}}
 
 
   .projects-gallery{
@@ -2051,7 +2063,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(14,42,107,.28);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(14,42,107,.34)}
+  @media (hover:hover) and (pointer:fine){.calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(14,42,107,.34)}}
   .calc-cta svg{width:22px;height:22px;flex:none}
   .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
 
@@ -2173,7 +2185,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     border:1px solid var(--line);border-radius:0;box-shadow:var(--shadow-sm);
     transition:transform .2s ease, box-shadow .2s ease;
   }
-  a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
+  @media (hover:hover) and (pointer:fine){a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}}
   @media(min-width:480px){.pros-grid{gap:14px}}
   @media(min-width:760px){
     .pros-grid{grid-template-columns:repeat(4,1fr);gap:16px}
@@ -2526,7 +2538,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
       box-shadow:0 8px 20px rgba(14,42,107,.28);cursor:pointer;
     }
     .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
-    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s ease-in both}
+    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s var(--ease-out) both}
     .ss-mic-hint::before{
       content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
       border:6px solid transparent;border-bottom-color:var(--sapphire);
@@ -2620,14 +2632,14 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     position:absolute;top:-5px;right:-6px;width:17px;height:17px;padding:0;box-sizing:border-box;
     border-radius:999px;background:#e53935;color:#fff;border:2px solid var(--wa-dark);
     font-size:10px;font-weight:800;line-height:13px;text-align:center;white-space:nowrap;
-    transform:scale(0);animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
+    transform:scale(.6);opacity:0;animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
   }
-  @keyframes gabBadgeIn{to{transform:scale(1)}}
+  @keyframes gabBadgeIn{to{transform:scale(1);opacity:1}}
   @media(max-width:374px){ .gab-cta-badge{right:-1px;top:-4px} }
   @media(prefers-reduced-motion:reduce){
     #gabCtaWrap .gab-cta:not(.is-agent),#gabCtaWrap .gab-cta:not(.is-agent) svg{animation:none}
     #gabCtaWrap .gab-cta:not(.is-agent)::after{animation:none;display:none}
-    .gab-cta-badge{animation:none;transform:none}
+    .gab-cta-badge{animation:none;transform:none;opacity:1}
   }
   .gab-perks{display:flex;flex-wrap:wrap;gap:10px;padding:6px 0 0;margin:0;list-style:none}
   .gab-perks li{display:inline-flex;align-items:center;gap:8px;border:1px solid #e3e8f2;border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;color:var(--ink)}
@@ -2725,7 +2737,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .gab-typing i:nth-child(2){animation-delay:.15s}
   .gab-typing i:nth-child(3){animation-delay:.3s}
   .gab-bubble.is-in{animation:gabIn .38s cubic-bezier(.2,.9,.3,1.15) both}
-  .gab-chat.is-out .gab-bubble{animation:gabOut .3s ease-in both}
+  .gab-chat.is-out .gab-bubble{animation:gabOut .3s var(--ease-out) both}
   @keyframes gabIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}
   @keyframes gabOut{to{opacity:0;transform:translateY(-12px)}}
   @keyframes gabDot{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-3px)}}
@@ -3858,13 +3870,13 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     /* הבועה של המיקרופון נפתחת לצידו, בתוך השדה - לא על הלשוניות ולא על הכפתור הזהב */
     html.beta-hero body .ss-mic-hint{top:50%;bottom:auto;right:auto;left:calc(100% + 10px);transform:translateY(-50%);
       animation:v10MicHintIn .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s var(--ease-out) both}
     html.beta-hero body .ss-mic-hint::before{top:50%;bottom:auto;left:auto;right:100%;margin:-6px 0 0;border:6px solid transparent;border-right-color:var(--sapphire)}
     html.beta-hero.mic-hint-on .hs-q{visibility:visible}
     /* ‏P2-7: הבועה מעל הכרטיס (‏home.js מציב אותה), החץ למטה אל המיקרופון */
     html.beta-hero body .ss-mic-hint.is-above{top:auto;bottom:calc(100% + 8px);right:auto;transform:none;
       white-space:normal;max-width:min(260px,70vw);animation:v10MicHintAbove .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s var(--ease-out) both}
     html.beta-hero body .ss-mic-hint.is-above::before{top:100%;bottom:auto;right:auto;left:var(--mh-arrow,50%);margin:0 0 0 -6px;
       border:6px solid transparent;border-top-color:var(--sapphire)}
   }
@@ -4309,10 +4321,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
         </div>
       </div>
-      <a href="/projects">פרויקטים חדשים</a>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">יועצי נדל״ן</a>
       <a href="/professionals">בעלי מקצוע</a>
+      <a href="/course">קורס רישיון תיווך</a>
       <a href="/sell">חושבים למכור?</a>
       <a href="#articles">כתבות</a>
     </nav>
@@ -4371,6 +4383,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a href="/projects">פרויקטים חדשים</a>
         <a href="#dealmakers" data-dm-tab="agents">יועצי נדל״ן</a>
         <a href="/professionals">בעלי מקצוע</a>
+        <a href="/course">קורס הכנה למבחן המתווכים</a>
         <a href="#hood-quiz">איזו שכונה מתאימה לי?</a>
         <a href="#yield">מחשבון תשואה</a>
         <a href="#articles">כתבות ובלוגים</a>
@@ -5320,8 +5333,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="dm-stat" data-stat="agencies" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">משרדי תיווך</span><span class="dm-stat-c">פעילים באזור</span></div>
           <div class="dm-stat" data-stat="agents" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">יועצי נדל״ן</span><span class="dm-stat-c">פעילים באתר</span></div>
           <div class="dm-stat" data-stat="props" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">נכסים פעילים</span><span class="dm-stat-c">באתר עכשיו</span></div>
-          <!-- ‏P1-T3: מוצגת רק אחרי שער הרישיון (‏docs/proposals/license_verified_gate.sql, ‏LICENSE_GATE_LIVE).
-               ה-view הציבורי לא חושף license_status, ולכן אין מונה "מאומתים" אמיתי בלי השער - והקובייה מוסתרת -->
+          <!-- ‏P1-T3: המונה מוסתר כל עוד LICENSE_GATE_LIVE כבוי - זו החלטה ולא היעדר נתון:
+               ה-view הציבורי חושף מ-14.11.2026 את license_verified (verified או manual), אבל המונה עוד לא מחובר אליו -->
           <div class="dm-stat is-seal" data-stat="license" hidden
                title="כל יועץ נדל״ן מוצג באתר רק אחרי שרישיון התיווך שלו אומת מול מאגר המתווכים של משרד המשפטים, או מול צילום הרישיון.">
             <b class="dm-stat-n" aria-hidden="true"><svg viewBox="0 0 48 48" width="24" height="24" focusable="false"><defs><linearGradient id="dmSealGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6e3a1"/><stop offset=".5" stop-color="#e5c76a"/><stop offset="1" stop-color="#c9a227"/></linearGradient></defs><path fill="url(#dmSealGold)" d="M24 2l3.7 3.4 4.7-1.7 2.2 4.5 5 .2.2 5 4.5 2.2-1.7 4.7L46 24l-3.4 3.7 1.7 4.7-4.5 2.2-.2 5-5 .2-2.2 4.5-4.7-1.7L24 46l-3.7-3.4-4.7 1.7-2.2-4.5-5-.2-.2-5-4.5-2.2 1.7-4.7L2 24l3.4-3.7-1.7-4.7 4.5-2.2.2-5 5-.2 2.2-4.5 4.7 1.7z"/><circle cx="24" cy="24" r="15" fill="#0e2a6b"/><circle cx="24" cy="24" r="12.4" fill="none" stroke="#c9a227" stroke-width="1.1" stroke-dasharray="1.4 1.6"/><path d="M17.2 24.6l4.6 4.6 9-9.6" fill="none" stroke="#e5c76a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></b>
@@ -5451,6 +5464,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </button>
     </div>
     <p class="articles-all"><a href="/articles" class="see-all">כל הכתבות ←</a></p>
+  </section>
+
+  <section class="section wrap" id="courseBand" aria-labelledby="courseBandTitle">
+    <div class="course-band-in">
+      <div>
+        <p class="course-band-eyebrow">מתכוננים לרישיון תיווך?</p>
+        <h2 id="courseBandTitle">קורס הכנה למבחן המתווכים</h2>
+        <p class="course-band-sub">שיעורים קצרים, סצנות מונפשות שעוצרות ברגע ההחלטה, שאלות תרגול ומבחני עבר של הרשם. מתרגלים מהטלפון, בקצב שלכם.</p>
+      </div>
+      <a class="course-band-btn" href="/course">לפרטים על הקורס</a>
+    </div>
   </section>
 
   <div class="ad-row wrap">
@@ -5594,9 +5618,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <li><a href="/crm"><b>יועץ/ת משכנתאות</b><span>מדף לידי המשכנתאות והלידים שרכשת</span></a></li>
           <li><a href="/developer-crm"><b>יזם/ית או קבלן/ית</b><span>הפרויקטים ומשרד המכירות</span></a></li>
           <li><a href="/professional-manage"><b>בעל/ת מקצוע</b><span>שמאי/ת, עו״ד, אדריכל/ית ובעלי מלאכה: הכרטיס והפניות</span></a></li>
+          <li><a href="/learn"><b>לומד/ת בקורס ההכנה למבחן המתווכים</b><span>השיעורים, התרגול והסימולציות שלי</span></a></li>
           <li><a href="/csm"><b>צוות ההדרכה וההטמעה</b><span>אזור ההטמעה</span></a></li>
         </ul>
-        <p class="login-join">עדיין לא בשוק נדל״ן? <a href="/for-brokers">הצטרפות כמשרד תיווך</a> · <a href="/professional-signup">כבעל/ת מקצוע</a> · <a href="/developer-signup">כיזם/ית</a></p>
+        <p class="login-join">עדיין לא בשוק נדל״ן? <a href="/for-brokers">הצטרפות כמשרד תיווך</a> · <a href="/professional-signup">כבעל/ת מקצוע</a> · <a href="/developer-signup">כיזם/ית</a> · <a href="/course">לקורס ההכנה למבחן המתווכים</a></p>
       </div>
     </div>
   </div>
@@ -6089,7 +6114,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
-      <a href="?deal=sale">דירות למכירה בעפולה</a>
+      <a href="/afula/דירות-למכירה">דירות למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -6102,9 +6127,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
-      <a href="?deal=commercial">נכסים מסחריים בעפולה</a>
-      <a href="?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
-      <a href="?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">משרדים להשכרה בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">חנויות ושטחי מסחר בעפולה</a>
       <a href="/projects">פרויקטים חדשים בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
@@ -6191,6 +6216,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/approx-location.js"></script>
 <script src="assets/property-card.js"></script>
 <script src="assets/no-photo.js"></script>
+<script src="assets/listing-media.js"></script>
 <script src="assets/prop-shelf.js"></script>
 <script src="assets/project-card.js"></script>
 <script src="assets/exit-guard.js" data-auto data-gesture-when="beta-hero"></script>

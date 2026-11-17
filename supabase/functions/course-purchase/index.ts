@@ -107,10 +107,22 @@ Deno.serve(async (req: Request) => {
     }, 503);
   }
 
-  const { data: started, error: startErr } = await supabase.rpc("start_course_order", {
+  // סוג ההזמנה: ברירת המחדל היא הקורס המלא. ההארכה (₪99) נבדקת במסד לפי זכאות
+  // (start_course_order → course_extension_check), לא כאן.
+  const kind = body?.kind === "extension" ? "extension" : "full";
+  let { data: started, error: startErr } = await supabase.rpc("start_course_order", {
     p_user_id: user.id,
     p_email: user.email ?? null,
+    p_kind: kind,
   });
+  // הפונקציה עולה לפני המיגרציה (הסקיל deploy-path): עד שהגרסה עם p_kind במסד, הקורס
+  // המלא נפתח בגרסה הישנה (שני פרמטרים). הארכה אינה נתמכת לפני המיגרציה.
+  if (startErr && kind === "full" && /could not find the function|PGRST202/i.test(startErr.message)) {
+    ({ data: started, error: startErr } = await supabase.rpc("start_course_order", {
+      p_user_id: user.id,
+      p_email: user.email ?? null,
+    }));
+  }
   if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
   if (started?.error) return json(started, 400);
 
@@ -126,7 +138,12 @@ Deno.serve(async (req: Request) => {
 
   const form = await createPaymentForm({
     amount,
-    description: `קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`,
+    description: kind === "extension"
+      ? `הארכת קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`
+      : `קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`,
+    // הלקוח/ה בוחר/ת באתר תשלום אחד או 3 תשלומים (גם בהארכה). עמוד התשלום מציג מספר קבוע לפי
+    // maxPayments, ולכן המספר נשלח כפי שנבחר ולא כתקרה. ללא ריבית ללקוח/ה (תומר סופג).
+    maxPayments: Number(body?.payments) === 3 ? 3 : 1,
     ...client,
     clientEmail: user.email ?? null,
     successUrl: `${siteBaseUrl}/learn?order=success&order_id=${orderId}`,

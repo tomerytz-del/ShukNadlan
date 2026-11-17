@@ -22,6 +22,23 @@ function heErr(e){
    וללחוץ. לפי הטקסט ולא לפי דגל: כ-150 קריאות כבר מנסחות "נכשל"/"שגיאה",
    ובלי זה כל אחת מהן הייתה צריכה שינוי משלה. */
 const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
+
+/* יציאה מונפשת לטוסט ולפאנל ההתראות (הסקיל animate, "יוצאים כמו שנכנסו").
+   ‏display נשאר המקור לשאלה "האם פתוח", ולכן כל מי שקורא אותו ממשיך לעבוד.
+   ‏is-leaving מפעיל את אנימציית היציאה ב-CSS, ורק אחריה (טיימר, לא animationend,
+   כדי שגם תנועה מופחתת וטאב ברקע יסתיימו) מגיע ה-display:none. פתיחה באמצע
+   יציאה מבטלת אותה. */
+const LEAVE_MS = 200;
+function leaveAnimated(el, done){
+  if (el._leaveT) return;
+  el.classList.add('is-leaving');
+  el._leaveT = setTimeout(()=>{ el._leaveT = null; el.classList.remove('is-leaving'); done(); }, LEAVE_MS);
+}
+function cancelLeave(el){
+  clearTimeout(el._leaveT);
+  el._leaveT = null;
+  el.classList.remove('is-leaving');
+}
 function showToast(msg, ms=3200){
   const failure = TOAST_FAILURE.test(String(msg || ''));
   toastEl.classList.remove('is-undo');
@@ -37,9 +54,18 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+  showToast._t = setTimeout(hideToast, ms);
+}
+
+function hideToast(){
+  if (toastEl.style.display !== 'flex') return;
+  leaveAnimated(toastEl, ()=>{
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+  });
 }
 
 /* טוסט עם "ביטול" לכמה שניות. לחיצה מריצה את onUndo וסוגרת. טוסט חדש
@@ -58,17 +84,14 @@ function showUndoToast(msg, onUndo, ms=5000){
     if (done) return;
     done = true;
     clearTimeout(showToast._t);
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
+    hideToast();
     onUndo();
   });
   toastEl.append(span, btn);
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => {
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
-  }, ms);
+  showToast._t = setTimeout(hideToast, ms);
 }
 
 /* ================= ערעור על חסימת רישיון תיווך =================
@@ -5717,6 +5740,7 @@ const LX_SOURCES = {
   swipe:                       'גלישה בהחלקה · פנייה על נכס',
   swipe_sponsored:             'גלישה בהחלקה · כרטיס ממומן',
   swipe_end:                   'החלקה · כרטיס סיום',
+  commercial_landing:          'דף נדל״ן מסחרי',
   swipe_seller:                'החלקה · חושבים למכור',
   swipe_fair:                  'החלקה · הרשמה ליריד',
   nocommission_fair:           'יריד הבתים הפתוחים · הרשמה',
@@ -6767,6 +6791,7 @@ const COST_SERVICES = [
   { key: 'github',              label: 'GitHub',         sub: 'קוד ו-Actions' },
   { key: 'anthropic_api',       label: 'Claude API',     sub: 'הבוטים, תיאורים, מבזקים, סיכומי שיחות' },
   { key: 'claude_subscription', label: 'מנוי Claude',    sub: 'Claude Code' },
+  { key: 'grok',                label: 'Grok (xAI)',     sub: 'סרטוני נכסים ומודלים של xAI' },
   { key: 'openai',              label: 'OpenAI',         sub: 'תמלול הקלטות (Whisper)' },
   { key: 'gemini',              label: 'Google Gemini',  sub: 'סיווג תמונות והדמיות' },
   { key: 'fal_ai',              label: 'fal.ai',         sub: 'סרטוני נכסים' },
@@ -8906,7 +8931,7 @@ function renderTierBadge(agent){
   badge.href = pricingUrl(agent);
   const promo = promoOf(agent);
   badge.title = promo.active
-    ? `מסלול ${name} · הטבת ההשקה פעילה עד ${Tiers.formatDate(promo.endsAt)}`
+    ? `מסלול ${name} · תקופת ההתנסות פעילה עד ${Tiers.formatDate(promo.endsAt)}`
     : `המסלול שלי (${name}) ואפשרויות השדרוג`;
 }
 
@@ -8953,7 +8978,7 @@ function renderPromoStrip(agent){
     strip.href = pricingUrl(agent);
     document.getElementById('promoStripTitle').textContent = 'הטבות ומסלולים';
     document.getElementById('promoStripSub').textContent = (P && P.active)
-      ? `הטבת ההשקה: ${P.headline} למצטרפים. לפירוט המסלולים ←`
+      ? `תקופת ההתנסות: ${P.headline} למצטרפים. לפירוט המסלולים ←`
       : 'לפירוט המסלולים ←';
     labelPromoGift(strip);
     strip.hidden = false;
@@ -8967,8 +8992,8 @@ function renderActivePromo(strip, promo, agent, preview){
   const urgent = promo.daysLeft <= 30;
   strip.href = pricingUrl(agent);
   document.getElementById('promoStripTitle').textContent = urgent
-    ? `הטבת ההשקה מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
-    : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
+    ? `תקופת ההתנסות מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
+    : `${Tiers.label(promo.tier)} ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}`;
   // מי ששילם/ה מראש (paid_tier עד אחרי סוף ההטבה) אינו/ה צריך/ה תזכורת
   // לבחור - אותו כלל של promo-lifecycle, שמחליף שם את המייל באישור.
   const prePaid = agent && (agent.paid_tier === 'mid' || agent.paid_tier === 'premium')
@@ -9287,11 +9312,11 @@ function renderTierGate(){
 
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
-    title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    title.textContent = 'קיבלת ' + gift.name + ' ללא תשלום';
+    sub.textContent = `${Tiers.promoMonthsText(promo.months)} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
-    title.textContent = 'תקופת ההטבה הסתיימה';
+    title.textContent = 'תקופת ההתנסות הסתיימה';
     sub.textContent = 'החשבון עבר ל-Pay&GO - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש. ' +
                       'הנכסים, הלידים והלקוחות נשארו במקומם. אפשר להישאר כך, או לשדרג.';
   } else {
@@ -9330,7 +9355,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
+      (isGift ? '<span class="tg-gift">תקופת ההתנסות · ' + Tiers.promoMonthsText(promo.months) + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
@@ -9340,7 +9365,7 @@ function renderTierGate(){
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-block ' + (isGift || (!promo.active && !isCurrent && tier.id !== 'free') ? 'btn-gold' : 'btn-ghost');
-    btn.textContent = locked ? (promo.active ? 'ייפתח בתום ההטבה' : 'המעבר נעשה מולנו')
+    btn.textContent = locked ? (promo.active ? 'ייפתח בתום תקופת ההתנסות' : 'המעבר נעשה מולנו')
       : isGift ? 'מתחילים'
       : isCurrent ? 'המסלול הנוכחי שלי - להמשיך'
       : 'בחירה ב-' + tier.name;
@@ -9410,8 +9435,8 @@ async function chooseTier(tierId, btn){
   const promo = promoOf(currentAgent);
   if (promo.active && tierId !== (promo.tier || Tiers.PROMO.tier)){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'בתקופת ההטבה אי אפשר לעבור מסלול. המעבר ייפתח ב-' +
-      Tiers.formatDate(promo.endsAt) + ', בתום ההטבה.';
+    feedback.textContent = 'בתקופת ההתנסות אי אפשר לעבור מסלול. המעבר ייפתח ב-' +
+      Tiers.formatDate(promo.endsAt) + ', בתום תקופת ההתנסות.';
     return;
   }
 
@@ -10176,7 +10201,7 @@ async function handleSubscriptionReturn(){
       const from = new Date(data.period_start);
       feedback.style.color = 'var(--blue)';
       feedback.textContent = from > new Date()
-        ? `המנוי ${name} נקבע, ויתחיל ב-${from.toLocaleDateString('he-IL')} - בסוף הטבת ההשקה.`
+        ? `המנוי ${name} נקבע, ויתחיל ב-${from.toLocaleDateString('he-IL')} - בסוף תקופת ההתנסות.`
         : `המסלול ${name} פעיל עד ${new Date(data.period_end).toLocaleDateString('he-IL')}.`;
       setTimeout(()=> location.reload(), 2500);
       return;
@@ -10962,7 +10987,7 @@ async function loadSubscriptionsAdmin(){
   const stats = [
     { key: 'pending',         n: ov.pending,         label: 'בקשות פתוחות', urgent: true },
     { key: 'promo_ending_30', n: ov.promo_ending_30, label: 'הטבות שנגמרות החודש', hot: true },
-    { key: 'promo_active',    n: ov.promo_active,    label: 'בתוך ההטבה' },
+    { key: 'promo_active',    n: ov.promo_active,    label: 'בתוך תקופת ההתנסות' },
     { key: 'premium',         n: ov.premium,         label: Tiers.label('premium') },
     { key: 'mid',             n: ov.mid,             label: Tiers.label('mid') },
     { key: 'free',            n: ov.free,            label: Tiers.label('free') },
@@ -11100,11 +11125,11 @@ async function loadSubscriptionsAdmin(){
 
   // ---- היומן ----
   const SRC_LABELS = {
-    launch_promo:           'הטבת השקה',
-    launch_promo_accepted:  'אישור ההטבה',
+    launch_promo:           'תקופת התנסות',
+    launch_promo_accepted:  'אישור תקופת ההתנסות',
     self:                   'בחירה עצמית',
     platform_admin:         'אישור הנהלה',
-    promo_expired:          'תום ההטבה',
+    promo_expired:          'תום ההתנסות',
     requested:              'בקשת שדרוג',
     request_rejected:       'בקשה נדחתה',
   };
@@ -11137,8 +11162,8 @@ const SUBS_BUCKET_WHAT = {
   free:            () => 'במסלול ' + Tiers.label('free'),
   mid:             () => 'במסלול ' + Tiers.label('mid'),
   premium:         () => 'במסלול ' + Tiers.label('premium'),
-  promo_active:    () => 'בתוך תקופת ההטבה',
-  promo_ending_30: () => 'שההטבה שלהם נגמרת החודש',
+  promo_active:    () => 'בתוך תקופת ההתנסות',
+  promo_ending_30: () => 'שתקופת ההתנסות שלהם נגמרת החודש',
 };
 
 function subsStatButtons(){
@@ -11195,7 +11220,7 @@ async function renderSubsDrill(bucket){
     const meta = [
       esc(r.agency_name || 'ללא משרד'),
       r.member_email ? '<span style="direction:ltr;display:inline-block">' + esc(r.member_email) + '</span>' : '',
-      r.promo_ends ? 'ההטבה נגמרת ב-' + esc(hebDate(r.promo_ends)) : '',
+      r.promo_ends ? 'תקופת ההתנסות נגמרת ב-' + esc(hebDate(r.promo_ends)) : '',
       r.wanted_tier ? 'ביקש/ה ' + esc(Tiers.label(r.wanted_tier)) : '',
       'יתרת ארנק ' + esc(shekel(r.wallet_balance || 0)),
     ].filter(Boolean).join(' · ');
@@ -20291,10 +20316,13 @@ async function impLocateFallbackRows(queue, textEl){
       const row = todo.shift();
       if (textEl) textEl.textContent = `מאתר כתובות לשיוך שכונה… ${++n}`;
       const coords = await dealsLookupCoords(row.payload.city, row.payload.street, row.payload.house_number);
-      if (coords){
+      const precision = locationPrecisionFromHit(coords, row.payload.house_number);
+      if (coords && precision){
         row.payload.lat = coords.lat;
         row.payload.lng = coords.lng;
-        delete row.payload.neighborhood_id;
+        row.payload.location_precision = precision;
+        if (precision === 'exact') row.payload.location_radius_m = null;
+        if (precision === 'exact') delete row.payload.neighborhood_id;
       }
     }
   };
@@ -21499,6 +21527,8 @@ function buildLeadCard(lead, agentId, isArchived){
   const secondary = el.querySelector('.lc-secondary');
   const hint = el.querySelector('.lc-hint');
 
+  const boardUrl = leadCardListingHref(lead);
+  const boardLabel = boardListingLabel(lead);
   if (!unlocked){
     const cost = claimCost(lead);
     addCardAction(primary, {
@@ -21525,11 +21555,24 @@ function buildLeadCard(lead, agentId, isArchived){
       addCardAction(primary, { label:'📞 חיוג', cls:'lc-call', href:'tel:' + tel,
         onClick: () => markLeadResponded(lead) });
     }
+    // מודעת יד2 או מדלן בלי מספר: הדרך היחידה היא הכפתור למודעה.
+    // הכתובת לא נכתבת בטקסט. לחיצה נספרת כמענה, כמו חיוג.
+    if (boardUrl && boardLabel && !wa && tel.replace(/\D/g, '').length < 9){
+      addCardAction(primary, { label: boardLabel, cls:'btn-share', blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+      hint.textContent = 'אין מספר במודעה. המודעה נפתחת מהכרטיס הזה. המערכת לא פונה לבעלים.';
+    }
     if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead, isArchived);
 
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
     // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+    if (boardUrl && boardLabel && (wa || tel.replace(/\D/g, '').length >= 9)){
+      addCardAction(secondary, { label: boardLabel, blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+    }
     if (wa){
       addCardAction(secondary, {
         label:'⭐ בקשת חוות דעת', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
@@ -21794,6 +21837,18 @@ function tagsHtml(items){
 /* כפתור פעולה בכרטיס. ‏cls בוחר את הגוון (btn-ghost ברירת מחדל, btn-gold
    לפעולה ראשית, btn-share לשת"פ), ‏act-wide מותח לרוחב מלא ברשת, ו-href
    הופך את הפעולה ל-<a> (חיוג / וואטסאפ / עמוד הנכס) בלי לשנות את המראה. */
+/* כפתור למודעה ציבורית ביד2 או במדלן. רק כתובת שהמסד כבר סינן. */
+function leadCardListingHref(lead){
+  const url = String(lead && lead.board_listing_url || '');
+  return /^https:\/\/(yad2\.co\.il|madlan\.co\.il)\//.test(url) ? url : '';
+}
+function boardListingLabel(lead){
+  if (!lead) return '';
+  if (lead.source === 'yad2') return 'פתיחה ביד2';
+  if (lead.source === 'madlan') return 'פתיחה במדלן';
+  return '';
+}
+
 function addCardAction(actions, opts){
   const el = document.createElement(opts.href ? 'a' : 'button');
   el.className = 'btn ' + (opts.cls || 'btn-ghost');
@@ -26795,6 +26850,9 @@ const NOTIF_TYPES = [
   { type:'call_deleted_by_manager', tone:'', goto:'accLines', focus:'#callsBlock',
     title:'שיחה נמחקה על ידי מנהל/ת המשרד',
     sub:'כשמנהל/ת המשרד מוחק/ת שיחה מהמספר שלך, עם ההקלטה והתמלול.' },
+  { type:'lead_entered',   tone:'',       goto:'accLeads', focus:'#leadsList',
+    title:'ליד שהוזן',
+    sub:'אישור שליד שהזנת בגבריאלה (בוואטסאפ, במייל או מקובץ) נקלט ב"הלידים שלי".' },
   { type:'email_intake',   tone:'',       goto:'accClients', focus:'#clientsList',
     title:'מייל שלא טופל',
     sub:'מייל שהועבר לגבריאלה ולא טופל אחרי כמה ניסיונות. אפשר להעביר אותו שוב.' },
@@ -26805,7 +26863,7 @@ const NOTIF_TYPES = [
   { type:'share_digest',   tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
     refresh: async () => { if (window.crmNeed) { try { await crmNeed('properties'); } catch (e) {} } if (typeof propOwnerTab === 'function') propOwnerTab('shared'); },
     title:'סיכום נכסים ששותפו איתך',
-    sub:'פעם ביום: מי שיתף נכס, הסוג והמחיר. כל נכס נפתח בלשונית השיתופים.' },
+    sub:'פעם ביום: סוג הנכס, העיר, החדרים והמחיר, ומי שיתף. כל נכס נפתח בלשונית השיתופים.' },
   { type:'review_alert',   tone:'alert',  goto:'accReviews',  focus:'#reviewModerationList',
     title:'הסלמת ביקורת כוכב אחד',
     sub:'ביקורת 1★ שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.',
@@ -26923,7 +26981,7 @@ const NOTIF_TYPES = [
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
-    sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. הטבת ההשקה אינה נספרת.',
+    sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. תקופת ההתנסות אינה נספרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
   /* הצעה לשיפור מהכפתור עם הזבוב (20270710090000, docs/improvement-suggestions.md).
@@ -26940,6 +26998,19 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
+
+/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+function boardListingHref(raw){
+  if (typeof raw !== 'string') return '';
+  const s = raw.trim();
+  if (!s.startsWith('https://') || s.length > 500 || /[\s@]/.test(s)) return '';
+  let host = '';
+  try { host = new URL(s).hostname.toLowerCase(); }
+  catch (e) { return ''; }
+  const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+  return ok ? s : '';
+}
 
 async function loadNotifications(agentId){
   /* המדריך לא חוסם את הפעמון. סוג שתלוי בו מצטרף כשהקובץ מגיע. */
@@ -26981,11 +27052,15 @@ async function loadNotifications(agentId){
     const meta = NOTIF_BY_TYPE.get(n.type);
     const el = document.createElement('div');
     el.className = 'notif-item' + (n.read ? '' : ' unread') + (meta && meta.tone ? ' ' + meta.tone : '');
+    const listing = boardListingHref(n.action_url);
     // ‏esc(): הגוף של ההתראה מכיל היום גם טקסט שנכתב בידי לקוח/ה (ציטוט
     // מביקורת) ושמות נכסים ממשרדים אחרים - תוכן שלא נוצר כאן ולכן לא נסמך
     el.innerHTML = `<div class="t">${esc(n.title)}</div>
       ${n.body ? `<div class="b">${esc(n.body)}</div>` : ''}
+      ${listing ? `<a class="notif-link" href="${esc(listing)}" target="_blank" rel="noopener">לצפייה במודעה</a>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
+    const listingLink = el.querySelector('.notif-link');
+    if (listingLink) listingLink.addEventListener('click', ev => ev.stopPropagation());
     el.addEventListener('click', async ()=>{
       if (!n.read){
         await sb.from('notifications').update({ read:true }).eq('id', n.id);
@@ -27041,23 +27116,31 @@ async function loadNotifications(agentId){
 function openBellPanel(){
   // תפריט הבורגר אינו שכבה, ואינו נסגר מהלחיצה שנעצרה בכפתור
   closeMenuPanel();
-  document.getElementById('bellPanel').style.display = 'block';
+  const panel = document.getElementById('bellPanel');
+  cancelLeave(panel);
+  panel.style.display = 'block';
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'true');
   if (currentAgent) loadNotifications(currentAgent.id);
   setNavLayer('bell');
 }
 
-function closeBellPanel(){
+/* "פתוח" = display:block ולא באמצע יציאה: לחיצה על הפעמון בזמן שהפאנל נסגר פותחת אותו מחדש */
+function bellIsOpen(){
   const panel = document.getElementById('bellPanel');
-  if (!panel || panel.style.display !== 'block') return;
-  panel.style.display = 'none';
+  return !!panel && panel.style.display === 'block' && !panel.classList.contains('is-leaving');
+}
+
+function closeBellPanel(){
+  if (!bellIsOpen()) return;
+  const panel = document.getElementById('bellPanel');
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'bell') setNavLayer(null);
+  leaveAnimated(panel, ()=>{ panel.style.display = 'none'; });
 }
 
 document.getElementById('bellBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
-  if (document.getElementById('bellPanel').style.display === 'block') closeBellPanel();
+  if (bellIsOpen()) closeBellPanel();
   else openNavLayer('bell');
 });
 
@@ -29311,6 +29394,7 @@ document.addEventListener('keydown', (e)=>{
       && !navOverlayOpen()){
     e.preventDefault();
     openNavLayer('create');
+    navLayerKeyboard('create');
   }
 });
 
@@ -33522,9 +33606,28 @@ document.addEventListener('keydown', (e)=>{
    ========================================================================== */
 const navLayerReturn = {};
 
+/* שכבות שיוצאות באנימציה. ‏hidden נקבע מיד, כך שכל מי שקורא את מצב השכבה
+   (‏closeNavLayers, ‏:not([hidden]), נעילת הגלילה) רואה אותה סגורה; ‏is-leaving
+   רק משאיר אותה מצוירת 200ms עם אנימציית היציאה (ה-CSS גובר על [hidden]).
+   ‏searchSheet אינו ברשימה: הוא נפתח ב-Ctrl+K ובלי תנועה. ‏leadPrefsSheet אינו
+   ברשימה: סגירתו מחזירה את התוכן למקומו, והיציאה הייתה מראה גיליון ריק. */
+const NAV_LAYER_LEAVES = new Set(['createSheet', 'coachSheet']);
+
+/* פתיחה או סגירה מהמקלדת (N, Escape) בלי תנועה: פעולה שחוזרת עשרות פעמים ביום
+   ויזומה מהמקלדת היא בדיוק מה שהסקיל animate פוטר מאנימציה. שני דגלים נפרדים, כי
+   הדרך שבה שכבה נפתחה אינה אומרת איך תיסגר: ‏kb-open (נקבע מיד אחרי הפתיחה, לפני
+   שהדפדפן מצייר) מבטל רק את הכניסה, ו-kb-close (נקבע מיד לפני הסגירה) מבטל רק את
+   היציאה. שניהם נמחקים ב-navLayerHide. החיפוש אינו צריך אותם: הוא אף פעם לא מונפש */
+function navLayerKeyboard(layer, closing){
+  const el = document.getElementById(layer === 'create' ? 'createSheet' : 'coachSheet');
+  if (el) el.classList.add(closing ? 'kb-close' : 'kb-open');
+}
+
 function navLayerShow(id, layer, focusSel){
   const el = document.getElementById(id);
   if (!el) return null;
+  // החלפת שכבה היא החלפה מיידית: שכבה שעוד יוצאת נעלמת ולא נערמת מתחת לחדשה
+  document.querySelectorAll('.nav-layer.is-leaving').forEach(l => { cancelLeave(l); l.inert = false; });
   navLayerReturn[id] = document.activeElement;
   el.hidden = false;
   document.body.classList.add('nav-layer-open');
@@ -33540,6 +33643,12 @@ function navLayerHide(id, layer){
   const el = document.getElementById(id);
   if (!el || el.hidden) return;
   el.hidden = true;
+  const instant = el.classList.contains('kb-close');
+  el.classList.remove('kb-open', 'kb-close');
+  if (!instant && NAV_LAYER_LEAVES.has(id)){
+    el.inert = true;
+    leaveAnimated(el, () => { el.inert = false; });
+  }
   if (!document.querySelector('.nav-layer:not([hidden])')) document.body.classList.remove('nav-layer-open');
   if (navLayer === layer) setNavLayer(null);
   const back = navLayerReturn[id];
@@ -33561,11 +33670,11 @@ document.addEventListener('click', async (e)=>{
 
 document.addEventListener('keydown', async (e)=>{
   if (e.key !== 'Escape') return;
-  if (navLayer === 'create'){ closeCreateSheet(); e.preventDefault(); }
+  if (navLayer === 'create'){ navLayerKeyboard('create', true); closeCreateSheet(); e.preventDefault(); }
   else if (navLayer === 'search'){ closeSearch(); e.preventDefault(); }
   else if (navLayer === 'coach'){
     if (window.crmNeed) { try { await crmNeed('coach'); } catch (err) {} }
-    if (typeof closeCoachLayer === 'function') closeCoachLayer();
+    if (typeof closeCoachLayer === 'function'){ navLayerKeyboard('coach', true); closeCoachLayer(); }
     e.preventDefault();
   }
 });
@@ -38081,6 +38190,26 @@ document.getElementById('accDealSettlements')?.addEventListener('toggle', functi
    רחוב - נחות, ומסומן ככזה בתשובה. */
 const DEALS_GEOCODE_CITY = 'עפולה';
 
+/* rooftop עם מספר בית הוא exact. רחוב בלי מספר, או מרכז יישוב, אינם exact.
+   אותו מיפוי כמו supabase/functions/_shared/location-precision.ts. */
+function locationPrecisionFromHit(hit, houseNumber){
+  var house = String(houseNumber || '').trim();
+  var p = hit && String(hit.precision || '').trim();
+  if (!house){
+    if (p === 'street') return 'street';
+    if (p === 'neighborhood') return 'neighborhood';
+    if (p === 'parcel') return 'parcel';
+    if (p === 'locality' || p === 'city') return 'city';
+    return null;
+  }
+  if (p === 'locality' || p === 'city') return 'city';
+  if (p === 'rooftop' || p === 'exact') return 'exact';
+  if (p === 'parcel') return 'parcel';
+  if (p === 'street') return 'street';
+  if (p === 'neighborhood') return 'neighborhood';
+  return null;
+}
+
 async function dealsLookupCoords(city, street, houseNumber){
   if (!street || !houseNumber) return null;
   if (city !== DEALS_GEOCODE_CITY){
@@ -38092,7 +38221,7 @@ async function dealsLookupCoords(city, street, houseNumber){
     if (!window.GovmapLookup) return null;
     try{
       const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
-      return hit ? { lat: hit.lat, lng: hit.lng } : null;
+      return hit ? { lat: hit.lat, lng: hit.lng, precision: hit.precision || null } : null;
     } catch(err){
       console.warn('deals lookup: GovMap geocode failed', err);
       return null;
@@ -38107,7 +38236,7 @@ async function dealsLookupCoords(city, street, houseNumber){
       body: JSON.stringify({ street, house_number: houseNumber }),
     });
     const data = await res.json();
-    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng } : null;
+    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng, precision: data.precision || null } : null;
   } catch(err){
     // כתובת שלא נמצאה ורשת שנפלה מובילות שתיהן לאותה נפילה לאחור, ולכן
     // אין כאן צורך בהבחנה. במסלול שמזין את geocode_attempts ההבחנה קדושה.

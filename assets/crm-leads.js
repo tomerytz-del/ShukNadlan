@@ -24,10 +24,11 @@ const LEAD_SRC = {
   prop:  { label:'דף נכס',      tone:'accent', why:'פנייה מהאתר' },
   agent: { label:'דף הסוכן',    tone:'accent', why:'פנייה מהדף שלך' },
   site:  { label:'האתר',        tone:'accent', why:'פנייה מהאתר' },
+  own:   { label:'הוזן על ידך',  tone:'accent', why:'הזנת אותו בעצמך' },
   social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם, ממדלן או מיד2' },
 };
-const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
-const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
+const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['own', 'הוזנו על ידך'], ['store', 'חנות הלידים']];
+const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3, own:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
   // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן ויד2: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
@@ -43,6 +44,8 @@ let leadsOpenDetails = new Set();
 let leadCallById = new Map();     // lead_id -> השיחה (לידי שיחה)
 
 function leadSrcKey(l){
+  // ליד שהסוכן/ת הזין/ה בגבריאלה (agent_lead_add): לפני 'owner', כדי שלא ייראה כליד בעלים מהאתר
+  if (l.source === 'agent_entered') return 'own';
   if (l.lead_type === 'owner_inbound') return 'owner';
   if (l.lead_type === 'store') return 'store';
   if (l.lead_type === 'call') return 'call';
@@ -300,6 +303,13 @@ function leadsSkeletonHtml(){
   return '<div class="lp-skel-wrap" role="status"><span class="sr-only">טוען לידים</span>' + bar + bar + bar + '</div>';
 }
 
+/* ליד שנמסר בהפנייה נשאר ברשימה של מי שמסר/ה (גלוי לו/ה בכוונה, docs/office-referrals.md),
+   ולכן הכרטיס אומר מפורשות למי, ממי ומתי. בלי השורה הזו הוא נראה כליד שעדיין שלך */
+function leadReferralLineHtml(lead){
+  const t = typeof referralNote === 'function' ? referralNote(lead, true) : '';
+  return t ? `<p class="lp-referral"><span class="ui-tag ui-tag--accent">${esc(t)}</span></p>` : '';
+}
+
 function buildLeadPriorityCard(group, rank, agentId){
   const lead = group[0];
   const src = leadSrcKey(lead);
@@ -319,6 +329,11 @@ function buildLeadPriorityCard(group, rank, agentId){
   if (src === 'owner' && !excl) why = 'ליד בעלים';
   if (src === 'call' && call && call.status && call.status !== 'answered') why = 'התקשר/ה ולא נענה/תה';
   else if (src === 'call' && callCutOff(call)) why = 'השיחה לא הסתיימה - כדאי לחזור';
+  // ליד שמסרתי הלאה: הטיפול אצל מישהו/י אחר/ת, ו"למה עכשיו" של המקור היה מטעה
+  if (lead.referred_by && currentAgent && lead.referred_by === currentAgent.id && lead.agent_id !== currentAgent.id){
+    const handler = typeof officeMemberName === 'function' ? officeMemberName(lead.agent_id) : '';
+    why = 'הופנה לטיפול ' + (handler || 'סוכן/ת אחר/ת') + '. מעקב בלבד';
+  }
   const facts = src === 'call' ? leadCallFacts(call) : [];
   const wants = leadWants(lead, call);
 
@@ -339,6 +354,7 @@ function buildLeadPriorityCard(group, rank, agentId){
     + leadAgentPhoneTagHtml(lead)
     + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
+    + leadReferralLineHtml(lead)
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
     + `<p class="lp-why"><strong>למה עכשיו:</strong> ${esc(why)}</p>`
     + (facts.length ? `<div class="lp-facts" aria-label="מה זוהה בשיחה">${facts.map(f => `<span class="ui-tag">${esc(f)}</span>`).join('')}</div>` : '')
@@ -525,7 +541,8 @@ function openLeadUnified(id){
 let openDemandRows = null;
 let openDemandStats = null;
 let openDemandLoading = false;
-// מופיע ליד כל ביקוש, וזהה לנוסח בהתראה (scraped_lead_notify_demand)
+// משפט פייסבוק, זהה לנוסח ההתראה על פוסט. מודעת מדלן/יד2: ההתראה בלי טלפון
+// ועם כפתור למודעה, והכרטיס כאן נשאר עם ההנחיה שלו.
 const OPEN_DEMAND_RULE = 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ';
 // "ללא תיווך": בפוסט - הצעה לשיווק; בשם הקבוצה - כלל של הקבוצה, ולכן רק בפרטי
 const OPEN_DEMAND_NO_BROKER = {
@@ -600,7 +617,7 @@ function renderOpenDemand(listEl){
   }
   const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק, במדלן או ביד2 מה הם מחפשים או מציעים.'
     + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
-    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2 מתקשרים למספר שבכרטיס. במדלן לרוב זה מספר 073, והוא מעביר את השיחה. המערכת לא פונה לבעלים.</strong></span></p>';
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2, אם יש מספר בכרטיס מתקשרים אליו. במדלן לרוב זה מספר של המרכזיה (073, 083, 093 או 033), והוא מעביר את השיחה. בלי מספר, המודעה נפתחת בכפתור נפרד. הכפתור הזה לא תופס את הביקוש. "אני פונה" כן. המערכת לא פונה לבעלים.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -613,21 +630,28 @@ function renderOpenDemand(listEl){
       : d.source === 'madlan' ? 'מדלן'
       : d.source === 'yad2' ? 'יד2' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
+    const board = d.source === 'yad2' || d.source === 'madlan';
+    const boardLabel = d.source === 'yad2' ? 'פתיחה ביד2' : (d.source === 'madlan' ? 'פתיחה במדלן' : '');
+    // קישור המודעה לא נושא data-demand-claim, ולכן אינו נספר בתקרה.
+    const listingLink = board && url
+      ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">${esc(boardLabel)}</a>`
+      : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
     const rule = socialTalk && !url
       ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
       : (d.source === 'madlan'
-          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          ? 'אם יש מספר בכרטיס, אפשר להתקשר אליו. לרוב זה מספר של מדלן (073, 083, 093 או 033), והוא מעביר את השיחה. בלי מספר, המודעה נפתחת בכפתור נפרד. הכפתור הזה לא תופס את הביקוש. "אני פונה" כן. המערכת לא פונה לבעלים.'
           : (d.source === 'yad2'
-              ? 'אפשר להתקשר למספר שבכרטיס. המערכת לא פונה לבעלים.'
+              ? 'אם יש מספר בכרטיס, אפשר להתקשר אליו. בלי מספר, המודעה נפתחת בכפתור נפרד. הכפתור הזה לא תופס את הביקוש. "אני פונה" כן. המערכת לא פונה לבעלים.'
               : (nb ? nb.rule : OPEN_DEMAND_RULE)));
+    const claimBtn = left === 0
+      ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
+      : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url && !board ? ' data-open-post="1"' : ''}>${url && !board ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`;
     const act = d.mine
-      ? (url
+      ? (listingLink || (url
           ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
-          : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
-      : (left === 0
-          ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
+          : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : '')))
+      : claimBtn + listingLink;
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`

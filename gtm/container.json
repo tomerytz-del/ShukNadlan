@@ -1,12 +1,13 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-11-09 22:51:58",
+    "exportTime": "2026-11-15 18:19:52",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/18",
+        "path": "accounts/6376638087/containers/264013397/versions/19",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "18",
-        "name": "ארןעים חסרים",
+        "containerVersionId": "19",
+        "name": "Add GA4 and Meta Pixel checkout and purchase tags, triggers, and variables",
+        "description": "Tags:\n* Added a \"GA4 — begin_checkout\" tag triggered by \"CE — begin_checkout\".\n* Added a \"GA4 — purchase\" tag triggered by \"CE — purchase\".\n* Added a \"meta pixel initiatecheckout\" tag triggered by \"CE — begin_checkout\".\n* Added a \"meta pixel purchase\" tag triggered by \"CE — purchase\".\n\nTriggers:\n* Added the \"CE — begin_checkout\" custom event trigger for event \"begin_checkout\".\n* Added the \"CE — purchase\" custom event trigger for event \"purchase\".\n\nVariables:\n* Added Data Layer Variable \"DLV - ecommerce.transaction_id\" reading \"ecommerce.transaction_id\".\n* Added Data Layer Variable \"DLV - ecommerce.value\" reading \"ecommerce.value\".",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -13235,6 +13236,150 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "427",
+                "name": "GA4 — begin_checkout",
+                "type": "gaawe",
+                "notes": "פתיחת עמוד התשלום של הקורס (value, currency, items).",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "true"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "getEcommerceDataFrom",
+                        "value": "dataLayer"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "begin_checkout"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1794765879389",
+                "firingTriggerId": [
+                    "426"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "431",
+                "name": "meta pixel purchase",
+                "type": "html",
+                "notes": "פיקסל Meta: Purchase עם סכום ומזהה הזמנה (eventID). בלי פרטים אישיים.",
+                "parameter": [
+                    {
+                        "type": "TEMPLATE",
+                        "key": "html",
+                        "value": "<script>\nif (window.fbq) {\n  fbq('track', 'Purchase', {\n    value: {{DLV - ecommerce.value}},\n    currency: 'ILS',\n    content_ids: ['course_exam_prep'],\n    content_type: 'product'\n  }, { eventID: '{{DLV - ecommerce.transaction_id}}' });\n}\n</script>"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "supportDocumentWrite",
+                        "value": "false"
+                    }
+                ],
+                "fingerprint": "1794765879389",
+                "firingTriggerId": [
+                    "429"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "432",
+                "name": "GA4 — purchase",
+                "type": "gaawe",
+                "notes": "רכישת קורס ההכנה או הארכתו (ecommerce: transaction_id, value, currency, items). נורה אחרי שהגישה נפתחה בפועל, פעם אחת לכל הזמנה.",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "true"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "getEcommerceDataFrom",
+                        "value": "dataLayer"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "purchase"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1794765879389",
+                "firingTriggerId": [
+                    "429"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "433",
+                "name": "meta pixel initiatecheckout",
+                "type": "html",
+                "notes": "פיקסל Meta: InitiateCheckout עם סכום. בלי פרטים אישיים.",
+                "parameter": [
+                    {
+                        "type": "TEMPLATE",
+                        "key": "html",
+                        "value": "<script>\nif (window.fbq) {\n  fbq('track', 'InitiateCheckout', {\n    value: {{DLV - ecommerce.value}},\n    currency: 'ILS',\n    content_ids: ['course_exam_prep'],\n    content_type: 'product'\n  });\n}\n</script>"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "supportDocumentWrite",
+                        "value": "false"
+                    }
+                ],
+                "fingerprint": "1794765879390",
+                "firingTriggerId": [
+                    "426"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -17012,6 +17157,56 @@
                     }
                 ],
                 "fingerprint": "1794264603062"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "426",
+                "name": "CE — begin_checkout",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "begin_checkout"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1794765879388"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "429",
+                "name": "CE — purchase",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "purchase"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1794765879389"
             }
         ],
         "variable": [
@@ -20065,6 +20260,58 @@
                 ],
                 "fingerprint": "1794264603061",
                 "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "428",
+                "name": "DLV - ecommerce.transaction_id",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "ecommerce.transaction_id"
+                    }
+                ],
+                "fingerprint": "1794765879389",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "430",
+                "name": "DLV - ecommerce.value",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "ecommerce.value"
+                    }
+                ],
+                "fingerprint": "1794765879389",
+                "formatValue": {}
             }
         ],
         "builtInVariable": [
@@ -20099,7 +20346,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1794264638802",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/18?apiLink=version"
+        "fingerprint": "1794766772382",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/19?apiLink=version"
     }
 }

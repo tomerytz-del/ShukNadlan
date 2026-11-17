@@ -54,6 +54,17 @@
     return value.length >= suffix.length && value.slice(-suffix.length) === suffix;
   }
 
+  /** דף של האתר. נשאר ב-WebView, גם כשנפתח מ-target=_blank או מ-window.open. */
+  function staysInAppUrl(raw) {
+    var url;
+    try { url = new URL(String(raw), SITE_ORIGIN); } catch (e) { return false; }
+    var scheme = url.protocol.replace(':', '').toLowerCase();
+    if (scheme !== 'http' && scheme !== 'https') return false;
+    var host = url.hostname.toLowerCase();
+    if (host.indexOf('www.') === 0) host = host.slice(4);
+    return host === 'shuknadlan.co.il' || endsWith(host, '.shuknadlan.co.il') || host === 'localhost';
+  }
+
   /** דף מסלולים, קופה, או עמוד הסליקה של מורנינג. בתוך האפליקציה אין רכישה. */
   function isPurchaseUrl(raw) {
     var url;
@@ -436,6 +447,12 @@
         openExternal(win, url);
         return null;
       }
+      // אותו אתר, כולל /course ו-/learn: לא חלון חדש ולא דפדפן חיצוני.
+      // בלי url, ‏window.open() ו-window.open('') היו נפתחים כדף הבית או כ-/undefined.
+      if (url && staysInAppUrl(url)) {
+        try { win.location.assign(url); } catch (e) {}
+        return null;
+      }
       return orig(url, target, features);
     };
   }
@@ -461,9 +478,16 @@
       var anchor = node.closest('a[href]');
       if (!anchor) return;
       var href = clickedHref(anchor.getAttribute('href'), anchor.href);
-      if (!isExternalUrl(href)) return;
-      event.preventDefault();
-      openExternal(win, href);
+      if (isExternalUrl(href)) {
+        event.preventDefault();
+        openExternal(win, href);
+        return;
+      }
+      var blank = String(anchor.getAttribute('target') || '').toLowerCase() === '_blank';
+      if (blank && staysInAppUrl(href)) {
+        event.preventDefault();
+        try { win.location.assign(anchor.href || href); } catch (e) {}
+      }
     }, true);
   }
 
@@ -1599,6 +1623,7 @@
     isOAuthNavigation: isOAuthNavigation,
     isAuthCallback: isAuthCallback,
     isExternalUrl: isExternalUrl,
+    staysInAppUrl: staysInAppUrl,
     isPurchaseUrl: isPurchaseUrl,
     LOC_STORAGE_KEY: LOC_STORAGE_KEY,
     LOC_GEO: LOC_GEO,

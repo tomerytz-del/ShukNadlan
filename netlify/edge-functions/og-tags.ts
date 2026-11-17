@@ -108,6 +108,7 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 /* ‏גוף הכתבה ו"על המשרד": אותו קוד שהדפדפן מריץ, מיובא לתופעת הלוואי שלו
    (‏globalThis.ShukArticleBody / ShukAgencyAbout) - כך מה שהשרת כותב והטקסט
    שה-JS כותב אחריו אינם יכולים להתפצל. */
+import "../../assets/listing-media.js";
 import "../../assets/article-body.js";
 import "../../assets/agency-about.js";
 /* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
@@ -115,6 +116,7 @@ import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import "../../assets/specialties.js";
 import "../../assets/agency-public.js";
+import { neighborhoodPublicName } from "../../supabase/functions/_shared/neighborhood-public.ts";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
 import { registry } from "./lib/markets.ts";
@@ -491,8 +493,14 @@ function tailSentence(p: Record<string, unknown>, place: string): string {
   return `${noun} ${deal} ב${place}. תמונות, מפה ופנייה מהירה דרך האתר.`;
 }
 
+function propertyHoodName(p: Record<string, unknown>): string {
+  const raw = p.neighborhoods;
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  return neighborhoodPublicName(row as { name?: string | null; is_planned?: boolean | null } | null);
+}
+
 function listingPlace(p: Record<string, unknown>): string {
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const city = String(p.city || "").trim();
   if (hood && hood !== city) return hood;
   return city;
@@ -594,15 +602,27 @@ const AFULA_HOODS: Record<string, string> = {
   "רובע יזרעאל": "רובע-יזרעאל",
 };
 
+/* מכירה בעפולה (לא מסחרי) מצביעה לדף הדירות. השכרה ומסחרי נשארים על /.
+   אותו נתיב ב-listingCrumbHtml וב-renderPropCrumbs ב-assets/property.js. */
+function cityCrumbPath(p: Record<string, unknown>): string {
+  const city = String(p.city || "").trim();
+  if (city !== "עפולה") return "";
+  if (String(p.deal_type || "") === "sale" && String(p.category || "") !== "commercial") {
+    return "/afula/דירות-למכירה";
+  }
+  return "/";
+}
+
 function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   const city = String(p.city || "").trim();
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const items: Record<string, unknown>[] = [
     { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE}/` },
   ];
   if (city) {
     const cityItem: Record<string, unknown> = { "@type": "ListItem", position: items.length + 1, name: city };
-    if (city === "עפולה") cityItem.item = `${SITE}/`;
+    const path = cityCrumbPath(p);
+    if (path) cityItem.item = `${SITE}${path === "/" ? "/" : path}`;
     items.push(cityItem);
   }
   if (hood && hood !== city) {
@@ -613,6 +633,28 @@ function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   }
   items.push({ "@type": "ListItem", position: items.length + 1, name: title, item: url });
   return items;
+}
+
+/* הפירור הגלוי. אותו סדר ואותם יעדים כמו listingCrumbs. #propCrumbs ריק
+   ב-property.html, ו-renderPropCrumbs כותב את אותו HTML כשהשרת לא הספיק. */
+function listingCrumbHtml(p: Record<string, unknown>, title: string): string {
+  const city = String(p.city || "").trim();
+  const hood = propertyHoodName(p);
+  const bits = [`<li><a href="/">${esc(SITE_NAME)}</a></li>`];
+  if (city) {
+    const path = cityCrumbPath(p);
+    bits.push(path
+      ? `<li><a href="${esc(path)}">${esc(city)}</a></li>`
+      : `<li><span>${esc(city)}</span></li>`);
+  }
+  if (hood && hood !== city) {
+    const slug = city === "עפולה" ? AFULA_HOODS[hood] : "";
+    bits.push(slug
+      ? `<li><a href="/n/afula/${esc(slug)}">${esc(hood)}</a></li>`
+      : `<li><span>${esc(hood)}</span></li>`);
+  }
+  bits.push(`<li aria-current="page"><span>${esc(title)}</span></li>`);
+  return `<ol>${bits.join("")}</ol>`;
 }
 
 function listingSubject(p: Record<string, unknown>, title: string, street: string) {
@@ -826,12 +868,27 @@ function isFileVideo(raw: unknown): boolean {
   }
 }
 
-/* תמונת שער מהאחסון שלנו יורדת בגודל התא, לא כ-JPEG המלא.
-   הנוסחה זהה ל-posterForHero ב-assets/property.js: src ו-preload הם
-   800, ו-srcset מוסיף 1200. כתובת אחרת ב-JS מוחקת את הצומת וההורדה
-   מתחילה מחדש. כתובת שאינה object/public נשארת כמו שהיא. */
+/* תמונת שער מהאחסון שלנו יורדת ב-render/image, לא כ-JPEG המלא.
+   הנוסחה זהה ל-posterForHero ב-assets/property.js (ListingMedia): src
+   ו-preload הם רוחב 800 ואיכות 70, ו-srcset מוסיף 400, 1200 ו-1600.
+   כתובת אחרת ב-JS מוחקת את הצומת וההורדה מתחילה מחדש. כתובת שאינה
+   object/public נשארת כמו שהיא. og:image נשאר על הקובץ המלא.
+   כיסוי משרד (למטה) נשאר על heroRenderUrl עם גובה, לא על הנוסחה הזו. */
 const HERO_OBJECT = "/storage/v1/object/public/";
 const HERO_SIZES = "(min-width:640px) 640px, 100vw";
+
+type ListingMediaApi = {
+  renderUrl: (url: string, width: number, quality?: number) => string;
+  srcset: (url: string, widths?: number[], quality?: number) => string;
+  alt: (listing: Record<string, unknown>, opts?: { index?: number; total?: number }) => string;
+  imgTag: (url: string, listing: Record<string, unknown>, opts?: Record<string, unknown>) => string;
+  HERO_WIDTHS: number[];
+  CARD_WIDTHS: number[];
+};
+
+function listingMedia(): ListingMediaApi | undefined {
+  return (globalThis as { ListingMedia?: ListingMediaApi }).ListingMedia;
+}
 
 function heroRenderUrl(url: string, w: number, h: number): string {
   const at = url.indexOf(HERO_OBJECT);
@@ -842,22 +899,29 @@ function heroRenderUrl(url: string, w: number, h: number): string {
     + `?width=${w}&height=${h}&resize=cover&quality=60`;
 }
 
+function propertyRenderUrl(url: string, w: number): string {
+  const out = listingMedia()?.renderUrl(url, w) || "";
+  return out.includes("/storage/v1/render/image/") ? out : "";
+}
+
 /* ‏alt של תמונת השער הוא כותרת הנכס: תמונת ה-LCP היא התמונה שגוגל מציגה
    בחיפוש התמונות, ו-alt="" מחק אותה משם (ביקורת 5.11.2026, docs/seo-audits).
    פוסטר של סרטון נשאר aria-hidden, ולכן ה-alt שלו ריק. */
 function heroImg(original: string, video: boolean, alt = ""): { tag: string; lcp: string } {
-  const src800 = heroRenderUrl(original, 800, 500);
-  const src1200 = heroRenderUrl(original, 1200, 800);
-  const transformed = !!(src800 && src1200);
+  const src800 = propertyRenderUrl(original, 800);
+  const set = src800 ? (listingMedia()?.srcset(original, listingMedia()!.HERO_WIDTHS) || "") : "";
+  const transformed = !!(src800 && set);
   const src = transformed ? src800 : original;
   const bits = [
     video ? 'class="bento-video-bg"' : "",
     'data-lcp="1"',
     `src="${esc(src)}"`,
-    transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
+    transformed ? `srcset="${esc(set)}"` : "",
     transformed ? `sizes="${HERO_SIZES}"` : "",
     transformed ? `data-full="${esc(original)}"` : "",
     `alt="${video ? "" : esc(alt)}"`,
+    'width="800"',
+    'height="500"',
     'fetchpriority="high"',
     video ? 'style="filter:none;transform:none"' : "",
     video ? 'aria-hidden="true"' : "",
@@ -915,25 +979,35 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
       : `<div class="bento-cell bento-main bento-empty">${placeholderImg()}${emptyHeroInner(p)}</div>`;
     return { count: 1, html: cell, lcp: "", placeholder: true };
   }
-  /* ‏אותו alt ש-renderGallery ב-assets/property.js כותב: כותרת הנכס ומספר
-     התמונה. תמונות בלי שם הן תמונות בלי מילות מפתח. */
-  const altBase = String(p.title || "").replace(/\s+/g, " ").trim() || "נכס";
-  const altOf = (n: number) => `${altBase} - תמונה ${n}`;
-  const thumb = (src: string, last: boolean, n: number) =>
-    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="${esc(altOf(n))}" loading="lazy"></div>`;
+  /* ‏אותו alt ש-galleryAlt ב-assets/property.js כותב, מ-ListingMedia. */
+  const total = images.length || (poster ? 1 : 0);
+  const altOf = (index: number) => listingMedia()?.alt(p, { index, total }) || "";
+  const thumb = (src: string, last: boolean, index: number) => {
+    const tag = listingMedia()?.imgTag(src, p, {
+      index,
+      total,
+      widths: listingMedia()!.CARD_WIDTHS,
+      srcWidth: 800,
+      sizes: "(min-width:640px) 240px, 45vw",
+      width: 800,
+      height: 500,
+      lazy: true,
+    }) || `<img src="${esc(src)}" alt="${esc(altOf(index))}" loading="lazy" width="800" height="500">`;
+    return `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}">${tag}</div>`;
+  };
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
     const shot = heroImg(poster, true);
     const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
-    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i + 1)).join("");
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i)).join("");
     return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const shot = heroImg(images[0], false, altOf(1));
+  const shot = heroImg(images[0], false, altOf(0));
   const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
-  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 2)).join("");
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 1)).join("");
   return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 
@@ -990,7 +1064,7 @@ function hoodCardHtml(href: string, hood: string): string {
    פעילה או חמש עסקאות), ושוק חי - אותו ‏neighborhoodIndexable כמו ב-sitemap ובדף
    עצמו. כשל, timeout או "אין" - בלי כרטיס, והנכס יוצא כרגיל. */
 async function hoodCard(p: Record<string, unknown>): Promise<string> {
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const city = String(p.city || "").trim();
   if (!hood || !city || hood === city) return "";
   const got = await sbFetch(
@@ -1012,7 +1086,7 @@ async function hoodCard(p: Record<string, unknown>): Promise<string> {
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
-    "rooms,size_sqm,status,neighborhoods(name)," +
+    "rooms,size_sqm,status,neighborhoods(name,is_planned)," +
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
@@ -1030,7 +1104,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const p = got.row;
 
   const title = publicHeadline(p);
-  const hood = (p.neighborhoods as { name?: string } | null)?.name || p.sales_area || "";
+  const hood = propertyHoodName(p) || p.sales_area || "";
   const street = publicStreetLine(p);
   const where = [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
@@ -1085,8 +1159,12 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       { id: "propDescription", text: body },
       ...(visible.fills || []),
     ],
-    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), ...(visible.reveal || [])],
-    inner: [...(visible.inner || []), ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : [])],
+    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), "propCrumbs", ...(visible.reveal || [])],
+    inner: [
+      ...(visible.inner || []),
+      ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : []),
+      { id: "propCrumbs", html: listingCrumbHtml(p, title) },
+    ],
     paint: heroPaint(p),
     noindex: offMarket,
     attrs: agencySlugOf(p)
@@ -1389,6 +1467,11 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   if (eyebrow) {
     fills.push({ id: "brandEyebrow", text: eyebrow });
     reveal.push("brandEyebrow");
+  }
+  /* עוגן בשם הדף, רק למשרד שעיר המשרד שלו עפולה. אותו תג ש-renderAgencyBrokersLink כותב. */
+  if (city === "עפולה") {
+    inner.push({ id: "agencyBrokersLink", html: `<a href="/afula/מתווכים">מתווכים בעפולה</a>` });
+    reveal.push("agencyBrokersLink");
   }
   const ethics = !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at);
   if (pub) {
@@ -1847,14 +1930,23 @@ function fillHero(html: string, count: number, inner: string): string {
   });
 }
 
-/* הפלייסהולדר בלבד. תמונת שער אמיתית נשארת ב-preload של heroHead,
-   בסוף ה-head, ולא מקבלת את הקובץ הזה. */
+/* הפלייסהולדר בלבד, מיד אחרי charset. תמונת שער אמיתית נשארת
+   ב-preload של heroHead, גם הוא מיד אחרי charset, ולא מקבלת את הקובץ הזה. */
 function preloadPlaceholder(html: string): string {
   const tag = `<link rel="preload" as="image" href="${HERO_PLACEHOLDER}" fetchpriority="high">`;
   if (html.includes(`href="${HERO_PLACEHOLDER}"`)) return html;
   const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${tag}`);
   if (withCharset !== html) return withCharset;
   return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${tag}`);
+}
+
+/* מיד אחרי charset, לא בסוף ה-head: ה-preload יושב אחרי עשרות KB של
+   CSS, והדפדפן מגלה את תמונת ה-LCP רק אחרי שהם ירדו. */
+function insertAfterCharset(html: string, block: string): string {
+  if (!block) return html;
+  const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${block}`);
+  if (withCharset !== html) return withCharset;
+  return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${block}`);
 }
 
 function heroHead(lcp: string): string[] {
@@ -1937,7 +2029,12 @@ function inject(html: string, m: Meta): string {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.placeholder) out = preloadPlaceholder(out);
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
-    add.push(...heroHead(m.paint.lcp));
+    /* תמונה אמיתית: preconnect ו-preload לפני כל סקריפט וכל CSS.
+       בלי תמונה ה-preload של הפלייסהולדר כבר יושב מיד אחרי charset,
+       וה-preconnect נשאר עם שאר התגיות כדי לא להיכנס בינו לבין ה-charset. */
+    const head = heroHead(m.paint.lcp);
+    if (m.paint.lcp) out = insertAfterCharset(out, head.join("\n"));
+    else add.push(...head);
   }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח

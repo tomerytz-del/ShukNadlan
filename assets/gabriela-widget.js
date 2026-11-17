@@ -903,8 +903,15 @@
       var q = new URLSearchParams(location.search);
       return RESULTS_PARAMS.some(function (k) { return q.get(k); });
     }
+    /* ב-/swipe שמגיע ממודעה ממומנת הבועית לא קופצת. הבועה עצמה נשארת.
+       הכלל עצמו ב-window.ShukPaidSocial (swipe.js), לא עותק שני. */
+    function paidSwipeLanding() {
+      if (!document.body || !document.body.classList.contains('sw-body')) return false;
+      return typeof window.ShukPaidSocial === 'function' && window.ShukPaidSocial();
+    }
     function maybeAuto() {
       if (!due || open || tipOn || storageGet(AUTO_KEY) || heroOn || avoidOn || typing) return;
+      if (paidSwipeLanding()) return;
       if (v10 && (!resultsPage() || root.classList.contains('is-min'))) return;
       showTip();
     }

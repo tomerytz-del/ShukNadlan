@@ -20,6 +20,7 @@ export type LeadInfo = {
   source: string;    // תווית בעברית, "" כשלא ידוע
   what: string;      // "דירה 4 חד׳ למכירה · רובע יזרעאל · 1,495,000 ₪", "" כשאין
   excerpt: string;   // "" בליד נעול / בלי הודעה
+  hasPhone: boolean;
 };
 
 // ‏leads.source -> תווית. ‏null הוא טופס באתר (property-inquiry-intake וחבריו
@@ -108,6 +109,7 @@ export function buildLeadInfo(lead: Row, prop: Row | null, hood: string | null):
     source: sourceLabel(lead.source),
     what: describeWhat(lead, prop, hood),
     excerpt: masked || !msg ? "" : clip(msg, 120),
+    hasPhone: flat(lead.raw_phone).replace(/\D/g, "").length >= 9,
   };
 }
 
@@ -122,7 +124,7 @@ export async function loadLeadInfo(sb: any, batch: Row[]): Promise<Map<string, L
     if (!ids.length) return out;
 
     const { data: leads, error } = await sb.from("leads")
-      .select("id,status,lead_type,raw_name,raw_message,source,deal_type,city,property_type,property_id,neighborhood_id")
+      .select("id,status,lead_type,raw_name,raw_phone,raw_message,source,deal_type,city,property_type,property_id,neighborhood_id")
       .in("id", ids);
     if (error) throw error;
 
@@ -158,8 +160,11 @@ function intro(li: LeadInfo): string {
   const via = li.source ? ` דרך ${li.source}` : "";
   if (li.source === "מדלן" || li.source === "יד2") {
     const who = li.leadType === "owner_inbound" ? "בעל נכס" : "מחפש נכס";
+    if (!li.hasPhone) {
+      return `${li.name} - ${who} - מודעה ב${li.source}. אין מספר במודעה. המודעה נפתחת מכרטיס הליד ב-CRM${li.what ? ":" : "."}`;
+    }
     const how = li.source === "מדלן"
-      ? "לרוב זה מספר 073 שמעביר את השיחה"
+      ? "לרוב זה מספר של מדלן (073, 083, 093 או 033) שמעביר את השיחה"
       : "המערכת לא פונה לבעלים";
     return `${li.name} - ${who} - מודעה ב${li.source}. אפשר להתקשר למספר שבליד. ${how}${li.what ? ":" : "."}`;
   }
@@ -182,7 +187,7 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
     li.source === "מדלן" || li.source === "יד2"
-      ? "⏱️ מי שמתקשר ראשון - סוגר."
+      ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ המודעה נמצאת בכרטיס הליד.")
       : "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
     "",
     optOutLine,
@@ -196,10 +201,15 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone
-      ? (li.source === "מדלן" || li.source === "יד2" ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שחוזר ראשון - סוגר!")
+      ? (li.source === "מדלן" || li.source === "יד2"
+          ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ המודעה נמצאת בכרטיס הליד.")
+          : "⏱️ מי שחוזר ראשון - סוגר!")
       : "",
   ];
   const line = parts.filter(Boolean).join(" · ");
+  // מודעת יד2 או מדלן: גם אם מישהו מעביר כתובת, היא לא נכנסת לטקסט.
+  // הקישור יוצא ככפתור, לא כשורה בוואטסאפ.
+  if (li.source === "מדלן" || li.source === "יד2") return `${line} פרטים ב-CRM.`;
   return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;
 }
 

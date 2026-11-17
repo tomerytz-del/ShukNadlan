@@ -19,6 +19,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import "../../assets/listing-media.js";
 import "../../assets/silo-render.js";
 import { landingIndexable, liveMarketSlugs } from "./lib/indexability.ts";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
@@ -28,6 +29,11 @@ const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
+/* ‏רק הדף המסחרי טוען אותם: שאר דפי התבנית לא משלמים בקשת CSS חוסמת ועוד סקריפטים. */
+const COMMERCIAL_ASSETS = '<link rel="stylesheet" href="assets/silo-commercial.css">\n'
+  + '<script defer src="assets/silo-commercial.js"></script>\n'
+  + '<script defer src="assets/visit-attr.js"></script>\n'
+  + '<script defer src="assets/contact-inquiry.js"></script>\n';
 const EXTRA_TIMEOUT_MS = 1500;
 
 type Page = {
@@ -56,6 +62,7 @@ type Extras = {
   related?: Row[];
   agencies?: Row[];
   stock?: Row[];
+  contacts?: Record<string, { name: string; phone: string }>;
 };
 
 type ListingResult = { rows: Row[]; total: number; counted: boolean };
@@ -68,6 +75,7 @@ type Silo = {
   queryOf: (page: Page) => string;
   stockQuery?: (page: Page) => string;
   withStock?: (page: Page, rows: Row[], extras?: Extras) => Page;
+  isCommercial?: (page: Page) => boolean;
   hoodCountQuery: (page: Page) => string;
   hoodRowsFromListings: (rows: Row[], page: Page) => Row[];
   render: (page: Page, rows: Row[], extras?: Extras) => string;
@@ -188,6 +196,23 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
       if (Array.isArray(data)) extras.agencies = data as Row[];
     }));
   }
+  /* ‏דף מסחרי: טלפון המפרסם לכפתורי וואטסאפ וחיוג בכרטיס, מאותה טבלה ציבורית
+     שדף הנכס קורא. כשל כאן משאיר כרטיסים בלי כפתורים, לא דף שבור. */
+  if (S.isCommercial?.(page)) {
+    const ids = [...new Set(got.rows.map((r) => String(r.agent_id || "")).filter((id) => /^[0-9a-f-]{36}$/i.test(id)))];
+    if (ids.length) {
+      tasks.push(optionalJson(
+        `${SUPABASE_URL}/rest/v1/agency_members_public?select=id,display_name,phone_e164&id=in.(${ids.join(",")})`,
+      ).then((data) => {
+        if (!Array.isArray(data)) return;
+        const map: Record<string, { name: string; phone: string }> = {};
+        for (const row of data as Row[]) {
+          if (row.id && row.phone_e164) map[String(row.id)] = { name: String(row.display_name || ""), phone: String(row.phone_e164) };
+        }
+        extras.contacts = map;
+      }));
+    }
+  }
   if (!dynamic && got.rows.length < 3) {
     const others = S.pages.filter((p) => p.city === page.city && p.path !== page.path);
     tasks.push(Promise.all(others.map((p) => listings(p))).then((lists) => {
@@ -266,7 +291,8 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   /* מחליפים את ה-preload של העמק שבמעטפת, כדי שהדפדפן לא ימשוך גם אותו. */
   const preload = S.heroPreload(view);
   const benefit = view.benefit || view.description;
-  const count = extras.counted && Number(extras.total) > 0
+  const compact = !!S.isCommercial?.(page);
+  const count = compact ? "0" : extras.counted && Number(extras.total) > 0
     ? String(extras.total)
     : (rows.length > 0 && rows.length < 24 ? String(rows.length) : "0");
   return html
@@ -288,11 +314,12 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
       next = next.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`);
       return next + end;
     })
+    .replace(/<section class="land-hero" id="landHero">/, () => compact ? '<section class="land-hero land-hero--compact" id="landHero">' : '<section class="land-hero" id="landHero">')
     .replace(/<link rel="preload" as="image" href="assets\/hero-[^"]+"[^>]*>\s*/g, "")
     .replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(SITE + "/" + og.src)}${b}`)
     .replace(/(<meta property="og:image:width" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.width}${b}`)
     .replace(/(<meta property="og:image:height" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.height}${b}`)
-    .replace(/<\/head>/i, () => `${preload}\n${marketHint(city.home, view.market)}${S.scripts(view, rows, SITE)}\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}\n${compact ? COMMERCIAL_ASSETS : ""}${marketHint(city.home, view.market)}${S.scripts(view, rows, SITE)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {

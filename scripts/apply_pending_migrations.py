@@ -16,6 +16,7 @@ psycopg (כמו db push), בלי פקודות meta של psql, ובתהליך ב�
 """
 from __future__ import annotations
 
+import io
 import os
 import re
 import subprocess
@@ -50,6 +51,120 @@ def clean_url(raw: str) -> str:
     return text
 
 
+# pg_dump לפעמים פולט CREATE FUNCTION name() RETURNS ואז שורה חדשה ו-LANGUAGE,
+# בלי טיפוס החזרה ובלי ארגומנטים. psql נופל על "syntax error at or near sql",
+# וה-COMMENT שאחריו על "function does not exist". כך נפלו
+# share_digest_lines_for_log ו-share_digest_preview בשחזור של 17.6 מול pg_dump 17.12
+# (20271117140000, ריצת main 44088587005). הגוף חסר ערך; המיגרציה ממלאת אותו מחדש
+# כשהיא ממתינה. כשהיא כבר בפרודקשן, דילוג על ההגדרה השבורה לא משנה את מה שרץ שם.
+# lookahead: אחרי RETURNS בא מיד LANGUAGE. טיפוס בשורה הבאה (RETURNS \n integer)
+# אינו ההגדרה השבורה, ולא נמחק.
+_BROKEN_RETURNS = re.compile(
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+"
+    r"(?P<name>(?:[A-Za-z_][\w$]*\.)?[A-Za-z_][\w$]*)\s*"
+    r"\([^)]*\)\s*RETURNS\s*(?=\n\s*LANGUAGE\b)",
+    re.IGNORECASE,
+)
+
+
+def _skip_ws_and_sql_comments(sql: str, i: int) -> int:
+    n = len(sql)
+    while i < n:
+        if sql[i] in " \t\r\n":
+            i += 1
+            continue
+        if sql.startswith("--", i):
+            nl = sql.find("\n", i)
+            i = n if nl < 0 else nl + 1
+            continue
+        if sql.startswith("/*", i):
+            end = sql.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            continue
+        break
+    return i
+
+
+def _end_of_function_stmt(sql: str, start: int) -> int:
+    """סוף פקודת CREATE FUNCTION שנפתחה ב-start, כולל הנקודה-פסיק."""
+    as_at = sql.upper().find(" AS ", start)
+    if as_at < 0:
+        semi = sql.find(";", start)
+        return len(sql) if semi < 0 else semi + 1
+    i = as_at + 4
+    while i < len(sql) and sql[i] in " \t\r\n":
+        i += 1
+    m = _DOLLAR_TAG.match(sql, i)
+    if m:
+        tag = m.group(0)
+        close = sql.find(tag, i + len(tag))
+        if close < 0:
+            return len(sql)
+        end = close + len(tag)
+        if end < len(sql) and sql[end] == ";":
+            end += 1
+        return end
+    semi = sql.find(";", i)
+    return len(sql) if semi < 0 else semi + 1
+
+
+def _end_of_sql_statement(sql: str, i: int) -> int:
+    """האינדקס שאחרי הנקודה-פסיק שסוגר את הפקודה. ';' בתוך מחרוזת '...' (עם '' ) לא נספר."""
+    n = len(sql)
+    while i < n:
+        if sql.startswith("--", i):
+            nl = sql.find("\n", i)
+            i = n if nl < 0 else nl + 1
+            continue
+        if sql[i] == "'":
+            i += 1
+            while i < n:
+                if sql.startswith("''", i):
+                    i += 2
+                    continue
+                if sql[i] == "'":
+                    i += 1
+                    break
+                i += 1
+            continue
+        if sql[i] == "$":
+            tag = _DOLLAR_TAG.match(sql, i)
+            if tag:
+                close = sql.find(tag.group(0), i + len(tag.group(0)))
+                i = n if close < 0 else close + len(tag.group(0))
+                continue
+        if sql[i] == ";":
+            return i + 1
+        i += 1
+    return n
+
+
+def strip_broken_function_dumps(sql: str) -> str:
+    """מוריד CREATE FUNCTION בלי טיפוס החזרה, ואת ה-COMMENT שמיד אחריו.
+
+    כל שם שנמחק נכתב ל-stderr כאזהרת CI. בלי זה השחזור עובר והפונקציה פשוט אינה שם.
+    """
+    while True:
+        m = _BROKEN_RETURNS.search(sql)
+        if not m:
+            return sql
+        end = _end_of_function_stmt(sql, m.start())
+        name = m.group("name")
+        after = _skip_ws_and_sql_comments(sql, end)
+        comment = re.match(
+            r"COMMENT\s+ON\s+FUNCTION\s+" + re.escape(name) + r"\s*\(",
+            sql[after:],
+            re.IGNORECASE,
+        )
+        if comment:
+            end = _end_of_sql_statement(sql, after)
+        print(
+            f"::warning::{name}: CREATE FUNCTION בלי טיפוס החזרה הוסר מה-dump",
+            file=sys.stderr,
+        )
+        sql = sql[:m.start()] + sql[end:]
+
+
 def filter_dump(sql: str) -> str:
     """מוריד הרחבות שאין בתמונת Postgres הרגילה, ופקודות psql חדשות."""
     out = []
@@ -68,7 +183,7 @@ def filter_dump(sql: str) -> str:
             if name.lower() in DROP_EXTENSIONS:
                 continue
         out.append(line)
-    return "".join(out)
+    return strip_broken_function_dumps("".join(out))
 
 
 # שחזור הסכימה בריצה 40707160525 (PR #1063, 14 שגיאות) וגם ב-40706127898
@@ -278,6 +393,48 @@ CREATE TABLE public.t (id int);
         fail("הסינון מחק שורות שצריך לשמור")
     if "\\restrict" in got or "\\unrestrict" in got:
         fail("הסינון השאיר פקודות restrict")
+    broken_fn = """\
+CREATE FUNCTION public.keep_me() RETURNS integer
+    LANGUAGE sql
+    AS $$ select 1; $$;
+CREATE FUNCTION public.ok2() RETURNS
+    integer
+ LANGUAGE sql AS $$ select 1; $$;
+CREATE FUNCTION public.share_digest_preview() RETURNS 
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select 1;
+$$;
+COMMENT ON FUNCTION public.share_digest_preview() IS 'a; b''c; still the comment';
+CREATE FUNCTION public.after_comment() RETURNS integer
+    LANGUAGE sql
+    AS $$ select 2; $$;
+CREATE FUNCTION public.share_digest_lines_for_log() RETURNS 
+    LANGUAGE sql
+    AS $$ select 1; $$;
+COMMENT ON FUNCTION public.share_digest_lines_for_log() IS 'old';
+COMMENT ON FUNCTION public.keep_me() IS 'stay';
+"""
+    err = io.StringIO()
+    old_err = sys.stderr
+    sys.stderr = err
+    try:
+        cleaned = filter_dump(broken_fn)
+    finally:
+        sys.stderr = old_err
+    warnings = err.getvalue()
+    if "share_digest_preview" in cleaned or "share_digest_lines_for_log" in cleaned:
+        fail(f"הגדרת פונקציה בלי RETURNS נשארה:\n{cleaned}")
+    if "still the comment" in cleaned or "b''c" in cleaned:
+        fail(f"COMMENT עם ';' באמצע המחרוזת נחתך:\n{cleaned}")
+    if "keep_me" not in cleaned or "RETURNS integer" not in cleaned or "IS 'stay'" not in cleaned:
+        fail(f"הסינון מחק פונקציה תקינה:\n{cleaned}")
+    if "ok2" not in cleaned or "after_comment" not in cleaned:
+        fail(f"טיפוס בשורה הבאה או פקודה שאחרי COMMENT נמחקו:\n{cleaned}")
+    for name in ("public.share_digest_preview", "public.share_digest_lines_for_log"):
+        if f"::warning::{name}:" not in warnings:
+            fail(f"אין אזהרה על {name}:\n{warnings}")
     saved = {k: os.environ.get(k) for k in ("SUPABASE_DB_URL", "PGURL", "PGPASSWORD", "PGOPTIONS", "PGHOST")}
     os.environ["SUPABASE_DB_URL"] = "postgresql://prod.example/db"
     os.environ["PGURL"] = "postgresql://prod.example/db"

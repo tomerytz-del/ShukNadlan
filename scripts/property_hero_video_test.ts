@@ -147,6 +147,8 @@ function makeDom() {
 }
 
 function boot(dom: ReturnType<typeof makeDom>) {
+  const media = readFileSync(new URL("../assets/listing-media.js", import.meta.url), "utf8");
+  vm.runInNewContext(media, dom.sandbox, { filename: "assets/listing-media.js" });
   const code = readFileSync(new URL("../assets/property.js", import.meta.url), "utf8");
   vm.runInNewContext(code, dom.sandbox, { filename: "assets/property.js" });
   return dom.sandbox as any;
@@ -266,8 +268,9 @@ function check(name: string, ok: boolean) {
 }
 
 const OBJECT = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg?token=1";
-const RENDER = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg?width=800&height=500&resize=cover&quality=60";
-const RENDER_BIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg?width=1200&height=800&resize=cover&quality=60";
+const RENDER_BASE = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg";
+const RENDER = `${RENDER_BASE}?width=800&quality=70`;
+const RENDER_SET = [400, 800, 1200, 1600].map((w) => `${RENDER_BASE}?width=${w}&quality=70 ${w}w`).join(", ");
 
 {
   const dom = makeDom();
@@ -282,7 +285,7 @@ const RENDER_BIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/i
   const poster = grid.querySelector("img[data-lcp]");
   check("שער חדש יורד ב-render ולא בקובץ המלא", poster
     && poster.getAttribute("src") === RENDER
-    && poster.getAttribute("srcset") === `${RENDER} 800w, ${RENDER_BIG} 1200w`
+    && poster.getAttribute("srcset") === RENDER_SET
     && poster.getAttribute("sizes") === "(min-width:640px) 640px, 100vw"
     && poster.getAttribute("data-full") === OBJECT);
 }

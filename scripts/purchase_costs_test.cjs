@@ -98,11 +98,17 @@ const stray = [];
 })(ROOT);
 eq('מדרגות מס הרכישה מופיעות רק ב-assets/purchase-costs.js' + (stray.length ? `: ${stray.join(', ')}` : ''), stray.length, 0);
 
-/* ---- 3. שני הדפים טוענים את הקובץ לפני הקוד שקורא לו ---- */
+/* ---- 3. שני הדפים טוענים את הקובץ לפני הקוד שקורא לו ----
+   defer מותר: הסדר במסמך הוא סדר הריצה. בדף הנכס שניהם defer. */
+function scriptAt(html, src) {
+  const re = new RegExp('<script\\b[^>]*\\bsrc="' + src.replace(/\./g, '\\.') + '"[^>]*>');
+  const m = re.exec(html);
+  return m ? m.index : -1;
+}
 for (const [page, script] of [['index.html', 'assets/home.js'], ['property.html', 'assets/property.js']]) {
   const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
-  const a = html.indexOf('<script src="assets/purchase-costs.js"></script>');
-  const c = html.indexOf(`<script src="${script}"></script>`);
+  const a = scriptAt(html, 'assets/purchase-costs.js');
+  const c = scriptAt(html, script);
   eq(`${page}: purchase-costs.js נטען לפני ${script}`, a > 0 && c > a, true);
 }
 

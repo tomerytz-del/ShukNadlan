@@ -660,7 +660,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
-      <a href="/?deal=sale">דירות למכירה בעפולה</a>
+      <a href="/afula/דירות-למכירה">דירות למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -673,9 +673,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
-      <a href="/?deal=commercial">נכסים מסחריים בעפולה</a>
-      <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
-      <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">משרדים להשכרה בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
       <a href="/agents">יועצי נדל״ן בעפולה</a>
@@ -738,12 +738,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     return fetch(REST + path, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
       .then(function(r){ return r.ok ? r.json() : []; }, function(){ return []; });
   }
+  /* license_verified: התג "✓ רישיון מאומת". אם העמודה עוד לא במסד השאילתה נכשלת, ורק אז חוזרים לשאילתה הישנה (תוצאה ריקה אינה כשל). */
+  function amPublic(build){
+    var base = 'id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164';
+    return fetch(REST + build(base + ',license_verified'), { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
+      .then(function(r){ return r.ok ? r.json().catch(function(){ return null; }) : null; }, function(){ return null; })
+      .then(function(l){ return Array.isArray(l) ? l : get(build(base)); });
+  }
   function initials(n){ return String(n || '').trim().split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join(''); }
   /* חשבון מנהל/ת הפלטפורמה (‏agency_members.is_platform_admin, שאינו ב-view הציבורי)
      אינו מוצג בשיווק של הפלטפורמה - לפי מזהה ולא לפי שם (‏P1-C) */
   var PLATFORM_ADMIN_IDS = ['2f552dcf-90d0-4578-9038-cc6e7b9e26a5'];
   function loadAgents(wiz){
-    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40')
+    amPublic(function(cols){ return 'agency_members_public?select=' + cols + '&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40'; })
       .then(function(list){
         if (!Array.isArray(list) || !list.length) return;
         return get('agent_rankings?select=agent_id,composite_score&agent_id=in.(' + list.map(function(a){ return a.id; }).join(',') + ')')

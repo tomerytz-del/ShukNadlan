@@ -102,6 +102,9 @@ REVIEWED_HTML_TAGS: dict[str, str] = {
     # ‏מוצהר ב-privacy.html בסעיף נפרד ("פרסום ומיקוד מחדש") ולא בסעיף
     # העוגיות, כי מיקוד מחדש אינו מדידה — ראו docs/analytics-gtm.md.
     "meta pixel pageview": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
+    # ‏Purchase ו-InitiateCheckout של קורס ההכנה (docs/gtm-course-purchase-import.json): אותו פיקסל, בלי פרטים אישיים.
+    "meta pixel purchase": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
+    "meta pixel initiatecheckout": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
 }
 
 # ‏חתימות שמזהות מה תגית **עושה**, ולא איך היא נקראת. שם מתחלף, קריאה
@@ -211,7 +214,12 @@ def event_param_names(item: dict) -> list[str]:
 # ‏assets/pwa-install.js עוטף את shukTrack ב-track(), ולכן שמות האירועים
 # שלו אינם נראים בחיפוש אחר shukTrack. הוא הקובץ היחיד כזה, והעוטף
 # מתועד שם בשמו.
-WRAPPED = {"assets/pwa-install.js": r"\btrack\(\s*'([a-z_]+)'"}
+# ‏assets/learn.js (דף הלמידה, פרטי ובלי events.js) דוחף begin_checkout ו-purchase ישירות
+# ל-dataLayer דרך pushEcom, בפורמט המסחר האלקטרוני של GA4 (15.11.2026).
+WRAPPED = {
+    "assets/pwa-install.js": r"\btrack\(\s*'([a-z_]+)'",
+    "assets/learn.js": r"\bpushEcom\(\s*'([a-z_]+)'",
+}
 
 
 def site_events() -> dict[str, set[str]]:

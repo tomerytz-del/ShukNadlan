@@ -16,6 +16,11 @@ try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
 if(on)document.documentElement.classList.add('beta-hero');
 else location.replace(q==='0'?'/?beta=0':'/');})();</script>
 <script src="assets/esc.js"></script>
+<!-- ייחוס ביקור ראשון. defer: לא חוסם את הציור, ורץ לפני swipe.js (גם הוא defer)
+     כדי שהעטיפה על fetch תהיה במקום לפני שליחת ליד. כשל בטעינה לא שובר את הדף. -->
+<script defer src="assets/visit-attr.js"></script>
+<!-- לחיצת וואטסאפ או חיוג: contact_agent עם מזהה הנכס וייחוס הביקור. defer, וכשל לא שובר את הדף. -->
+<script defer src="assets/contact-inquiry.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/likes-store.js"></script>
 <script src="assets/markets.js"></script>

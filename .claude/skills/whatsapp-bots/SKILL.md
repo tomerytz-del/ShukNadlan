@@ -711,6 +711,16 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
   ורק פעם בשיחה (בודק בהיסטוריה). החיבור הוא OAuth בדשבורד. ההחלטה מתי
   להציע יושבת בקוד (`agendaGcalOffer`), לא בניסוח של המודל.
 
+## שיתוף דף המשרד בפייסבוק
+
+סוכן/ת שמבקש/ת לפרסם את **דף המשרד** בפייסבוק (פרופיל אישי, דף או קבוצה)
+מקבל/ת כפתור `cta_url` (`office_page_link`). הכתובת מ-`csmLinkFor("agency_page")`,
+הכפתור דרך `modelLink` → `sendCtaUrl`. גבריאלה **אינה** מפרסמת, אין כתובת
+בגוף ואין טלפון. בלי משרד, בלי slug, או כש-`agency_is_live` אינו true -
+משפט הסבר, בלי כתובת מומצאת. פרסום **נכס** נשאר `page_link` עם topic
+`marketing`. הכלי אינו ב-`EMAIL_TOOLS` וב-`MEDIA_TOOLS`: שם אין כפתור, וכתובת
+בטקסט היא בדיוק מה שאסור.
+
 ## גבריאלה אינה פונה ללידים - ומאמן המשרד מסתמך על זה
 
 אף כלי באף אחד משני הבוטים אינו שולח הודעה ראשונה לליד. הבוט הציבורי עונה רק
@@ -772,12 +782,14 @@ python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם
 deno test --allow-read --allow-env supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts supabase/functions/whatsapp-webhook/sender_context_test.ts
 node --experimental-strip-types scripts/board_listings_test.ts   # אם נגעת ב-board-listings.ts
 node --experimental-strip-types scripts/gabriela_reply_style_test.ts
+node --experimental-strip-types scripts/office_share_test.ts   # אם נגעת ב-office-share.ts או ב-office_page_link
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
 python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב-catalog-link.ts
 node --experimental-strip-types scripts/ops_question_test.ts   # אם נגעת ב-ops-question.ts
+node --experimental-strip-types scripts/property_import_deal_test.ts  # אם נגעת בייבוא בלי סוג עסקה
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,

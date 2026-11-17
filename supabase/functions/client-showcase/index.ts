@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAsBase64 } from "../_shared/visualization.ts";
 import { BRANDING_MODEL, detectBranding } from "./branding.ts";
+import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
 import { maskHouseNumber, scrubPartnerText } from "./scrub.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
@@ -240,7 +241,7 @@ async function visibleItems(supabase: SupabaseClient, showcase: Row, agencyId: s
           "built_size_sqm, garden_sqm, floor, total_floors, city, street, house_number, sales_area, " +
           "features, condition, move_in_date, move_in_soon, maintenance_fee, arnona, price_includes_vat, price_unit, " +
           "description, marketing_description, marketing_description_stale, images, " +
-          "agent2_name, neighborhoods(name), agencies!properties_agency_id_fkey(name), " +
+          "agent2_name, neighborhoods(name,is_planned), agencies!properties_agency_id_fkey(name), " +
           "agency_members!properties_agent_id_fkey(display_name)",
       )
       .in("id", ids)
@@ -284,7 +285,8 @@ async function visibleItems(supabase: SupabaseClient, showcase: Row, agencyId: s
  * הסימן שהשני הגיע ממשרד אחר.
  */
 function publicItem(item: Row, p: Row, clean: Set<string>) {
-  const hood = (Array.isArray(p.neighborhoods) ? p.neighborhoods[0] : p.neighborhoods)?.name || p.sales_area || "";
+  const hoodRow = Array.isArray(p.neighborhoods) ? p.neighborhoods[0] : p.neighborhoods;
+  const hood = neighborhoodPublicName(hoodRow) || p.sales_area || "";
   const agencyName = (Array.isArray(p.agencies) ? p.agencies[0] : p.agencies)?.name;
   const agentName = (Array.isArray(p.agency_members) ? p.agency_members[0] : p.agency_members)?.display_name;
 

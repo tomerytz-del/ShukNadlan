@@ -102,14 +102,22 @@
      נשמרת ומוחזרת לכולן. */
   var loading = null;
 
+  var MAP_LOAD_MS = 8000;
+
   function loadScript(src) {
-    return new Promise(function (resolve, reject) {
+    var loading = new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = src;
       s.async = false;          // שומר על סדר: MapLibre לפני הגשר שנשען עליו
       s.onload = resolve;
       s.onerror = function () { reject(new Error('לא נטען: ' + src)); };
       document.head.appendChild(s);
+    });
+    /* חיבור שנתקע לא קורא ל-onerror. בלי תקרה המפה נשארת בלי אריחים,
+       במקום ליפול לראסטר. */
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(new Error('לא נטען בזמן: ' + src)); }, MAP_LOAD_MS);
+      loading.then(function (value) { clearTimeout(timer); resolve(value); }, function (err) { clearTimeout(timer); reject(err); });
     });
   }
 

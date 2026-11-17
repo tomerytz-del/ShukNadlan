@@ -9,6 +9,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script>
+/* באפליקציית החנות אין מחיר ואין רכישה (Apple 3.1.1). בדפדפן אין את
+   סוכן המשתמש, המחלקה לא נוספת, והדף נשאר כמו שהוא. */
+if (/ShukNadlanApp/i.test(navigator.userAgent || '')) document.documentElement.classList.add('shuk-native');
+</script>
 <script src="assets/esc.js"></script>
 <script src="assets/friendly-error.js"></script>
 <!-- ‏auth-return לפני supabase-js: חזרה מ-Google שנחתה כאן עם יעד שנשמר -->
@@ -65,7 +70,7 @@ button,input{font-family:inherit}
 .bar-row .brand{font-size:17px;font-weight:800;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-row .ctx{font-size:14px;color:#c9d3ee;white-space:nowrap;display:none}
 .track{flex:1 1 auto;height:12px;border-radius:99px;background:rgba(13,27,61,.55);padding:2px;min-width:40px}
-.track i{display:block;height:100%;border-radius:99px;background:#e5c76a;width:0;transition:width .4s ease}
+.track i{display:block;height:100%;border-radius:99px;background:#e5c76a;width:0;transition:width .4s var(--ease-out)}
 .frac{font-size:14px;font-weight:800;color:#e5c76a;white-space:nowrap;font-variant-numeric:tabular-nums}
 .av{width:32px;height:32px;border-radius:50%;background:#e5c76a;color:#0d1b3d;font-size:14px;font-weight:800;display:grid;place-items:center;overflow:hidden;flex:none}
 .av img{width:100%;height:100%;object-fit:cover}
@@ -118,6 +123,7 @@ button,input{font-family:inherit}
 .field input{height:48px;border:2px solid #e3e8f4;border-radius:14px;padding:0 14px;font-size:16px;color:#0d1b3d;background:#fff}
 .field input:focus{outline:none;border-color:#0e2a6b}
 .chk{display:flex;align-items:center;gap:10px;font-size:14px;min-height:44px;color:#0d1b3d}
+.inst{border:0;padding:0;margin:8px 0}.inst legend{font-weight:700;font-size:14px;padding:0;margin-bottom:2px}.inst small{color:#5b6788}
 .chk input{width:22px;height:22px;accent-color:#0e2a6b;margin:0;flex:none}
 
 /* ---- מפת הקורס ---- */
@@ -202,9 +208,16 @@ button,input{font-family:inherit}
 .opt.right .l{background:#1f9d55;color:#fff}
 .opt.wrong{border-color:#d92d20;background:#fdecea;box-shadow:0 4px 0 #d92d20;color:#0d1b3d}
 .opt.wrong .l{background:#d92d20;color:#fff}
-.sheet{margin-top:auto;position:relative;background:#fff;border-top:3px solid #1f9d55;border-radius:24px 24px 0 0;padding:22px 20px calc(30px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;box-shadow:0 -10px 28px rgba(14,42,107,.1);animation:up .25s ease}
+.sheet{margin-top:auto;position:relative;background:#fff;border-top:3px solid #1f9d55;border-radius:24px 24px 0 0;padding:22px 20px calc(30px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;box-shadow:0 -10px 28px rgba(14,42,107,.1);animation:up .28s var(--ease-drawer)}
 .sheet.bad{border-top-color:#d92d20}
 @keyframes up{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+/* מענה על שאלה: הכרטיס שנבחר "נוחת" וצובע את עצמו, וההסבר נכנס בהדרגה (הסקיל animate, ‏30-80ms בין פריט לפריט) */
+@keyframes optSettle{from{transform:scale(.97);background-color:#fff;border-color:#e3e8f4}to{transform:none}}
+.opt.fresh.right,.opt.fresh.wrong,.opt.fresh.chosen{animation:optSettle .2s var(--ease-out)}
+.sheet>:not(img){animation:kin .24s var(--ease-out) backwards}
+.sheet>:nth-child(3){animation-delay:40ms}.sheet>:nth-child(4){animation-delay:80ms}.sheet>:nth-child(n+5){animation-delay:120ms}
+@keyframes fadeOnly{from{opacity:0}}
+@media(prefers-reduced-motion:reduce){.opt.fresh.right,.opt.fresh.wrong,.opt.fresh.chosen{animation:none}.sheet{animation:fadeOnly .2s both}.sheet>:not(img){animation:fadeOnly .2s backwards}}
 .sheet img{position:absolute;top:-30px;left:20px;width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 4px 12px rgba(13,27,61,.2)}
 .sheet b.t{font-size:18px;font-weight:800;color:#146c3a}
 .sheet.bad b.t{color:#b42318}
@@ -372,6 +385,47 @@ button,input{font-family:inherit}
   .sheet-m{display:none}
   .sheet-wrap{margin-top:16px}
 }
+
+/* ---- דף ברוכים הבאים: מסך ראשון רגוע, שאלה אחת ופעולה אחת ---- */
+.wl .card{gap:16px}
+.wl-hero{display:flex;gap:12px;align-items:flex-start}
+.wl-hero img{width:56px;height:56px;border-radius:50%;flex:none;border:2px solid #e5c76a;object-fit:cover}
+.wl-bubble{flex:1;background:#f4f7fe;border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:16px;line-height:1.55;color:#0d1b3d}
+.wl-bubble b{display:block;font-size:11.5px;letter-spacing:.08em;color:#8a6d10;margin-bottom:2px}
+.wl h2{font-size:21px;line-height:1.3}
+.wl-choices{display:flex;flex-direction:column;gap:10px}
+.wl-choice{display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 16px;border:2px solid #e3e8f4;border-radius:18px;background:#fff;color:#0d1b3d;font:inherit;text-align:right;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.wl-choice:hover{border-color:#0e2a6b;background:#f7f9ff}
+.wl-choice:active{transform:scale(.98)}
+.wl-choice:focus-visible,.wl-skip:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
+.wl-choice .ic{width:40px;height:40px;border-radius:12px;background:#e8efff;display:grid;place-items:center;flex:none}
+.wl-choice .ic svg{width:22px;height:22px;stroke:#0e2a6b;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.wl-choice b{display:block;font-size:16.5px}
+.wl-choice span.sub{display:block;font-size:13.5px;color:#4a5578;margin-top:1px}
+.wl-skip{align-self:center;background:none;border:0;color:#4a5578;font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px;padding:0 10px}
+.wl-dots{display:inline-flex;gap:5px;align-items:center;height:22px}
+.wl-dots i{width:7px;height:7px;border-radius:50%;background:#8b93b0;animation:wlBounce 1s infinite}
+.wl-dots i:nth-child(2){animation-delay:.15s}.wl-dots i:nth-child(3){animation-delay:.3s}
+.wl-msg{display:grid}.wl-msg>*{grid-area:1/1}
+.wl-typing{animation:wlHide 0s .8s forwards}
+.wl-reply{animation:wlIn .35s .8s both}
+.wl-plan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.wl-plan li{display:flex;gap:12px;align-items:center;font-size:15.5px;line-height:1.45;animation:wlIn .35s both}
+.wl-plan li:nth-child(1){animation-delay:1s}.wl-plan li:nth-child(2){animation-delay:1.15s}.wl-plan li:nth-child(3){animation-delay:1.3s}
+.wl-plan .mk{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;border:2px solid #cfd7ee;color:#0e2a6b;font-size:13px;font-weight:800}
+.wl-plan .mk.done{background:#1f9d6b;border-color:#1f9d6b}
+.wl-plan .mk svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.wl-fact{background:#fbf4dc;border-radius:14px;padding:11px 14px;font-size:14.5px;line-height:1.55;color:#0d1b3d;animation:wlIn .35s 1.45s both}
+.wl-actions{display:flex;flex-direction:column;gap:10px;animation:wlIn .35s 1.6s both}
+.wn-tick{width:64px;height:64px;border-radius:50%;background:#1f9d6b;margin:0 auto;display:grid;place-items:center;animation:wlIn .4s both}
+.wn-tick svg{width:32px;height:32px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.wn-bar{height:10px;border-radius:99px;background:#e8efff;overflow:hidden}
+.wn-bar i{display:block;height:100%;background:#0e2a6b;border-radius:99px}
+.wl-step{font-size:12.5px;font-weight:700;color:#4a5578;text-align:center;letter-spacing:.04em}
+@keyframes wlBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+@keyframes wlHide{to{opacity:0;visibility:hidden}}
+@keyframes wlIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.wl-typing{display:none}.wl-reply,.wl-plan li,.wl-fact,.wl-actions{animation:none}.wl-dots i{animation:none}.wl-choice{transition:none}}
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
 </head>

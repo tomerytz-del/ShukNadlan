@@ -1,6 +1,6 @@
 ---
 name: new-search-page
-description: הוספה או שינוי של עמוד תוצאות (חיפוש פופולרי) באתר שוק נדל״ן - השורה ב-SEARCH_PAGES, השורה ב-sitemap.xml, והקישור בבלוק הפוטר של כל 21 הדפים. Use when adding a popular-search landing page, adding a link to the "חיפושים פופולריים" footer block, changing a filter URL like /?deal=sale&rooms=4, or when a filtered search URL is not being indexed by Google.
+description: הוספה או שינוי של עמוד תוצאות (חיפוש פופולרי) באתר שוק נדל״ן - השורה ב-SEARCH_PAGES, הקישור בבלוק הפוטר של כל 21 הדפים, ובלי שורת ?deal= ב-sitemap. Use when adding a popular-search landing page, adding a link to the "חיפושים פופולריים" footer block, changing a filter URL like /?deal=sale&rooms=4, or when a filtered search URL is not being indexed by Google.
 ---
 
 # עמוד תוצאות חדש
@@ -10,19 +10,23 @@ description: הוספה או שינוי של עמוד תוצאות (חיפוש �
 לכל אחד מהם כותרת, תיאור, H1 ו-`canonical` משלו. ה-H1 הוא שדה ה-`title`
 עצמו, לא שורה נפרדת.
 
-עמוד חדש נוגע בשלושה מקומות, ו**חסר באחד מהם נכשל בשקט** - כל פעם בצורה
+עמוד חדש נוגע בשני מקומות, ו**חסר באחד מהם נכשל בשקט** - כל פעם בצורה
 אחרת:
 
 | המקום | מה נשבר בלעדיו |
 | --- | --- |
 | `SEARCH_PAGES` ב-`netlify/edge-functions/search-pages.ts` | הדף מצהיר על `/` כמקור, ולא יתאנדקס **לעולם** |
-| `sitemap.xml` | גוגל תגיע אליו רק אם תעקוב אחרי קישור |
 | בלוק "חיפושים פופולריים" בפוטר, **בכל 21 הדפים** | עמוד יתום שאין אליו קישור מהאתר |
+
+כתובת `?deal=` **אינה** נכנסת ל-`sitemap.xml`. היא מצהירה על דף נחיתה
+(מכירה בלי דף משלו על `/afula/דירות-למכירה`, מסחרי על `/afula/נדלן-מסחרי`
+רק כשיש מלאי) או, בהשכרה, על הצירוף עצמו או על `/`. `check_canonical.py`
+חוסם שורה כזו.
 
 לפני שנוגעים ב-`search-pages.ts` עצמו: הסקיל `seo-edge` (מה יוצא בכשל, ומה כותבים ב-`canonical` לפני הקריאה למסד).
 
-`python scripts/check_canonical.py` מצליב את שלושתם ונכשל על כל פער,
-לשני הכיוונים. הריצו אותו אחרי כל שינוי כאן.
+`python scripts/check_canonical.py` מצליב את הרשימה מול הפוטר, וחוסם
+שורת `?deal=` ב-sitemap. הריצו אותו אחרי כל שינוי כאן.
 
 ## 1. השורה ב-`SEARCH_PAGES`
 
@@ -34,9 +38,11 @@ description: הוספה או שינוי של עמוד תוצאות (חיפוש �
   },
 ```
 
-- **`query` הוא הכתיב הקנוני** - זה מה שייכנס ל-`canonical`, ל-`og:url`
-  ול-`sitemap`. עברית נכתבת מקודדת (`%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F`),
-  בדיוק כמו בקישור שבפוטר.
+- **`query` הוא הכתיב של הצירוף.** עברית נכתבת מקודדת
+  (`%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F`), בדיוק כמו בקישור שבפוטר.
+  בלי `landing`, סינון `deal=sale` מצהיר על `/afula/דירות-למכירה`.
+  `deal=commercial` (וגם `ptype`) מצהיר על `/afula/נדלן-מסחרי` רק כשיש
+  מלאי. `landing` קובע דף אחר, למשל `/afula/דירות-3-חדרים`.
 - **הפרמטרים חייבים להיות כאלה ש-`applyDeepLinkFilters` יודע לקרוא**
   (`assets/home.js`): `deal`, `rooms`, `ptype`, `minPrice`, `maxPrice`,
   `q`, `ai`. פרמטר שהדף אינו מכיר ייתן עמוד עם כותרת שמבטיחה סינון
@@ -49,18 +55,11 @@ description: הוספה או שינוי של עמוד תוצאות (חיפוש �
 - **בלי מקף ארוך** בכותרת ובתיאור - הם טקסט שמוצג
   (`scripts/check_long_dash.py` חוסם).
 
-## 2. השורה ב-`sitemap.xml`
+## 2. לא שורה ב-`sitemap.xml`
 
-```xml
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=4</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-```
-
-‏`&` נכתב `&amp;` - אחרת ה-XML אינו תקין וגוגל דוחה את הקובץ כולו. **ואין
-`lastmod`**: התוכן משתנה עם כל מודעה חדשה, ותאריך מומצא גרוע מתאריך חסר.
+כתובת `/?deal=` אינה מתווספת ל-`sitemap.xml`. גוגל כבר רואה אותה מהפוטר,
+וה-canonical שלה הוא דף הנחיתה (או `/` להשכרה בלי סינון). שורה ב-sitemap
+מבקשת מגוגל לאנדקס את הסינון עצמו, והוא מתחרה בדף. דף הנחיתה נשאר בקובץ.
 
 ## 3. הקישור בפוטר - בכל 21 הדפים
 
@@ -84,7 +83,7 @@ grep -l 'footer-seo-links' *.html
 ## 4. לפני הדחיפה
 
 ```sh
-python scripts/check_canonical.py                              # שלושת המקומות מסכימים
+python scripts/check_canonical.py                              # הרשימה, הפוטר, ובלי ?deal= ב-sitemap
 node --experimental-strip-types scripts/search_pages_test.ts   # ההזרקה עצמה
 python scripts/check_long_dash.py                              # אין מקף ארוך בטקסט
 ```
@@ -102,7 +101,9 @@ python scripts/check_long_dash.py                              # אין מקף �
   ("דירות 3 חדרים למכירה בעפולה"). ה-canonical נשאר של העמוד בלי העיר
   (כולל `landing` כשיש). לא שורה חדשה ברשימה, לא ב-sitemap ולא בפוטר.
 
-צירוף שאינו ברשימה ממשיך לעבוד בדיוק כמו היום: הוא מסנן, הוא ניתן
-לשיתוף, והוא מתאחד לדף הבית ב-`canonical`. **זה המצב התקין**, לא פשרה.
+צירוף שאינו ברשימה ממשיך לסנן ולהיות ניתן לשיתוף, בלי canonical עצמי.
+`deal=sale` עם סינון נוסף מצהיר על `/afula/דירות-למכירה` (אלא אם כבר יש
+לו דף, כמו שכונה ב-`/n/`). `deal=commercial&ptype=` מצהיר על הדף המסחרי
+רק כשיש מלאי. כל השאר מתאחד לדף הבית. **זה המצב התקין**, לא פשרה.
 
 התיעוד המלא, כולל מה שהפיצ׳ר הזה לא פותר: `docs/search-landing-pages.md`.

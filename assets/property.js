@@ -137,13 +137,6 @@ function priceFlat(p){
   return parts.num + parts.suffix;
 }
 
-/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
-   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
-   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. */
-function cssUrl(u){
-  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
-}
-
 /* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות מקבל ממלא מקום עם לוגו
    המשרד שהנכס שייך אליו והבטחה שהתמונות בדרך — בדיוק כמו ב-index.html. */
 /* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
@@ -151,21 +144,15 @@ function cssUrl(u){
    לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
    הנכס כבר עוברת בה (‏heroRenderUrl, למטה). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
 function cardImgUrl(url, w){
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.renderUrl(url, w || 640);
   const s = String(url || '');
   const marker = '/storage/v1/object/public/';
   const at = s.indexOf(marker);
   if (at < 0) return s;
   const path = s.slice(at + marker.length).split(/[?#]/)[0];
   if (!path) return s;
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=70';
 }
-function thumbStyle(p, i){
-  const img = p.images && p.images[0];
-  return img
-    ? `background-image:url('${cssUrl(cardImgUrl(img))}');background-size:cover;background-position:center`
-    : '';
-}
-
 // שם המשרד והלוגו שלו מגיעים ב-embed‏ agencies(...) על הנכס
 function agencyLogoOf(p){ return (p && (p.agency_logo || (p.agencies && p.agencies.logo_url))) || ''; }
 function agencyNameOf(p){ return (p && (p.agency_name || (p.agencies && p.agencies.name))) || ''; }
@@ -251,7 +238,7 @@ async function loadProperty(){
     const sb = sbClient();
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name)')
+      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name,is_planned)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -262,8 +249,11 @@ async function loadProperty(){
     // ‏photo_url ו-license_number מזינים את כרטיס ההמרה: פנים ורישיון הופכים
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
-      const { data: agentRow } = await sb.from('agency_members_public')
-        .select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area').eq('id', data.agent_id).maybeSingle();
+      // license_verified: התג "✓ רישיון מאומת". אם העמודה עוד לא במסד - חוזרים לשאילתה הישנה.
+      const agentCols = 'id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area';
+      let agentRes = await sb.from('agency_members_public').select(agentCols + ', license_verified').eq('id', data.agent_id).maybeSingle();
+      if (agentRes.error && /license_verified/.test(String(agentRes.error.message || ''))) agentRes = await sb.from('agency_members_public').select(agentCols).eq('id', data.agent_id).maybeSingle();
+      const agentRow = agentRes.data;
       data.agency_members = agentRow || null;
     }
 
@@ -353,20 +343,15 @@ function elWithClass(parent, cls){
   return null;
 }
 
-/* אותה נוסחה כמו heroRenderUrl ב-og-tags.ts. src של השער ו-preload
-   הם 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד את הקובץ פעמיים. */
-function heroRenderUrl(url, w, h){
-  var marker = '/storage/v1/object/public/';
-  var s = String(url || '');
-  var at = s.indexOf(marker);
-  if (at < 0) return '';
-  var path = s.slice(at + marker.length).split(/[?#]/)[0];
-  if (!path) return '';
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path
-    + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+/* אותה נוסחה כמו heroImg ב-og-tags.ts (ListingMedia.renderUrl). src של
+   השער ו-preload הם רוחב 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד
+   את הקובץ פעמיים. כתובת שאינה מהאחסון נשארת כמו שהיא. */
+function heroRenderUrl(url, w){
+  var out = (typeof ListingMedia !== 'undefined') ? ListingMedia.renderUrl(url, w) : '';
+  return out && out.indexOf('/storage/v1/render/image/') >= 0 ? out : '';
 }
 function posterForHero(url){
-  return heroRenderUrl(url, 800, 500) || url || '';
+  return heroRenderUrl(url, 800) || url || '';
 }
 function isPlaceholderHero(img){
   if (!img || !img.getAttribute) return false;
@@ -387,10 +372,8 @@ function hasChildTag(parent, tag){
   return false;
 }
 function heroSrcset(url){
-  var small = heroRenderUrl(url, 800, 500);
-  var big = heroRenderUrl(url, 1200, 800);
-  if (!small || !big) return '';
-  return small + ' 800w, ' + big + ' 1200w';
+  if (typeof ListingMedia === 'undefined') return '';
+  return ListingMedia.srcset(url, ListingMedia.HERO_WIDTHS);
 }
 function heroImgExtra(original){
   var set = heroSrcset(original);
@@ -462,12 +445,13 @@ function attachHeroVideo(main, videoSrc, poster){
   heroVideoEl = v;
 }
 
-/* ‏alt לתמונת נכס: כותרת הנכס ומספר התמונה (1-based), אותו נוסח ש-og-tags.ts
-   כותב בשרת. תמונה בלי alt אינה מופיעה בחיפוש התמונות, וקורא מסך קורא
-   "תמונה" בלבד (ביקורת 5.11.2026). */
+/* ‏alt לתמונת נכס: סוג, חדרים, עסקה ומקום, ואז אינדקס בגלריה. אותו נוסח
+   ש-heroPaint ב-og-tags.ts כותב, מ-ListingMedia.alt. בלי כותרת חופשית
+   ובלי מה שרואים בתמונה. */
 function galleryAlt(p, index){
-  const base = String((p && p.title) || '').replace(/\s+/g, ' ').trim() || 'נכס';
-  return `${base} - תמונה ${index + 1}`;
+  const total = galleryImages.length || (p && p.images && p.images.length) || 0;
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.alt(p, { index: index, total: total });
+  return '';
 }
 
 function renderGallery(p){
@@ -525,9 +509,14 @@ function renderGallery(p){
       // פוסטר של סרטון נשאר בלי alt: התא הוא aria-hidden.
       const imgAlt = videoSrc && hero ? '' : galleryAlt(p, index);
       open.innerHTML = hero
-        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" fetchpriority="high"${heroImgExtra(raw)}>`
-        // התאים הקטנים בגלריה - מוקטנים; הגלריה המלאה (‏lbOpen) נשארת בגודל מלא
-        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" width="800" height="500" fetchpriority="high"${heroImgExtra(raw)}>`
+        : (typeof ListingMedia !== 'undefined'
+          ? ListingMedia.imgTag(raw, p, {
+              index: index, total: galleryImages.length, className: '',
+              widths: ListingMedia.CARD_WIDTHS, srcWidth: 800,
+              sizes: '(min-width:640px) 240px, 45vw', width: 800, height: 500, lazy: true,
+            })
+          : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" loading="lazy" width="800" height="500" data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`);
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -544,7 +533,7 @@ function renderGallery(p){
       // v10 (סבב 4 חלק 3): התא הראשי מסביר שאין תמונות ומציע לבקש אותן מהמפרסם
       main.classList.add('bento-empty', 'np-host');
       const facts = [p.rooms ? p.rooms + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
-      const where = [p.neighborhoods?.name || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
+      const where = [publicNeighborhoodName(p) || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
       main.innerHTML = NoPhoto.html(p, { agent: p.agency_members || null, agency: p.agencies || null, private: !p.agent_id && !agencyNameOf(p) }, 'hero', { facts, where, title: p.title || '' });
       main.addEventListener('click', (e)=>{
         const ask = e.target.closest('[data-np-cta]');
@@ -1148,7 +1137,21 @@ const lb = document.getElementById('lightbox');
 let lbIndex = 0;
 
 function lbRender(){
-  document.getElementById('lbImage').src = galleryImages[lbIndex] || '';
+  const img = document.getElementById('lbImage');
+  const raw = galleryImages[lbIndex] || '';
+  let src = raw;
+  if (raw && typeof ListingMedia !== 'undefined'){
+    const big = ListingMedia.renderUrl(raw, 1600);
+    if (big && big.indexOf('/storage/v1/render/image/') >= 0) src = big;
+  }
+  img.alt = galleryAlt(currentProperty, lbIndex);
+  img.setAttribute('data-full', raw);
+  img.onerror = function(){
+    this.onerror = null;
+    const full = this.getAttribute('data-full');
+    if (full) this.src = full;
+  };
+  img.src = src;
   document.getElementById('lbCount').textContent = `${lbIndex+1} / ${galleryImages.length}`;
   const strip = document.getElementById('lbStrip');
   strip.querySelectorAll('button').forEach((b, i)=> b.classList.toggle('active', i === lbIndex));
@@ -1165,7 +1168,8 @@ function lbOpen(index){
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', `מעבר לתמונה ${i+1}`);
-      b.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy">`;
+      const thumb = (typeof ListingMedia !== 'undefined') ? ListingMedia.renderUrl(url, 400) : url;
+      b.innerHTML = `<img src="${escapeAttr(thumb)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy" width="96" height="64" data-full="${escapeAttr(url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
       b.addEventListener('click', ()=>{ lbIndex = i; lbRender(); });
       strip.appendChild(b);
     });
@@ -1214,7 +1218,12 @@ document.addEventListener('keydown', (e)=>{
    בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
    בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
 
-/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
+/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר.
+   Leaflet הוא ה-API (פין, עיגול, מחוות, מסך מלא). MapLibre נטען מתוך
+   MapTiles.addTo ורק אז, בשביל האריחים הווקטוריים והשמות בעברית.
+   אריחי ראסטר של OSM הם רשת הביטחון שם, לא התצוגה: הם מאבדים את הסגנון
+   ואת סדר השמות, והשרת הציבורי של OSM אינו היעד. לכן שניהם נשארים,
+   ושניהם יורדים רק כשהסקציה מתקרבת למסך. */
 const PROP_MAP_ZOOM = 16;
 const PROP_MAP_FULL_ZOOM = 17;
 // עיגול של עד ק"מ צריך להיכנס כולו למסגרת של 230px
@@ -1259,11 +1268,95 @@ async function propertyMapEnabled(id){
   }
 }
 
+/* Leaflet וה-CSS שלו אינם ב-<head>: הם חוסמים את הציור בשביל מפה
+   שמתחת לקיפול. אותם כתובת ו-integrity שהיו בתגית. */
+const LEAFLET_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_CSS_SRI = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
+const LEAFLET_JS_SRI = 'sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH';
+let leafletLoading = null;
+
+const MAP_LOAD_MS = 8000;
+
+function withTimeout(promise, ms, label){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(label)), ms);
+    promise.then(value => { clearTimeout(timer); resolve(value); }, err => { clearTimeout(timer); reject(err); });
+  });
+}
+
+function loadTagged(tag, attrs){
+  const urlKey = attrs.src ? 'src' : 'href';
+  const loading = new Promise((resolve, reject) => {
+    const el = document.createElement(tag);
+    /* src/href אחרונים: בקשת ה-SRI יוצאת ברגע שהכתובת נקבעת, ו-crossorigin
+       חייב להיות עליה לפני כן אחרת הדפדפן דוחה את הקובץ. */
+    Object.keys(attrs).forEach(k => { if (k !== urlKey) el[k] = attrs[k]; });
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('לא נטען: ' + attrs[urlKey]));
+    el[urlKey] = attrs[urlKey];
+    document.head.appendChild(el);
+  });
+  /* בלי onerror (חיבור שנתקע) ההבטחה לא נגמרת, והסקציה נשארת מוסתרת. */
+  return withTimeout(loading, MAP_LOAD_MS, 'לא נטען בזמן: ' + attrs[urlKey]);
+}
+
+function loadLeaflet(){
+  if (window.L && window.L.map) return Promise.resolve();
+  if (leafletLoading) return leafletLoading;
+  leafletLoading = Promise.all([
+    loadTagged('link', {
+      rel: 'stylesheet', href: LEAFLET_CSS, integrity: LEAFLET_CSS_SRI,
+      crossOrigin: 'anonymous', referrerPolicy: 'no-referrer',
+    }),
+    loadTagged('script', {
+      src: LEAFLET_JS, integrity: LEAFLET_JS_SRI,
+      crossOrigin: 'anonymous', referrerPolicy: 'no-referrer',
+    }),
+  ]).then(() => {
+    if (!window.L || !window.L.map) throw new Error('Leaflet לא נרשם');
+  });
+  leafletLoading.catch(() => {});
+  return leafletLoading;
+}
+
+/* #mapSection מוסתר עד שהמפה עולה, ואלמנט hidden אינו נחתך עם המסך.
+   #mapNear יושב במקומו בזרימה. 300px כדי שההורדה תתחיל לפני שהסקציה נכנסת. */
+function mapHashRequested(){
+  const hash = (location.hash || '').replace(/^#/, '');
+  return hash === 'mapSection' || hash === 'propMap' || hash === 'mapNear';
+}
+
+function whenNearMap(){
+  /* #mapSection על דף ארוך: האלמנט עדיין hidden, וה-observer לא ייחתך
+     איתו עד שהמפה כבר עלתה. מתחילים מיד. */
+  if (mapHashRequested()) return Promise.resolve();
+  const el = document.getElementById('mapNear') || document.getElementById('mapSection');
+  if (!el || !('IntersectionObserver' in window)) return Promise.resolve();
+  /* בלי מדידה סינכרונית: הורה עם display:none מחזיר מלבן 0,0, וזה נראה
+     כאילו הסקציה כבר על המסך. ה-observer מחכה לפריים שאחרי שהתוכן נפתח. */
+  return new Promise(resolve => {
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      io.disconnect();
+      resolve();
+    }, { rootMargin: '300px' });
+    io.observe(el);
+  });
+}
+
 async function initPropertyMap(p, addressText){
   const section = document.getElementById('mapSection');
-  // ‏Leaflet חסום/נכשל, או שאין קואורדינטות — אין מה להציג
-  if (!window.L || !window.supabase || !p.lat || !p.lng) return;
+  // אין קואורדינטות, או ש-supabase-js לא עלה — אין מה להציג
+  if (!window.supabase || !p.lat || !p.lng) return;
+  await whenNearMap();
   if (!await propertyMapEnabled(p.id)) return;
+  try { await loadLeaflet(); }
+  catch (e) {
+    console.warn('מפת הנכס לא נטענה:', e);
+    return;
+  }
+  if (!window.L) return;
 
   // חשיפת הסקציה לפני יצירת המפה: Leaflet מודד את גודל הקונטיינר ברגע
   // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
@@ -2413,7 +2506,13 @@ function renderSimilarProperties(list){
     // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
       <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}"><span class="pc-link-text">${escapeHtml(similarLinkText(sp))}</span></a>
-      <div class="thumb" style="${thumbStyle(sp, i)}">
+      <div class="thumb">
+        ${(sp.images && sp.images[0] && typeof ListingMedia !== 'undefined')
+          ? ListingMedia.imgTag(sp.images[0], sp, {
+              className: 'pc-photo', widths: ListingMedia.CARD_WIDTHS, srcWidth: 800,
+              sizes: '(min-width:640px) 250px, 70vw', width: 800, height: 500, lazy: true,
+            })
+          : (sp.images && sp.images[0] ? `<img class="pc-photo" src="${escapeAttr(cardImgUrl(sp.images[0], 800))}" alt="" width="800" height="500" loading="lazy">` : '')}
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
         ${PropertyCard.badgesHtml(sp, { photo: !!(sp.images && sp.images[0]) })}
@@ -2598,7 +2697,7 @@ function renderAgencyAvatar(agency){
    ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. הכותרת כאן ממוסכת:
    הדף עצמו מציג מספר בית, וההודעה שנפתחת בוואטסאפ לא. */
 function setGabWidgetContext(p){
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   window.gabWidgetContext = { property: {
     id: p.id,
     title: maskedListingTitle(p),
@@ -2728,7 +2827,14 @@ function maskHouseNumber(text, houseNumber){
 }
 
 /* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
-   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים.
+   אזור בתכנון (is_planned) אינו שם שאפשר להציג. */
+function publicNeighborhoodName(p){
+  var n = p && p.neighborhoods;
+  if (!n || n.is_planned) return '';
+  return n.name || '';
+}
+
 function roomsShort(n){
   if (n === null || n === undefined || String(n).trim() === '') return '';
   const v = Number(n);
@@ -2769,10 +2875,61 @@ function publicHeadline(p){
 }
 
 function publicAddressText(p){
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   const line = publicStreetLine(p);
   return [line, hood && hood !== p.city ? hood : '', p.city]
     .filter(Boolean).join(', ');
+}
+
+/* שכונות עפולה שה-slug שלהן ידוע. אותו מילון כמו AFULA_HOODS ב-og-tags.ts.
+   בלי slug אין קישור, כדי לא להמציא כתובת /n/. */
+var AFULA_HOOD_SLUGS = {
+  'אזור התעשייה': 'אזור-התעשייה',
+  'גבעת המורה': 'גבעת-המורה',
+  'דרום העיר': 'דרום-העיר',
+  'השכונה הצפון מערבית': 'השכונה-הצפון-מערבית',
+  'לב העמק C1': 'לב-העמק-c1',
+  'מזרח העיר': 'מזרח-העיר',
+  'מערב העיר (שיכון גאולים)': 'מערב-העיר-שיכון-גאולים',
+  'מרכז העיר': 'מרכז-העיר',
+  'עפולה הירוקה': 'עפולה-הירוקה',
+  'עפולה עלית': 'עפולה-עלית',
+  'רובע יזרעאל': 'רובע-יזרעאל'
+};
+
+/* מכירה בעפולה (לא מסחרי) לדף הדירות. השאר, כולל השכרה, לדף הבית.
+   אותו כלל כמו cityCrumbPath ב-og-tags.ts. */
+function cityCrumbPath(p){
+  var city = String((p && p.city) || '').trim();
+  if (city !== 'עפולה') return '';
+  if (p.deal_type === 'sale' && p.category !== 'commercial') return '/afula/דירות-למכירה';
+  return '/';
+}
+
+/* פירור גלוי. אותו סדר כמו BreadcrumbList: האתר, העיר, השכונה, המודעה.
+   השרת ממלא את #propCrumbs; כאן אותו HTML כשהוא עוד ריק, או כשהנכס נטען מחדש. */
+function renderPropCrumbs(p){
+  var nav = document.getElementById('propCrumbs');
+  if (!nav || !p) return;
+  var city = String(p.city || '').trim();
+  var hoodName = publicNeighborhoodName(p);
+  hoodName = String(hoodName || '').trim();
+  var bits = ['<li><a href="/">שוק נדל״ן</a></li>'];
+  if (city){
+    var path = cityCrumbPath(p);
+    bits.push(path
+      ? '<li><a href="' + escapeHtml(path) + '">' + escapeHtml(city) + '</a></li>'
+      : '<li><span>' + escapeHtml(city) + '</span></li>');
+  }
+  if (hoodName && hoodName !== city){
+    var slug = city === 'עפולה' ? AFULA_HOOD_SLUGS[hoodName] : '';
+    bits.push(slug
+      ? '<li><a href="/n/afula/' + escapeHtml(slug) + '">' + escapeHtml(hoodName) + '</a></li>'
+      : '<li><span>' + escapeHtml(hoodName) + '</span></li>');
+  }
+  bits.push('<li aria-current="page"><span>' + escapeHtml(publicTitle(p)) + '</span></li>');
+  nav.innerHTML = '<ol>' + bits.join('') + '</ol>';
+  nav.hidden = false;
 }
 
 /* כרטיס "רוצים לדעת עוד על השכונה?" - קישור לדף השכונה (‏/n/{עיר}/{שכונה},
@@ -2784,7 +2941,7 @@ function publicAddressText(p){
    פשוט משאיר את הכרטיס מוסתר. המבנה זהה ל-hoodCardHtml בשרת (scripts/hood_card_test.ts). */
 function renderHoodCard(p){
   const card = document.getElementById('hoodCard');
-  const name = p.neighborhoods && p.neighborhoods.name;
+  const name = publicNeighborhoodName(p);
   if (!card || card.querySelector('[data-hood-card]')) return;
   if (!name || !p.city || name === p.city) return;
   // ‏GET עם סינון על תוצאת הפונקציה - שורה אחת ולא כל השכונות
@@ -2939,6 +3096,10 @@ function renderOpenHouseBand(p){
 }
 
 function renderProperty(p){
+  try {
+    if (p && p.id) document.documentElement.setAttribute('data-property-id', String(p.id));
+    else document.documentElement.removeAttribute('data-property-id');
+  } catch (e) { /* מזהה חסר - הלחיצה נספרת בלי נכס */ }
   applyDistinctTitle(p);
   renderGallery(p);
   renderMediaButtons(p);
@@ -2966,6 +3127,7 @@ function renderProperty(p){
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
+  renderPropCrumbs(p);
   renderHoodCard(p);
   renderMarketDistance(p, addressEl);
   renderOpenHouseBand(p);
@@ -3037,7 +3199,7 @@ function renderAgentCard(p){
     const top = document.querySelector('.agent-top');
     const box = document.createElement('div');
     box.className = 'agent-agc';
-    // ‏N1: בלי "✓ רישיון מאומת" - אין עדיין אימות (שער הרישיון, ד-1); המספר מוצג כעובדה, כמו קודם
+    // התג "✓ רישיון מאומת" מגיע מ-license_verified ב-agency_members_public (verified או manual); המספר מוצג כעובדה לצידו
     box.innerHTML = AgentCard.html(agent, { agency: p.agencies?.name || '', actions: false, showLicense: true });
     top.hidden = true;
     top.after(box);
@@ -3131,7 +3293,7 @@ let fairEndTimer = 0;
 function waShareText(p){
   const title = publicTitle(p) || 'נכס בשוק נדל״ן';
   const head = Number(p.price) > 0 ? title + ' · ' + priceFlat(p) : title;
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   const where = [hood && hood !== p.city ? hood : '', p.city || ''].filter(Boolean).join(', ');
   const utm = 'utm_source=whatsapp&utm_medium=share&utm_campaign=property_share';
   const url = p.listing_number
@@ -3165,8 +3327,14 @@ function renderContactButtons(p){
   const fairAttr = (channel) => fair && p.id
     ? ` data-fair-contact="${channel}" data-fair-property="${escapeAttr(p.id)}" data-fair-page="property"`
     : '';
+  const markPid = (el) => {
+    if (!el || !p.id) return;
+    el.setAttribute('data-property-id', p.id);
+  };
+  const pidAttr = p.id ? ` data-property-id="${escapeAttr(p.id)}"` : '';
   const markFair = (el, channel) => {
     if (!el) return;
+    markPid(el);
     if (fair && p.id){
       el.setAttribute('data-fair-contact', channel);
       el.setAttribute('data-fair-property', p.id);
@@ -3210,6 +3378,7 @@ function renderContactButtons(p){
   bubble.setAttribute('aria-label', waAria);
   document.getElementById('waBubbleLabel').textContent = agentName ? 'וואטסאפ · ' + agentName : 'וואטסאפ לסוכן';
   bubble.hidden = false;
+  markPid(bubble);
   markFair(bubble, 'whatsapp');
 
   // סרגל תחתון (מובייל)
@@ -3226,11 +3395,11 @@ function renderContactButtons(p){
   // כפתורים בכרטיס ההמרה, ושורת הגילוי: מי מקבל את הפרטים. privacy.html מבטיח את זה; כאן זה
   // נאמר במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly)
   document.getElementById('agentActions').innerHTML = `
-    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
+    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${pidAttr}${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
       וואטסאפ מהיר
     </a>
-    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
+    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${pidAttr}${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
     </a>
     <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;

@@ -539,19 +539,28 @@ def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
     ]
 
 
+# שתי שורות SEARCH_PAGES של מסחרי שהפוטר מקשר עבורן ישר לדף הנחיתה (16.11.2026).
+# הפטור שמי: צירוף מסחרי חדש לא מקבל אותו בלי החלטה.
+COMMERCIAL_FOOTER_VIA_LANDING = {
+    "deal=commercial&ptype=משרדים",
+    "deal=commercial&ptype=חנויות/שטח מסחרי",
+}
+
+
 # ---------- עמודי התוצאות ----------
 #
 # ‏HTML אחד (‏index.html) מגיש אותם לפי הפרמטרים, ולכן אין להם קובץ משלהם
-# ואי אפשר לבדוק אותם כמו דף. מה שכן אפשר לבדוק הוא שהשלושה מסכימים:
+# ואי אפשר לבדוק אותם כמו דף. מה שכן אפשר לבדוק:
 #
 #   ‏1. SEARCH_PAGES ב-netlify/edge-functions/search-pages.ts — מי שמזריק
 #      את הכותרת, התיאור וה-canonical.
-#   ‏2. ‏sitemap.xml — איך גוגל יודעת שהם קיימים.
-#   ‏3. בלוק "חיפושים פופולריים" בפוטר — הקישור שסורק עוקב אחריו.
+#   ‏2. בלוק "חיפושים פופולריים" בפוטר — הקישור שסורק עוקב אחריו.
+#   ‏3. ‏sitemap.xml אינו כולל כתובת ?deal=. היא מצהירה על דף נחיתה, או
+#      (השכרה בלי סינון) על /. השורה שנשארת היא דף הנחיתה עצמו.
 #
-# ‏**צירוף שחסר באחד מהם נכשל בשקט**, וכל צורה של הכשל שונה: בלי (1) הוא
-# מצהיר על / ולא יתאנדקס לעולם; בלי (2) גוגל תגיע אליו רק דרך קישור; בלי
-# (3) הוא יתום שאין אליו קישור מהאתר. לכן שלושתם נבדקים יחד.
+# ‏**צירוף שחסר ברשימה או בפוטר נכשל בשקט.** בלי (1) קישור מהפוטר מצהיר
+# על / ולא יתאנדקס לעולם; בלי (2) העמוד יתום. שורת ?deal= ב-sitemap היא
+# הכשל ההפוך: גוגל מתבקשת לאנדקס כתובת שמתחרה בדף הנחיתה.
 
 SEARCH_TS = ROOT / "netlify" / "edge-functions" / "search-pages.ts"
 SEARCH_QUERY = re.compile(r'^\s*query:\s*"([^"]+)"', re.MULTILINE)
@@ -604,21 +613,32 @@ def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
     if len(known) != len(listed):
         problems.append("‏אותו צירוף מופיע פעמיים ב-SEARCH_PAGES.")
 
-    # ‏צירוף עם landing מצהיר על דף הנחיתה. הכתובת עם הפרמטרים אינה נכנסת.
-    delegated = {key for key, landing in entries if landing}
-    in_sitemap = {query_key(loc.split("?", 1)[1]) for loc in locs if "?" in loc}
-    for key in sorted((known - delegated) - in_sitemap):
-        problems.append("‏/?%s ברשימה שבפונקציה ואינו ב-sitemap.xml — גוגל לא תדע שהוא קיים." % key)
-    for key in sorted(delegated & in_sitemap):
-        problems.append("‏/?%s ה-canonical שלו הוא דף נחיתה, והוא לא נכנס ל-sitemap." % key)
-    for key in sorted(in_sitemap - known):
-        problems.append("‏/?%s ב-sitemap.xml ואינו ברשימה שבפונקציה — הוא יצהיר על / ולא יתאנדקס." % key)
+    # ‏כל ?deal= מתחרה בדף נחיתה או בדף הבית. לא משאירים אותו ב-sitemap,
+    # גם כשה-canonical שלו עדיין הצירוף עצמו (השכרה עם חדרים).
+    for loc in locs:
+        if re.search(r"[?&]deal=", loc):
+            problems.append("‏%s היא כתובת סינון (?deal=) ואינה נכנסת ל-sitemap." % loc)
 
+    # צירוף עם דף נחיתה נחשב מקושר גם כשהפוטר והניווט מצביעים אל הדף
+    # עצמו (‏/afula/דירות-למכירה) ולא אל ‎/?deal=sale‎. מסחרי הוא תנאי:
+    # הקישור לדף נספר רק כל עוד השורה שלו ב-sitemap (הדף חי).
+    targets = {key: landing for key, landing in entries if landing}
+    if (SITE + "/afula/נדלן-מסחרי") in set(locs):
+        targets.setdefault("deal=commercial", "/afula/נדלן-מסחרי")
+        # משרדים וחנויות בפוטר מקשרים מ-16.11.2026 ישר לדף המסחרי (לא ל-?deal=)
+        for key, _landing in entries:
+            if key in COMMERCIAL_FOOTER_VIA_LANDING:
+                targets.setdefault(key, "/afula/נדלן-מסחרי")
     linked: set[str] = set()
+    via_landing: set[str] = set()
     for path in pages:
-        for query in FOOTER_LINK.findall(path.read_text(encoding="utf-8")):
+        text = path.read_text(encoding="utf-8")
+        for query in FOOTER_LINK.findall(text):
             linked.add(query_key(query))
-    for key in sorted(known - linked):
+        for key, landing in targets.items():
+            if 'href="%s"' % landing in text:
+                via_landing.add(key)
+    for key in sorted(known - linked - via_landing):
         problems.append("‏/?%s ברשימה שבפונקציה ואין אליו קישור באף דף — עמוד יתום." % key)
     for key in sorted(linked - known):
         problems.append(

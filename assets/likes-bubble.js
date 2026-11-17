@@ -98,7 +98,7 @@
     $('lkList').innerHTML = rows.length ? rows.map(function (p) {
       var ph = photo(p);
       return '<div class="lk-row"><a href="/property?id=' + encodeURIComponent(p.id) + '">' +
-        (ph ? '<img src="' + esc(ph) + '" alt="" loading="lazy" width="84" height="64">' : '<span class="lk-ph" aria-hidden="true"></span>') +
+        (ph ? '<img src="' + esc(window.ListingMedia ? ListingMedia.renderUrl(ph, 400) : ph) + '" alt="' + esc(window.ListingMedia ? ListingMedia.alt(p) : '') + '" loading="lazy" width="84" height="64" data-full="' + esc(ph) + '" onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">' : '<span class="lk-ph" aria-hidden="true"></span>') +
         '<span><b>' + esc(price(p)) + '</b><span>' + esc(p.title || p.property_type || 'נכס') + '</span><span>' + esc([p.street, p.city].filter(Boolean).join(', ')) + '</span></span></a>' +
         '<button type="button" class="lk-rm" data-lk-rm="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('') : (ids.length ? '<p>טוענים את הנכסים…</p>' : '<p>עוד לא שמרת נכסים. אפשר ללחוץ על הלב בכל נכס כדי לשמור אותו כאן.</p>');
