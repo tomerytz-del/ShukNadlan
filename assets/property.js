@@ -101,9 +101,14 @@ const CONDITION_HIGHLIGHTS = {
 
 function showToast(msg){
   const t = document.getElementById('toast');
+  // טוסט חדש באמצע יציאה מבטל אותה: הטוסט נשאר על המסך ומקבל את הנוסח החדש
+  clearTimeout(t._leaveT); t.classList.remove('is-leaving');
   t.textContent = msg; t.style.display = 'block';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(()=> t.style.display='none', 3500);
+  showToast._t = setTimeout(()=>{
+    t.classList.add('is-leaving');
+    t._leaveT = setTimeout(()=>{ t.classList.remove('is-leaving'); t.style.display='none'; }, 200);
+  }, 3500);
 }
 
 /* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ, ולכן "+ מע״מ" מוצג ליד המחיר

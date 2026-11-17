@@ -154,6 +154,19 @@
   --cover-veil-soft: rgba(13,27,61,.05);
 }
 
+/* ====== תנועה: keyframes משותפים (הסקיל animate) ======
+   הכללים עצמם יושבים בכל דף ליד הרכיב שהם מנפישים, כי הנקודות שבהן גיליון הופך למודל שונות בין הדפים
+   (640px בדף הבית, 520px בדף הנכס). כאן רק השמות, כדי שלא יוגדרו מחדש בכל דף. כניסה בלבד, ‏transform ו-opacity.
+   ‏dsBackdropIn מנפיש רק את צבע הרקע, לא את ה-opacity של החלון: opacity מוכפל לאורך העץ והכרטיס היה דוהה פעמיים. */
+@keyframes dsFade{from{opacity:0}}
+@keyframes dsFadeOut{to{opacity:0}}
+@keyframes dsBackdropIn{from{background-color:transparent}}
+@keyframes dsModalIn{from{opacity:0;transform:scale(.96)}}
+@keyframes dsSheetRise{from{transform:translateY(100%)}}
+@keyframes dsMenuIn{from{opacity:0;transform:translateY(-4px)}}
+@keyframes dsRiseIn{from{opacity:0;transform:translateY(12px)}}
+@keyframes dsSink{to{opacity:0;transform:translateY(12px)}}
+
 /* ====== 2. יסודות ====== */
 /* ‏margin:0 — ‏8px של ברירת המחדל של הדפדפן, שאיש לא ביקש. רוב הדפים
    מאפסים אותו ב-style שלהם, ובעשרה שאין בהם כלל ‎body{}‎ משלהם (אודות,

@@ -846,6 +846,12 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     .filter-modal-overlay,.mlead-overlay{align-items:center}
     .filter-modal{border-radius:var(--radius-lg);max-height:80vh;max-height:80dvh}
   }
+  /* כניסה לחלונות הסינון וההתראה (הסקיל animate): ברקע מתחת ל-640px הגיליון עולה מקצה המסך, ומ-640px החלון נכנס במרכז.
+     ‏keyframes ב-design-system.css. הרקע מנפיש רק את הצבע שלו (opacity של החלון היה מוכפל בכרטיס). יציאה: מיידית */
+  .filter-modal-overlay.open,.mlead-overlay.open{animation:dsBackdropIn .18s var(--ease-out)}
+  .filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsSheetRise .28s var(--ease-drawer)}
+  @media(min-width:640px){.filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsModalIn .2s var(--ease-out)}}
+  @media(prefers-reduced-motion:reduce){.filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsFade .15s ease}}
   .filter-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
   .filter-modal-header h3{font-size:1.05rem}
   .filter-modal-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
