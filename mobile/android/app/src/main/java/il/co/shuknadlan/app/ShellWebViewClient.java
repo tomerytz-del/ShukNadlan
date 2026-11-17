@@ -48,7 +48,7 @@ public class ShellWebViewClient extends BridgeWebViewClient {
         if (failing.contains("offline.html") || failing.contains("purchase-note")) return;
         String current = view.getUrl() == null ? "" : view.getUrl();
         if (current.contains("offline.html")) return;
-        view.loadUrl(ShellUrls.offlineFor(why, failing));
+        view.loadUrl(ShellUrls.offlineFor(why, failing, activity.supportAudience()));
     }
 
     @Override

@@ -63,9 +63,10 @@
     <div class="card">
       <p id="msg">אין חיבור לאינטרנט כרגע. כשהרשת חוזרת, לחצו על נסו שוב.</p>
       <button type="button" id="retry">נסו שוב</button>
-      <a class="support" href="https://wa.me/972546929991">פנייה לתמיכה</a>
+      <a class="support" id="support" href="https://wa.me/972533242100">פנייה לתמיכה</a>
     </div>
   </main>
+  <script src="support-link.js"></script>
   <script>
     var SITE = 'https://shuknadlan.co.il/';
     var q = new URLSearchParams(location.search);
@@ -82,6 +83,8 @@
       } catch (e) { return ''; }
     }
     var dest = safeRetry(q.get('retry') || '') || SITE;
+    var support = document.getElementById('support');
+    if (support && window.ShukSupport) support.href = ShukSupport.href(q.get('aud'));
     if (why === 'http') {
       document.getElementById('msg').textContent = 'האתר לא נטען כרגע. אפשר לנסות שוב.';
     }
