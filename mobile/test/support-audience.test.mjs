@@ -200,6 +200,118 @@ test('the bridge saves a broker and clears the flag on sign-out', () => {
   assert.deepEqual(calls, ['broker', 'visitor']);
 });
 
+/* כמו Storage ב-WebView: המתודות על הפרוטוטייפ, והשמה על האובייקט
+   נשמרת כמפתח ולא מחליפה את המתודה. */
+function storagePrototype() {
+  return {
+    getItem(k) {
+      return this._data && Object.prototype.hasOwnProperty.call(this._data, k) ? this._data[k] : null;
+    },
+    setItem(k, v) { this._data[String(k)] = String(v); },
+    removeItem(k) { delete this._data[String(k)]; },
+    clear() {
+      Object.keys(this._data).forEach((k) => delete this._data[k]);
+    },
+    key(i) { return Object.keys(this._data)[i] || null; },
+  };
+}
+
+function webViewStorage(proto, initial) {
+  const target = Object.create(proto);
+  target._data = Object.assign({}, initial);
+  return new Proxy(target, {
+    set(obj, prop, value) {
+      if (prop === '_data') {
+        obj._data = value;
+        return true;
+      }
+      const text = typeof value === 'function' ? Function.prototype.toString.call(value) : String(value);
+      proto.setItem.call(obj, String(prop), text);
+      return true;
+    },
+    get(obj, prop, receiver) {
+      if (prop === '_data') return obj._data;
+      if (typeof prop === 'string' && obj._data && Object.prototype.hasOwnProperty.call(obj._data, prop)) {
+        return obj._data[prop];
+      }
+      return Reflect.get(obj, prop, receiver);
+    },
+  });
+}
+
+test('a webview storage hook does not write method names as keys', () => {
+  const calls = [];
+  const proto = storagePrototype();
+  const local = webViewStorage(proto, {
+    [AUTH_KEY]: session(USER),
+    [`crmAgencyId:${USER}`]: AGENCY,
+  });
+  const sessionStore = webViewStorage(proto, {});
+  const win = shellWindow('shuknadlan.co.il', {}, calls);
+  win.localStorage = local;
+  bridge.install(win);
+  assert.equal(typeof local.setItem, 'function');
+  assert.equal(typeof local.removeItem, 'function');
+  assert.equal(typeof local.clear, 'function');
+  assert.equal(local.getItem('setItem'), null);
+  assert.equal(local.getItem('removeItem'), null);
+  assert.equal(local.getItem('clear'), null);
+  assert.equal(local.getItem('shuk_support_probe'), null);
+  assert.deepEqual(calls, ['broker']);
+  sessionStore.setItem('other', '1');
+  assert.deepEqual(calls, ['broker']);
+  local.removeItem(AUTH_KEY);
+  assert.deepEqual(calls, ['broker', 'visitor']);
+});
+
+test('a rejected native save is retried until it is acknowledged', async () => {
+  const calls = [];
+  let fail = true;
+  const win = shellWindow('shuknadlan.co.il', {
+    [AUTH_KEY]: session(USER),
+    [`crmAgencyId:${USER}`]: AGENCY,
+  }, calls);
+  win.Capacitor.Plugins.ShukShell.setSupportAudience = (arg) => {
+    calls.push(arg.audience);
+    return fail ? Promise.reject(new Error('no_activity')) : Promise.resolve();
+  };
+  bridge.install(win);
+  assert.deepEqual(calls, ['broker']);
+  await Promise.resolve();
+  win.localStorage.setItem('touch', '1');
+  assert.deepEqual(calls, ['broker', 'broker']);
+  fail = false;
+  await Promise.resolve();
+  win.localStorage.setItem('touch', '2');
+  assert.deepEqual(calls, ['broker', 'broker', 'broker']);
+  await Promise.resolve();
+  win.localStorage.setItem('touch', '3');
+  assert.deepEqual(calls, ['broker', 'broker', 'broker']);
+});
+
+test('the audience poll is slow and pauses while the page is hidden', () => {
+  const delays = [];
+  let cleared = 0;
+  const listeners = {};
+  const win = shellWindow('shuknadlan.co.il', {
+    [AUTH_KEY]: session(USER),
+    [`crmAgencyId:${USER}`]: AGENCY,
+  }, []);
+  win.document.hidden = true;
+  win.setInterval = (_fn, ms) => { delays.push(ms); return 7; };
+  win.clearInterval = () => { cleared += 1; };
+  win.addEventListener = (type, fn) => { listeners[type] = fn; };
+  bridge.install(win);
+  assert.deepEqual(delays, []);
+  assert.ok(bridge.SUPPORT_POLL_MS >= 10000);
+  win.document.hidden = false;
+  listeners.visibilitychange();
+  assert.deepEqual(delays, [bridge.SUPPORT_POLL_MS]);
+  win.document.hidden = true;
+  listeners.visibilitychange();
+  assert.equal(cleared, 1);
+});
+
 test('the offline page cannot wipe a broker flag', () => {
   const calls = [];
   const win = shellWindow('localhost', {}, calls);

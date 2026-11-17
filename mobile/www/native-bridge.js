@@ -1666,58 +1666,106 @@
     return isUuid(agency) ? 'broker' : 'visitor';
   }
 
-  function watchAuthStorage(storage, onChange) {
-    var saved = [];
-    ['setItem', 'removeItem', 'clear'].forEach(function (name) {
-      var orig = storage[name];
-      if (typeof orig !== 'function') return;
+  /* ב-WebView השמה של setItem על אובייקט localStorage לא מחליפה את
+     המתודה. היא נשמרת כמפתח, עם קוד הפונקציה כערך, והעוטף לא רץ.
+     המתודות יושבות על Storage.prototype, והוא משותף גם ל-sessionStorage,
+     ולכן ההודעה יוצאת רק כש-this הוא ה-localStorage שנמסר. */
+  var SUPPORT_POLL_MS = 15000;
+
+  function wrapStorageMethod(owner, name, storage, onChange) {
+    var orig = owner[name];
+    if (typeof orig !== 'function') return;
+    owner[name] = function () {
+      var result = orig.apply(this, arguments);
       try {
-        storage[name] = function () {
-          var result = orig.apply(storage, arguments);
-          try { onChange(); } catch (e) {}
-          return result;
-        };
-        saved.push({ name: name, orig: orig });
-      } catch (e2) {}
-    });
-    // אם העטיפה שוברת את האחסון של ה-WebView, מחזירים את המקור.
-    // בלי זה כניסה ויציאה באתר היו נשברות בשקט. הנקודה נמחקת מיד.
-    var probe = 'shuk_support_probe';
-    try {
-      storage.setItem(probe, '1');
-      storage.removeItem(probe);
-    } catch (e3) {
-      saved.forEach(function (item) {
-        try { storage[item.name] = item.orig; } catch (e4) {}
-      });
-      try { storage.removeItem(probe); } catch (e5) {}
+        if (!storage || this === storage) onChange();
+      } catch (e) {}
+      return result;
+    };
+  }
+
+  function watchAuthStorage(storage, onChange) {
+    if (!storage) return;
+    var proto = Object.getPrototypeOf(storage);
+    var onProto = proto && proto !== Object.prototype
+      && typeof proto.setItem === 'function'
+      && typeof proto.removeItem === 'function'
+      && typeof proto.clear === 'function';
+    if (onProto) {
+      if (proto.__shukSupportWatch) return;
+      try {
+        ['setItem', 'removeItem', 'clear'].forEach(function (name) {
+          wrapStorageMethod(proto, name, storage, onChange);
+        });
+        Object.defineProperty(proto, '__shukSupportWatch', { value: true });
+      } catch (e) { /* נשארת הבדיקה המחזורית */ }
+      return;
     }
+    ['setItem', 'removeItem', 'clear'].forEach(function (name) {
+      if (!Object.prototype.hasOwnProperty.call(storage, name)) return;
+      try { wrapStorageMethod(storage, name, null, onChange); }
+      catch (e2) {}
+    });
   }
 
   function scheduleSupportAudience(win) {
     if (!win || !siteHost(win) || !win.localStorage) return null;
     var last = null;
-    function publish() {
+    var inflight = null;
+    var timer = 0;
+    var armed = false;
+    function readAudience() {
       var audience = 'visitor';
       try { audience = supportAudience(win.localStorage); } catch (e) { audience = 'visitor'; }
-      if (audience !== 'broker') audience = 'visitor';
+      return audience === 'broker' ? 'broker' : 'visitor';
+    }
+    function publish() {
+      var audience = readAudience();
       var shell = pluginsOf(win).ShukShell;
       if (!shell || !shell.setSupportAudience) return;
-      if (audience === last) return;
+      if (audience === last || audience === inflight) return;
+      var requested = audience;
+      inflight = requested;
       try {
-        var pending = shell.setSupportAudience({ audience: audience });
-        if (pending && pending.catch) pending.catch(function () {});
-        last = audience;
-      } catch (e2) {}
+        Promise.resolve(shell.setSupportAudience({ audience: requested })).then(function () {
+          if (inflight === requested) inflight = null;
+          if (readAudience() === requested) last = requested;
+          else publish();
+        }, function () {
+          if (inflight === requested) inflight = null;
+        });
+      } catch (e2) {
+        if (inflight === requested) inflight = null;
+      }
+    }
+    function hidden() {
+      return !!(win.document && win.document.hidden);
+    }
+    function disarm() {
+      if (!armed) return;
+      armed = false;
+      if (timer && win.clearInterval) win.clearInterval(timer);
+      timer = 0;
+    }
+    function arm() {
+      if (armed || hidden() || !win.setInterval) return;
+      armed = true;
+      timer = win.setInterval(publish, SUPPORT_POLL_MS);
     }
     watchAuthStorage(win.localStorage, publish);
     publish();
     if (win.addEventListener) {
       win.addEventListener('storage', publish);
-      win.addEventListener('visibilitychange', publish);
       win.addEventListener('pagehide', publish);
+      win.addEventListener('visibilitychange', function () {
+        if (hidden()) disarm();
+        else {
+          publish();
+          arm();
+        }
+      });
     }
-    if (win.setInterval) win.setInterval(publish, 2000);
+    arm();
     return publish;
   }
 
@@ -1765,6 +1813,7 @@
     planSheetCards: planSheetCards,
     safeSiteRetry: safeSiteRetry,
     supportAudience: supportAudience,
+    SUPPORT_POLL_MS: SUPPORT_POLL_MS,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     PIXEL_CONSENT_KEY: PIXEL_CONSENT_KEY,
