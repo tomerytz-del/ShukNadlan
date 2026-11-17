@@ -198,7 +198,7 @@ test('the location title is forced white and http failures have their own senten
   assert.match(offline, /האתר לא נטען כרגע/);
   assert.match(offline, /slice\(-17\)/);
   assert.match(offline, /פנייה לתמיכה/);
-  assert.match(offline, /https:\/\/wa\.me\/972546929991/);
+  assert.match(offline, /support-link\.js/);
   assert.doesNotMatch(offline, /מדיניות הפרטיות/);
   assert.match(android, /onReceivedHttpError/);
   assert.equal(offline.includes('\u2014'), false);

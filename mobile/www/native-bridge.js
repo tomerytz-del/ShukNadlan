@@ -219,7 +219,11 @@
     patchSavedSearch(win);
     schedulePurchaseShield(win);
     scheduleLocationPrompt(win);
-    whenCapacitor(win, function () { wireNative(win); });
+    var publishAudience = scheduleSupportAudience(win);
+    whenCapacitor(win, function () {
+      wireNative(win);
+      if (publishAudience) publishAudience();
+    });
   }
 
   function installTracking(win) {
@@ -1592,6 +1596,131 @@
     try { allow.focus(); } catch (e) {}
   }
 
+  /* מסך "אין רשת" נטען מ-https://localhost, בלי ה-localStorage של האתר.
+     בזמן שהאתר טעון שומרים דגל במכשיר (ShukShell.setSupportAudience).
+     מתווך/ת = סשן פעיל וגם crmAgencyId של אותו חשבון. ה-CRM כותב את
+     המפתח רק אחרי שנטענה שורת agency_members. בלי סשן, בלי המפתח, או
+     כשהקריאה נכשלת: גולש/ת. זה גם מה שהמסך עושה כשהדגל חסר.
+     לא רצים על localhost: אחסון ריק שם היה מוחק דגל של מתווך/ת. */
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+
+  function b64urlDecode(segment) {
+    var body = String(segment || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (body.length % 4) body += '=';
+    var binary = atob(body);
+    var encoded = '';
+    for (var i = 0; i < binary.length; i++) {
+      var hex = binary.charCodeAt(i).toString(16);
+      encoded += '%' + (hex.length < 2 ? '0' : '') + hex;
+    }
+    try { return decodeURIComponent(encoded); }
+    catch (e) { return binary; }
+  }
+
+  function jwtSub(token) {
+    var parts = String(token || '').split('.');
+    if (parts.length < 2) return '';
+    try {
+      var json = JSON.parse(b64urlDecode(parts[1]));
+      return json && isUuid(json.sub) ? String(json.sub).trim() : '';
+    } catch (e) { return ''; }
+  }
+
+  function authUserId(raw) {
+    if (!raw) return '';
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return ''; }
+    if (!parsed || typeof parsed !== 'object') return '';
+    var session = parsed.currentSession && typeof parsed.currentSession === 'object' ? parsed.currentSession : parsed;
+    var fromUser = session.user && session.user.id;
+    if (isUuid(fromUser)) return String(fromUser).trim();
+    return jwtSub(session.access_token);
+  }
+
+  function readAuthRaw(storage) {
+    if (!storage || !storage.getItem) return '';
+    try {
+      if (storage.key && typeof storage.length === 'number') {
+        for (var i = 0; i < storage.length; i++) {
+          var key = storage.key(i) || '';
+          if (key.indexOf('sb-') === 0 && key.indexOf('auth-token') !== -1) {
+            var found = storage.getItem(key) || '';
+            if (found) return found;
+          }
+        }
+      }
+    } catch (e) {}
+    try { return storage.getItem('sb-obookujgolazrwycsiyn-auth-token') || ''; }
+    catch (e2) { return ''; }
+  }
+
+  function supportAudience(storage) {
+    var userId = '';
+    try { userId = authUserId(readAuthRaw(storage)); } catch (e) { return 'visitor'; }
+    if (!userId || !storage || !storage.getItem) return 'visitor';
+    var agency = '';
+    try { agency = storage.getItem('crmAgencyId:' + userId) || ''; }
+    catch (e2) { return 'visitor'; }
+    return isUuid(agency) ? 'broker' : 'visitor';
+  }
+
+  function watchAuthStorage(storage, onChange) {
+    var saved = [];
+    ['setItem', 'removeItem', 'clear'].forEach(function (name) {
+      var orig = storage[name];
+      if (typeof orig !== 'function') return;
+      try {
+        storage[name] = function () {
+          var result = orig.apply(storage, arguments);
+          try { onChange(); } catch (e) {}
+          return result;
+        };
+        saved.push({ name: name, orig: orig });
+      } catch (e2) {}
+    });
+    // אם העטיפה שוברת את האחסון של ה-WebView, מחזירים את המקור.
+    // בלי זה כניסה ויציאה באתר היו נשברות בשקט. הנקודה נמחקת מיד.
+    var probe = 'shuk_support_probe';
+    try {
+      storage.setItem(probe, '1');
+      storage.removeItem(probe);
+    } catch (e3) {
+      saved.forEach(function (item) {
+        try { storage[item.name] = item.orig; } catch (e4) {}
+      });
+      try { storage.removeItem(probe); } catch (e5) {}
+    }
+  }
+
+  function scheduleSupportAudience(win) {
+    if (!win || !siteHost(win) || !win.localStorage) return null;
+    var last = null;
+    function publish() {
+      var audience = 'visitor';
+      try { audience = supportAudience(win.localStorage); } catch (e) { audience = 'visitor'; }
+      if (audience !== 'broker') audience = 'visitor';
+      var shell = pluginsOf(win).ShukShell;
+      if (!shell || !shell.setSupportAudience) return;
+      if (audience === last) return;
+      try {
+        var pending = shell.setSupportAudience({ audience: audience });
+        if (pending && pending.catch) pending.catch(function () {});
+        last = audience;
+      } catch (e2) {}
+    }
+    watchAuthStorage(win.localStorage, publish);
+    publish();
+    if (win.addEventListener) {
+      win.addEventListener('storage', publish);
+      win.addEventListener('visibilitychange', publish);
+      win.addEventListener('pagehide', publish);
+    }
+    if (win.setInterval) win.setInterval(publish, 2000);
+    return publish;
+  }
+
   function scheduleLocationPrompt(win) {
     if (!siteHost(win) || !win.document) return;
     var app = win.ShukNadlanApp || {};
@@ -1635,6 +1764,7 @@
     planFeatureLines: planFeatureLines,
     planSheetCards: planSheetCards,
     safeSiteRetry: safeSiteRetry,
+    supportAudience: supportAudience,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     PIXEL_CONSENT_KEY: PIXEL_CONSENT_KEY,

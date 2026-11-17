@@ -30,8 +30,8 @@ public class WhatsappLinksTest {
     @Test
     public void apiAndWebSendLinksUseThePhoneQuery() throws Exception {
         String api = WhatsappLinks.toSendUrl(
-            "https://api.whatsapp.com/send?phone=972546929991&text=hi");
-        assertEquals("972546929991", query(api, "phone"));
+            "https://api.whatsapp.com/send?phone=972501234567&text=hi");
+        assertEquals("972501234567", query(api, "phone"));
         assertEquals("hi", query(api, "text"));
         String web = WhatsappLinks.toSendUrl("https://web.whatsapp.com/send?phone=+972-50");
         assertEquals("97250", query(web, "phone"));
@@ -81,11 +81,11 @@ public class WhatsappLinksTest {
 
     @Test
     public void phoneAndExistingWhatsappSchemeStayOutsideTheWebView() {
-        List<WhatsappLinks.Step> tel = WhatsappLinks.plan("tel:+972546929991");
+        List<WhatsappLinks.Step> tel = WhatsappLinks.plan("tel:+972501234567");
         assertEquals(1, tel.size());
         assertEquals(WhatsappLinks.Kind.VIEW, tel.get(0).kind);
-        assertEquals("tel:+972546929991", tel.get(0).url);
-        String send = "whatsapp://send?phone=972546929991&text=hi";
+        assertEquals("tel:+972501234567", tel.get(0).url);
+        String send = "whatsapp://send?phone=972501234567&text=hi";
         assertEquals(send, WhatsappLinks.toSendUrl(send));
         assertEquals(WhatsappLinks.Kind.WHATSAPP, WhatsappLinks.plan(send).get(0).kind);
     }
