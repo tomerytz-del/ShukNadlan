@@ -1,7 +1,7 @@
 -- ============================================================================
 -- ליד שהסוכן/ת מזין/ה בעצמו/ה (מייל או גבריאלה בוואטסאפ) נכנס ל"לידים שלי"
 --
--- version 20271117090000: מעל 20271116133000 שב-main.
+-- version 20271117150000: מעל 20271117140000 שב-main.
 --
 -- מה שבור היום: "ליד חדש מוכרים / צבי חכמון / 052... / סביון 9" שסוכן/ת שולח/ת
 -- לגבריאלה (בוואטסאפ או במייל) נשמר ב-create_client כלקוח/ה ב-agent_clients,
@@ -58,7 +58,7 @@ begin
   if new.lead_type in ('call', 'store') then
     return new;
   end if;
-  -- 20271117090000: הסוכן/ת הזין/ה את הליד בעצמו/ה. אישור הפעמון נכתב מתוך
+  -- 20271117150000: הסוכן/ת הזין/ה את הליד בעצמו/ה. אישור הפעמון נכתב מתוך
   -- agent_lead_add (סוג lead_entered), לא כאן: new_lead פותח משימת יומן.
   if new.source = 'agent_entered' then
     return new;
@@ -256,7 +256,12 @@ revoke all on function public.lead_import_jobs_purge() from public, anon, authen
 grant execute on function public.lead_import_jobs_purge() to service_role;
 
 -- ניקוי יומי: עותק של קובץ (שמות וטלפונים של צדדים שלישיים) לא נשאר מעבר ל-14 יום
-do $$ begin
+do $$
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise notice 'pg_cron אינו מותקן - lead_import_jobs_purge לא תוזמן';
+    return;
+  end if;
   perform cron.unschedule('lead-import-jobs-purge')
     where exists (select 1 from cron.job where jobname = 'lead-import-jobs-purge');
   perform cron.schedule('lead-import-jobs-purge', '47 3 * * *',
