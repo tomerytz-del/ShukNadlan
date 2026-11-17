@@ -225,7 +225,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </div>
               ) : null}
               {tight ? (
-                <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.19, display: "flex", justifyContent: "center", ...shown(f, cutAt, fps, H, 1.4) }}>
+                <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.215, display: "flex", justifyContent: "center", ...shown(f, cutAt, fps, H, 1.4) }}>
                   <div style={{ background: palette.accent, borderRadius: W * 0.05, padding: `${H * 0.006}px ${W * 0.06}px`, transform: "rotate(-3deg)", boxShadow: "0 12px 30px rgba(0,0,0,0.45)" }}>
                     <Line size={W * 0.085} color={palette.ink} weight={900}>עובד לבד</Line>
                   </div>
@@ -248,7 +248,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
       <SceneFrame from={map.startFrame} durationInFrames={map.durationFrames} enter="cut" exit="cut">
         {(() => {
           const f = frame - map.startFrame;
-          const size = 0.7, top = 0.27;
+          const size = 0.7, top = 0.29;
           const sx = (W * size) / 1080, ox = (W * (1 - size)) / 2, oy = H * top;
           const tr = (n: { x: number; y: number }) => ({ x: ox + n.x * sx, y: oy + n.y * sx });
           const first = tr(NODES[0]);
@@ -274,7 +274,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
               <div style={{ position: "absolute", left: W * (1 - size) / 2, top: H * top, width: W * size, height: W * size * (1081 / 1080), borderRadius: W * 0.05, overflow: "hidden", background: "#020817", boxShadow: "0 30px 70px rgba(13,27,61,0.35)", border: "2px solid rgba(255,255,255,0.7)", opacity: interpolate(f, [0, 3], [0, 1], clamp) }}>
                 <Img src={urls[IMG.map]} style={{ width: "100%", height: "100%", opacity: bright }} />
               </div>
-              <div style={{ position: "absolute", top: H * 0.18, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f, [8, 12], [0, 1], clamp) }}>
+              <div style={{ position: "absolute", top: H * 0.205, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f, [8, 12], [0, 1], clamp) }}>
                 <Line size={W * 0.08} color={palette.hero} style={{ textShadow: "0 2px 14px rgba(255,255,255,0.8)" }}>מה אם כולם <span style={{ color: "#1d6fd1" }}>מחוברים?</span></Line>
               </div>
               <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
@@ -324,7 +324,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 })}
               </svg>
               {slam ? (
-                <div style={{ position: "absolute", top: H * 0.235, width: "100%", display: "flex", justifyContent: "center" }}>
+                <div style={{ position: "absolute", top: H * 0.255, width: "100%", display: "flex", justifyContent: "center" }}>
                   <div key={slam.text} style={{ ...enter(f, slam.at, fps, H, 1.7), transform: `rotate(${slam.rot}deg) scale(${1 + beat(f, slam.at, 6) * 0.3})` }}>
                     <div style={{ background: palette.accent, borderRadius: W * 0.04, padding: `${H * 0.008}px ${W * 0.07}px`, boxShadow: "0 14px 34px rgba(0,0,0,0.5)" }}>
                       <Line size={W * 0.095} color={palette.ink} weight={900}>{slam.text}</Line>
@@ -365,14 +365,14 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
               <Daylight src={urls[IMG.bgHelpers]} veil={0.22} zoom={1 + f * 0.0007} />
               {showG ? (
                 <>
-                  <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", justifyContent: "center", ...shown(f, gAt, fps, H, 1.4) }}>
-                    <Line size={W * 0.11} color={palette.hero}>עוזרת <span style={{ color: "#12a150" }}>אישית</span></Line>
+                  <div style={{ position: "absolute", top: H * 0.215, width: "100%", display: "flex", justifyContent: "center", ...shown(f, gAt, fps, H, 1.08) }}>
+                    <Line size={W * 0.11} color={palette.hero} style={{ letterSpacing: W * 0.004, textShadow: "0 2px 14px rgba(255,255,255,0.7)" }}>עוזרת <span style={{ color: "#12a150" }}>אישית</span></Line>
                   </div>
-                  <div style={{ position: "absolute", left: (W - D) / 2, top: H * 0.3, width: D, height: D, borderRadius: "50%", overflow: "hidden", border: `${W * 0.012}px solid ${palette.accent}`, boxShadow: "0 24px 60px rgba(13,27,61,0.35)", background: "#14284f", opacity: interpolate(f - gAt, [0, 2], [0, 1], clamp), transform: `scale(${0.5 + 0.5 * gP})` }}>
+                  <div style={{ position: "absolute", left: (W - D) / 2, top: H * 0.315, width: D, height: D, borderRadius: "50%", overflow: "hidden", border: `${W * 0.012}px solid ${palette.accent}`, boxShadow: "0 24px 60px rgba(13,27,61,0.35)", background: "#14284f", opacity: interpolate(f - gAt, [0, 2], [0, 1], clamp), transform: `scale(${0.5 + 0.5 * gP})` }}>
                     <Img src={urls[IMG.gabriela]} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }} />
                   </div>
                   {f >= waAt ? (
-                    <div style={{ position: "absolute", left: W * 0.5, top: H * 0.3 + D * 0.72, ...enter(f, waAt, fps, H, 1.5) }}>
+                    <div style={{ position: "absolute", left: W * 0.5, top: H * 0.315 + D * 0.72, ...enter(f, waAt, fps, H, 1.5) }}>
                       <div style={{ position: "absolute", left: W * 0.05, top: -W * 0.04, display: "flex", alignItems: "center", gap: W * 0.025, background: "#2fbf71", borderRadius: W * 0.06, padding: `${H * 0.012}px ${W * 0.05}px`, boxShadow: "0 14px 34px rgba(0,0,0,0.5)" }}>
                         <div style={{ display: "flex", gap: W * 0.012 }}>
                           {[0, 1, 2].map((d) => <div key={d} style={{ width: W * 0.022, height: W * 0.022, borderRadius: "50%", background: "#ffffff", opacity: dots === d ? 1 : 0.45 }} />)}
@@ -383,10 +383,10 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </>
               ) : (
                 <>
-                  <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", justifyContent: "center", ...shown(f, mAt, fps, H, 1.4) }}>
-                    <Line size={W * 0.11} color={palette.hero}>מנטור <span style={{ color: "#a8841a" }}>AI</span></Line>
+                  <div style={{ position: "absolute", top: H * 0.215, width: "100%", display: "flex", justifyContent: "center", ...shown(f, mAt, fps, H, 1.08) }}>
+                    <Line size={W * 0.11} color={palette.hero} style={{ letterSpacing: W * 0.004, textShadow: "0 2px 14px rgba(255,255,255,0.7)" }}>מנטור <span style={{ color: "#a8841a" }}>AI</span></Line>
                   </div>
-                  <div style={{ position: "absolute", left: W * 0.06, width: W * 0.88, top: H * 0.29, opacity: interpolate(f - mAt, [0, 2], [0, 1], clamp), transform: `scale(${0.55 + 0.45 * mP}) rotate(${(1 - mP) * -4}deg)` }}>
+                  <div style={{ position: "absolute", left: W * 0.06, width: W * 0.88, top: H * 0.31, opacity: interpolate(f - mAt, [0, 2], [0, 1], clamp), transform: `scale(${0.55 + 0.45 * mP}) rotate(${(1 - mP) * -4}deg)` }}>
                     <MentorCard W={W} face={urls[IMG.mentor]} />
                   </div>
                 </>
@@ -412,16 +412,16 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const a1 = on(close, "לסגור");
           const a2 = on(close, "עסקאות");
           const stamps = [
-            { at: a1 + 2, x: 0.3, y: 0.41, rot: -12, s: 0.9 },
-            { at: a2, x: 0.68, y: 0.46, rot: 9, s: 1.0 },
-            { at: a2 + 7, x: 0.45, y: 0.52, rot: -4, s: 1.15 },
+            { at: a1 + 2, x: 0.3, y: 0.43, rot: -12, s: 0.9 },
+            { at: a2, x: 0.68, y: 0.48, rot: 9, s: 1.0 },
+            { at: a2 + 7, x: 0.45, y: 0.54, rot: -4, s: 1.15 },
           ];
           const shake = stamps.reduce((a, s) => a + shakeX(f, s.at, 12, 8), 0);
           const shakeV = stamps.reduce((a, s) => a + shakeY(f, s.at, 10, 8), 0);
           return (
             <AbsoluteFill style={{ transform: `translate(${shake}px, ${shakeV}px)` }}>
               <Daylight src={urls[IMG.bgClose]} veil={0.3} zoom={1.08 + f * 0.001} />
-              <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004 }}>
+              <div style={{ position: "absolute", top: H * 0.215, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004 }}>
                 <div style={shown(f, on(close, "ככה"), fps, H, 1.2)}><Line size={W * 0.085} color={palette.ink}>ככה יישאר לכם זמן</Line></div>
                 <div style={shown(f, a1, fps, H, 1.25)}>
                   <Line size={W * 0.11} color={palette.hero}>לסגור <span style={{ color: "#a8841a", opacity: f >= on(close, "יותר") ? 1 : 0 }}>יותר</span></Line>
@@ -471,16 +471,16 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
             <AbsoluteFill style={{ clipPath: `circle(${reveal * 150}% at 50% 36%)`, background: palette.bg }}>
               {/* a fine gold frame */}
               <div style={{ position: "absolute", inset: W * 0.045, border: `1.5px solid rgba(201,162,39,0.55)`, borderRadius: W * 0.02 }} />
-              <div style={{ position: "absolute", left: (W - logo) / 2, top: H * 0.1, width: logo, height: logo, opacity: interpolate(f, [2, 6], [0, 1], clamp), transform: `translateY(${(1 - logoP) * H * 0.02}px) scale(${1.08 - 0.08 * logoP})`, WebkitMaskImage: "radial-gradient(closest-side, #000 90%, transparent 100%)", maskImage: "radial-gradient(closest-side, #000 90%, transparent 100%)" }}>
+              <div style={{ position: "absolute", left: (W - logo) / 2, top: H * 0.115, width: logo, height: logo, opacity: interpolate(f, [2, 6], [0, 1], clamp), transform: `translateY(${(1 - logoP) * H * 0.02}px) scale(${1.08 - 0.08 * logoP})`, WebkitMaskImage: "radial-gradient(closest-side, #000 90%, transparent 100%)", maskImage: "radial-gradient(closest-side, #000 90%, transparent 100%)" }}>
                 <Img src={urls[IMG.logo]} style={{ width: "100%", height: "100%" }} />
               </div>
-              <div style={{ position: "absolute", top: H * 0.35, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.012 }}>
+              <div style={{ position: "absolute", top: H * 0.365, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.012 }}>
                 <div style={{ ...shown(f, 8, fps, H, 1.0) }}><Line size={W * 0.052} weight={600} color={palette.accent} style={{ letterSpacing: W * 0.012 }}>שוק נדל״ן</Line></div>
                 <div style={{ ...hair(W * 0.32), opacity: interpolate(f, [8, 14], [0, 1], clamp) }} />
                 <div style={shown(f, on(cta, "מצטרפים"), fps, H, 1.06)}><Line size={W * 0.066} color={palette.ink}>מצטרפים לקהילה החכמה</Line></div>
                 <div style={shown(f, on(cta, "יועצי"), fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של יועצי הנדל״ן של ישראל</Line></div>
               </div>
-              <div style={{ position: "absolute", top: H * 0.505, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.035, direction: "rtl", alignItems: "flex-start" }}>
+              <div style={{ position: "absolute", top: H * 0.525, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.035, direction: "rtl", alignItems: "flex-start" }}>
                 {verbs.map((v, i) => {
                   const next = verbs[i + 1] ? verbs[i + 1].at : 1e9;
                   const active = f >= v.at && f < next;
@@ -494,14 +494,14 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 })}
               </div>
               {f >= jAt ? (
-                <div style={{ position: "absolute", top: H * 0.585, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f - jAt, [0, 2], [0, 1], clamp), transform: `scale(${0.85 + 0.15 * jP})` }}>
+                <div style={{ position: "absolute", top: H * 0.6, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f - jAt, [0, 2], [0, 1], clamp), transform: `scale(${0.85 + 0.15 * jP})` }}>
                   <div style={{ background: palette.hero, borderRadius: W * 0.08, padding: `${H * 0.011}px ${W * 0.1}px`, boxShadow: "0 18px 44px rgba(14,42,107,0.32)", border: `2px solid ${palette.accent}` }}>
                     <Line size={W * 0.066} color={palette.accent}>הצטרפו עכשיו</Line>
                   </div>
                 </div>
               ) : null}
-              {/* the address, at the very bottom of the area Meta covers */}
-              <div style={{ position: "absolute", left: 0, right: 0, bottom: H * 0.18, display: "flex", justifyContent: "center", opacity: interpolate(f, [on(cta, "סוגרים") + 6, on(cta, "סוגרים") + 12], [0, 1], clamp) }}>
+              {/* the address, at about 70 percent of the height: above the bottom 15 percent that Reels covers */}
+              <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.7, display: "flex", justifyContent: "center", opacity: interpolate(f, [on(cta, "סוגרים") + 6, on(cta, "סוגרים") + 12], [0, 1], clamp) }}>
                 <div style={{ fontFamily: heebo, fontWeight: 600, fontSize: W * 0.038, color: palette.hero, direction: "ltr", letterSpacing: W * 0.004 }}>shuknadlan.co.il</div>
               </div>
             </AbsoluteFill>
