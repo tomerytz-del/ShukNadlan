@@ -94,6 +94,8 @@ window.shukArmTrackers = function () {
      המסך שלהם (assets/crm-lazy.js), לא עם מסך הכניסה. -->
 <style>
   :root{
+    /* עותק של טוקני התנועה ב-assets/design-system.css: ה-CRM אינו טוען אותו, ושני המקומות חייבים להיות זהים */
+    --ease-out:cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out:cubic-bezier(0.77, 0, 0.175, 1); --ease-drawer:cubic-bezier(0.32, 0.72, 0, 1);
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
     --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
     --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
@@ -188,7 +190,7 @@ window.shukArmTrackers = function () {
   #loginScreen .field input:focus{background:#fff;border-color:#1C3A5E;box-shadow:0 0 0 4px rgba(28,58,94,.12)}
   #loginScreen .btn{transition:transform .15s,box-shadow .15s,background .15s,border-color .15s}
   #loginScreen .btn-gold{background:linear-gradient(180deg,#9a2a3a,#7c1d2b);box-shadow:0 10px 22px -10px rgba(139,35,50,.75)}
-  #loginScreen .btn-gold:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 14px 26px -10px rgba(139,35,50,.85)}
+  @media (hover:hover) and (pointer:fine){#loginScreen .btn-gold:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 14px 26px -10px rgba(139,35,50,.85)}}
   #loginScreen .btn-ghost{border-color:#DCE1E7}
 
   .auth-sec-title{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-family:'Heebo',sans-serif;font-size:1.1rem;font-weight:800;color:#0e2a6b}
@@ -197,7 +199,7 @@ window.shukArmTrackers = function () {
   .auth-sec-hint{font-size:.85rem;color:var(--ink-soft);margin:0 0 16px;line-height:1.5}
   .auth-google{background:#fff;border:1.5px solid #DCE1E7;color:var(--ink);padding:14px 20px;font-size:1rem;gap:10px;
     box-shadow:0 2px 6px rgba(16,24,40,.06)}
-  .auth-google:hover{border-color:#1C3A5E;transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(16,24,40,.25)}
+  @media (hover:hover) and (pointer:fine){.auth-google:hover{border-color:#1C3A5E;transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(16,24,40,.25)}}
   .auth-or{display:flex;align-items:center;gap:12px;margin:18px 0 14px;font-size:.8rem;color:var(--ink-soft)}
   .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:#E3E6EA}
   #loginBtn{padding:14px 20px;font-size:1rem}
@@ -216,7 +218,7 @@ window.shukArmTrackers = function () {
     border-radius:50%;background:#c9a227;color:#0e2a52;font-size:.68rem;font-weight:900;vertical-align:1px}
   .auth-join .btn{background:#c9a227;color:#0b1f3d;padding:14px 20px;font-size:1.02rem;font-weight:800;white-space:normal;
     box-shadow:0 10px 22px -10px rgba(201,162,39,.9)}
-  .auth-join .btn:hover{background:#d8b23a;transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.auth-join .btn:hover{background:#d8b23a;transform:translateY(-1px)}}
   .auth-join .auth-gift{font-size:.82rem;color:rgba(255,255,255,.9);margin-top:12px;font-weight:600;line-height:1.5}
   .auth-join .auth-gift b{color:#e9c75a}
   .auth-agent-note{font-size:.8rem;color:var(--ink-soft);line-height:1.6;text-align:center;margin:16px 0 0}
@@ -294,7 +296,7 @@ window.shukArmTrackers = function () {
     box-shadow:0 2px 6px rgba(138,109,16,.18);transition:transform .15s;
   }
   .promo-gift[hidden]{display:none}
-  .promo-gift:hover{transform:scale(1.08)}
+  @media (hover:hover) and (pointer:fine){.promo-gift:hover{transform:scale(1.08)}}
   .promo-gift .ps-gift{font-size:.9rem;line-height:1}
   .promo-gift .ps-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .promo-gift.is-urgent{border-color:#c0873a}
@@ -317,7 +319,7 @@ window.shukArmTrackers = function () {
       box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 14px rgba(160,120,20,.22);
       transition:transform .18s ease,box-shadow .18s ease;
     }
-    .promo-gift:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 20px rgba(160,120,20,.3)}
+    @media (hover:hover) and (pointer:fine){.promo-gift:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 20px rgba(160,120,20,.3)}}
     .promo-gift .ps-gift{display:none}
     .promo-gift .ps-svg{display:block;width:26px;height:26px;flex:none;filter:drop-shadow(0 1px 1.5px rgba(125,29,43,.25))}
     .promo-gift .ps-lid{transform-origin:16px 14px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
@@ -379,9 +381,9 @@ window.shukArmTrackers = function () {
   .rp input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
   .field .rp label{display:flex;align-items:center;margin:0;cursor:pointer;font-size:inherit;color:inherit}
   .rp-check{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid #c3cbe0;background:#fff;position:relative;transition:background .15s,border-color .15s}
-  .rp-check::after{content:"";position:absolute;left:50%;top:45%;width:6px;height:12px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-50%) rotate(45deg) scale(0);transition:transform .15s}
+  .rp-check::after{content:"";position:absolute;left:50%;top:45%;width:6px;height:12px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-50%) rotate(45deg) scale(.85);opacity:0;transition:transform .15s var(--ease-out),opacity .15s var(--ease-out)}
   .rp label:has(input:checked) .rp-check{background:var(--rp-accent);border-color:var(--rp-accent)}
-  .rp label:has(input:checked) .rp-check::after{transform:translate(-50%,-50%) rotate(45deg) scale(1)}
+  .rp label:has(input:checked) .rp-check::after{transform:translate(-50%,-50%) rotate(45deg) scale(1);opacity:1}
   .rp label:has(input:focus-visible){outline:2px solid var(--rp-accent);outline-offset:2px}
   /* השוק הפעיל - כרטיס בולט */
   .rp-live{display:grid;gap:8px}
@@ -946,7 +948,7 @@ window.shukArmTrackers = function () {
     cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .12s}
   .subs-stat b{display:block;font-size:1.25rem;line-height:1.2}
   .subs-stat span{display:block;font-size:.7rem;color:var(--ink-soft)}
-  .subs-stat:hover:not(:disabled){border-color:var(--gold);transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.subs-stat:hover:not(:disabled){border-color:var(--gold);transform:translateY(-1px)}}
   .subs-stat:focus-visible{outline:2px solid var(--gold-dark);outline-offset:2px}
   /* אפור עדין ולא חצי-שקוף: "0" צריך להישאר קריא, רק לא להזמין לחיצה */
   .subs-stat:disabled{cursor:default;color:var(--ink-soft)}
@@ -1697,7 +1699,7 @@ window.shukArmTrackers = function () {
     background:var(--surface,#fff);color:var(--txt,var(--ink));font-family:inherit;font-size:.7rem;font-weight:700;
     line-height:1.25;text-align:center;text-decoration:none;cursor:pointer;
     transition:transform .12s ease,box-shadow .12s ease}
-  .pc-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  @media (hover:hover) and (pointer:fine){.pc-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}}
   /* לחיצה שמרגישה: האריח נלחץ פנימה לרגע. זה כל ההבדל בין רשת כפתורים
      לבין משטח שמגיב, ובמסך שסוכן/ת עובד/ת עליו כל היום זה נספר. */
   .pc-tile:active:not(:disabled){transform:translateY(0) scale(.97)}
@@ -3042,7 +3044,7 @@ window.shukArmTrackers = function () {
     background:var(--teal-dark);color:#fff;font-size:1rem;font-weight:700;
     box-shadow:0 4px 14px rgba(0,0,0,.22);opacity:.72;transition:opacity .16s ease,transform .16s ease;
   }
-  #devMenuToggle:hover{opacity:1;transform:scale(1.06)}
+  @media (hover:hover) and (pointer:fine){#devMenuToggle:hover{opacity:1;transform:scale(1.06)}}
   #devMenu.open #devMenuToggle{opacity:1}
   #devMenuPanel{display:none;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.22);padding:14px;width:270px;max-width:calc(100vw - 32px);margin-top:8px}
   #devMenu.open #devMenuPanel{display:block}
@@ -3259,7 +3261,7 @@ window.shukArmTrackers = function () {
     transition:transform .16s ease,width .24s cubic-bezier(.22,1,.36,1),
                height .24s cubic-bezier(.22,1,.36,1);
   }
-  #dashboard .crm-home:hover{transform:translateY(-1px) scale(1.05)}
+  @media (hover:hover) and (pointer:fine){#dashboard .crm-home:hover{transform:translateY(-1px) scale(1.05)}}
   #dashboard .crm-home:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
   #dashboard .crm-home .logo-img{height:26px;width:auto;transition:height .24s cubic-bezier(.22,1,.36,1)}
   @media(max-width:520px){
@@ -3291,7 +3293,7 @@ window.shukArmTrackers = function () {
     width:100%;height:100%;display:block;
     object-fit:cover;object-position:var(--photo-pos,50% 25%);
   }
-  #dashboard .avatar:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(28,58,94,.34)}
+  @media (hover:hover) and (pointer:fine){#dashboard .avatar:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(28,58,94,.34)}}
   #dashboard .avatar:active{transform:scale(.96)}
   #dashboard .avatar:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
   .agent-id-text{min-width:0}
@@ -4941,7 +4943,7 @@ window.shukArmTrackers = function () {
     transition:transform .16s cubic-bezier(.22,1,.36,1),background .16s ease,
                border-color .16s ease,box-shadow .16s ease;
   }
-  .todo-cta:hover{background:#fff;border-color:#d3dce8;box-shadow:var(--sh-1);transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.todo-cta:hover{background:#fff;border-color:#d3dce8;box-shadow:var(--sh-1);transform:translateY(-1px)}}
   .todo-cta:active{transform:scale(.99)}
   .todo-cta:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
   .todo-cta-logo{
@@ -4954,7 +4956,7 @@ window.shukArmTrackers = function () {
                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .todo-cta-chev{width:15px;height:15px;flex-shrink:0;color:var(--txt-faint);
                  transition:transform .16s ease}
-  .todo-cta:hover .todo-cta-chev{transform:translateX(-2px)}
+  @media (hover:hover) and (pointer:fine){.todo-cta:hover .todo-cta-chev{transform:translateX(-2px)}}
   /* ---------- הוואטסאפ ----------
      הירוק כאן הוא הירוק של וואטסאפ ולא הירוק של הדף: זה הסימן היחיד במסך
      שאומר "ההודעה יוצאת מכאן אל הטלפון של הלקוח/ה", והוא מזוהה במבט
@@ -5130,7 +5132,7 @@ window.shukArmTrackers = function () {
     width:19px;height:19px;padding:0;overflow:visible;transform:translateY(-50%);
     background:#fff;border:none;box-shadow:0 1px 2px rgba(15,23,42,.18);
   }
-  #dashboard .tier-chip .promo-gift:hover{transform:translateY(-50%) scale(1.08)}
+  @media (hover:hover) and (pointer:fine){#dashboard .tier-chip .promo-gift:hover{transform:translateY(-50%) scale(1.08)}}
   #dashboard .tier-chip .promo-gift::before{display:none}
   #dashboard .tier-chip .promo-gift .ps-gift{display:none}
   #dashboard .tier-chip .promo-gift .ps-svg{display:block;width:15px;height:15px;flex:none;filter:none}
@@ -5352,6 +5354,27 @@ window.shukArmTrackers = function () {
   .nl-close:hover{background:var(--nv-ground);color:var(--nv-ink)}
   .nl-close:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
   body.nav-layer-open{overflow:hidden}
+  /* כניסה לפאנל ההתראות, לטוסט ולשכבות הניווט (הסקיל animate). הפתיחה היא display:none ל-block, ולכן
+     keyframes רצים בכל פתיחה בלי לגעת ב-JS. היציאה מיידית: מצב הפאנל נקרא מ-style.display. ‏transform ו-opacity בלבד */
+  @keyframes crmFade{from{opacity:0}}
+  @keyframes crmPopDown{from{opacity:0;transform:translateY(-6px)}}
+  @keyframes crmRiseIn{from{opacity:0;transform:translateY(12px)}}
+  @keyframes crmSheetUp{from{opacity:0;transform:translateY(28px)}}
+  .bell-panel{animation:crmPopDown .16s var(--ease-out)}
+  .toast{animation:crmRiseIn .2s var(--ease-out)}
+  .nl-backdrop{animation:crmFade .2s var(--ease-out)}
+  .nl-panel{animation:crmSheetUp .26s var(--ease-drawer)}
+  @media(min-width:1024px){.nl-panel{animation:crmPopDown .18s var(--ease-out)}}
+  @media (prefers-reduced-motion:reduce){.bell-panel,.toast,.nl-panel{animation:crmFade .15s ease}}
+  /* החיפוש נפתח גם ב-Ctrl+K, פעולה מהמקלדת שחוזרת עשרות פעמים ביום: בלי תנועה, כדי שהתווים הראשונים לא ייפלו לפאנל שזז */
+  .nav-search .nl-panel,.nav-search .nl-backdrop{animation:none}
+  /* יציאה: הפוכה לכניסה (הפעמון עלה מלמעלה ויוצא למעלה, הטוסט עלה מלמטה ויוצא למטה). ה-JS מוסיף is-leaving וממתין 200ms לפני display:none */
+  @keyframes crmPopUp{to{opacity:0;transform:translateY(-6px)}}
+  @keyframes crmSink{to{opacity:0;transform:translateY(12px)}}
+  @keyframes crmFadeOut{to{opacity:0}}
+  .bell-panel.is-leaving{animation:crmPopUp .12s var(--ease-out) forwards}
+  .toast.is-leaving{animation:crmSink .15s var(--ease-out) forwards}
+  @media (prefers-reduced-motion:reduce){.bell-panel.is-leaving,.toast.is-leaving{animation:crmFadeOut .1s ease forwards}}
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;

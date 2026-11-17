@@ -22,6 +22,23 @@ function heErr(e){
    וללחוץ. לפי הטקסט ולא לפי דגל: כ-150 קריאות כבר מנסחות "נכשל"/"שגיאה",
    ובלי זה כל אחת מהן הייתה צריכה שינוי משלה. */
 const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
+
+/* יציאה מונפשת לטוסט ולפאנל ההתראות (הסקיל animate, "יוצאים כמו שנכנסו").
+   ‏display נשאר המקור לשאלה "האם פתוח", ולכן כל מי שקורא אותו ממשיך לעבוד.
+   ‏is-leaving מפעיל את אנימציית היציאה ב-CSS, ורק אחריה (טיימר, לא animationend,
+   כדי שגם תנועה מופחתת וטאב ברקע יסתיימו) מגיע ה-display:none. פתיחה באמצע
+   יציאה מבטלת אותה. */
+const LEAVE_MS = 200;
+function leaveAnimated(el, done){
+  if (el._leaveT) return;
+  el.classList.add('is-leaving');
+  el._leaveT = setTimeout(()=>{ el._leaveT = null; el.classList.remove('is-leaving'); done(); }, LEAVE_MS);
+}
+function cancelLeave(el){
+  clearTimeout(el._leaveT);
+  el._leaveT = null;
+  el.classList.remove('is-leaving');
+}
 function showToast(msg, ms=3200){
   const failure = TOAST_FAILURE.test(String(msg || ''));
   toastEl.classList.remove('is-undo');
@@ -37,9 +54,18 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+  showToast._t = setTimeout(hideToast, ms);
+}
+
+function hideToast(){
+  if (toastEl.style.display !== 'flex') return;
+  leaveAnimated(toastEl, ()=>{
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+  });
 }
 
 /* טוסט עם "ביטול" לכמה שניות. לחיצה מריצה את onUndo וסוגרת. טוסט חדש
@@ -58,17 +84,14 @@ function showUndoToast(msg, onUndo, ms=5000){
     if (done) return;
     done = true;
     clearTimeout(showToast._t);
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
+    hideToast();
     onUndo();
   });
   toastEl.append(span, btn);
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => {
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
-  }, ms);
+  showToast._t = setTimeout(hideToast, ms);
 }
 
 /* ================= ערעור על חסימת רישיון תיווך =================
@@ -27090,23 +27113,31 @@ async function loadNotifications(agentId){
 function openBellPanel(){
   // תפריט הבורגר אינו שכבה, ואינו נסגר מהלחיצה שנעצרה בכפתור
   closeMenuPanel();
-  document.getElementById('bellPanel').style.display = 'block';
+  const panel = document.getElementById('bellPanel');
+  cancelLeave(panel);
+  panel.style.display = 'block';
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'true');
   if (currentAgent) loadNotifications(currentAgent.id);
   setNavLayer('bell');
 }
 
-function closeBellPanel(){
+/* "פתוח" = display:block ולא באמצע יציאה: לחיצה על הפעמון בזמן שהפאנל נסגר פותחת אותו מחדש */
+function bellIsOpen(){
   const panel = document.getElementById('bellPanel');
-  if (!panel || panel.style.display !== 'block') return;
-  panel.style.display = 'none';
+  return !!panel && panel.style.display === 'block' && !panel.classList.contains('is-leaving');
+}
+
+function closeBellPanel(){
+  if (!bellIsOpen()) return;
+  const panel = document.getElementById('bellPanel');
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'bell') setNavLayer(null);
+  leaveAnimated(panel, ()=>{ panel.style.display = 'none'; });
 }
 
 document.getElementById('bellBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
-  if (document.getElementById('bellPanel').style.display === 'block') closeBellPanel();
+  if (bellIsOpen()) closeBellPanel();
   else openNavLayer('bell');
 });
 

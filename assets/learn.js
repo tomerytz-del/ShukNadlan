@@ -1134,9 +1134,18 @@
       else if (dx > 60) { var p = $('stepPrev'); if (p && !p.disabled) p.click(); }
     }, { passive: true });
   }
+  /* האנימציה של הכרטיס שנבחר רצה רק ברינדור הראשון אחרי התשובה: כל רינדור אחר
+     (פתיחת "מה אומר החוק", החלפת בחירה בבחינה) בונה את הכפתורים מחדש, ובלי הדגל
+     הייתה מנגנת שוב. הדגל נמחק אחרי רבע שנייה, וה-CSS מצמיד את האנימציה ל-.fresh */
+  function markFresh(a) {
+    a.fresh = true;
+    setTimeout(function () { a.fresh = false; }, 400);
+    return a;
+  }
   function optionsHtml(q, ans, examMode) {
     return (q.options || []).map(function (o, i) {
       var cls = 'opt';
+      if (ans && ans.fresh) cls += ' fresh';
       if (ans) {
         if (examMode) { if (ans.choice === i) cls += ' chosen'; }
         else if (ans.ok && ans.choice === i) cls += ' right';
@@ -1264,7 +1273,7 @@
       qa(sel).forEach(function (b) { b.disabled = false; });
       return null;
     }
-    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref, scene: r.data.scene || null };
+    S.answers[q.id] = markFresh({ choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref, scene: r.data.scene || null });
     return S.answers[q.id];
   }
   async function answerStep(q, choice) {
@@ -1464,7 +1473,7 @@
       qa('.opt').forEach(function (b) { b.disabled = false; });
       return;
     }
-    A.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref };
+    A.answers[q.id] = markFresh({ choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref });
     if (A.kind === 'exam' && A.idx < A.questions.length - 1) {
       setTimeout(function () { if (state.sim === A && A.idx < A.questions.length - 1) { A.idx++; renderSim(); } }, 300);
     } else renderSim();

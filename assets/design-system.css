@@ -27,6 +27,11 @@
 
 /* ====== 1. טוקנים ====== */
 :root{
+  /* ---- תנועה: עקומות (הסקיל animate). ease-out לכניסה ויציאה, ease-in-out לתנועה על המסך, drawer לשכבות תחתונות ---- */
+  --ease-out:        cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out:     cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer:     cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ---- ספיר: הצבע הראשי. פעולות, קישורים, כותרות, הדגשת נתונים ---- */
   --sapphire:        #0e2a6b;
   --sapphire-deep:   #0d1b3d;
