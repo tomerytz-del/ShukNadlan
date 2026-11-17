@@ -1,0 +1,94 @@
+{
+  "title": "העסק שלך. כל הכלים. מקום אחד.",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "normal",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "מתווך? כמה מערכות אתה צריך כדי לנהל את העסק שלך?",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מתווך?",
+        "כמה מערכות אתה צריך?"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: same series as one-place / call-to-meeting: warm off-white ground, sapphire #0e2a6b, gold #c9a227, teal accent #0f766e, heebo, RTL. Drawn in code, no fake screenshots. Hook: a stack of cards (tabs, WhatsApp, calendar, phone, spreadsheet, notification badges) piles up around a broker silhouette and a counter of badges climbs."
+    },
+    {
+      "id": "one",
+      "narration": "הגיע הזמן לנהל הכול במקום אחד.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "הגיע הזמן לנהל",
+        "הכול במקום אחד"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Every card from the hook flies into one clean dashboard frame (tiles: leads, meetings, tasks, no numbers)."
+    },
+    {
+      "id": "tools",
+      "narration": "מניהול לקוחות ונכסים, דרך שיווק וחשיפה, ועד שיתופי פעולה וכלי AI מתקדמים. כל מה שמתווך צריך כדי לעבוד חכם יותר.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "CRM ושיווק",
+        "לידים ושיתופי פעולה",
+        "כלי AI",
+        "גבריאלה",
+        "מנטור AI"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-2001e807"
+      ],
+      "notes": "Seven cards in quick succession, each with an icon, a short Hebrew title and a one-line caption. The mentor card is the real screenshot (mentor-crop). No numbers, no prices."
+    },
+    {
+      "id": "offer",
+      "narration": "מתחילים עם חודשיים Elite ללא תשלום. הצטרפו עכשיו למסלול Elite.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מתחילים עם חודשיים",
+        "Elite ללא תשלום!"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A big gold badge '2' with 'חודשים Elite ללא תשלום'. A phone and a laptop drawn in code. Two months only, never six."
+    },
+    {
+      "id": "cta",
+      "narration": "העסק שלך ראוי לעבוד חכם יותר. הצטרפו עכשיו!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "העסק שלך ראוי לעבוד חכם יותר.",
+        "הצטרפו עכשיו!",
+        "shuknadlan.co.il"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-a78033d5"
+      ],
+      "notes": "Original logo untouched in the centre on its own off-white ground, then the two lines and the URL (LTR span). Hold the last 1.5 s."
+    }
+  ]
+}
