@@ -5368,6 +5368,13 @@ window.shukArmTrackers = function () {
   @media (prefers-reduced-motion:reduce){.bell-panel,.toast,.nl-panel{animation:crmFade .15s ease}}
   /* החיפוש נפתח גם ב-Ctrl+K, פעולה מהמקלדת שחוזרת עשרות פעמים ביום: בלי תנועה, כדי שהתווים הראשונים לא ייפלו לפאנל שזז */
   .nav-search .nl-panel,.nav-search .nl-backdrop{animation:none}
+  /* יציאה: הפוכה לכניסה (הפעמון עלה מלמעלה ויוצא למעלה, הטוסט עלה מלמטה ויוצא למטה). ה-JS מוסיף is-leaving וממתין 200ms לפני display:none */
+  @keyframes crmPopUp{to{opacity:0;transform:translateY(-6px)}}
+  @keyframes crmSink{to{opacity:0;transform:translateY(12px)}}
+  @keyframes crmFadeOut{to{opacity:0}}
+  .bell-panel.is-leaving{animation:crmPopUp .12s var(--ease-out) forwards}
+  .toast.is-leaving{animation:crmSink .15s var(--ease-out) forwards}
+  @media (prefers-reduced-motion:reduce){.bell-panel.is-leaving,.toast.is-leaving{animation:crmFadeOut .1s ease forwards}}
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;
