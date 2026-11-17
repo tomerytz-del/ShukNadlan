@@ -23,6 +23,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
@@ -47,6 +48,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
@@ -123,6 +125,10 @@ jobs:
       # כתיב סלחני, קישור CRM, כשל מודל, ומרווח שליחה (בלי קריאה ל-Meta).
       - name: ניצחונות מהירים של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
+
+      # דף המשרד לפייסבוק: כפתור לדף הציבורי, בלי כתובת בגוף, ובלי דף מומצא.
+      - name: שיתוף דף המשרד בפייסבוק
+        run: node --experimental-strip-types scripts/office_share_test.ts
 
       # שאלה שכבר נענתה, תזכורת על נושא אחר, תפריט, והודעה קולית בלי מילים.
       - name: תשובות גבריאלה בלי עומס
