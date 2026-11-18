@@ -3430,7 +3430,7 @@ window.shukArmTrackers = function () {
     border:1px solid var(--edge);border-radius:var(--r-md);box-shadow:var(--sh-2);
     display:none;z-index:160;padding:6px;
   }
-  .menu-panel.is-open{display:block}
+  .menu-panel.is-open,.menu-panel.is-leaving{display:block}
   /* ‏[hidden] מנוצח על ידי ה-display של .icon-btn, ולכן הוא נאמר כאן במפורש */
   .icon-btn[hidden]{display:none}
   /* ---------- תפריט הפרופיל ----------
@@ -5399,6 +5399,9 @@ window.shukArmTrackers = function () {
   .photo-sheet-card,.air-sheet-card{animation:crmSheetRise .28s var(--ease-drawer)}
   @media(min-width:760px){.photo-sheet-card,.air-sheet-card{animation:crmModalIn .2s var(--ease-out)}}
   .menu-panel{animation:crmPopDown .16s var(--ease-out)}
+  /* יציאת תפריט הפרופיל: הפוכה לכניסה (ירד מהאווטאר ועולה אליו). ה-JS מוסיף is-leaving וממתין 200ms; ‏pointer-events:none כדי שלא יקלוט לחיצות */
+  .profile-panel.is-leaving{animation:crmPopUp .12s var(--ease-out) forwards;pointer-events:none}
+  @media (prefers-reduced-motion:reduce){.profile-panel.is-leaving{animation:crmFadeOut .1s ease forwards}}
   .prop-more-menu{animation:crmMenuIn .12s var(--ease-out)}
   .img-menu{animation:crmFade .1s var(--ease-out)}
   @media (prefers-reduced-motion:reduce){.pm-card,.imp-card,.photo-sheet-card,.air-sheet-card,.menu-panel,.prop-more-menu{animation:crmFade .15s ease}}
@@ -5739,7 +5742,7 @@ window.shukArmTrackers = function () {
        שבתוכה, והפאנל היה נחתך לגובה הכותרת. בזמן שהמסך המלא פתוח הוא מכסה
        אותה ממילא, ולכן הטשטוש יורד. */
     html.pp-open #dashboard header.crm{backdrop-filter:none;-webkit-backdrop-filter:none}
-    #dashboard .profile-panel.is-open{
+    #dashboard .profile-panel.is-open,#dashboard .profile-panel.is-leaving{
       position:fixed;inset:0;inset-inline:0;top:0;bottom:calc(64px + var(--sa-bottom));
       width:auto;max-width:none;max-height:none;border-radius:0;border:0;z-index:185;
       padding:calc(10px + env(safe-area-inset-top,0px)) 12px 16px;
