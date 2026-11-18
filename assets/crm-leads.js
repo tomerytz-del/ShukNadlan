@@ -860,7 +860,11 @@ function openLeadPrefsSheet(focusId){
 function restoreLeadPrefsHome(){
   const section = document.getElementById('setLeadPrefs');
   if (leadPrefsHome && section && leadPrefsHome.parent){
-    leadPrefsHome.parent.insertBefore(section, leadPrefsHome.next);
+    // האח הבא נשמר בפתיחה הראשונה. אם הוא כבר אינו ילד של ההורה (הדף נבנה מחדש), insertBefore זורקת,
+    // וכשההחזרה רצה בטיימר היציאה הסעיפים נשארים בגיליון הסגור: במקרה כזה מוסיפים בסוף
+    const next = leadPrefsHome.next && leadPrefsHome.next.parentNode === leadPrefsHome.parent
+      ? leadPrefsHome.next : null;
+    leadPrefsHome.parent.insertBefore(section, next);
   }
   const body = document.getElementById('leadsSetBody');
   const follow = document.getElementById('leadsFollowRow');
