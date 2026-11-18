@@ -346,6 +346,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `docs/gtm-events-import.json` | שמונת אירועי האתר: 8 טריגרים, 8 תגיות GA4, 17 משתני `DLV` |
 | `docs/gtm-pwa-import.json` | ששת אירועי ה-PWA: 6 טריגרים, 6 תגיות, 3 משתנים |
 | `docs/gtm-open-house-import.json` | ‏`oh_calc_used` של דף היריד: טריגר ותגית, בלי משתנים חדשים (‏`page_type` ו-`src` דרך ה-`DLV` הקיימים) |
+| `docs/gtm-pro-signup-import.json` | משפך ההרשמה של בעלי המקצוע: ‏`pro_signup_cta_click`, ‏`pro_signup_start`, ‏`pro_signup_error`, ‏`pro_signup_complete` - 4 טריגרים ו-4 תגיות, בלי משתנים חדשים (‏`page_type`, ‏`cta`, ‏`reason`, ‏`type` דרך ה-`DLV` הקיימים). **הקוד שדוחף אותם עוד לא נכנס**: הוא מחכה לייבוא ולייצוא מחדש של המכולה |
 
 שניהם ב-`Admin ← Import Container` במצב `Merge`. ‏`gtm/README.md`.
 
