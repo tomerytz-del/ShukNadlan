@@ -63,14 +63,20 @@
   const HAS_PARCEL = 'אם הגוש והחלקה ידועים, שלח/י אותם לגבריאלה בוואטסאפ והיא תבדוק לפיהם.';
   function notFoundText(link, reason){
     const byAddress = !!(link.street && link.house_number);
-    if (reason === 'no_single_parcel') {
-      return byAddress
-        ? 'הכתובת נמצאה ב-GovMap, אבל הנקודה שלה אינה יושבת על חלקה אחת ברורה (היא בין שתי חלקות, ' +
-          'או במקום שאין בו חלקה רשומה), ולכן לא ניחשנו לאיזו חלקה היא שייכת. ' + HAS_PARCEL
-        : 'החלקה נמצאה ב-GovMap, אבל לא התקבל ממנה מידע תכנוני. כדאי לבדוק את המספרים, או לשלוח לגבריאלה את הכתובת.';
+    if (reason === 'ambiguous_parcel' && byAddress) {
+      return 'הכתובת נמצאה ב-GovMap, אבל הנקודה שלה יושבת בין שתי חלקות ולכן לא ניחשנו לאיזו מהן היא שייכת. ' + HAS_PARCEL;
     }
-    if (reason === 'no_parcel' || !byAddress) {
+    if (reason === 'no_parcel_at_point' || reason === 'ambiguous_parcel') {
+      return byAddress
+        ? 'הכתובת נמצאה ב-GovMap, אבל בנקודה שלה אין חלקה רשומה (למשל כתובת על דרך או בשטח שאינו מוסדר). ' + HAS_PARCEL
+        : 'החלקה נמצאה בחיפוש של GovMap, אבל שכבת החלקות לא החזירה אותה. נסה/י שוב מאוחר יותר, או שלח/י לגבריאלה את הכתובת.';
+    }
+    if (reason === 'no_parcel') {
       return 'GovMap לא מצא גוש וחלקה כאלה. כדאי לבדוק את המספרים ולשלוח אותם שוב לגבריאלה בוואטסאפ.';
+    }
+    // קישור של גוש/חלקה שנענה לפני שהסיבה נשמרה: לא יודעים איזה שלב נפל, ולא טוענים
+    if (!byAddress) {
+      return 'GovMap לא החזיר מידע על הגוש והחלקה האלה. כדאי לבדוק את המספרים, או לבקש מגבריאלה קישור חדש.';
     }
     return 'GovMap לא מצא את הכתובת בשכבת הכתובות. ' + HAS_PARCEL;
   }
@@ -100,7 +106,7 @@
       '<div class="plan"><div class="plan-num">' + esc(n) + '</div><div class="plan-meta">תוכנית מפורטת</div></div>').join('');
     app.innerHTML =
       '<div class="card"><h1>' + esc(label(link)) + '</h1>' +
-      (s.pin_source === 'parcel' ? '<p class="sub">הכתובת אינה בשכבת הכתובות - המידע לפי הגוש והחלקה.</p>' : '') +
+      (s.pin_source === 'parcel' && link.street && link.house_number ? '<p class="sub">הכתובת אינה בשכבת הכתובות - המידע לפי הגוש והחלקה.</p>' : '') +
       '<div class="facts">' + facts.map(f => '<div class="fact"><b>' + esc(f[0]) + '</b><span>' + esc(f[1]) + '</span></div>').join('') +
       '<div class="fact wide"><b>' + esc(s.designation || 'לא נמצא בשכבות') + '</b><span>ייעוד קרקע</span></div></div>' +
       ((s.plans || []).some(p => p.notice)

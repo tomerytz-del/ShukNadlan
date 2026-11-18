@@ -278,20 +278,55 @@
 
   function first(arr) { return (arr && arr.length) ? arr[0].attributes || {} : null; }
 
+  /* איזו חלקה מתוך מה שחזר בנקודה. רשומות כפולות של אותה חלקה (אותו גוש,
+     תת-גוש וחלקה) נספרות כאחת. עם `want` (חיפוש לפי גוש/חלקה) נבחרת החלקה
+     **שביקשנו** - מרכז של חלקה גדולה או קעורה יכול ליפול על שכנה, ואז "חלקה
+     יחידה בנקודה" היא החלקה הלא נכונה. בלי `want` - רק תוצאה יחידה: שתי
+     חלקות בטווח פירושן שאיננו יודעים איזו. מחזירה { feature } או { count }. */
+  function pickParcel(features, want) {
+    var seen = {}, uniq = [];
+    (features || []).forEach(function (f) {
+      var a = (f && f.attributes) || {};
+      var k = a.gush_num + '|' + (a.gush_suffix || 0) + '|' + a.parcel;
+      if (!seen[k]) { seen[k] = true; uniq.push(f); }
+    });
+    if (want) {
+      for (var i = 0; i < uniq.length; i++) {
+        var w = uniq[i].attributes || {};
+        if (String(w.gush_num) === String(want.gush) && String(w.parcel) === String(want.helka)) return { feature: uniq[i] };
+      }
+      return { count: 0 };
+    }
+    return uniq.length === 1 ? { feature: uniq[0] } : { count: uniq.length };
+  }
+
   /**
-   * מידע תכנוני בנקודה, בצורה של שורת property_planning_info.
-   * ‏null כשאין חלקה בנקודה (גם לא ב-10 מטר) - כתובת על כביש או בשטח לא מוסדר.
+   * מידע תכנוני בנקודה, בצורה של שורת property_planning_info, עם הסיבה כשאין:
+   * { planning, reason }. ‏reason: 'no_parcel_at_point' (אין חלקה גם ב-10 מטר -
+   * כתובת על כביש או בשטח לא מוסדר, או שהחלקה שביקשנו אינה שם) או
+   * 'ambiguous_parcel' (שתי חלקות ויותר בטווח, ואין לנו דרך לבחור).
    */
-  function planningAt(point) {
+  function planningAtWhy(point, want) {
     return layersAt(point, 0).then(function (layers) {
-      if (layers.PARCEL_ALL && layers.PARCEL_ALL.length === 1) return layers;
-      // נקודת כתובת שנפלה על קו חלקה או על המדרכה. רק תוצאה **יחידה**
-      // מתקבלת: שתי חלקות בטווח פירושן שאיננו יודעים איזו, ואז null.
+      var got = pickParcel(layers.PARCEL_ALL, want);
+      if (got.feature) { layers.PARCEL_ALL = [got.feature]; return { layers: layers }; }
+      // נקודת כתובת שנפלה על קו חלקה או על המדרכה.
       return layersAt(point, 10).then(function (l2) {
-        return (l2.PARCEL_ALL && l2.PARCEL_ALL.length === 1) ? l2 : null;
+        var g2 = pickParcel(l2.PARCEL_ALL, want);
+        if (g2.feature) { l2.PARCEL_ALL = [g2.feature]; return { layers: l2 }; }
+        return { layers: null, reason: g2.count > 1 ? 'ambiguous_parcel' : 'no_parcel_at_point' };
       });
-    }).then(function (layers) {
-      if (!layers) return null;
+    }).then(function (res) {
+      return { planning: res.layers ? planningFromLayers(res.layers) : null, reason: res.layers ? null : res.reason };
+    });
+  }
+
+  /** החוזה הוותיק: הרשומה, או null כשאין חלקה אחת בנקודה. */
+  function planningAt(point) {
+    return planningAtWhy(point).then(function (out) { return out.planning; });
+  }
+
+  function planningFromLayers(layers) {
       var parcel = first(layers.PARCEL_ALL);
       var lot = first(layers.retzefMigrashim);
       var nbr = first(layers.neighborhoods_area);
@@ -312,7 +347,6 @@
         neighborhood: nbr ? nbr.fname || null : null,
         cbs_settlement_code: lot && lot.kodishuv ? Number(lot.kodishuv) : null,
       };
-    });
   }
 
   /* מפתח השוואה למספר תוכנית: ‏203 כותבת "תמא/ 15/ ד", העירייה "תמא/15/ד". */
@@ -745,8 +779,8 @@
      מחזירה { record, reason }. כש-record הוא null, ‏reason אומר **באיזה שלב**:
        no_address        - החיפוש לא החזיר כתובת שתואמת למה שביקשנו
        no_parcel         - הגוש והחלקה שבבקשה לא נמצאו בחיפוש
-       no_single_parcel  - נקודה נמצאה, אבל אין בה חלקה אחת (אפס, או שתיים
-                           בטווח 10 מ' - planningAt אינה מנחשת)
+       no_parcel_at_point - נקודה נמצאה, ואין בה חלקה גם בטווח 10 מ'
+       ambiguous_parcel   - נקודת כתובת עם שתי חלקות ויותר בטווח (לא מנחשים)
      עד 18.11.2026 שלושתם היו null אחד, ודף הבדיקה אמר על כולם "GovMap לא מצא
      את הכתובת" - גם כשהכתובת נמצאה. */
   function addressRecordWhy(r) {
@@ -762,8 +796,11 @@
       return lookupParcel(r.gush, r.helka);
     }).then(function (pt) {
       if (!pt) return { record: null, reason: pinSource === 'parcel' ? 'no_parcel' : 'no_address' };
-      return planningAt(pt).then(function (planning) {
-        if (!planning) return { record: null, reason: 'no_single_parcel' };
+      // בחיפוש לפי גוש/חלקה יודעים איזו חלקה מחפשים בנקודה (pickParcel)
+      var want = pinSource === 'parcel' ? { gush: r.gush, helka: r.helka } : null;
+      return planningAtWhy(pt, want).then(function (at) {
+        var planning = at.planning;
+        if (!planning) return { record: null, reason: at.reason };
         // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
         return Promise.all([
           plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),

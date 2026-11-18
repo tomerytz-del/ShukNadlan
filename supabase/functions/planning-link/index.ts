@@ -41,7 +41,7 @@ const gone = () =>
 
 // למה הדף לא מצא (‏addressRecordWhy ב-assets/govmap.js). רשימה סגורה: הערך מגיע
 // מהדפדפן, ונשמר בקישור כדי שנדע מהמסד איזה שלב נפל.
-const NOT_FOUND_REASONS = ["no_address", "no_parcel", "no_single_parcel"];
+const NOT_FOUND_REASONS = ["no_address", "no_parcel", "no_parcel_at_point", "ambiguous_parcel"];
 
 const OWNERSHIP_LABEL: Record<string, string> = {
   P: "פרטית", S: "מדינה", L: "רשות מקומית", M: "מעורבת", O: "אחר",

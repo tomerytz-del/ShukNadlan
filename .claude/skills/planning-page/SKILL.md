@@ -47,8 +47,9 @@ description: מידע תכנוני דרך גבריאלה בריפו של שוק 
 4. קישור שכבר נענה מציג את התוצאה השמורה, בלי GovMap
 
 **"לא נמצא" נושא סיבה.** הדף קורא ל-`GovmapLookup.addressRecordWhy` ומקבל
-`{ record, reason }` - `no_address`, ‏`no_parcel` או `no_single_parcel` (הכתובת נמצאה,
-אבל אין בנקודה חלקה אחת). לכל סיבה נוסח משלה ב-`notFoundText`, והיא נשמרת בקישור
+`{ record, reason }` - `no_address`, ‏`no_parcel`, ‏`no_parcel_at_point` או `ambiguous_parcel`
+(הכתובת נמצאה, אבל אין בנקודה חלקה, או שיש שתיים). בקישור של גוש/חלקה נבחרת החלקה
+**שביקשו** מתוך מה שבנקודה (‏`pickParcel`), ולא "היחידה". לכל סיבה נוסח משלה ב-`notFoundText`, והיא נשמרת בקישור
 (‏`result = { not_found, reason }`, רשימה סגורה ב-`planning-link`). סיבה חדשה נכנסת
 לשלושתם: ‏`addressRecordWhy`, ‏`NOT_FOUND_REASONS` ו-`notFoundText`. **לא להחזיר נוסח
 אחד לכולם** - "GovMap לא מצא את הכתובת" על כתובת שנמצאה שולח את הסוכן/ת לחפש שגיאת כתיב.
