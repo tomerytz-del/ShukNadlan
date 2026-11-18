@@ -278,52 +278,69 @@
 
   function first(arr) { return (arr && arr.length) ? arr[0].attributes || {} : null; }
 
-  /* איזו חלקה מתוך מה שחזר בנקודה. רשומות כפולות של אותה חלקה (אותו גוש,
-     תת-גוש וחלקה) נספרות כאחת. עם `want` (חיפוש לפי גוש/חלקה) נבחרת החלקה
-     **שביקשנו** - מרכז של חלקה גדולה או קעורה יכול ליפול על שכנה, ואז "חלקה
-     יחידה בנקודה" היא החלקה הלא נכונה. בלי `want` - רק תוצאה יחידה: שתי
-     חלקות בטווח פירושן שאיננו יודעים איזו. מחזירה { feature } או { count }. */
-  function pickParcel(features, want) {
-    var seen = {}, uniq = [];
+  /* איזו חלקה מתוך מה שחזר בנקודה. מחזירה { feature } או { count }.
+     - רשומה בלי גוש או חלקה אינה חלקה, ורשומות כפולות של אותה חלקה (אותו גוש,
+       תת-גוש וחלקה) נספרות כאחת.
+     - בלי `want`: רק תוצאה יחידה. שתי חלקות בטווח פירושן שאיננו יודעים איזו.
+     - עם `want` (הגוש והחלקה ידועים): בין כמה חלקות נבחרת זו שביקשנו.
+     - `strict` (הנקודה עצמה באה מחיפוש הגוש/חלקה): **רק** החלקה שביקשנו. מרכז
+       של חלקה גדולה או קעורה יכול ליפול על שכנה, ואז "החלקה היחידה בנקודה"
+       היא החלקה הלא נכונה. בנקודת כתובת זה לא חל: שם הכתובת היא האמת, וגוש
+       מהעסקה משמש רק להכרעה בין שתיים.
+     תת-גוש אינו נבדק מול `want`: הבקשה אינה נושאת אותו. */
+  function pickParcel(features, want, strict) {
+    var seen = {}, uniq = [], match = null;
+    var wg = want ? String(want.gush == null ? '' : want.gush).trim() : '';
+    var wh = want ? String(want.helka == null ? '' : want.helka).trim() : '';
     (features || []).forEach(function (f) {
       var a = (f && f.attributes) || {};
+      if (a.gush_num == null || a.parcel == null) return;
       var k = a.gush_num + '|' + (a.gush_suffix || 0) + '|' + a.parcel;
-      if (!seen[k]) { seen[k] = true; uniq.push(f); }
+      if (seen[k]) return;
+      seen[k] = true; uniq.push(f);
+      if (!match && wg && wh && String(a.gush_num) === wg && String(a.parcel) === wh) match = f;
     });
-    if (want) {
-      for (var i = 0; i < uniq.length; i++) {
-        var w = uniq[i].attributes || {};
-        if (String(w.gush_num) === String(want.gush) && String(w.parcel) === String(want.helka)) return { feature: uniq[i] };
-      }
-      return { count: 0 };
-    }
-    return uniq.length === 1 ? { feature: uniq[0] } : { count: uniq.length };
+    if (strict) return match ? { feature: match } : { count: 0 };
+    if (uniq.length === 1) return { feature: uniq[0] };
+    return match ? { feature: match } : { count: uniq.length };
   }
 
   /**
    * מידע תכנוני בנקודה, בצורה של שורת property_planning_info, עם הסיבה כשאין:
-   * { planning, reason }. ‏reason: 'no_parcel_at_point' (אין חלקה גם ב-10 מטר -
-   * כתובת על כביש או בשטח לא מוסדר, או שהחלקה שביקשנו אינה שם) או
+   * { planning, reason, offPoint }. ‏reason: 'no_parcel_at_point' (אין חלקה גם
+   * ב-10 מטר - כתובת על כביש או בשטח לא מוסדר, או שהחלקה שביקשנו אינה שם) או
    * 'ambiguous_parcel' (שתי חלקות ויותר בטווח, ואין לנו דרך לבחור).
+   *
+   * ‏offPoint: החלקה שביקשנו (strict) נמצאה רק בטווח, כלומר הנקודה עצמה **אינה
+   * בתוכה**. המגרש, הייעוד והתוכניות שבנקודה שייכים אז לשכנה, ולכן הרשומה
+   * חוזרת עם פרטי החלקה בלבד - והקורא אינו שואל את plansAt על הנקודה הזו.
    */
-  function planningAtWhy(point, want) {
+  function planningAtWhy(point, want, strict) {
     return layersAt(point, 0).then(function (layers) {
-      var got = pickParcel(layers.PARCEL_ALL, want);
+      var got = pickParcel(layers.PARCEL_ALL, want, strict);
       if (got.feature) { layers.PARCEL_ALL = [got.feature]; return { layers: layers }; }
       // נקודת כתובת שנפלה על קו חלקה או על המדרכה.
       return layersAt(point, 10).then(function (l2) {
-        var g2 = pickParcel(l2.PARCEL_ALL, want);
-        if (g2.feature) { l2.PARCEL_ALL = [g2.feature]; return { layers: l2 }; }
-        return { layers: null, reason: g2.count > 1 ? 'ambiguous_parcel' : 'no_parcel_at_point' };
+        var g2 = pickParcel(l2.PARCEL_ALL, want, strict);
+        if (!g2.feature) return { layers: null, reason: g2.count > 1 ? 'ambiguous_parcel' : 'no_parcel_at_point' };
+        l2.PARCEL_ALL = [g2.feature];
+        if (strict) { l2.retzefMigrashim = []; return { layers: l2, offPoint: true }; }
+        return { layers: l2 };
       });
     }).then(function (res) {
-      return { planning: res.layers ? planningFromLayers(res.layers) : null, reason: res.layers ? null : res.reason };
+      return { planning: res.layers ? planningFromLayers(res.layers) : null,
+               reason: res.layers ? null : res.reason, offPoint: !!res.offPoint };
     });
   }
 
   /** החוזה הוותיק: הרשומה, או null כשאין חלקה אחת בנקודה. */
   function planningAt(point) {
     return planningAtWhy(point).then(function (out) { return out.planning; });
+  }
+
+  /* הגוש והחלקה שבבקשה, אם יש: להכרעה בין חלקות (pickParcel) */
+  function wantOf(q) {
+    return q && q.gush && q.helka ? { gush: q.gush, helka: q.helka } : null;
   }
 
   function planningFromLayers(layers) {
@@ -460,9 +477,9 @@
       });
     }).then(function (found) {
       if (!found) return null;
-      return Promise.all([projReady(), planningAt(found.point)]).then(function (res) {
+      return Promise.all([projReady(), planningAtWhy(found.point, wantOf(q), found.pinSource === 'parcel')]).then(function (res) {
         var ll = itmToWgs84(res[0], found.point.x, found.point.y);
-        var planning = res[1];
+        var planning = res[1].planning;
         var out = { lat: ll[1], lng: ll[0], pinSource: found.pinSource, itm: found.point, planning: planning };
         if (!planning || !planning.gush || !planning.helka) return out;
         return parcelGeometryWgs84(planning.gush, planning.helka).then(function (geom) {
@@ -796,14 +813,13 @@
       return lookupParcel(r.gush, r.helka);
     }).then(function (pt) {
       if (!pt) return { record: null, reason: pinSource === 'parcel' ? 'no_parcel' : 'no_address' };
-      // בחיפוש לפי גוש/חלקה יודעים איזו חלקה מחפשים בנקודה (pickParcel)
-      var want = pinSource === 'parcel' ? { gush: r.gush, helka: r.helka } : null;
-      return planningAtWhy(pt, want).then(function (at) {
+      return planningAtWhy(pt, wantOf(r), pinSource === 'parcel').then(function (at) {
         var planning = at.planning;
         if (!planning) return { record: null, reason: at.reason };
-        // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
+        // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד.
+        // offPoint: הנקודה על חלקה שכנה, והתוכניות שבה אינן של החלקה שביקשנו.
         return Promise.all([
-          plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
+          at.offPoint ? null : plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
           latLngOf(pt),
         ]).then(function (res) {
           var out = Object.assign({}, planning, { lat: res[1].lat, lng: res[1].lng, pin_source: pinSource });
@@ -831,6 +847,7 @@
     lookupProperty: lookupProperty,
     addressRecord: addressRecord,
     addressRecordWhy: addressRecordWhy,
+    _pickParcel: pickParcel,           // לבדיקות בלבד
     _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,
