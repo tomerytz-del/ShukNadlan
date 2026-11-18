@@ -50,7 +50,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="description" content="פותחים עמוד מקצועי בחינם בשוק הנדל״ן של עפולה והעמק: עורכי דין, שמאים, יועצי משכנתאות, אדריכלים, מעצבי פנים, קבלנים, מודדים ועוד. ללא פרטי אשראי וללא התחייבות.">
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* הסגנון של הדף יושב ב-<style> שאחרי design-system.css (למטה): הגיליון
      נטען אחרי הבלוק הזה ודורס אותו. כאן רק מה שצריך לפני הציור הראשון. */
@@ -66,8 +66,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html{scroll-behavior:smooth}
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
   .ps{font-size:16px;color:#0d1b3d}
-  .ps h1,.ps h2,.ps h3,.ps p,.ps ul,.ps ol{margin:0;padding:0}
-  .ps ul,.ps ol{list-style:none}
+  /* ‏:where כדי שהאיפוס לא יגבר על מחלקה בודדת שמגדירה מרווח (‏.ps-panel-sub) */
+  :where(.ps) :is(h1,h2,h3,p,ul,ol){margin:0;padding:0}
+  :where(.ps) :is(ul,ol){list-style:none}
   .ps-wrap{max-width:1120px;margin:0 auto;padding-inline:20px}
   .ps-narrow{max-width:820px}
   [id="signup"]{scroll-margin-top:12px}
@@ -196,6 +197,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ps-ghost:hover{background:#eaf0fb}
   a.ps-submit{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:16px}
   a.ps-submit:hover{color:#fff}
+  a.ps-submit[hidden]{display:none}
   .ps-manage{background:#eaf0fb;border-radius:12px;padding:14px;margin-top:18px}
   .ps-manage-title{font-weight:800;font-size:.94rem;color:#0d1b3d;margin:0 0 4px}
   .ps-manage-note{font-size:.84rem;color:#4a5578;margin:0 0 10px}
@@ -483,14 +485,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
-const PAID_LABEL = 'הרשמה בתשלום - ₪350/חודש';
-
-// מי שכבר מימש/ה את ההטבה מקבל/ת מהשרת promo_already_used, ורק אחרי שזה
-// נאמר לו/ה הכפתור עובר למסלול התשלום — לחיצה על "חינם" לא מובילה לסולק.
-let acceptPaid = false;
+const SUBMIT_LABEL = 'פותחים עמוד מקצועי בחינם';
+// אין מסלול תשלום בדף הזה (18.11.2026): ההרשמה כאן חינמית בלבד, והדף לעולם
+// אינו שולח accept_paid. אם הפרסום החינמי יכובה במסד, השרת יענה
+// promo_already_used והדף יפנה אלינו במקום להוביל לסולק מתחת להבטחה "בחינם".
+function submitLabel(){ return SUBMIT_LABEL; }
 // צבעי ההודעה שמתחת לכפתור: אדום לשגיאה (‏5.9:1 על לבן), אפור-כחול למידע
 const ERR_COLOR = '#b3261e', INFO_COLOR = '#4a5578';
-function submitLabel(){ return acceptPaid ? PAID_LABEL : 'פותחים עמוד מקצועי בחינם'; }
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const advertiser_name = document.getElementById('advName').value.trim();
@@ -536,10 +537,6 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         phone,
         click_url: click_url || null,
         target_region: 'עפולה',
-        accept_paid: acceptPaid,
-        // אין חידוש אוטומטי בהרשמה (18.11.2026): גם כשמסלול התשלום דולק במסד,
-        // ההזמנה נפתחת בלי מנוי. ‏false מפורש, כי ברירת המחדל בשרת היא חידוש.
-        ...(acceptPaid ? { auto_renew: false } : {}),
       }),
     });
     const data = await res.json();
@@ -566,10 +563,9 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       return;
     }
     if (data.error === 'promo_already_used'){
-      acceptPaid = true;
       feedback.style.color = INFO_COLOR;
-      feedback.textContent = 'הטבת ההצטרפות כבר נוצלה עבור כתובת האימייל הזו. אפשר להמשיך בהרשמה בתשלום.';
-      btn.disabled = false; btn.textContent = PAID_LABEL;
+      feedback.textContent = 'ההצטרפות החינמית כבר נוצלה עבור כתובת האימייל הזו. לפתיחת עמוד נוסף פנו אלינו בטלפון 054-6929991.';
+      btn.disabled = false; btn.textContent = submitLabel();
       return;
     }
 
@@ -680,7 +676,12 @@ async function pollOrder(orderId, attempt){
 (function preselectType(){
   const type = new URLSearchParams(location.search).get('type');
   const select = document.getElementById('advType');
-  if (type && [...select.options].some(o => o.value === type)) select.value = type;
+  if (type && [...select.options].some(o => o.value === type)){
+    select.value = type;
+    // הקישורים "התחום פנוי. הצטרפו בחינם" מבטיחים טופס, והוא יושב באמצע דף ארוך
+    if (!new URLSearchParams(location.search).get('order_id'))
+      document.getElementById('signup').scrollIntoView();
+  }
 })();
 
 (function handlePaymentReturn(){
