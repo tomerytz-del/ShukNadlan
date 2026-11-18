@@ -273,6 +273,9 @@ const PROFESSIONAL_TYPE_LABELS: Record<string, string> = {
   architect: "אדריכל/ית",
   interior_designer: "מעצב/ת פנים",
   cleaning: "חברת ניקיון",
+  contractor: "קבלן/ית בנייה ושיפוצים",
+  planning_consultant: "יועץ/ת תכנון ובנייה",
+  surveyor: "מודד/ת מוסמך/ת",
   real_estate_lawyer: "עו״ד מקרקעין",
   general: "בעל/ת מקצוע",
 };
