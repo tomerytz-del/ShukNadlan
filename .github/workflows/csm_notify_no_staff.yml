@@ -1,0 +1,42 @@
+name: התראות ההטמעה בלי צוות פעיל
+
+# 20271118090000: csm_notify_run יוצאת מיד כשאין ב-csm_staff שורה פעילה.
+# הגוף הישן והחדש רצים על אותם נתונים ומושווים, עם צוות פעיל ובלעדיו.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271118090000_csm_notify_run_no_staff_exit.sql"
+      - "supabase/migrations/20270816090000_csm_profile_agenda_notifications.sql"
+      - "scripts/csm_notify_no_staff_test.py"
+      - ".github/workflows/csm_notify_no_staff.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271118090000_csm_notify_run_no_staff_exit.sql"
+      - "supabase/migrations/20270816090000_csm_profile_agenda_notifications.sql"
+      - "scripts/csm_notify_no_staff_test.py"
+      - ".github/workflows/csm_notify_no_staff.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: הגוף הישן מול החדש
+        run: python3 scripts/csm_notify_no_staff_test.py
