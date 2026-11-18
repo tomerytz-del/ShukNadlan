@@ -41,6 +41,7 @@ const IMG = {
   bgMap: "assets/img-map.png",
   bgHelpers: "assets/img-helpers.png",
   bgClose: "assets/img-close.png",
+  pack: "assets/img-pack.png",
 };
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -174,6 +175,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
   const helpers = sceneById(manifest, "helpers");
   const close = sceneById(manifest, "close");
   const cta = sceneById(manifest, "cta");
+  const pack = sceneById(manifest, "pack");
   type S = typeof wolf;
   const on = (s: S, w: string, o?: { nth?: number }) => (manifest.music ? onWordBeat(s, w, manifest.music, { window: 8, ...o }) : onWord(s, w, o));
   const wf = (s: S, w: string, o?: { nth?: number }) => wordFrame(s, w, o);
@@ -205,16 +207,17 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const scale = (tight ? 1.7 : 1.0 + 0.1 * (f / wolf.durationFrames)) + dive * 2.4;
           const origin = f >= endAt ? `${MOON.x}px ${MOON.y}px` : tight ? "65% 38%" : "70% 55%";
           return (
-            <AbsoluteFill style={{ transform: `translate(${shakeX(f, bAt, 16)}px, ${shakeY(f, bAt, 10)}px)` }}>
+            <AbsoluteFill>
               <Img src={urls[IMG.wolf]} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: origin }} />
               <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(2,8,23,0.35), rgba(2,8,23,0) 30%, rgba(2,8,23,0) 55%, rgba(2,8,23,0.6))" }} />
-              {f < bAt ? (
+              {/* one line for the whole hook: no sticker, no second chip, no captions over it */}
+              {f >= 0 ? (
                 <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.2, display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.006 }}>
                   <Line size={W * 0.15} weight={900} style={{ textShadow: "0 6px 30px rgba(0,0,0,0.6)" }}>מתווכים<span style={{ color: palette.accent }}>?</span></Line>
                   <Line size={W * 0.068} style={{ textShadow: "0 4px 20px rgba(0,0,0,0.7)" }}>גם אתם זאבים בודדים?</Line>
                 </div>
               ) : null}
-              {f >= bAt && !tight ? (
+              {false ? (
                 <div style={{ position: "absolute", left: W * 0.04, top: H * 0.3, width: W * 0.62, height: W * 0.62, transform: `rotate(${-9 + (1 - p) * 20}deg) scale(${0.2 + 0.85 * p})`, opacity: interpolate(f - bAt, [0, 2], [0, 1], clamp) }}>
                   <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, overflow: "visible", opacity: 1 - rays * 0.6 }}>
                     {Array.from({ length: 14 }).map((_, i) => {
@@ -230,24 +233,20 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                   </div>
                 </div>
               ) : null}
-              {tight ? (
+              {false ? (
                 <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.215, display: "flex", justifyContent: "center", ...shown(f, cutAt, fps, H, 1.4) }}>
                   <div style={{ background: palette.accent, borderRadius: W * 0.05, padding: `${H * 0.006}px ${W * 0.06}px`, transform: "rotate(-3deg)", boxShadow: "0 12px 30px rgba(0,0,0,0.45)" }}>
                     <Line size={W * 0.085} color={palette.ink} weight={900}>עובד לבד</Line>
                   </div>
                 </div>
               ) : null}
-              <Flash f={f} at={cutAt} len={4} />
               <Flash f={f} at={endAt + 8} len={5} />
             </AbsoluteFill>
           );
         })()}
-        <Sfx src={urls[SFX.riser]} at={Math.max(0, wf(wolf, "זאב") - 16)} volume={0.18} />
-        <Sfx src={urls[SFX.impact]} at={wf(wolf, "זאב") + 1} volume={0.34} />
-        <Sfx src={urls[SFX.pop]} at={wf(wolf, "זאב") + 2} volume={0.2} />
-        <Sfx src={urls[SFX.impact]} at={wf(wolf, "בודד")} volume={0.28} />
+        <Sfx src={urls[SFX.impact]} at={wf(wolf, "בודד")} volume={0.16} />
         <Sfx src={urls[SFX.riser]} at={wolf.durationFrames - 16} volume={0.2} />
-        {voice(wolf)}
+        {voice(wolf, false)}
       </SceneFrame>
 
       {/* ---------- 2. The map: the moon is the first dot, the network answers ---------- */}
@@ -340,7 +339,6 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </div>
               ) : null}
               <Flash f={f} at={0} len={4} />
-              {slams.map((s) => <Flash key={s.text} f={f} at={s.at} len={3} />)}
             </AbsoluteFill>
           );
         })()}
@@ -353,7 +351,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         <Sfx src={urls[SFX.impact]} at={on(map, "לקוחות")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "ושיתופי")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "במקום")} volume={0.3} />
-        {voice(map)}
+        {voice(map, false)}
       </SceneFrame>
 
       {/* ---------- 3. Gabriela and the mentor: three quick cuts ---------- */}
@@ -399,8 +397,6 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                   </div>
                 </>
               )}
-              <Flash f={f} at={mAt} len={4} />
-              <Flash f={f} at={gAt} len={3} />
             </AbsoluteFill>
           );
         })()}
@@ -420,9 +416,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const a1 = on(close, "לסגור");
           const a2 = on(close, "עסקאות");
           const stamps = [
-            { at: a1 + 2, x: 0.3, y: 0.43, rot: -12, s: 0.9 },
-            { at: a2, x: 0.68, y: 0.48, rot: 9, s: 1.0 },
-            { at: a2 + 7, x: 0.45, y: 0.54, rot: -4, s: 1.15 },
+            { at: a2 + 3, x: 0.5, y: 0.47, rot: -6, s: 1.1 }, // one stamp, under the line, after the last word
           ];
           const shake = stamps.reduce((a, s) => a + shakeX(f, s.at, 12, 8), 0);
           const shakeV = stamps.reduce((a, s) => a + shakeY(f, s.at, 10, 8), 0);
@@ -448,19 +442,48 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                   </div>
                 );
               })}
-              {stamps.map((s) => <Flash key={s.at} f={f} at={s.at} len={3} color="#ffffff" />)}
             </AbsoluteFill>
           );
         })()}
         <Sfx src={urls[SFX.whoosh]} at={1} volume={0.16} />
-        <Sfx src={urls[SFX.impact]} at={on(close, "לסגור") + 2} volume={0.3} />
-        <Sfx src={urls[SFX.impact]} at={on(close, "עסקאות")} volume={0.34} />
-        <Sfx src={urls[SFX.impact]} at={on(close, "עסקאות") + 7} volume={0.34} />
+        <Sfx src={urls[SFX.impact]} at={on(close, "עסקאות") + 3} volume={0.3} />
         <Sfx src={urls[SFX.chime]} at={on(close, "עסקאות") + 9} volume={0.14} />
-        {voice(close)}
+        {voice(close, false)}
       </SceneFrame>
 
-      {/* ---------- 5. The ending: one clean, quiet card ---------- */}
+      {/* ---------- 5. The hook comes back: the lone wolf has a pack ---------- */}
+      <SceneFrame from={pack.startFrame} durationInFrames={pack.durationFrames} enter="cut" exit="cut">
+        {(() => {
+          const f = frame - pack.startFrame;
+          const lAt = on(pack, "הלהקה");
+          const k = spring({ frame: f - lAt, fps, config: { damping: 10, stiffness: 170 } });
+          return (
+            <AbsoluteFill>
+              <Img src={urls[IMG.pack]} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1.04 + f * 0.0012})`, transformOrigin: "50% 65%" }} />
+              <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(2,8,23,0.55), rgba(2,8,23,0.1) 45%, rgba(2,8,23,0.55))" }} />
+              <div style={{ position: "absolute", top: H * 0.2, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.008 }}>
+                {f < lAt ? (
+                  <>
+                    <div style={shown(f, 2, fps, H, 1.05)}><Line size={W * 0.05} weight={600} color={palette.accent} style={{ letterSpacing: W * 0.012 }}>שוק נדל״ן</Line></div>
+                    <div style={shown(f, on(pack, "הקהילה"), fps, H, 1.08)}><Line size={W * 0.085} style={{ textShadow: "0 6px 30px rgba(0,0,0,0.6)" }}>הקהילה החכמה</Line></div>
+                    <div style={shown(f, on(pack, "מתווכי"), fps, H, 1.08)}><Line size={W * 0.062} style={{ textShadow: "0 4px 20px rgba(0,0,0,0.7)" }}>של מתווכי הנדל״ן</Line></div>
+                  </>
+                ) : (
+                  <div style={{ opacity: interpolate(f - lAt, [0, 2], [0, 1], clamp), transform: `scale(${0.7 + 0.3 * k})`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <Line size={W * 0.14} weight={900} color={palette.accent} style={{ textShadow: "0 8px 36px rgba(0,0,0,0.7)" }}>הלהקה</Line>
+                    <Line size={W * 0.11} weight={900} style={{ textShadow: "0 8px 36px rgba(0,0,0,0.7)" }}>מחכה לכם</Line>
+                  </div>
+                )}
+              </div>
+            </AbsoluteFill>
+          );
+        })()}
+        <Sfx src={urls[SFX.whoosh]} at={1} volume={0.18} />
+        <Sfx src={urls[SFX.impact]} at={on(pack, "הלהקה")} volume={0.26} />
+        {voice(pack, false)}
+      </SceneFrame>
+
+      {/* ---------- 6. The ending: one clean, quiet card ---------- */}
       <SceneFrame from={cta.startFrame} durationInFrames={cta.durationFrames} enter="cut" exit="cut">
         {(() => {
           const f = frame - cta.startFrame;
@@ -471,9 +494,9 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const jP = spring({ frame: f - jAt, fps, config: { damping: 12, stiffness: 140 } });
           const hair = (w: number): React.CSSProperties => ({ height: 2, width: w, background: `linear-gradient(90deg, transparent, ${palette.accent}, transparent)` });
           const verbs = [
-            { t: "מתחברים", at: on(cta, "מתחברים") },
-            { t: "משתפים", at: on(cta, "משתפים") },
-            { t: "סוגרים עסקאות", at: on(cta, "סוגרים") },
+            { t: "מתחברים", at: 6 },
+            { t: "משתפים", at: 10 },
+            { t: "סוגרים עסקאות", at: 14 },
           ];
           return (
             <AbsoluteFill style={{ clipPath: `circle(${reveal * 150}% at 50% 36%)`, background: palette.bg }}>
@@ -485,8 +508,8 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
               <div style={{ position: "absolute", top: H * 0.365, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.012 }}>
                 <div style={{ ...shown(f, 8, fps, H, 1.0) }}><Line size={W * 0.052} weight={600} color={palette.accent} style={{ letterSpacing: W * 0.012 }}>שוק נדל״ן</Line></div>
                 <div style={{ ...hair(W * 0.32), opacity: interpolate(f, [8, 14], [0, 1], clamp) }} />
-                <div style={shown(f, on(cta, "מצטרפים"), fps, H, 1.06)}><Line size={W * 0.066} color={palette.ink}>מצטרפים לקהילה החכמה</Line></div>
-                <div style={shown(f, on(cta, "מתווכי"), fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של מתווכי הנדל״ן של ישראל</Line></div>
+                <div style={shown(f, 4, fps, H, 1.06)}><Line size={W * 0.066} color={palette.ink}>מצטרפים לקהילה החכמה</Line></div>
+                <div style={shown(f, 7, fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של מתווכי הנדל״ן של ישראל</Line></div>
               </div>
               <div style={{ position: "absolute", top: H * 0.525, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.035, direction: "rtl", alignItems: "flex-start" }}>
                 {verbs.map((v, i) => {
@@ -509,7 +532,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </div>
               ) : null}
               {/* the address, at about 70 percent of the height: above the bottom 15 percent that Reels covers */}
-              <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.7, display: "flex", justifyContent: "center", opacity: interpolate(f, [on(cta, "סוגרים") + 6, on(cta, "סוגרים") + 12], [0, 1], clamp) }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.7, display: "flex", justifyContent: "center", opacity: interpolate(f, [18, 24], [0, 1], clamp) }}>
                 <div style={{ fontFamily: heebo, fontWeight: 600, fontSize: W * 0.038, color: palette.hero, direction: "ltr", letterSpacing: W * 0.004 }}>shuknadlan.co.il</div>
               </div>
             </AbsoluteFill>
@@ -517,15 +540,15 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         })()}
         <Sfx src={urls[SFX.whoosh]} at={1} volume={0.2} />
         <Sfx src={urls[SFX.sparkle]} at={4} volume={0.18} />
-        <Sfx src={urls[SFX.pop]} at={wf(cta, "מתחברים") + 1} volume={0.14} />
-        <Sfx src={urls[SFX.pop]} at={wf(cta, "משתפים") + 1} volume={0.14} />
-        <Sfx src={urls[SFX.pop]} at={wf(cta, "סוגרים") + 1} volume={0.14} />
+        <Sfx src={urls[SFX.pop]} at={7} volume={0.14} />
+        <Sfx src={urls[SFX.pop]} at={11} volume={0.14} />
+        <Sfx src={urls[SFX.pop]} at={15} volume={0.14} />
         <Sfx src={urls[SFX.impact]} at={wf(cta, "הצטרפו") + 1} volume={0.22} />
         <Sfx src={urls[SFX.chime]} at={wf(cta, "עכשיו") + 3} volume={0.16} />
         {voice(cta, false)}
       </SceneFrame>
 
-      {manifest.music ? <Music src={urls[manifest.music.key]} volume={0.14} duckTo={0.05} /> : null}
+      {manifest.music ? <Music src={urls[manifest.music.key]} volume={0.3} duckTo={0.17} /> : null}
       <Grain blend="multiply" opacity={0.04} />
       <Vignette strength={0.1} />
     </AbsoluteFill>

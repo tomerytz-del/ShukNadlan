@@ -3,8 +3,8 @@
   "aspect": "9:16",
   "mode": "motion",
   "voiceId": "TX3LPaxmHKxFdv7VOQHJ",
-  "pace": "normal",
-  "gap": "normal",
+  "pace": "fast",
+  "gap": "tight",
   "captions": "phrase",
   "scenes": [
     {
@@ -52,7 +52,7 @@
     },
     {
       "id": "helpers",
-      "narration": "ומה אם הייתה לכם עוזרת אישית בוואטסאפ, ומנטור שמלווה אתכם?",
+      "narration": "עם עוזרת אישית בוואטסאפ, ומנטור שמלווה אתכם.",
       "treatment": "illustration",
       "onScreenText": [
         "גבריאלה",
@@ -96,12 +96,32 @@
       "notes": "A short hit: the word 'עסקאות' lands big in gold, the connected map glows behind."
     },
     {
+      "id": "pack",
+      "narration": "שוק נדל״ן. הקהילה החכמה של מתווכי הנדל״ן. הלהקה מחכה לכם.",
+      "treatment": "illustration",
+      "onScreenText": [
+        "הלהקה מחכה לכם"
+      ],
+      "imagePrompt": "A pack of seven grey wolves standing together on a dark rocky ridge at night under a huge full moon, the lead wolf howling, the same deep blue cinematic night as a lone-wolf photograph, dramatic rim light on the fur, realistic photograph, vertical composition, empty sky in the upper half, no text",
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [
+        "wolves",
+        "pack",
+        "moon",
+        "night",
+        "together"
+      ],
+      "userAssetIds": [],
+      "notes": "The hook comes back: the lone wolf now has a pack. Big gold line on the word."
+    },
+    {
       "id": "cta",
-      "narration": "מצטרפים לקהילה החכמה של מתווכי הנדל״ן של ישראל. מתחברים, משתפים, סוגרים עסקאות. הצטרפו עכשיו.",
+      "narration": "הצטרפו עכשיו.",
       "treatment": "motion-graphic",
       "onScreenText": [
         "מצטרפים לקהילה החכמה",
-        "מתחברים · משתפים · סוגרים עסקאות",
+        "הצטרפו עכשיו",
         "shuknadlan.co.il"
       ],
       "imagePrompt": null,
