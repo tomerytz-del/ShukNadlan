@@ -68,3 +68,8 @@
 - **בלי מחירים ובלי ספירות**, כמו שאר הדף: הפירוט ב-`/pricing`.
 - התמונות: `gabriela-pop` (ה-hero), `gabriela-pose-f` והמנטור (`mentor-cutout`),
   כולן עם `width` ו-`height`. אותן שלוש תנוחות של גבריאלה כמו ב-`/pricing`.
+
+**ה-CSS של `.lp` יושב ב-`<style id="lp-css">` נפרד**, אחרי ה-`<style>` הראשון.
+`scripts/build_join_pages.py` מעתיק לארבעת דפי ה-join את ה-`<style>` הראשון בלבד,
+ו-`join_pages.yml --check` נכשל אם הדפים אינם מה שהמחולל מייצר. כלל חדש לחלק
+העליון נכנס לבלוק הנפרד, לא לראשון; ושינוי בראשון מחייב `python scripts/build_join_pages.py`.

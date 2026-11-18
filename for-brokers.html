@@ -80,7 +80,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .faq summary{cursor:pointer;font-weight:800;color:var(--ink)}
   html body .faq details p{margin:8px 0 0;max-width:65ch}
   html body .closer{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 18px;margin-top:8px}
+</style>
 
+<!-- החלק העליון של דף הנחיתה (.lp) בבלוק נפרד: scripts/build_join_pages.py לוקח מכאן את
+     ה-<style> הראשון בלבד, ודפי ה-join אינם צריכים את הכללים האלה. -->
+<style id="lp-css">
   /* ===== דף נחיתה לסוכנים חדשים: החלק העליון (.lp) =====
      שפה אחרת מהאתר (קרם, ירוק, טרקוטה), ולכן כל כלל כאן נושא html body .lp
      והוא נכתב אחרי design-system ו-content-page. נבנה בקנבס של קלוד דיזיין (17.11.2026).
