@@ -3423,6 +3423,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     .hs-deal{font-size:14px;gap:4px;padding:0 6px}
     .hs-deal svg{width:18px;height:18px}
   }
+  /* קישור שקט ליועצים בתחתית "האנשים מאחורי העסקאות" (18.11.2026): טקסט ולא כפתור, כי הדף פונה לקונים. */
+  html body .dm-agents{margin:12px 0 0;padding:0 16px;text-align:center;font-size:.88rem;color:var(--ink-soft)}
+  html body .dm-agents a{color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
+  html body .dm-agents a:hover,html body .dm-agents a:focus-visible{color:var(--teal-dark)}
 </style>
 
 <script type="application/ld+json">
@@ -5392,6 +5396,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a>
         <!-- בלי הדגל כותרת "משרדים מובילים" מוסתרת, ולכן ההסבר על הדירוג כאן (‏P1-T2) -->
         <button type="button" class="dm-rating-link v10-hide" id="ratingInfoLink2" aria-haspopup="dialog">איך נקבע הדירוג?</button></p>
+      <p class="dm-agents">יועץ או משרד תיווך? <a href="/for-brokers">פלטפורמה למתווכים</a></p>
     </div>
   </section>
 
