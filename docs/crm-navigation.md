@@ -333,7 +333,7 @@ PROFESSIONAL וב-Elite (`navItemVisible`), כמו הגייט במסד; `check_c
 ‏`closeProfilePanel` מוריד את `is-open` **מיד**, כך שכפתור האווטאר, `Escape` ו-`closeNavLayers` רואים אותו סגור,
 ורק ה-CSS משאיר אותו מצויר 200ms (`pointer-events:none`, `inert`). **`html.pp-open` יורד רק בסוף היציאה**,
 לא בתחילתה: בנייד הפאנל הוא מסך מלא (`position:fixed`) בתוך כותרת עם `backdrop-filter`, ואם הטשטוש חוזר באמצע הדעיכה
-הפאנל מתכווץ לגובה הכותרת. סגירה מיידית (`closeProfilePanelNow`, או `no-exit`): `Escape` (מהמקלדת), וכל חילוף שכבה
+הפאנל מתכווץ לגובה הכותרת. סגירה מיידית (`closeProfilePanelNow`): `Escape` (מהמקלדת), וכל חילוף שכבה
 (`closeNavLayers`, פתיחת יצירה, חיפוש וה-CMA), כדי שהפאנל הדועך לא יישב מתחת לשכבה החדשה.
 
 **בנייד התפריט הוא מסך מלא**, מעל הסרגל התחתון, עם כפתור סגירה. **המלכודת

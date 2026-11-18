@@ -33586,20 +33586,21 @@ function openProfilePanel(){
    (כפתור האווטאר, Escape, ‏closeNavLayers) רואה אותו סגור, ו-is-leaving משאיר אותו מצויר 200ms.
    ‏html.pp-open נשאר עד סוף היציאה: הוא מבטל את ה-backdrop-filter של הכותרת, ובלעדיו הפאנל המלא
    בנייד (position:fixed בתוך הכותרת) היה מתכווץ לגובה הכותרת באמצע הדעיכה.
-   ‏no-exit = סגירה מיידית: Escape (מהמקלדת), וחילוף שכבה (closeProfilePanelNow). ‏closeProfilePanel
-   משמשת גם כמאזין לחיצה, ולכן אינה מקבלת פרמטרים. */
-function closeProfilePanel(){
+   סגירה מיידית: Escape (מהמקלדת), וחילוף שכבה (closeProfilePanelNow). ‏closeProfilePanel משמשת גם
+   כמאזין לחיצה, ולכן אינה מקבלת פרמטרים: היא עוטפת את closeProfilePanelCore, שמקבלת את הבחירה
+   כפרמטר ולא כדגל ב-DOM. */
+function closeProfilePanelCore(instant){
   const panel = document.getElementById('profilePanel');
   if (!panel || !panel.classList.contains('is-open')) return;
   panel.classList.remove('is-open');
   document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'me') setNavLayer(null);
-  const instant = panel.classList.contains('no-exit');
-  panel.classList.remove('no-exit');
   if (instant){ document.documentElement.classList.remove('pp-open'); return; }
   panel.inert = true;
   leaveAnimated(panel, ()=>{ panel.inert = false; document.documentElement.classList.remove('pp-open'); });
 }
+
+function closeProfilePanel(){ closeProfilePanelCore(false); }
 
 /* סגירה מיידית, למי שסוגר את הפרופיל כדי לפתוח שכבה אחרת: ההחלפה מיידית, והפאנל הדועך לא נערם
    מתחת לחדש. אם הוא כבר באמצע יציאה, היציאה מסתיימת כאן */
@@ -33611,8 +33612,7 @@ function closeProfilePanelNow(){
     document.documentElement.classList.remove('pp-open');
     return;
   }
-  if (panel.classList.contains('is-open')) panel.classList.add('no-exit');
-  closeProfilePanel();
+  closeProfilePanelCore(true);
 }
 
 document.getElementById('avatarBtn').addEventListener('click', (e)=>{
