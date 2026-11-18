@@ -738,12 +738,21 @@
   }
 
   /* רשומת מידע תכנוני לכתובת (או לגוש/חלקה כשאין כתובת): גוש, חלקה, ייעוד,
-     התוכנית המפורטת, ושכבות 203/14. ‏null = לא נמצא. הצורה של
-     govmap_address_save / _govmap_address_store. משותפת להשלמה ב-CRM
-     (‏govmapAddressRecord) ולדף הבדיקה (‏assets/plan.js). */
-  function addressRecord(r) {
+     התוכנית המפורטת, ושכבות 203/14. הצורה של govmap_address_save /
+     _govmap_address_store. משותפת להשלמה ב-CRM (‏govmapAddressRecord) ולדף
+     הבדיקה (‏assets/plan.js).
+
+     מחזירה { record, reason }. כש-record הוא null, ‏reason אומר **באיזה שלב**:
+       no_address        - החיפוש לא החזיר כתובת שתואמת למה שביקשנו
+       no_parcel         - הגוש והחלקה שבבקשה לא נמצאו בחיפוש
+       no_single_parcel  - נקודה נמצאה, אבל אין בה חלקה אחת (אפס, או שתיים
+                           בטווח 10 מ' - planningAt אינה מנחשת)
+     עד 18.11.2026 שלושתם היו null אחד, ודף הבדיקה אמר על כולם "GovMap לא מצא
+     את הכתובת" - גם כשהכתובת נמצאה. */
+  function addressRecordWhy(r) {
     var pinSource = 'address';
-    var byAddress = r.street && r.house_number
+    var hasAddress = !!(r.street && r.house_number);
+    var byAddress = hasAddress
       ? lookupAddress({ street: r.street, houseNumber: r.house_number, city: r.city })
       : Promise.resolve(null);
     return byAddress.then(function (pt) {
@@ -752,9 +761,9 @@
       pinSource = 'parcel';
       return lookupParcel(r.gush, r.helka);
     }).then(function (pt) {
-      if (!pt) return null;
+      if (!pt) return { record: null, reason: pinSource === 'parcel' ? 'no_parcel' : 'no_address' };
       return planningAt(pt).then(function (planning) {
-        if (!planning) return null;
+        if (!planning) return { record: null, reason: 'no_single_parcel' };
         // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
         return Promise.all([
           plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
@@ -762,10 +771,15 @@
         ]).then(function (res) {
           var out = Object.assign({}, planning, { lat: res[1].lat, lng: res[1].lng, pin_source: pinSource });
           if (res[0]) out.govmap_plans = res[0];
-          return out;
+          return { record: out, reason: null };
         });
       });
     });
+  }
+
+  /* החוזה הוותיק: הרשומה, או null = לא נמצא. לולאות ההשלמה ב-CRM נשענות עליו. */
+  function addressRecord(r) {
+    return addressRecordWhy(r).then(function (out) { return out.record; });
   }
 
   window.GOVMAP_TOKEN = GOVMAP_TOKEN;
@@ -779,6 +793,7 @@
     latLngOf: latLngOf,
     lookupProperty: lookupProperty,
     addressRecord: addressRecord,
+    addressRecordWhy: addressRecordWhy,
     _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,

@@ -7,6 +7,7 @@
 //   open      - הכתובת של הקישור (‏planning_link_open). קישור לא תקין / שפג -> 404.
 //   complete  - התוצאה מהדפדפן: נשמרת (‏planning_link_complete -> _govmap_address_store),
 //               ומקבלת את סוג הבעלות מהטאבו (‏land_ownership_of) להצגה בדף.
+//               "לא נמצא" נשמר עם הסיבה (‏result = { not_found, reason }).
 //
 // **אין הודעת וואטסאפ עם התוצאה** (תומר, 22.10.2026): הדף הוא המקום היחיד
 // למידע תכנוני מגבריאלה - הוא מציג, משתף ומוריד. הסקיל planning-page.
@@ -37,6 +38,10 @@ function json(obj: unknown, status = 200) {
 }
 const gone = () =>
   json({ error: "not_found", message: "הקישור פג תוקף או שכבר אינו תקין. בקש/י מגבריאלה קישור חדש." }, 404);
+
+// למה הדף לא מצא (‏addressRecordWhy ב-assets/govmap.js). רשימה סגורה: הערך מגיע
+// מהדפדפן, ונשמר בקישור כדי שנדע מהמסד איזה שלב נפל.
+const NOT_FOUND_REASONS = ["no_address", "no_parcel", "no_single_parcel"];
 
 const OWNERSHIP_LABEL: Record<string, string> = {
   P: "פרטית", S: "מדינה", L: "רשות מקומית", M: "מעורבת", O: "אחר",
@@ -75,7 +80,10 @@ Deno.serve(async (req: Request) => {
   if (body.action === "complete") {
     const summary = summarize(body.record);
     const ownership = summary ? await ownershipOf(supabase, summary.gush, summary.helka) : null;
-    const result = summary ? { ...summary, ownership } : null;
+    const reason = NOT_FOUND_REASONS.includes(String(body.reason)) ? String(body.reason) : null;
+    // "לא נמצא" נשמר כ-{ not_found, reason }: הדף מציג את אותה סיבה בפתיחה חוזרת,
+    // ו-result->>'reason' עונה על "איזה שלב נפל" בלי לשחזר את הבדיקה.
+    const result = summary ? { ...summary, ownership } : reason ? { not_found: true, reason } : null;
     const { data, error } = await supabase.rpc("planning_link_complete", {
       p_id: k, p_record: summary ? body.record : null, p_result: result,
     });
