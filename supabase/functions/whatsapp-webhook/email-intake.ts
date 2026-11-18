@@ -27,7 +27,7 @@ import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { emailFailureNotice, emailLockPlan, type TurnLockResult } from "./turn-lock.ts";
-import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
+import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, senderStamp } from "./whatsapp.ts";
 import {
   type ExistingCost,
   findDuplicate,
@@ -579,6 +579,7 @@ async function deliver(
     console.error("email intake template failed", error);
   }
   await deps.supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: waId,
     direction: "out",
     wa_phone: phone,

@@ -5,7 +5,7 @@ import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import { PUBLIC_MODEL_FLAG, publicBotModel } from "./public-model.ts";
-import { formatForWhatsapp, sendButtons, sendImageCta, type WaSent } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, sendImageCta, type WaSent, senderStamp } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
@@ -1748,6 +1748,7 @@ async function sendPropertyCards(
         : [{ id: waMessageId, kind: "image" as const, body: formatForWhatsapp(caption) }];
       for (const part of logged) {
         await ctx.supabase.from("whatsapp_messages").insert({
+          ...senderStamp(),
           wa_message_id: part.id,
           direction: "out",
           wa_phone: ctx.waPhone,
@@ -1825,6 +1826,7 @@ async function offerSaveSearch(
     // הגוף והכפתורים, כמו שהפונה רואה אותם - ליומן ולהיסטוריה של השיחה
     ctx.offerSent = `${formatForWhatsapp(fullBody)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
     await ctx.supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waMessageId,
       direction: "out",
       wa_phone: ctx.waPhone,
@@ -1866,6 +1868,7 @@ async function offerAgentHelp(
     const waMessageId = await sendButtons(ctx.waPhone, body, buttons);
     ctx.offerSent = `${formatForWhatsapp(body)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
     await ctx.supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waMessageId,
       direction: "out",
       wa_phone: ctx.waPhone,

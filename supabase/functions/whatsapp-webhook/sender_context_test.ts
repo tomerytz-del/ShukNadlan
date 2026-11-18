@@ -9,11 +9,20 @@
 Deno.env.set("WHATSAPP_PHONE_NUMBER_ID", "111");
 Deno.env.set("WHATSAPP_PUBLIC_PHONE_NUMBER_ID", "222");
 
-const { withSender, isPublicNumber, publicNumberConfigured, currentSenderId } = await import("./whatsapp.ts");
+const { withSender, isPublicNumber, publicNumberConfigured, currentSenderId, senderStamp } = await import("./whatsapp.ts");
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
 }
+
+Deno.test("senderStamp: השדה ליומן הוא המספר של ההקשר, ובלי הקשר של הסוכנים", async () => {
+  assert(senderStamp().phone_number_id === "111", "outside withSender: agents' number");
+  await withSender("222", async () => {
+    await new Promise((r) => setTimeout(r, 1));
+    assert(senderStamp().phone_number_id === "222", "inside withSender: the public number");
+  });
+  assert(senderStamp().phone_number_id === "111", "after withSender: back to the agents' number");
+});
 
 Deno.test("isPublicNumber: רק המזהה הציבורי, ורק כשהסוד קיים", () => {
   assert(publicNumberConfigured(), "הסוד הציבורי אמור להיות מוגדר בבדיקה");
