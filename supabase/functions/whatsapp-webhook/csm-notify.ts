@@ -15,7 +15,7 @@
 // למחר" אחרי תזכורת יידעו על מה מדובר.
 // ============================================================================
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { formatForWhatsapp, notifyTemplateConfigured, sendAudio, sendNotifyTemplate, sendText } from "./whatsapp.ts";
+import { formatForWhatsapp, notifyTemplateConfigured, sendAudio, sendNotifyTemplate, sendText, senderStamp } from "./whatsapp.ts";
 import { callAnalysisText, type CallAnalysis } from "../_shared/csm-call-format.ts";
 import { callFollowupHint, kindTipLine } from "./csm-tips.ts";
 import { csmMentorTip } from "../_shared/coach/csm.ts";
@@ -123,6 +123,7 @@ export async function runCsmNotify(supabase: SupabaseClient): Promise<{ sent: nu
     }
     await supabase.rpc("csm_notify_wa_mark", { p_id: n.id, p_ok: !err, p_error: err });
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waId, direction: "out", wa_phone: n.phone_e164, agent_id: null,
       msg_type: n.in_window ? "text" : "template", body: formatForWhatsapp(text),
       status: waId ? "sent" : null, error: err,

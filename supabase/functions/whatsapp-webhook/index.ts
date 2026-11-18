@@ -17,6 +17,7 @@ import {
   WA_CUSTOMER_NOTE,
   type WaSent,
   withSender,
+  senderStamp,
 } from "./whatsapp.ts";
 import { continueImportDeal, parseDealButtonId, prepareImportJob, type ImportDealOutcome } from "./property-import.ts";
 import { prepareLeadImportJob } from "./lead-import.ts";
@@ -458,6 +459,7 @@ setWaDropLogger(async (row) => {
     agent_id = data?.id ?? null;
   }
   await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     direction: "out",
     wa_phone: row.wa_phone,
     agent_id,
@@ -551,6 +553,7 @@ async function replyAfterLlmFailure(
         }
       }
       await supabase.from("whatsapp_messages").insert({
+        ...senderStamp(),
         wa_message_id: waMessageId,
         direction: "out",
         wa_phone: to,
@@ -599,6 +602,7 @@ async function replyAfterLlmFailure(
  */
 async function logInbound(msg: Record<string, any>): Promise<boolean> {
   const { error } = await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: msg.id,
     direction: "in",
     wa_phone: msg.from,
@@ -630,6 +634,7 @@ async function replyButtons(
     console.error("reply buttons failed", err);
   }
   await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: waMessageId,
     direction: "out",
     wa_phone: to,
@@ -712,6 +717,7 @@ async function replyCta(
     }
   }
   await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: waMessageId,
     direction: "out",
     wa_phone: to,
@@ -749,6 +755,7 @@ async function reply(
     const parts = sent.length ? sent : [{ id: null, kind: "text" as const, body }];
     for (const part of parts) {
       await supabase.from("whatsapp_messages").insert({
+        ...senderStamp(),
         wa_message_id: part.id,
         direction: "out",
         wa_phone: to,
@@ -769,6 +776,7 @@ async function reply(
           ? part.kind
           : "interactive";
         await supabase.from("whatsapp_messages").insert({
+          ...senderStamp(),
           wa_message_id: part.id,
           direction: "out",
           wa_phone: to,
@@ -780,6 +788,7 @@ async function reply(
       }
     }
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       direction: "out",
       wa_phone: to,
       agent_id: agentId,
@@ -823,6 +832,7 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       reply: (text) => reply(to, text, agentId),
       log: async (row) => {
         await supabase.from("whatsapp_messages").insert({
+          ...senderStamp(),
           direction: "out",
           wa_phone: to,
           agent_id: agentId,
@@ -1715,6 +1725,7 @@ async function maybeShareContactCard(phone: string): Promise<void> {
       url: "https://shuknadlan.co.il",
     });
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waMessageId,
       direction: "out",
       wa_phone: phone,
@@ -1727,6 +1738,7 @@ async function maybeShareContactCard(phone: string): Promise<void> {
     // נרשם עם השגיאה, ולכן לא יישלח שוב: ההזמנה כבר יצאה בטקסט, וניסיון
     // חוזר בכל חיפוש היה מוסיף אותה שוב ושוב בלי הכרטיס.
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       direction: "out",
       wa_phone: phone,
       msg_type: "contacts",
@@ -2051,6 +2063,7 @@ async function flushImageBatch(
       console.error("photo ask buttons failed", err);
     }
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waMessageId, direction: "out", wa_phone: from, agent_id: agentId,
       msg_type: "interactive", body: `${body}\n[${rows.map((b) => b.title).join(" | ")}]`,
       status: waMessageId ? "sent" : null, error: sendError,
@@ -2159,6 +2172,7 @@ async function sendCadenceTypeList(
     console.error("cadence type list failed", err);
   }
   await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: waMessageId,
     direction: "out",
     wa_phone: from,
@@ -2184,6 +2198,7 @@ async function sendCadenceOptions(
     console.error("cadence options failed", err);
   }
   await supabase.from("whatsapp_messages").insert({
+    ...senderStamp(),
     wa_message_id: waMessageId,
     direction: "out",
     wa_phone: from,
@@ -3503,6 +3518,7 @@ function opsQuestionDb(): OpsQuestionDb {
     },
     async logOutbound(row) {
       const { error } = await supabase.from("whatsapp_messages").insert({
+        ...senderStamp(),
         wa_message_id: row.waMessageId,
         direction: "out",
         wa_phone: row.phone,

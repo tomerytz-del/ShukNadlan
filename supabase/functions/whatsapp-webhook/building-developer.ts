@@ -3,7 +3,7 @@
 // (20271106100000_building_projects.sql). הכפתור נתפס ב-index.ts לפני המודל.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { formatForWhatsapp, sendButtons } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, senderStamp } from "./whatsapp.ts";
 import {
   developerAskBody,
   developerUnknownButton,
@@ -99,6 +99,7 @@ export async function runBuildingDeveloperAsks(supabase: SupabaseClient) {
       console.error("building developer ask failed", row.prompt_id, err);
     }
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waId,
       direction: "out",
       wa_phone: row.wa_phone,
