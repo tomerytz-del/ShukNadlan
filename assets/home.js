@@ -1877,7 +1877,7 @@ function safeExternalUrl(u){
 /* יחיד ובלי לוכסן - אותן תוויות של professionals.html ו-professional.html */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', architect:'אדריכל',
-  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל מקצוע',
+  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', general:'בעל מקצוע',
 };
 
 /* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
