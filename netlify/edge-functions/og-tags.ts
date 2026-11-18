@@ -1604,6 +1604,9 @@ const TYPE_LABELS: Record<string, string> = {
   architect: "אדריכל",
   interior_designer: "מעצב פנים",
   cleaning: "חברת ניקיון",
+  contractor: "קבלן בנייה ושיפוצים",
+  planning_consultant: "יועץ תכנון ובנייה",
+  surveyor: "מודד מוסמך",
   real_estate_lawyer: "עו״ד מקרקעין",
   general: "בעל מקצוע",
 };
