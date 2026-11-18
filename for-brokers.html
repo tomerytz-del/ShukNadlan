@@ -84,7 +84,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ===== דף נחיתה לסוכנים חדשים: החלק העליון (.lp) =====
      שפה אחרת מהאתר (קרם, ירוק, טרקוטה), ולכן כל כלל כאן נושא html body .lp
      והוא נכתב אחרי design-system ו-content-page. נבנה בקנבס של קלוד דיזיין (17.11.2026).
-     הנוסח המאושר של הדף (6.11.2026) נשאר מתחת, ב-main.doc, ולא שונה. */
+     הנוסח המאושר של הדף (6.11.2026) נשאר מתחת, ב-main.doc, בלי שינוי בטקסט; שתי פסקאות המבוא עברו לתחילתו תחת "על הפלטפורמה". */
   html body .lp{--lp-ink:#17261F;--lp-green:#0F4A33;--lp-terra:#C4512F;--lp-cream:#FAF6EE;--lp-soft:#40524A;
     container-type:inline-size;background:var(--lp-cream);color:var(--lp-ink);font-family:'Heebo',system-ui,sans-serif}
   html body .lp .lp-wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,4cqi,40px);box-sizing:border-box}
@@ -143,6 +143,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .lp-office-box{padding:clamp(24px,4cqi,40px);border-radius:28px;background:#F4ECD8;display:flex;flex-wrap:wrap;gap:20px 32px;align-items:center;justify-content:space-between}
   html body .lp-office h2{margin:0 0 8px;text-align:right;font-size:clamp(24px,3cqi,34px)}
   html body .lp-office p{margin:0;font-size:17px;line-height:1.6;color:var(--lp-soft);max-width:640px}
+  @media(max-width:360px){html body .lp-display{font-size:26px}}
   @media(max-width:520px){
     html body .lp-mate-pic{height:250px}
     html body .lp-mate-pic img{height:330px}
@@ -307,7 +308,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="lp-hero-visual">
         <div class="lp-gab-card">
           <div class="lp-gab-pic">
-            <img src="/assets/gabriela-pop.webp" width="313" height="545" decoding="async" alt="גבריאלה, העוזרת האישית בוואטסאפ - דמות שנוצרה ב-AI">
+            <img src="/assets/gabriela-pop.webp" width="313" height="545" fetchpriority="high" decoding="async" alt="גבריאלה, העוזרת האישית בוואטסאפ - דמות שנוצרה ב-AI">
           </div>
           <p class="lp-bubble lp-bubble-in">נכס חדש נפתח לשת״פ ונשלח לכל המשרדים</p>
           <p class="lp-bubble lp-bubble-out">לקוח של משרד אחר מתאים לנכס שלכם</p>
@@ -326,7 +327,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="lp-grid3">
       <div class="lp-step lp-step-1"><span class="lp-num">1</span><h3>מתחברים</h3><p>דף סוכן ודף משרד ממותגים, CRM במסך אחד ומנטור AI שמכוון אתכם כל בוקר.</p></div>
       <div class="lp-step lp-step-2"><span class="lp-num">2</span><h3>משתפים</h3><p>שיתוף נכסים עם יועצי נדל״ן אחרים בפלטפורמה, ומציאת התאמות בין משרדים.</p></div>
-      <div class="lp-step lp-step-3"><span class="lp-num">3</span><h3>סוגרים עסקאות</h3><p>החתמה דיגיטלית, דוח CMA וגבריאלה שמתאמת ביקורים, ושום פנייה לא נופלת בין הכיסאות.</p></div>
+      <div class="lp-step lp-step-3"><span class="lp-num">3</span><h3>סוגרים עסקאות</h3><p>החתמה דיגיטלית, דוח CMA וגבריאלה שמתאמת ביקורים עם הבעלים.</p></div>
     </div>
   </div>
 </section>
@@ -337,7 +338,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="lp-sub">גבריאלה מבצעת בשבילכם בוואטסאפ. המנטור קורא את המספרים ומכוון אתכם.</p>
     <div class="lp-team-grid">
       <article class="lp-mate lp-mate-gab">
-        <div class="lp-mate-pic"><img src="/assets/gabriela-pose-f-400.webp" srcset="/assets/gabriela-pose-f-400.webp 400w, /assets/gabriela-pose-f-800.webp 800w" sizes="(max-width:520px) 300px, 380px" width="800" height="758" loading="lazy" decoding="async" alt="גבריאלה עם לוח רשימות ועט - דמות שנוצרה ב-AI"></div>
+        <div class="lp-mate-pic"><img src="/assets/gabriela-pose-f-400.webp" srcset="/assets/gabriela-pose-f-400.webp 400w, /assets/gabriela-pose-f-800.webp 800w" sizes="(max-width:520px) 350px, 400px" width="800" height="758" loading="lazy" decoding="async" alt="גבריאלה עם לוח רשימות ועט - דמות שנוצרה ב-AI"></div>
         <div class="lp-mate-body">
           <span class="lp-tag">בוואטסאפ</span>
           <h3>גבריאלה:<br>יותר זמן לעסקאות</h3>
