@@ -454,18 +454,18 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
    תוויות של professionals.html, כדי שתחום ייקרא אותו דבר בשני הדפים. */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עו״ד מקרקעין',
-  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', general:'בעל מקצוע',
+  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', general:'בעל מקצוע',
 };
 const TYPE_PLURAL = {
   mortgage_advisor:'יועצי משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עורכי דין מקרקעין',
-  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', contractor:'קבלני בנייה ושיפוצים', planning_consultant:'יועצי תכנון ובנייה', surveyor:'מודדים מוסמכים', general:'בעלי מקצוע',
+  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', general:'בעלי מקצוע',
 };
 /* שם התחום עצמו, לכרטיס "התחום פנוי" ב"עוד בעלי מקצוע" */
 const TYPE_FIELD = {
   mortgage_advisor:'ייעוץ משכנתאות', appraiser:'שמאות מקרקעין', real_estate_lawyer:'עריכת דין מקרקעין',
-  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון', contractor:'בנייה ושיפוצים', planning_consultant:'ייעוץ תכנון ובנייה', surveyor:'מדידות מוסמכות',
+  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון',
 };
-const TILE_TYPES = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','contractor','planning_consultant','surveyor'];
+const TILE_TYPES = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning'];
 
 const el = id => document.getElementById(id);
 
@@ -489,9 +489,6 @@ const PATHS = {
   architect:'<circle cx="12" cy="5" r="2"/><path d="M11 7l-5 13M13 7l5 13M8 15h8"/>',
   interior_designer:'<path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2z"/><path d="M5 18v2M19 18v2"/>',
   cleaning:'<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/>',
-  contractor:'<path d="M3 18h18"/><path d="M5 18v-3a7 7 0 0 1 14 0v3"/><path d="M10 8V5h4v3"/>',
-  planning_consultant:'<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 14l2 2 4-4"/>',
-  surveyor:'<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5V21M12 13l-5 8M12 13l5 8"/>',
   wa:'<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.2c.2 2.9 2.7 5.4 5.8 5.8l1-1.6-2-.9-.9.8a4 4 0 0 1-1.9-1.9l.8-.9-.9-2z"/>',
   tel:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
   share:'<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
