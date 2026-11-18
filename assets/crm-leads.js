@@ -778,7 +778,7 @@ function openLeadsDemand(opts){
   watchScrollTabs(document.getElementById('clientsKindTabs'));
   document.addEventListener('keydown', e => {
     const sheet = document.getElementById('leadPrefsSheet');
-    if (e.key === 'Escape' && sheet && !sheet.hidden) closeLeadPrefsSheet();
+    if (e.key === 'Escape' && sheet && !sheet.hidden) closeLeadPrefsSheetNow();
   });
 })();
 
@@ -847,6 +847,8 @@ function openLeadPrefsSheet(focusId){
   if (follow && follow.parentNode !== slot) slot.appendChild(follow);
   if (links && links.parentNode !== slot) slot.appendChild(links);
   if (typeof uiFoldOpen === 'function') uiFoldOpen('setLeadPrefs', true);
+  // פתיחה באמצע יציאה מבטלת אותה (סעיפי ההגדרות עדיין בגיליון)
+  if (typeof cancelLeave === 'function'){ cancelLeave(sheet); sheet.inert = false; }
   sheet.hidden = false;
   document.body.classList.add('lp-sheet-open');
   const focus = focusId && document.getElementById(focusId);
@@ -854,8 +856,8 @@ function openLeadPrefsSheet(focusId){
   return true;
 }
 
-function closeLeadPrefsSheet(){
-  const sheet = document.getElementById('leadPrefsSheet');
+/* החזרת סעיפי ההגדרות מהגיליון למקומם בדף. אידמפוטנטית: closeNavLayers קוראת לסגירה בכל פתיחה של שכבה */
+function restoreLeadPrefsHome(){
   const section = document.getElementById('setLeadPrefs');
   if (leadPrefsHome && section && leadPrefsHome.parent){
     leadPrefsHome.parent.insertBefore(section, leadPrefsHome.next);
@@ -869,8 +871,34 @@ function closeLeadPrefsSheet(){
     else body.appendChild(follow);
   }
   if (body && links && links.parentNode !== body) body.appendChild(links);
-  if (sheet) sheet.hidden = true;
+}
+
+/* סגירה מיידית: Escape (מהמקלדת), חילוף שכבה (closeNavLayers), ומעבר לרוחב מחשב */
+function closeLeadPrefsSheetNow(){
+  const sheet = document.getElementById('leadPrefsSheet');
+  if (sheet){
+    if (typeof cancelLeave === 'function') cancelLeave(sheet);
+    sheet.inert = false;
+    sheet.hidden = true;
+  }
+  restoreLeadPrefsHome();
   document.body.classList.remove('lp-sheet-open');
+}
+
+/* סגירה ב-X וברקע, עם יציאה מונפשת (הסקיל animate). ‏hidden נקבע מיד, כך שכל מי שקורא את מצב הגיליון
+   (‏openLeadPrefsSheet, ‏resize, ‏Escape) רואה אותו סגור, ו-is-leaving משאיר אותו מצויר 200ms. סעיפי
+   ההגדרות נשארים בגיליון עד סוף היציאה: החזרתם למקומם מיד הייתה מראה גיליון ריק. הפונקציה משמשת
+   כמאזין לחיצה (מקבלת event), ולכן אינה מקבלת פרמטרים */
+function closeLeadPrefsSheet(){
+  const sheet = document.getElementById('leadPrefsSheet');
+  if (!sheet || sheet.hidden || typeof leaveAnimated !== 'function' || !leadPrefsMobile()){
+    closeLeadPrefsSheetNow();
+    return;
+  }
+  sheet.hidden = true;
+  document.body.classList.remove('lp-sheet-open');
+  sheet.inert = true;
+  leaveAnimated(sheet, () => { sheet.inert = false; restoreLeadPrefsHome(); });
 }
 
 function leadPrefsFromHash(){
@@ -885,7 +913,7 @@ window.addEventListener('resize', () => {
   alignScrollTabs(document.getElementById('leadsTabs'));
   alignScrollTabs(document.getElementById('clientsKindTabs'));
   const sheet = document.getElementById('leadPrefsSheet');
-  if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
+  if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheetNow();
 });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
 else leadPrefsFromHash();
