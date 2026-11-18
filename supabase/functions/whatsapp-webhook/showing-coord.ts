@@ -27,7 +27,7 @@
 // ============================================================================
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { formatForWhatsapp, sendButtons } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, senderStamp } from "./whatsapp.ts";
 import {
   firstName,
   IL_TZ,
@@ -209,6 +209,7 @@ async function sendOne(supabase: SupabaseClient, r: ClaimRow, nudge = false): Pr
     // היא חזרה כאן בלי שורה, ו-nudged_at (שנכתב ב-claim) נראה כמו "נשלחה".
     if (nudge) {
       await supabase.from("whatsapp_messages").insert({
+        ...senderStamp(),
         direction: "out", wa_phone: to, msg_type: "template",
         body: formatForWhatsapp(text).slice(0, 2000),
         error: "no_channel: חלון 24 השעות נסגר ואין תבנית מאושרת (WHATSAPP_SHOWING_COORD_TEMPLATE)",
@@ -224,6 +225,7 @@ async function sendOne(supabase: SupabaseClient, r: ClaimRow, nudge = false): Pr
     // כל הודעה יוצאת נרשמת ביומן (הסקיל whatsapp-bots). ‏agent_id ריק: השיחה
     // היא עם הנמען/ת, לא עם הסוכן/ת - גם כשהנמען/ת מתווך/ת בעצמו/ה.
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: wamid,
       direction: "out",
       wa_phone: to,
@@ -235,6 +237,7 @@ async function sendOne(supabase: SupabaseClient, r: ClaimRow, nudge = false): Pr
   } catch (e) {
     const err = e as WaError;
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       direction: "out", wa_phone: to, msg_type: open ? "interactive" : "template",
       body: formatForWhatsapp(text).slice(0, 2000), error: String(err.message || e).slice(0, 500),
     });
@@ -297,6 +300,7 @@ async function sendOffers(supabase: SupabaseClient) {
       console.error("showing coord offer failed", o.meeting_id, err);
     }
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waId,
       direction: "out",
       wa_phone: o.wa_phone,

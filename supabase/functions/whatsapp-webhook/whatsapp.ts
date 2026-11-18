@@ -76,6 +76,19 @@ export function currentSenderId(): string {
   return senderId();
 }
 
+/**
+ * השדה שכל שורה ב-`whatsapp_messages` שהוובהוק כותב נושאת: לאיזה מספר
+ * ההודעה הגיעה (נכנסת) או מאיזה יצאה (יוצאת). נפרש לתוך ה-`insert`
+ * (`...senderStamp()`), כדי שהיומן יאמר את זה בעצמו ולא יסיק מהתוכן של
+ * התשובה. מחוץ ל-`withSender` (cron, משימה) זה המספר של הסוכנים, וזה נכון:
+ * הודעות יזומות יוצאות ממנו. המיגרציה: 20271117170000. בלי שום מזהה
+ * (סביבה בלי WHATSAPP_PHONE_NUMBER_ID) - `null`, לא מחרוזת ריקה: `null` הוא
+ * הערך שהעמודה מגדירה, ומחרוזת ריקה הייתה נכנסת לאינדקס כמספר אמיתי.
+ */
+export function senderStamp(): { phone_number_id: string | null } {
+  return { phone_number_id: senderId() || null };
+}
+
 /** האם ההודעה הגיעה למספר הציבורי של גבריאלה. ‏false כשאין מספר ציבורי מוגדר. */
 export function isPublicNumber(phoneNumberId: unknown): boolean {
   const id = String(phoneNumberId || "").trim();

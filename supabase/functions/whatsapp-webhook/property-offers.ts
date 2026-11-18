@@ -22,7 +22,7 @@
 // ============================================================================
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { formatForWhatsapp, sendButtons } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, senderStamp } from "./whatsapp.ts";
 
 type OfferRow = {
   offer_id: string;
@@ -88,6 +88,7 @@ export async function runPropertyOffers(supabase: SupabaseClient) {
     // ‏msg_type interactive, כמו הכפתורים של הבוט הציבורי - כל הודעה יוצאת
     // נרשמת ביומן, אחרת אין מעקב מסירה (הסקיל whatsapp-bots).
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waId,
       direction: "out",
       wa_phone: o.wa_phone,

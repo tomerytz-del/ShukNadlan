@@ -42,16 +42,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="פלטפורמת מרקטפלייס נדל״ן למתווכים בישראל | שוק נדל״ן">
-<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
+<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק, לאינסטגרם ולקבוצות אזוריות, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <meta property="og:url" content="https://shuknadlan.co.il/for-brokers">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
+<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק, לאינסטגרם ולקבוצות אזוריות, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
@@ -82,6 +82,78 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .closer{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 18px;margin-top:8px}
 </style>
 
+<!-- החלק העליון של דף הנחיתה (.lp) בבלוק נפרד: scripts/build_join_pages.py לוקח מכאן את
+     ה-<style> הראשון בלבד, ודפי ה-join אינם צריכים את הכללים האלה. -->
+<style id="lp-css">
+  /* ===== דף נחיתה לסוכנים חדשים: החלק העליון (.lp) =====
+     שפה אחרת מהאתר (קרם, ירוק, טרקוטה), ולכן כל כלל כאן נושא html body .lp
+     והוא נכתב אחרי design-system ו-content-page. נבנה בקנבס של קלוד דיזיין (17.11.2026).
+     הנוסח המאושר של הדף (6.11.2026) נשאר מתחת, ב-main.doc, בלי שינוי בטקסט; שתי פסקאות המבוא עברו לתחילתו תחת "על הפלטפורמה". */
+  html body .lp{--lp-ink:#17261F;--lp-green:#0F4A33;--lp-terra:#C4512F;--lp-cream:#FAF6EE;--lp-soft:#40524A;
+    container-type:inline-size;background:var(--lp-cream);color:var(--lp-ink);font-family:'Heebo',system-ui,sans-serif}
+  html body .lp .lp-wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,4cqi,40px);box-sizing:border-box}
+  html body .lp .crumbs{margin:0 0 18px}
+  html body .lp .crumbs a{color:var(--lp-green)}
+  html body .lp-hero{padding:clamp(18px,3cqi,32px) 0 56px}
+  html body .lp-hero-grid{display:flex;flex-wrap:wrap;gap:48px 40px;align-items:center;justify-content:center}
+  html body .lp-hero-text{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:18px;align-items:flex-start}
+  html body .lp-hero h1.lp-h1{margin:0;max-width:none;font-family:'Heebo',system-ui,sans-serif;font-weight:800;font-size:clamp(15px,1.6cqi,19px);line-height:1.4;color:var(--lp-green);background:#E9F1EA;border-radius:999px;padding:7px 16px}
+  html body .lp-display{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:clamp(30px,5cqi,62px);line-height:1.08;color:var(--lp-ink)}
+  html body .lp-deck{margin:0;font-weight:800;font-size:clamp(17px,1.8cqi,21px);line-height:1.5;color:var(--lp-ink);max-width:560px}
+  html body .lp-accent{color:var(--lp-terra)}
+  html body .lp-slogan{margin:0;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-weight:800;font-size:clamp(18px,2.2cqi,26px);color:var(--lp-ink)}
+  html body .lp-slogan i{font-style:normal;color:var(--lp-terra);font-size:.65em}
+  html body .lp-lead{margin:0;max-width:560px;font-size:clamp(17px,1.6cqi,20px);line-height:1.65;color:var(--lp-soft)}
+  html body .lp-actions{display:flex;flex-wrap:wrap;gap:12px}
+  html body a.lp-btn{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:12px 28px;border-radius:16px;font-weight:800;font-size:18px;text-decoration:none;text-align:center}
+  html body a.lp-btn-main{background:var(--lp-terra);color:#fff;box-shadow:0 14px 30px -14px rgba(196,81,47,.8)}
+  html body a.lp-btn-main:hover{color:#fff;filter:brightness(1.06)}
+  html body a.lp-btn-line{border:1.5px solid var(--lp-green);color:var(--lp-green);background:transparent}
+  html body a.lp-btn-line:hover{color:var(--lp-green);background:#fff}
+  html body .lp-promo{margin:0;font-weight:800;color:var(--lp-green)}
+  html body .lp-promo[hidden]{display:none}
+  html body .lp-login{margin:0;font-size:15px}
+  html body .lp-login a,html body .lp-trust a{color:var(--lp-green);text-decoration:underline;text-underline-offset:3px}
+  html body .lp-trust{margin:0;font-size:14.5px;line-height:1.6;color:var(--lp-soft);max-width:560px}
+  html body .lp-hero-visual{flex:0 1 420px;min-width:0;width:100%;padding-top:clamp(70px,18cqi,150px)}
+  html body .lp-gab-card{border-radius:32px;background:linear-gradient(170deg,#0F5A3A,#0A3D29);box-shadow:0 36px 70px -34px rgba(10,61,41,.8);padding:0 22px 22px;display:flex;flex-direction:column;gap:12px}
+  html body .lp-gab-pic{position:relative;height:clamp(230px,38cqi,320px)}
+  html body .lp-gab-pic img{position:absolute;bottom:0;left:50%;height:clamp(340px,56cqi,460px);width:auto;max-width:none;transform:translateX(-50%);display:block;filter:drop-shadow(0 18px 24px rgba(0,0,0,.45))}
+  html body .lp-bubble{margin:0;max-width:90%;padding:11px 16px;font-size:15px;line-height:1.4;font-weight:600;color:var(--lp-ink)}
+  html body .lp-bubble-in{align-self:flex-start;background:#fff;border-radius:16px 16px 4px 16px}
+  html body .lp-bubble-out{align-self:flex-end;background:#DCF8C6;border-radius:16px 16px 16px 4px}
+  html body .lp-sec{padding:56px 0}
+  html body .lp-steps{background:#fff}
+  html body .lp-sec h2{margin:0 0 10px;text-align:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:clamp(26px,4cqi,42px);line-height:1.18;color:var(--lp-ink)}
+  html body .lp-sub{margin:0 auto 32px;max-width:640px;text-align:center;font-size:18px;line-height:1.6;color:var(--lp-soft)}
+  html body .lp-grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:18px}
+  html body .lp-step{padding:28px;border-radius:26px}
+  html body .lp-step-1{background:#E9F1EA}html body .lp-step-2{background:#FBE7DF}html body .lp-step-3{background:#F4ECD8}
+  html body .lp-num{display:block;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:52px;line-height:1}
+  html body .lp-step-1 .lp-num{color:var(--lp-green)}html body .lp-step-2 .lp-num{color:var(--lp-terra)}html body .lp-step-3 .lp-num{color:#8A6A0A}
+  html body .lp-step h3{margin:10px 0 8px;font-size:24px;color:var(--lp-ink)}
+  html body .lp-step p{margin:0;font-size:16.5px;line-height:1.6;color:var(--lp-soft)}
+  html body .lp-team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));gap:100px 24px;padding-top:90px}
+  html body .lp-mate{border-radius:28px;color:#fff;display:flex;flex-direction:column}
+  html body .lp-mate-gab{background:#0F4A33;box-shadow:0 30px 60px -34px rgba(10,61,41,.8)}
+  html body .lp-mate-mentor{background:#1B2A5C;box-shadow:0 30px 60px -34px rgba(13,27,61,.8)}
+  html body .lp-mate-pic{position:relative;height:290px}
+  html body .lp-mate-pic img{position:absolute;bottom:0;left:50%;height:380px;width:auto;max-width:none;transform:translateX(-50%);display:block;filter:drop-shadow(0 18px 24px rgba(0,0,0,.4))}
+  html body .lp-mate-body{padding:8px 28px 30px;display:flex;flex-direction:column;gap:10px}
+  html body .lp-tag{align-self:flex-start;font-weight:700;font-size:13.5px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.16)}
+  html body .lp-mate h3{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:28px;line-height:1.2;color:#fff}
+  html body .lp-mate p{margin:0;font-size:16px;line-height:1.6;color:rgba(255,255,255,.86)}
+  html body .lp-office{padding-top:8px}
+  html body .lp-office-box{padding:clamp(24px,4cqi,40px);border-radius:28px;background:#F4ECD8;display:flex;flex-wrap:wrap;gap:20px 32px;align-items:center;justify-content:space-between}
+  html body .lp-office h2{margin:0 0 8px;text-align:right;font-size:clamp(24px,3cqi,34px)}
+  html body .lp-office p{margin:0;font-size:17px;line-height:1.6;color:var(--lp-soft);max-width:640px}
+  @media(max-width:360px){html body .lp-display{font-size:26px}}
+  @media(max-width:520px){
+    html body .lp-mate-pic{height:250px}
+    html body .lp-mate-pic img{height:330px}
+  }
+</style>
+
 <script src="assets/page-bg.js" data-auto></script>
 <script defer src="assets/site-footer.js"></script>
 <script defer src="assets/buyer-banner.js"></script>
@@ -109,7 +181,7 @@ else revealPromoGifts();
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "url": "https://shuknadlan.co.il/for-brokers",
-  "description": "שוק נדל״ן היא פלטפורמת מרקטפלייס נדל״ן למתווכים ולמשרדי תיווך בישראל: מפרסמים נכסים לקונים ולשוכרים בכל הארץ, מנהלים לידים ולקוחות ב-CRM אחד, ומקבלים פרסום אוטומטי לפייסבוק ולאינסטגרם, בלי לקפוץ בין לוחות, מערכת ניהול וכלי שיווק נפרדים.",
+  "description": "שוק נדל״ן היא פלטפורמת מרקטפלייס נדל״ן למתווכים ולמשרדי תיווך בישראל: מפרסמים נכסים לקונים ולשוכרים בכל הארץ, מנהלים לידים ולקוחות ב-CRM אחד, ומקבלים פרסום אוטומטי לפייסבוק, לאינסטגרם ולקבוצות אזוריות, בלי לקפוץ בין לוחות, מערכת ניהול וכלי שיווק נפרדים.",
   "inLanguage": "he",
   "areaServed": {
     "@type": "Country",
@@ -139,7 +211,7 @@ else revealPromoGifts();
       "name": "במה זה שונה מלוח מודעות רגיל?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "לוח מודעות מציג נכס. כאן יש גם ניהול לידים ולקוחות, התאמות אוטומטיות, שיתופי פעולה בין משרדים, סרטון מהתמונות ופרסום אוטומטי לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן. אפשר להמשיך לפרסם גם בלוחות אחרים."
+        "text": "לוח מודעות מציג נכס. כאן יש גם ניהול לידים ולקוחות, התאמות אוטומטיות, שיתופי פעולה בין משרדים, סרטון מהתמונות ופרסום אוטומטי לדפי הפייסבוק ולאינסטגרם של שוק הנדל״ן ולקבוצות האזוריות הרלוונטיות בכל עיר. אפשר להמשיך לפרסם גם בלוחות אחרים."
       }
     },
     {
@@ -152,10 +224,10 @@ else revealPromoGifts();
     },
     {
       "@type": "Question",
-      "name": "איך עובד הפרסום האוטומטי לפייסבוק ואינסטגרם?",
+      "name": "איך עובד הפרסום האוטומטי לפייסבוק, לאינסטגרם ולקבוצות?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "כשנכס חדש מתפרסם באתר, הוא עולה כפוסט לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן עם תמונות, תיאור וקישור. פניות מהודעות ומתגובות ברשתות נכנסות אליכם כמו פנייה מהאתר."
+        "text": "כשנכס חדש מתפרסם באתר, הוא עולה כפוסט עם תמונות, תיאור וקישור לדפי הפייסבוק ולאינסטגרם של שוק הנדל״ן, ולקבוצות האזוריות הרלוונטיות בכל עיר. פניות מהודעות ומתגובות ברשתות נכנסות אליכם כמו פנייה מהאתר."
       }
     },
     {
@@ -171,7 +243,7 @@ else revealPromoGifts();
       "name": "יש התחייבות או קנס יציאה?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים."
+        "text": "אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות, דף הסוכן ויתרת הארנק נשארים אצלכם גם במעבר בין מסלולים."
       }
     }
   ]
@@ -214,28 +286,102 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </header>
 
-<section class="page-head">
-  <div class="wrap">
+<div class="lp">
+<section class="lp-hero">
+  <div class="lp-wrap">
     <nav class="crumbs" aria-label="מיקום בדפים">
       <a href="/">דף הבית</a>
       <span aria-hidden="true">·</span>
       <span aria-current="page">למתווכים</span>
     </nav>
-    <h1><span class="nw">פלטפורמת מרקטפלייס</span> <span class="nw">נדל״ן ו-CRM</span> <span class="nw">למתווכים בישראל</span></h1>
-    <p class="deck">אתם סוגרים עסקאות. הפלטפורמה מסדרת את הפרסום, הלידים והיום-יום.</p>
-    <p>שוק נדל״ן היא פלטפורמת מרקטפלייס נדל״ן למתווכים ולמשרדי תיווך בישראל: מפרסמים נכסים לקונים ולשוכרים בכל הארץ, מנהלים לידים ולקוחות ב-CRM אחד, ומקבלים פרסום אוטומטי לפייסבוק ולאינסטגרם, בלי לקפוץ בין לוחות, מערכת ניהול וכלי שיווק נפרדים.</p>
-    <p>האתר הציבורי בנוי כרשת ארצית של שווקים מקומיים: בכל אזור הגולשים רואים רק את הנכסים והמשרדים של האזור שלהם. השוק הראשון, עפולה והעמק, כבר באוויר; שאר השווקים, מחיפה ועד אילת, נפתחים משרד אחר משרד, ומשרד שמצטרף היום מקבל את ה-CRM ואת הפרסום לרשתות מיד, גם לפני שהשוק שלו נפתח לגולשים. <a href="/markets">מפת השווקים והסטטוס של כל אחד</a>.</p>
-    <div class="actions">
-      <a class="btn btn-teal" href="/agency-signup">הצטרפות כמשרד תיווך</a>
-      <a class="btn btn-ghost" href="/pricing">למסלולים ולמחירים</a>
-      <a href="/crm">כניסת מתווכים</a>
+    <div class="lp-hero-grid">
+      <div class="lp-hero-text">
+        <h1 class="lp-h1"><span class="nw">פלטפורמת מרקטפלייס</span> <span class="nw">נדל״ן ו-CRM</span> <span class="nw">למתווכים בישראל</span></h1>
+        <p class="lp-display"><span class="nw">מצטרפים לקהילה החכמה</span> <span class="nw lp-accent">של יועצי הנדל״ן של ישראל</span></p>
+        <p class="lp-slogan"><span>מתחברים</span><i aria-hidden="true">▪</i><span>משתפים</span><i aria-hidden="true">▪</i><span>סוגרים עסקאות</span></p>
+        <p class="lp-deck">אתם סוגרים עסקאות. הפלטפורמה מסדרת את הפרסום, הלידים והיום-יום.</p>
+        <p class="lp-lead">הנכסים והלקוחות שלכם פוגשים את אלה של כל המשרדים, ולצידכם עובדים גבריאלה בוואטסאפ, CRM חכם ומנטור AI. בשוק הנדל״ן לא עובדים לבד. עובדים ביחד.</p>
+        <div class="lp-actions">
+          <a class="lp-btn lp-btn-main" href="/pricing">מצטרפים לקהילה</a>
+          <a class="lp-btn lp-btn-line" href="/">מחפשים נכס? לדף הבית</a>
+        </div>
+        <p class="lp-promo promo-gift" hidden>חודשיים Elite ללא תשלום, בלי כרטיס אשראי.</p>
+        <p class="lp-login"><a href="/crm">כניסת מתווכים</a></p>
+    <p class="trust lp-trust">משרדים מצטרפים עוברים אימות רישיון מול רשם המתווכים. הצטרפות כוללת אישור <a href="/ethics-code">הקוד האתי</a> של הפלטפורמה. עוד לא עברתם את המבחן? <a href="/course">קורס הכנה למבחן המתווכים</a>.</p>
+      </div>
+      <div class="lp-hero-visual">
+        <div class="lp-gab-card">
+          <div class="lp-gab-pic">
+            <img src="/assets/gabriela-pop.webp" width="313" height="545" fetchpriority="high" decoding="async" alt="גבריאלה, העוזרת האישית בוואטסאפ - דמות שנוצרה ב-AI">
+          </div>
+          <p class="lp-bubble lp-bubble-in">נכס חדש נפתח לשת״פ ונשלח לכל המשרדים</p>
+          <p class="lp-bubble lp-bubble-out">לקוח של משרד אחר מתאים לנכס שלכם</p>
+          <p class="lp-bubble lp-bubble-in">גבריאלה תיאמה ביקור עם הבעלים</p>
+        </div>
+      </div>
     </div>
-    <p class="trust">משרדים מצטרפים עוברים אימות רישיון מול רשם המתווכים. הצטרפות כוללת אישור <a href="/ethics-code">הקוד האתי</a> של הפלטפורמה. עוד לא עברתם את המבחן? <a href="/course">קורס הכנה למבחן המתווכים</a>.</p>
+  </div>
+</section>
+<script>revealPromoGifts();</script>
+
+<section class="lp-sec lp-steps" aria-labelledby="lpStepsTitle">
+  <div class="lp-wrap">
+    <h2 id="lpStepsTitle">שלושה צעדים, ואתם כבר לא לבד</h2>
+    <p class="lp-sub">כל מה שצריך כדי להתחבר, לשתף ולסגור, במקום אחד.</p>
+    <div class="lp-grid3">
+      <div class="lp-step lp-step-1"><span class="lp-num">1</span><h3>מתחברים</h3><p>דף סוכן ודף משרד ממותגים, CRM במסך אחד ומנטור AI שמכוון אתכם כל בוקר.</p></div>
+      <div class="lp-step lp-step-2"><span class="lp-num">2</span><h3>משתפים</h3><p>שיתוף נכסים עם יועצי נדל״ן אחרים בפלטפורמה, ומציאת התאמות בין משרדים.</p></div>
+      <div class="lp-step lp-step-3"><span class="lp-num">3</span><h3>סוגרים עסקאות</h3><p>החתמה דיגיטלית, דוח CMA וגבריאלה שמתאמת ביקורים עם הבעלים.</p></div>
+    </div>
   </div>
 </section>
 
+<section class="lp-sec lp-team" aria-labelledby="lpTeamTitle">
+  <div class="lp-wrap">
+    <h2 id="lpTeamTitle">אחת עושה את העבודה,<br>השני אומר מה הכי חשוב</h2>
+    <p class="lp-sub">גבריאלה מבצעת בשבילכם בוואטסאפ. המנטור קורא את המספרים ומכוון אתכם.</p>
+    <div class="lp-team-grid">
+      <article class="lp-mate lp-mate-gab">
+        <div class="lp-mate-pic"><img src="/assets/gabriela-pose-f-400.webp" srcset="/assets/gabriela-pose-f-400.webp 400w, /assets/gabriela-pose-f-800.webp 800w" sizes="(max-width:520px) 350px, 400px" width="800" height="758" loading="lazy" decoding="async" alt="גבריאלה עם לוח רשימות ועט - דמות שנוצרה ב-AI"></div>
+        <div class="lp-mate-body">
+          <span class="lp-tag">בוואטסאפ</span>
+          <h3>גבריאלה:<br>יותר זמן לעסקאות</h3>
+          <p>הסכם תיווך ודוח CMA מוכנים בדקה, שיחה עם לקוח הופכת לסיכום ולמשימות, ואף ביקור לא נופל בין הכיסאות.</p>
+        </div>
+      </article>
+      <article class="lp-mate lp-mate-mentor">
+        <div class="lp-mate-pic"><img src="/assets/mentor-cutout.webp" width="432" height="545" loading="lazy" decoding="async" alt="המנטור AI של שוק נדל״ן - דמות שנוצרה ב-AI"></div>
+        <div class="lp-mate-body">
+          <span class="lp-tag">המנטור AI</span>
+          <h3>המנטור:<br>מכוון אתכם מהמספרים שלכם</h3>
+          <p>קורא את הלידים, הנכסים, ההסכמים והיומן של החשבון, ואומר מה עובד, מה נתקע ומה הצעד הבא.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec lp-office" aria-labelledby="lpOfficeTitle">
+  <div class="lp-wrap">
+    <div class="lp-office-box">
+      <div>
+        <h2 id="lpOfficeTitle">בעל משרד תיווך? צרפו את כל הסוכנים שלכם</h2>
+        <p>הזמנת סוכנים בקישור, דאשבורד ניהולי למשרד ומיתוג אחיד. כל סוכן בוחר את המסלול שלו.</p>
+      </div>
+      <a class="lp-btn lp-btn-main" href="/pricing">למסלולים ולהצטרפות</a>
+    </div>
+  </div>
+</section>
+</div>
+
+
 <main class="doc">
   <div class="wrap">
+
+    <h2>על הפלטפורמה</h2>
+    <p>שוק נדל״ן היא פלטפורמת מרקטפלייס נדל״ן למתווכים ולמשרדי תיווך בישראל: מפרסמים נכסים לקונים ולשוכרים בכל הארץ, מנהלים לידים ולקוחות ב-CRM אחד, ומקבלים פרסום אוטומטי לפייסבוק, לאינסטגרם ולקבוצות אזוריות, בלי לקפוץ בין לוחות, מערכת ניהול וכלי שיווק נפרדים.</p>
+    <p>האתר הציבורי בנוי כרשת ארצית של שווקים מקומיים: בכל אזור הגולשים רואים רק את הנכסים והמשרדים של האזור שלהם. השוק הראשון, עפולה והעמק, כבר באוויר; שאר השווקים, מחיפה ועד אילת, נפתחים משרד אחר משרד, ומשרד שמצטרף היום מקבל את ה-CRM ואת הפרסום לרשתות מיד, גם לפני שהשוק שלו נפתח לגולשים. <a href="/markets">מפת השווקים והסטטוס של כל אחד</a>.</p>
+
 
     <h2>מה מקבלים במקום אחד</h2>
     <p>לא CRM לבד ולא לוח מודעות לבד: שכבת חשיפה לקונים ולשוכרים, יחד עם מערכת שמנהלת את המשרד.</p>
@@ -259,9 +405,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <li>ניהול צוות: הזמנת סוכנים בקישור, מסירת לקוח, נכס או ליד לסוכן בצוות. במסלול Elite יש מחיר משרד לכל סוכן: ₪359 מ-3 סוכנים, ₪339 מ-6 סוכנים, ו-₪299 מ-11 סוכנים.</li>
     </ul>
 
-    <h2>פרסום נכסים לפייסבוק ואינסטגרם (אוטומטי)</h2>
+    <h2>פרסום נכסים לפייסבוק, לאינסטגרם ולקבוצות אזוריות (אוטומטי)</h2>
     <ul>
-      <li>נכס חדש עולה כפוסט לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן, עם תמונות, תיאור וקישור לנכס.</li>
+      <li>נכס חדש עולה כפוסט לדפי הפייסבוק ולאינסטגרם של שוק הנדל״ן ולקבוצות האזוריות הרלוונטיות בכל עיר, עם תמונות, תיאור וקישור לנכס.</li>
       <li>פניות מהודעות ומתגובות ברשתות נכנסות אליכם כמו פנייה מהאתר.</li>
       <li>ביקושים מקבוצות הפייסבוק ומהמרקטפלייס, אחרי שהפונים הסכימו שיועץ נדל״ן יחזור אליהם.</li>
       <li>אפשר לבטל הצגת תמונת הפרופיל ברילס, בסטוריז ובמודעות; הפרסום יוצא עם שם, טלפון ולוגו המשרד בלבד.</li>
@@ -305,7 +451,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <tr>
             <th scope="row">חשיפה לקונים ולשוכרים</th>
             <td>מודעה בלוח + העתקה ידנית לרשתות</td>
-            <td>פרסום באתר + פוסט אוטומטי לפייסבוק ואינסטגרם של הפלטפורמה</td>
+            <td>פרסום באתר + פוסט אוטומטי לפייסבוק, לאינסטגרם ולקבוצות אזוריות של הפלטפורמה</td>
           </tr>
           <tr>
             <th scope="row">ניהול לידים ולקוחות</th>
@@ -369,15 +515,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>במה זה שונה מלוח מודעות רגיל?</summary>
-        <p>לוח מודעות מציג נכס. כאן יש גם ניהול לידים ולקוחות, התאמות אוטומטיות, שיתופי פעולה בין משרדים, סרטון מהתמונות ופרסום אוטומטי לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן. אפשר להמשיך לפרסם גם בלוחות אחרים.</p>
+        <p>לוח מודעות מציג נכס. כאן יש גם ניהול לידים ולקוחות, התאמות אוטומטיות, שיתופי פעולה בין משרדים, סרטון מהתמונות ופרסום אוטומטי לדפי הפייסבוק ולאינסטגרם של שוק הנדל״ן ולקבוצות האזוריות הרלוונטיות בכל עיר. אפשר להמשיך לפרסם גם בלוחות אחרים.</p>
       </details>
       <details>
         <summary>יש CRM נדל״ן למתווכים בלי דמי מנוי?</summary>
         <p>כן. מסלול Pay&amp;GO הוא בלי דמי מנוי חודשיים; חלק מהיכולות המתקדמות (למשל לידי בעלי נכסים, מכסות סרטונים, דוח CMA ומידע תכנוני לפי מסלול) מתומחרות בנפרד או כלולות במסלולים PROFESSIONAL ו-Elite. הפירוט המלא ב-<a href="/pricing">/pricing</a>.</p>
       </details>
       <details>
-        <summary>איך עובד הפרסום האוטומטי לפייסבוק ואינסטגרם?</summary>
-        <p>כשנכס חדש מתפרסם באתר, הוא עולה כפוסט לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן עם תמונות, תיאור וקישור. פניות מהודעות ומתגובות ברשתות נכנסות אליכם כמו פנייה מהאתר.</p>
+        <summary>איך עובד הפרסום האוטומטי לפייסבוק, לאינסטגרם ולקבוצות?</summary>
+        <p>כשנכס חדש מתפרסם באתר, הוא עולה כפוסט עם תמונות, תיאור וקישור לדפי הפייסבוק ולאינסטגרם של שוק הנדל״ן, ולקבוצות האזוריות הרלוונטיות בכל עיר. פניות מהודעות ומתגובות ברשתות נכנסות אליכם כמו פנייה מהאתר.</p>
       </details>
       <details>
         <summary>כמה זמן לוקח להתחיל?</summary>
@@ -385,7 +531,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>יש התחייבות או קנס יציאה?</summary>
-        <p>אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים.</p>
+        <p>אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות, דף הסוכן ויתרת הארנק נשארים אצלכם גם במעבר בין מסלולים.</p>
       </details>
     </div>
 
