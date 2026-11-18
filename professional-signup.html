@@ -86,8 +86,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ps-hero{background:#0e2a6b;color:#fff}
   .ps-hero .ps-wrap{display:flex;flex-wrap:wrap;gap:36px;align-items:center;padding-block:36px 44px}
   .ps-hero-text{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:18px;align-items:flex-start}
-  .ps-eyebrow{font-size:.875rem;font-weight:600;color:#d9e3f8}
-  .ps .ps-hero h1{font-size:clamp(2rem,4.6vw,3.25rem);line-height:1.15;font-weight:800;color:#fff}
+  .ps .ps-hero h1{font-size:clamp(1.8rem,4.2vw,3rem);line-height:1.2;font-weight:800;color:#fff}
+  /* הפנייה לקהל היא חלק מהכותרת ולא שורה קטנה מעליה (תומר, 18.11.2026) */
+  .ps-hero h1 span{display:block;color:#f3c95a}
   .ps-free{display:inline-flex;align-items:center;gap:10px;background:#f3c95a;color:#0d1b3d;font-weight:800;font-size:1.375rem;padding:8px 18px;border-radius:10px}
   .ps-lead{font-size:1.0625rem;color:#eef3fd;max-width:520px}
   .ps-cta{display:flex;align-items:center;justify-content:center;min-height:56px;padding:0 22px;border-radius:10px;font-weight:800;font-size:1.125rem;text-decoration:none;text-align:center}
@@ -95,13 +96,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ps-cta-light:hover{background:#eaf0fb;color:#0e2a6b}
   .ps-cta-gold{width:100%;max-width:420px;background:#f3c95a;color:#0d1b3d}
   .ps-cta-gold:hover{background:#f7d77e;color:#0d1b3d}
+  .ps-cta-dark{align-self:center;width:100%;max-width:420px;background:#0e2a6b;color:#fff}
+  .ps-cta-dark:hover{background:#08194a;color:#fff}
   .ps-ticks{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.875rem;color:#eef3fd}
   .ps-ticks li{display:flex;align-items:center;gap:6px}
 
   /* המחשה: עמוד מקצועי לדוגמה */
   .ps-demo{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:10px;align-items:center}
   .ps-demo-tag{font-size:.8125rem;font-weight:700;color:#0d1b3d;background:#f3c95a;border-radius:999px;padding:4px 14px;text-align:center}
-  .ps-demo-frame{width:100%;max-width:360px;background:#fff;color:#0d1b3d;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(4,14,44,.45);border:6px solid #1c3a80}
+  .ps-demo-frame{width:100%;max-width:400px;background:#fff;color:#0d1b3d;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(4,14,44,.45);border:6px solid #1c3a80}
   .ps-demo-cover{height:96px;background:#dfe8f9;display:flex;align-items:center;justify-content:center;color:#4a5578;font-size:.8125rem;font-weight:600}
   .ps-demo-body{padding:0 18px 18px;display:flex;flex-direction:column;gap:12px}
   .ps-demo-head{display:flex;align-items:flex-end;gap:12px;margin-top:-30px}
@@ -249,25 +252,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="ps-hero">
     <div class="ps-wrap">
       <div class="ps-hero-text">
-        <span class="ps-eyebrow">קהילת אנשי המקצוע של עולם הנדל״ן בעפולה והעמק</span>
-        <h1>עמוד מקצועי לעסק שלכם בשוק הנדל״ן</h1>
+        <h1><span>אנשי מקצוע בתחום הנדל״ן?</span>הלקוחות הבאים שלכם נמצאים בשוק הנדל״ן</h1>
         <span class="ps-free">
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           ההצטרפות בחינם
         </span>
-        <p class="ps-lead">מציגים את העסק שלכם לקהל שמחפש שירותים בתחום הנדל״ן: קנייה, מכירה, השכרה והשקעה. תמונות, תיאור, שירותים ופרטי קשר במקום אחד.</p>
-        <a class="ps-cta ps-cta-light" href="#signup">פותחים עמוד מקצועי בחינם</a>
+        <p class="ps-lead">פותחים עמוד מקצועי ומציגים את העסק שלכם מול מי שקונה, מוכר ומשפץ נכס בעפולה והעמק.</p>
+        <a class="ps-cta ps-cta-light" href="#signup">פותחים עמוד מקצועי בחינם ←</a>
         <ul class="ps-ticks">
           <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא פרטי כרטיס אשראי</li>
           <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא התחייבות</li>
-          <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא הגבלת זמן</li>
+          <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>עמוד עסקי מקצועי משלכם</li>
         </ul>
       </div>
 
       <!-- המחשה של עמוד מקצועי. ציור ב-HTML ולא צילום: אין בו עסק אמיתי ואין
            בו נתון מומצא, רק המקומות שבהם התוכן של הנרשם/ת יופיע. -->
       <div class="ps-demo">
-        <span class="ps-demo-tag">כך ייראה העמוד שלכם - דוגמה להמחשה</span>
+        <span class="ps-demo-tag">כך העסק שלכם ייראה בשוק הנדל״ן · המחשה</span>
         <div class="ps-demo-frame" role="img" aria-label="המחשה של עמוד מקצועי: תמונת נושא, שם העסק, תיאור, שירותים, תמונות וכפתורי וואטסאפ וחיוג">
           <div class="ps-demo-cover">תמונת נושא של העסק</div>
           <div class="ps-demo-body">
@@ -294,25 +296,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ps-grid">
       <div class="ps-tile">
         <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
-        <h3>העמוד המקצועי שלכם</h3>
-        <p>נוכחות עסקית באתר שוק הנדל״ן, עם פרטים על העסק ותחומי הפעילות שלכם.</p>
+        <h3>עמוד עסקי משלכם</h3>
+        <p>עם שם העסק, תחום העיסוק והפרטים שלכם.</p>
       </div>
       <div class="ps-tile">
         <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-7 8"/></svg></span>
-        <h3>מציגים את מה שאתם יודעים לעשות</h3>
-        <p>הוסיפו תמונות, תיאור העסק, השירותים שאתם מציעים ותחומי ההתמחות שלכם.</p>
+        <h3>תחומי התמחות ושירותים</h3>
+        <p>מפרטים מה אתם עושים ובמה אתם מתמחים.</p>
       </div>
       <div class="ps-tile">
         <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></span>
-        <h3>מאפשרים ללקוחות ליצור קשר</h3>
-        <p>פרטי התקשרות נגישים, כדי שמתעניינים יוכלו לפנות אליכם ישירות.</p>
+        <h3>כפתור וואטסאפ ויצירת קשר</h3>
+        <p>מתעניינים פונים אליכם ישירות, בלחיצה אחת.</p>
       </div>
       <div class="ps-tile">
         <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.5 2.4 3.5 5.2"/></svg></span>
-        <h3>חשיפה לקהל רלוונטי</h3>
-        <p>הציגו את העסק שלכם בפני אנשים שמתעניינים בעולם הנדל״ן באזור עפולה והעמק.</p>
+        <h3>נוכחות בפלטפורמה של נדל״ן</h3>
+        <p>מול אנשים שמתעניינים בנדל״ן באזור עפולה והעמק.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>
+        <h3>גלריית תמונות ועבודות</h3>
+        <p>מעלים תמונות של העסק ושל עבודות שביצעתם.</p>
       </div>
     </div>
+    <a class="ps-cta ps-cta-dark" href="#signup">פותחים עמוד מקצועי בחינם ←</a>
   </section>
 
   <section class="ps-wrap ps-sec">
@@ -344,7 +352,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <ul class="ps-checks">
           <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא פרטי כרטיס אשראי</li>
           <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא התחייבות למסלול בתשלום</li>
-          <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>בשלב הזה ללא הגבלת זמן</li>
+          <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>עמוד עסקי עם שירותים, תמונות וכפתור וואטסאפ</li>
         </ul>
       </div>
       <!-- נפרד מהטופס בכוונה: שדרוג בתשלום אינו חלק מההרשמה. -->
@@ -369,7 +377,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="ps-field">
         <label for="advBusiness">שם העסק</label>
-        <input type="text" id="advBusiness" autocomplete="organization">
+        <input type="text" id="advBusiness" autocomplete="organization" required>
         <span class="ps-hint">כך העסק שלכם יוצג באתר.</span>
       </div>
       <div class="ps-field">
@@ -403,16 +411,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <input type="email" id="advEmail" class="ps-ltr" autocomplete="email" inputmode="email" required>
         <span class="ps-hint">לצורך קבלת עדכונים בנוגע להרשמה ולעמוד המקצועי שלכם.</span>
       </div>
-      <div class="ps-field">
-        <label for="advUrl">קישור לאתר או לרשת חברתית <small>(לא חובה)</small></label>
-        <input type="url" id="advUrl" class="ps-ltr" placeholder="https://" inputmode="url">
-        <span class="ps-hint">אתר העסק, דף הפייסבוק או הפרופיל העסקי שלכם.</span>
-      </div>
+      <!-- הקישור לאתר או לרשת חברתית יצא מהטופס (18.11.2026): הוא לא נחוץ כדי
+           להתחיל, והוא ממתין במסך העריכה שנפתח מיד אחרי ההרשמה. -->
 
       <button type="button" class="ps-submit" id="submitBtn">פותחים עמוד מקצועי בחינם</button>
       <div id="feedback" role="status" aria-live="polite"></div>
       <p class="ps-fine">לא נבקש פרטי אשראי. העמוד מתפרסם לאחר אישור הנהלת האתר.</p>
-      <p class="ps-terms">הפרסום בשלב הזה בחינם וללא הגבלת זמן. בהתאם ל<a href="/terms#t15">תנאי השימוש</a>, הנהלת האתר רשאית לשנות את התנאים והמחירים בכל עת.</p>
+      <p class="ps-terms">ההצטרפות בחינם. התנאים והמחירים עשויים להשתנות בכל עת לפי שיקול דעתה של הנהלת האתר, בהתאם ל<a href="/terms#t15">תנאי השימוש</a>.</p>
     </div>
   </section>
 
@@ -439,10 +444,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <section class="ps-close">
     <div class="ps-wrap ps-narrow">
-      <h2>בואו להיות חלק מקהילת אנשי המקצוע של עולם הנדל״ן בעפולה והעמק</h2>
+      <h2>הלקוחות הבאים שלכם נמצאים בשוק הנדל״ן</h2>
       <p>הפלטפורמה שמחברת בין עולם הנדל״ן לבין אנשי המקצוע שמאחוריו. העסק שלכם ראוי לנוכחות מקצועית.</p>
       <a class="ps-cta ps-cta-gold" href="#signup">פותחים עמוד מקצועי בחינם</a>
-      <small>ללא פרטי אשראי · ללא התחייבות · ללא הגבלת זמן</small>
+      <small>ללא כרטיס אשראי · ללא התחייבות</small>
       <a href="/" class="ps-home">חזרה לדף הבית</a>
     </div>
   </section>
@@ -499,13 +504,13 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const advertiser_type = document.getElementById('advType').value;
   const contact_email = document.getElementById('advEmail').value.trim();
   const phone = document.getElementById('advPhone').value.trim();
-  const click_url = document.getElementById('advUrl').value.trim();
   const feedback = document.getElementById('feedback');
   const btn = document.getElementById('submitBtn');
 
-  if (!advertiser_name || !contact_email || !phone){
+  // שם העסק חובה בדף (לא בשרת): הוא השורה שהלקוחות רואים בכרטיסייה
+  if (!advertiser_name || !business_name || !contact_email || !phone){
     feedback.style.color = ERR_COLOR;
-    feedback.textContent = 'נא למלא שם, טלפון ואימייל';
+    feedback.textContent = 'נא למלא שם, שם עסק, טלפון ואימייל';
     return;
   }
   // אין תחום ברירת מחדל בבחירה, ולכן הוא נבדק כאן ולא נשלח ריק לשרת
@@ -535,7 +540,6 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         advertiser_type,
         contact_email,
         phone,
-        click_url: click_url || null,
         target_region: 'עפולה',
       }),
     });
