@@ -1436,6 +1436,9 @@ async function mfaShowRemember(){
     const days = Number(data) || 0;
     document.getElementById('mfaRememberDays').textContent = String(days);
     row.hidden = !days;
+    /* החלטת תומר (19.11.2026): הזכירה חלה גם על מנהלים, שהאימות אצלם חובה */
+    const adminNote = document.getElementById('mfaAdminTrust');
+    if (adminNote) adminNote.textContent = days ? ', ומכשיר שאומת נזכר ל-' + days + ' יום' : '';
   } catch(_){ row.hidden = true; }
 }
 

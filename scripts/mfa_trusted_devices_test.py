@@ -37,7 +37,8 @@ alter default privileges in schema public grant execute on functions to anon, au
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 
 create schema if not exists auth;
-create table auth.users (id uuid primary key);
+create table auth.users (id uuid primary key, encrypted_password text);
+create table auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade);
 create or replace function auth.jwt() returns jsonb language sql stable as
   $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 create or replace function auth.uid() returns uuid language sql stable as
@@ -234,6 +235,67 @@ def main():
     psql(f"delete from agent_wa_2fa where user_id = '{USER_A}'")
     left = psql("select string_agg(user_id::text, ',') from mfa_trusted_devices")
     check("כיבוי אימות מוחק רק את המכשירים של אותו חשבון", left == USER_B, left)
+
+    # ---- שינוי סיסמה ----
+    reset()
+    psql(f"update auth.users set encrypted_password = 'p0'")
+    verify_session(USER_A, S1)
+    verify_session(USER_B, S3)
+    remember(USER_A, S1)
+    remember(USER_B, S3)
+    psql(f"update auth.users set encrypted_password = encrypted_password where id = '{USER_A}'")
+    check("עדכון סיסמה לאותו ערך אינו מוחק", psql(f"select count(*) from mfa_trusted_devices where user_id = '{USER_A}'") == "1")
+    psql(f"update auth.users set encrypted_password = 'p1' where id = '{USER_A}'")
+    left = psql("select string_agg(user_id::text, ',') from mfa_trusted_devices")
+    check("שינוי סיסמה מוחק רק את המכשירים של אותו חשבון", left == USER_B, left)
+
+    # ---- יציאה מכל המכשירים ----
+    def sessions(uid, n):
+        psql(f"delete from auth.sessions where user_id = '{uid}'")
+        psql(f"insert into auth.sessions (user_id) select '{uid}' from generate_series(1, {n})")
+
+    def devices(uid):
+        return psql(f"select count(*) from mfa_trusted_devices where user_id = '{uid}'")
+
+    reset()
+    verify_session(USER_A, S1)
+    verify_session(USER_B, S3)
+    remember(USER_A, S1)
+    remember(USER_B, S3)
+    sessions(USER_A, 3)
+    sessions(USER_B, 1)
+    psql(f"delete from auth.sessions where id = (select id from auth.sessions where user_id = '{USER_A}' limit 1)")
+    check("יציאה רגילה (session אחד מתוך שלושה) אינה מוחקת", devices(USER_A) == "1")
+    psql(f"delete from auth.sessions where id in (select id from auth.sessions where user_id = '{USER_A}' limit 1)")
+    check("נשאר session אחד: אינה מוחקת", devices(USER_A) == "1")
+    sessions(USER_A, 3)
+    psql(f"delete from auth.sessions where user_id = '{USER_A}' and id in (select id from auth.sessions where user_id = '{USER_A}' limit 2)")
+    check("מחיקת שניים משלושה (נשאר אחד) אינה מוחקת", devices(USER_A) == "1")
+    sessions(USER_A, 3)
+    psql(f"delete from auth.sessions where user_id = '{USER_A}'")
+    check("יציאה מכל המכשירים (כל ה-sessions בהצהרה אחת) מוחקת", devices(USER_A) == "0")
+    check("ולא נוגעת בחשבון אחר", devices(USER_B) == "1")
+    psql(f"delete from auth.sessions where user_id = '{USER_B}'")
+    check("session יחיד שנמחק אינו מוחק (זהה ליציאה רגילה, מתועד)", devices(USER_B) == "1")
+
+    # ---- כשל בטריגר אינו עוצר פעולת auth ----
+    psql("alter table mfa_trusted_devices rename to mfa_trusted_devices_x")
+    try:
+        psql(f"update auth.users set encrypted_password = 'p2' where id = '{USER_B}'")
+        sessions(USER_B, 2)
+        psql(f"delete from auth.sessions where user_id = '{USER_B}'")
+        ok = True
+    except subprocess.CalledProcessError as e:
+        ok = False
+        print(e.output)
+    finally:
+        psql("alter table mfa_trusted_devices_x rename to mfa_trusted_devices")
+    check("טבלה שבורה: שינוי סיסמה ויציאה עדיין עוברים (אזהרה בלבד)", ok)
+
+    for fn in ("mfa_trusted_devices_on_password_change()", "mfa_trusted_devices_on_global_signout()"):
+        for role in ("anon", "authenticated"):
+            e = psql(f"select has_function_privilege('{role}', 'public.{fn}', 'execute')")
+            check(f"{fn}: סגורה ל-{role}", e == "f")
 
     # ---- בלי זהות ----
     err = subprocess.run(

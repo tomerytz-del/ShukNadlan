@@ -253,4 +253,93 @@ create trigger mfa_trusted_devices_on_2fa_off
   after delete on public.agent_wa_2fa
   for each row execute function public.mfa_trusted_devices_on_2fa_off();
 
+-- ---------------------------------------------------------------------------
+-- שינוי סיסמה ויציאה מכל המכשירים מוחקים את המכשירים הזכורים של אותו חשבון
+-- (החלטת תומר, 19.11.2026), כמו "לשכוח את כל המכשירים" וכיבוי האימות בוואטסאפ.
+--
+-- שני טריגרים על סכימת auth, ושניהם נוגעים אך ורק בשורות של המשתמש/ת שהשתנה/תה
+-- (new.id, או ה-user_id של ה-sessions שנמחקו): אין כאן שום מחיקה רוחבית.
+--   * mfa_devices_on_password_change: encrypted_password השתנה. מכסה כל דרך
+--     (updateUser, קישור איפוס, איפוס מהדשבורד), ולא רק מסך שלנו.
+--   * mfa_devices_on_global_signout: מחיקת sessions בהצהרה אחת (statement-level).
+--     "יציאה מכל המכשירים" מוחקת את כל ה-sessions של המשתמש/ת בבת אחת, ויציאה
+--     רגילה מוחקת אחד. לכן נמחקים מכשירים רק כשבהצהרה נמחקו לפחות שני sessions
+--     של אותו/ה משתמש/ת לא נשאר אף אחד.
+--
+-- **מה זה לא תופס, ונאמר במפורש:** יציאה מכל המכשירים של מי שיש לו/ה session
+-- אחד בלבד זהה בבסיס הנתונים ליציאה רגילה, ולכן אינה מוחקת. מחיקה כזו עוברת
+-- ב"לשכוח את כל המכשירים" בהגדרות, או בשינוי סיסמה.
+--
+-- **כשל בטריגר לעולם אינו עוצר פעולת auth.** שינוי סיסמה ויציאה הם מסלולי
+-- הכניסה עצמם, ושגיאה כאן לא תפיל אותם: היא נרשמת כאזהרה והטריגר חוזר. המחיר:
+-- אם הניקוי נכשל, האסימונים נשארים עד שפג תוקפם.
+--
+-- הטריגרים נוצרים רק אם העמודות קיימות. ב-CI של "החלת מיגרציות על Postgres"
+-- סכימת auth היא stub בלי encrypted_password ובלי sessions (ובפרודקשן שתיהן
+-- קיימות, נבדק ב-19.11.2026: ל-postgres יש TRIGGER על שתיהן, ואין שם טריגרים).
+-- הבדיקה המקומית (scripts/mfa_trusted_devices_test.py) מכסה את שניהם.
+-- ---------------------------------------------------------------------------
+create or replace function public.mfa_trusted_devices_on_password_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.mfa_trusted_devices where user_id = new.id;
+  return null;
+exception when others then
+  raise warning 'mfa_trusted_devices_on_password_change failed (%): %', sqlstate, sqlerrm;
+  return null;
+end;
+$$;
+
+create or replace function public.mfa_trusted_devices_on_global_signout()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.mfa_trusted_devices d
+   where d.user_id in (select o.user_id from old_sessions o group by o.user_id having count(*) >= 2)
+     and not exists (select 1 from auth.sessions s where s.user_id = d.user_id);
+  return null;
+exception when others then
+  raise warning 'mfa_trusted_devices_on_global_signout failed (%): %', sqlstate, sqlerrm;
+  return null;
+end;
+$$;
+
+revoke all on function public.mfa_trusted_devices_on_password_change() from public, anon, authenticated;
+revoke all on function public.mfa_trusted_devices_on_global_signout() from public, anon, authenticated;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'auth' and table_name = 'users' and column_name = 'encrypted_password') then
+    drop trigger if exists mfa_devices_on_password_change on auth.users;
+    create trigger mfa_devices_on_password_change
+      after update of encrypted_password on auth.users
+      for each row
+      when (old.encrypted_password is distinct from new.encrypted_password)
+      execute function public.mfa_trusted_devices_on_password_change();
+  else
+    raise notice 'auth.users.encrypted_password חסרה: הטריגר של שינוי סיסמה לא נוצר';
+  end if;
+
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'auth' and table_name = 'sessions' and column_name = 'user_id') then
+    drop trigger if exists mfa_devices_on_global_signout on auth.sessions;
+    create trigger mfa_devices_on_global_signout
+      after delete on auth.sessions
+      referencing old table as old_sessions
+      for each statement
+      execute function public.mfa_trusted_devices_on_global_signout();
+  else
+    raise notice 'auth.sessions חסרה: הטריגר של יציאה מכל המכשירים לא נוצר';
+  end if;
+end;
+$$;
+
 notify pgrst, 'reload schema';
