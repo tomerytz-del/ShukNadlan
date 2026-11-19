@@ -6,14 +6,14 @@ name: אותו נכס ביד2 ובמדלן
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+      - "supabase/migrations/20271121160000_board_cross_source_duplicate.sql"
       - "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
       - "scripts/board_cross_source_test.py"
       - ".github/workflows/board_cross_source.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+      - "supabase/migrations/20271121160000_board_cross_source_duplicate.sql"
       - "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
       - "scripts/board_cross_source_test.py"
       - ".github/workflows/board_cross_source.yml"

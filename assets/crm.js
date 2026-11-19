@@ -1367,8 +1367,84 @@ async function mfaWaStart(enable){
   };
 }
 
+/* ---------- מכשיר זכור (20271121150000) ----------
+   אחרי אימות אמיתי הדפדפן שומר אסימון. בכניסה חדשה mfa_device_claim מאמתת בו
+   את ה-session בלי הודעה: אותה שורה מאומתת שהודעת הוואטסאפ כותבת, והמנעול
+   (mfa_pre_request) לא זז. האסימון נשמר לפי משתמש/ת, כדי ששני חשבונות באותו
+   דפדפן לא יתערבבו, ובמסד נשאר רק ה-hash שלו. docs/mfa.md, "מכשיר זכור". */
+const MFA_DEVICE_KEY = 'shuknadlan.mfa_device.';
+let mfaDeviceTriedFor = null;
+
+function mfaDeviceGet(uid){
+  try { return localStorage.getItem(MFA_DEVICE_KEY + uid) || ''; } catch(_){ return ''; }
+}
+function mfaDeviceSet(uid, token){
+  try {
+    if (token) localStorage.setItem(MFA_DEVICE_KEY + uid, token);
+    else localStorage.removeItem(MFA_DEVICE_KEY + uid);
+  } catch(_){ /* גלישה פרטית: בלי זכירה, והאימות הרגיל ממשיך לעבוד */ }
+}
+
+/* true = ה-session אומת מהאסימון והניתוב מחדש יצא. פעם אחת לכל משתמש/ת
+   בטעינת דף, כדי שכשל מוזר לא יהפוך ללולאה. */
+async function mfaTryDevice(){
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid || mfaDeviceTriedFor === uid) return false;
+    mfaDeviceTriedFor = uid;
+    const token = mfaDeviceGet(uid);
+    if (!token) return false;
+    const { data, error } = await sb.rpc('mfa_device_claim', { p_token: token });
+    if (error) throw error;
+    if (data !== true){ mfaDeviceSet(uid, ''); return false; }   // פג, נמחק, או הזכירה כבויה
+    /* אנחנו בתוך ניתוב שעוד לא נסגר (showMfaChallenge נקרא מ-loadDashboard):
+       routeAfterAuth היה מצטרף אליו ולא מנתב שוב. ממתינים לסופו. */
+    const again = () => routeAfterAuth(session, { force:true });
+    if (authRouting) authRouting.finally(again); else again();
+    return true;
+  } catch(err){
+    console.warn('mfa device claim failed', err);
+    return false;
+  }
+}
+
+/* אחרי אימות אמיתי, אם התיבה מסומנת. כשל כאן לעולם לא עוצר את הכניסה. */
+let mfaRememberBusy = false;
+async function mfaRememberDevice(){
+  if (mfaRememberBusy) return;   // בדיקת ההמתנה כל 3 שניות: קריאה איטית לא מנפיקה אסימון שני
+  mfaRememberBusy = true;
+  try{
+    const box = document.getElementById('mfaRemember');
+    const row = document.getElementById('mfaRememberRow');
+    if (!box || !box.checked || !row || row.hidden) return;
+    const { data, error } = await sb.rpc('mfa_device_remember');
+    if (error) throw error;
+    const { data: { session } } = await sb.auth.getSession();
+    if (data?.token && session?.user?.id) mfaDeviceSet(session.user.id, data.token);
+  } catch(err){
+    console.warn('mfa device remember failed', err);
+  } finally {
+    mfaRememberBusy = false;
+  }
+}
+
+async function mfaShowRemember(){
+  const row = document.getElementById('mfaRememberRow');
+  try{
+    const { data } = await sb.rpc('mfa_device_trust_days');
+    const days = Number(data) || 0;
+    document.getElementById('mfaRememberDays').textContent = String(days);
+    row.hidden = !days;
+    /* החלטת תומר (19.11.2026): הזכירה חלה גם על מנהלים, שהאימות אצלם חובה */
+    const adminNote = document.getElementById('mfaAdminTrust');
+    if (adminNote) adminNote.textContent = days ? ', ומכשיר שאומת נזכר ל-' + days + ' יום' : '';
+  } catch(_){ row.hidden = true; }
+}
+
 /* ---------- מסך האימות בכניסה ---------- */
 async function showMfaChallenge(status){
+  if (await mfaTryDevice()) return;
   const link = document.getElementById('mfaWaLink');
   const st = document.getElementById('mfaWaStatus');
   link.setAttribute('aria-disabled', 'true'); link.href = '#';
@@ -1380,6 +1456,11 @@ async function showMfaChallenge(status){
   document.getElementById('mfaTotpCode').value = '';
   document.getElementById('mfaTotpFeedback').textContent = '';
   showScreen('mfaChallenge');
+  /* מסך האימות אינו "כניסה": השעון של auth מתחיל מחדש כשהאימות עובר,
+     ומי שעוזב/ת כאן נספר/ת כמסך כניסה ולא כנטישה של היעד (19.11.2026:
+     36 שניות של "טעינה" היו 32 שניות עד שנשלחה ההודעה לגבריאלה). */
+  if (window.dlMark) window.dlMark('mfa');
+  mfaShowRemember();
   try{
     const { url, tail } = await mfaWaStart(false);
     link.href = url; link.removeAttribute('aria-disabled');
@@ -1403,6 +1484,7 @@ document.getElementById('mfaWaLink').addEventListener('click', ()=>{
     if (s.pending) return false;
     // ‏pending ירד = ה-session אומת. ניתוב מחדש עם force, כי routedUserId
     // כבר נקבע לפני שעצרנו כאן.
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     routeAfterAuth(session, { force:true });
     return true;
@@ -1437,6 +1519,7 @@ document.getElementById('mfaTotpForm').addEventListener('submit', async (e)=>{
     const { error: vErr } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     if (vErr) throw vErr;
     mfaStopPolling();
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     await routeAfterAuth(session, { force:true });
   } catch(err){
@@ -1532,11 +1615,13 @@ async function renderMfaSection(){
   accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
   host.innerHTML =
-      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
+      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום (חוץ ממכשיר שאומת ונזכר). בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
     + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
-    + '<div class="mfa-block" id="mfaTotpBlock"></div>';
+    + '<div class="mfa-block" id="mfaTotpBlock"></div>'
+    + '<div class="mfa-block" id="mfaDevBlock"></div>';
   renderMfaWaBlock(document.getElementById('mfaWaBlock'), s, fb);
   renderMfaTotpBlock(document.getElementById('mfaTotpBlock'), s, fb);
+  renderMfaDevicesBlock(document.getElementById('mfaDevBlock'), s, fb);
 }
 
 /* ---- וואטסאפ ---- */
@@ -1588,6 +1673,40 @@ function renderMfaWaBlock(box, s, fb){
     showToast('האימות בוואטסאפ כובה');
     renderMfaSection();
   });
+}
+
+/* ---- מכשירים זכורים ---- */
+async function renderMfaDevicesBlock(box, s, fb){
+  if (!s.required){ box.remove(); return; }
+  try{
+    const [{ data: days }, { data: n }] = await Promise.all([
+      sb.rpc('mfa_device_trust_days'), sb.rpc('mfa_devices_count')]);
+    if (!Number(days)){ box.remove(); return; }
+    const count = Number(n) || 0;
+    box.innerHTML = '<p class="mfa-block-h">🔒 מכשירים זכורים</p>'
+      + '<p class="mfa-help" style="margin:0 0 8px;text-align:right">מכשיר שאומת נזכר ' + Number(days) + ' יום, ובכניסה ממנו אין צורך בהודעה נוספת. '
+      + (count === 0 ? 'אין מכשירים זכורים כרגע.' : count === 1 ? 'כרגע מכשיר אחד זכור.' : 'כרגע ' + count + ' מכשירים זכורים.') + '</p>'
+      + (count ? '<button type="button" class="btn btn-ghost btn-block">לשכוח את כל המכשירים</button>' : '');
+    const btn = box.querySelector('button');
+    if (!btn) return;
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('לשכוח את כל המכשירים? בכניסה הבאה מכל מכשיר יידרש אימות מחדש.')) return;
+      btn.disabled = true;
+      const { error } = await sb.rpc('mfa_devices_forget');
+      if (error){
+        fb.style.color = 'var(--brick)'; fb.textContent = heErr(error);
+        btn.disabled = false;
+        return;
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user?.id) mfaDeviceSet(session.user.id, '');
+      showToast('המכשירים הזכורים נמחקו');
+      renderMfaSection();
+    });
+  } catch(err){
+    console.warn('mfa devices block failed', err);
+    box.remove();
+  }
 }
 
 /* ---- אפליקציית אימות ---- */
@@ -2854,7 +2973,9 @@ function handleGotoParam(){
           : raw === 'sign' ? ['agrModal']
           : raw === 'waShare' ? ['waShareModal']
           : raw === 'mentor' ? ['coachSheet']
-          : [raw];
+          /* כינוי (accSharedWithMe) אינו אלמנט: נמדד לפי הקטגוריה שהוא פותח.
+             בלי זה כל לחיצה על "נכס ששותף איתך" נרשמה כנטישה (19.11.2026). */
+          : [accAliasTarget(raw)];
         for (var i = 0; i < ids.length; i++){
           var dlEl = document.getElementById(ids[i]);
           if (dlEl && dlEl.getClientRects().length) return true;
@@ -7506,7 +7627,7 @@ const PRO_MEDIA_BUCKET = 'property-images';
    נשמר כמפתח באנגלית ומתורגם רק בתצוגה. */
 const PRO_TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', electrician:'חשמלאי/ת', plumber:'אינסטלטור/ית', general:'בעל/ת מקצוע',
 };
 
 /* "מוצגת באתר" אינו status='active' בלבד: כרטיסייה שתקופת הפרסום שלה
@@ -15740,6 +15861,23 @@ let propertyExclusivities = {};
 // property_id → הלקוחות שלי שהנכס התאים להם (‏client_match_alerts, בלי
 // מה שנדחה ובלי לקוח/ה שסגר/ה עסקה), מהציון הגבוה לנמוך
 let propertyMatchedClients = {};
+/* ההיצע בלוחות יד2/מדלן לכל נכס פעיל: { [property_id]: board_supply }, מ-
+   properties_board_supply (אותו חישוב של דוח ה-CMA, listing_supply_stats).
+   נטען פעם אחת ב-loadProperties. משמש את התגית בכרטיס ואת חלון "דוח
+   לבעלים" (crm-owner-report.js). docs/listing-inventory.md */
+let propertyBoardSupply = {};
+/* משפט אחד ליועץ/ת על ההיצע בלוחות. מחירים מבוקשים, ברמת העיר. מחזיר ''
+   כשאין מדגם: המסד משתיק מתחת לסף, וכאן לא מנחשים. */
+function boardSupplyText(b){
+  if (!b || b.status !== 'ok') return '';
+  const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
+  const boards = Array.isArray(b.boards) ? b.boards : [];
+  const names = [boards.includes('yad2') ? 'יד2' : '', boards.includes('madlan') ? 'מדלן' : ''].filter(Boolean).join(' ו') || 'הלוחות';
+  return `ב${names} יש כרגע ${Number(b.sample)} מודעות דומות${b.city ? ' ב' + b.city : ''}`
+    + ` (${b.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}, אותו סוג נכס ומספר חדרים דומה).`
+    + ` המחיר המבוקש החציוני ${shekel(b.median_price)}, וחצי מהמודעות בין ${shekel(b.p25_price)} ל-${shekel(b.p75_price)}.`
+    + (pct === null ? '' : ` המחיר של הנכס גבוה מ-${pct}% מהן.`);
+}
 
 /* בלעדיות: שורה חיה ב-property_exclusivities (נתבעה מול הסכם חתום, ויש לה
    מועד סיום), או המאפיין "בבלעדיות" שסוכנים מסמנים בטופס. השני הוא גם מה
@@ -16478,7 +16616,7 @@ async function loadProperties(agentId, opts){
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
-    propertyExclusivities = {}; propertyMatchedClients = {};
+    propertyExclusivities = {}; propertyMatchedClients = {}; propertyBoardSupply = {};
     syncPropertyFilterOptions();
     renderProperties();
     return;
@@ -16489,7 +16627,7 @@ async function loadProperties(agentId, opts){
      סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
      שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
      את הרשימה, כמו קודם. */
-  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }, boardRes] = await Promise.all([
     loadPropertyViewCounts(propertyIds),
     sb.from('property_planning_info').select('*').in('property_id', propertyIds),
     // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
@@ -16500,11 +16638,17 @@ async function loadProperties(agentId, opts){
       .gte('ends_on', localIsoDate(new Date())),
     sb.from('client_match_alerts').select('property_id, client_id, score, agent_clients(full_name, status)')
       .in('property_id', propertyIds).neq('status', 'dismissed'),
+    // ההיצע בלוחות, קריאה אחת לכל הרשימה. לפני המיגרציה הפונקציה אינה
+    // קיימת: שגיאה משאירה את התגית בחוץ, כמו שאר הקריאות כאן.
+    sb.rpc('properties_board_supply', { p_ids: props.filter(p => p.status === 'active').map(p => p.id).slice(0, 500) })
+      .then(r => r, () => ({ data: null })),
     // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
     // אחרי הפעם הראשונה
     ensureNeighborhoodsLoaded(),
   ]);
   propertyViewCounts = viewCounts;
+  propertyBoardSupply = (boardRes && boardRes.data && typeof boardRes.data === 'object' && !Array.isArray(boardRes.data))
+    ? boardRes.data : {};
 
   propertyPlanningInfo = {};
   (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
@@ -16823,6 +16967,11 @@ function buildPropertyCard(p, agentId){
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     window.ShukAirLiving && ShukAirLiving.crmSpec(p) && { text: ShukAirLiving.crmSpec(p) },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    // ההיצע בלוחות: רק כשיש מדגם ומחיר. מחירים מבוקשים ברמת העיר, ולכן
+    // נתון ולא אזהרה (בלי גוון), והפירוט ב-title.
+    (b => b && b.status === 'ok' && b.subject_percentile != null && {
+      html:`📊 יקר מ-<b>${esc(b.subject_percentile)}%</b> בלוחות`, title: boardSupplyText(b) + ' מחירים מבוקשים, לא עסקאות.',
+    })(propertyBoardSupply[p.id]),
     // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
     p.price_unit === 'sqm'
       ? (p.price_total && p.price_total !== p.price && { text:`≈ ${shekel(p.price_total)} לכל הנכס`, title:'המחיר למ״ר כפול השטח' })
@@ -24351,10 +24500,159 @@ const MATCH_SORTS = {
 let matchFilter = 'all';
 let matchSort = 'score';
 
+/* ---------- מודעות מהלוחות (יד2 / מדלן) במגירת ההתאמות ----------
+   המקור השלישי, אחרי הנכסים של הסוכן/ת ושל המשרד. ‏agent_client_board_matches
+   מדרגת כל מודעה באותו מנוע של הנכסים (client_property_match), ולכן הציון
+   כאן הוא אותו ציון. **אין כאן חישוב**: רק הצגה של מה שחזר.
+
+   שלושה דברים שהבלוק שומר עליהם (docs/listing-inventory.md):
+   - נפרד מהנכסים, בכותרת משלו. מודעה ציבורית אינה נכס של הסוכן/ת, ואין לה
+     "למיניסייט": המיניסייט שולח רק מהמאגר (הסקיל client-showcase).
+   - הקישור הוא כפתור, ורק לכתובת https של יד2, מדלן או פייסבוק.
+   - כשלא נבדק (מאפיין חובה, בלי עיר) נאמר שלא נבדק, ולא "אין מודעות".
+   הבלוק נטען אחרי שהמגירה נפתחה ואינו מעכב אותה. לפני המיגרציה הפונקציה
+   אינה קיימת, ואז הוא פשוט לא מופיע. */
+const BOARD_SOURCE_LABELS = { yad2:'יד2', madlan:'מדלן', facebook:'קבוצת פייסבוק' };
+function boardListingHref(url){
+  const u = String(url || '');
+  return /^https:\/\/([a-z0-9-]+\.)?(yad2\.co\.il|madlan\.co\.il|facebook\.com)\//i.test(u) ? u : '';
+}
+function boardMatchRow(m){
+  const src = BOARD_SOURCE_LABELS[m.source] || '';
+  const bits = [
+    src,
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.size_sqm ? `${Number(m.size_sqm)} מ״ר` : '',
+    (m.floor === 0) ? 'קומת קרקע' : (m.floor != null ? `קומה ${m.floor}` : ''),
+    m.neighborhood || m.city,
+    (m.no_broker === 'post' || m.no_broker === 'group') ? 'ללא תיווך' : '',
+  ].filter(Boolean).map(esc).join(' · ');
+  const was = m.price_was ? ` <span class="mb-was">ירד מ-${shekel(m.price_was)}</span>` : '';
+  const psm = m.price_per_sqm ? ` · ${shekel(m.price_per_sqm)}/מ״ר` : '';
+  const href = boardListingHref(m.url);
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price"><b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''}${esc(psm)}${was}</div>
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע במודעה, בלי מאפיינים">${esc(m.score)}%</span>
+      ${href ? `<a class="btn btn-ghost mb-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">פתיחה ב${esc(src || 'לוח')}</a>` : ''}
+    </div>`;
+}
+function boardMatchesHtml(r){
+  // unavailable / unsupported: לא נבדק (העיר אינה במלאי, או לקוח/ה מסחרי/ת). בלי בלוק.
+  if (!r || typeof r !== 'object' || r.status === 'unavailable' || r.status === 'unsupported') return '';
+  const head = '<div class="mb-h">מודעות מהלוחות יד 2 / מדלן</div>';
+  if (r.status === 'skipped_feature'){
+    return head + '<div class="lead-meta">מודעות בלוחות לא נבדקו, כי אין בהן נתון על המאפיין שנדרש בכרטיס.</div>';
+  }
+  if (r.status === 'no_city'){
+    return head + '<div class="lead-meta">כדי לראות מודעות מהלוחות צריך עיר בכרטיס הלקוח/ה.</div>';
+  }
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">בלוחות אין כרגע מודעות שעונות על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  // כרטיס רחב נותן את אותו ציון למאות מודעות. אומרים את זה, ואומרים לפי
+  // מה נבחרו אלה שמוצגות, אחרת חמש שורות נראות כמו "החמש המתאימות".
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהן באותו ציון (${esc(r.top_score)}%), ולכן מוצגות קודם מודעות שירדו במחיר, ואחריהן לפי מחיר למ״ר. דרישות מפורטות יותר בכרטיס (שכונה, שטח, קומה) יצמצמו את הרשימה.`
+    : '';
+  return head
+    + `<div class="lead-meta">מודעות ציבוריות, לא נכסים שלך או של המשרד. ${total === items.length
+        ? `${total} מודעות מתאימות.` : `מוצגות ${items.length} מתוך ${total} מודעות מתאימות.`}${tie}</div>`
+    + items.map(boardMatchRow).join('');
+}
+/* ---------- פוסטים בפייסבוק (ביקוש פתוח) במגירת ההתאמות ----------
+   בעלי נכס שפרסמו בקבוצות ושעוד אין להם סוכן. אותו דירוג של הנכסים
+   (agent_client_demand_matches -> client_property_match), בלי קישור, טלפון או
+   פרטי נכס: הקישור לפוסט נחשף רק למי שתפס/ה.
+
+   **הלחיצה היא "אני פונה"** (תומר, 19.11.2026): הכפתור קורא ל-claimOpenDemand
+   (crm-leads.js, open_demand_claim) ופותח את הפוסט. התפיסה בלעדית ולא
+   משתחררת, עד תקרה יומית (open_demand_claims_daily), ולכן הכפתור אומר את זה
+   במפורש ואינו "פתיחה". פוסט "ללא תיווך" כן כאן, עם תגית והנחיה. */
+function demandMatchRow(m){
+  const bits = [
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.city,
+  ].filter(Boolean).map(esc).join(' · ');
+  const age = m.days_ago == null ? '' : (m.days_ago === 0 ? 'פורסם היום' : `פורסם לפני ${m.days_ago} ימים`);
+  const price = m.price ? `<b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''} (מבוקש)` : 'מחיר לא צוין';
+  const label = m.mine ? 'פתיחת הפוסט (כבר תפסת)' : 'אני פונה ופתיחת הפוסט';
+  // "ללא תיווך": לא גובים דמי תיווך, אבל ייתכן שיעניינו אותם שירותי תיווך. הפוסט
+  // נשאר בהתאמות עם ההנחיה של הביקוש הפתוח (OPEN_DEMAND_NO_BROKER, crm-leads.js):
+  // הצעה אחת ומנומסת לשיווק מקצועי, לא "יש לי קונה".
+  const nb = (typeof OPEN_DEMAND_NO_BROKER !== 'undefined' && OPEN_DEMAND_NO_BROKER[m.no_broker]) || null;
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price">${price}${age ? ` · <span class="mb-age">${esc(age)}</span>` : ''}</div>
+        ${m.summary ? `<div class="mb-sum">${esc(m.summary)}</div>` : ''}
+        ${nb ? `<div class="mb-nb"><b>${esc(nb.tag)}</b>. ${esc(nb.rule)}</div>` : ''}
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע בפוסט">${esc(m.score)}%</span>
+      <button type="button" class="btn ${m.mine ? 'btn-ghost' : 'btn-gold'} mb-open" data-demand-claim="${esc(m.id)}" data-open-post="1">${esc(label)}</button>
+    </div>`;
+}
+function demandMatchesHtml(r){
+  if (!r || typeof r !== 'object') return '';
+  // לא נבדק או כבר נאמר בבלוק של הלוחות (מאפיין חובה, בלי עיר), ולקוח/ה מסחרי/ת
+  if (['unavailable', 'unsupported', 'no_city', 'skipped_feature'].includes(r.status)) return '';
+  const head = '<div class="mb-h">פוסטים בפייסבוק: בעלי נכס שמחפשים סוכן</div>';
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">אין כרגע פוסט פתוח בקבוצות שעונה על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהם באותו ציון (${esc(r.top_score)}%), ולכן מוצגים קודם אלה שתפסת, ואחריהם החדשים.` : '';
+  return head
+    + `<div class="lead-meta">פוסטים של בעלי נכס, בלי פרטי קשר. <b>הלחיצה מסמנת "אני פונה"</b>:
+        הפוסט נתפס עבורך, לא נשאר פתוח לסוכנים אחרים ולא משתחרר, ונספר בתקרה היומית. ${total === items.length
+        ? `${total} פוסטים מתאימים.` : `מוצגים ${items.length} מתוך ${total} פוסטים מתאימים.`}${tie}</div>`
+    + items.map(demandMatchRow).join('');
+}
+async function loadClientBoardMatches(panel, client){
+  const box = document.createElement('div');
+  box.className = 'match-board';
+  panel.appendChild(box);
+  if (!client || !client.id) return;
+  const fetchBlocks = async () => {
+    // שתי הקריאות במקביל. כשל באחת (לפני המיגרציה) משאיר רק את השנייה.
+    const [boards, demand] = await Promise.all([
+      sb.rpc('agent_client_board_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+      sb.rpc('agent_client_demand_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+    ]);
+    // המגירה נסגרה ונפתחה ללקוח/ה אחר/ת בינתיים: התיבה כבר אינה במסמך
+    if (!box.isConnected) return;
+    box.innerHTML = (boards.error ? '' : boardMatchesHtml(boards.data)) + (demand.error ? '' : demandMatchesHtml(demand.data));
+  };
+  // המאזין נקשר מיד, לפני הטעינה: כשל בטעינה אינו משאיר כפתורים מתים.
+  let claiming = false;
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (!b || claiming || typeof claimOpenDemand !== 'function') return;
+    claiming = true;   // לחיצה כפולה לא תופסת פעמיים ולא פותחת שני חלונות
+    try {
+      await claimOpenDemand(b.getAttribute('data-demand-claim'), b);
+      // המצב השתנה (נתפס, או כבר לא פתוח): מציירים שוב
+      await fetchBlocks();
+    } catch (_e) { /* נשאר מה שהיה */ } finally { claiming = false; }
+  });
+  try { await fetchBlocks(); } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
+}
+
 function renderClientMatches(panel, rows, client){
   panel._client = client;
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
+    loadClientBoardMatches(panel, client);
     return;
   }
 
@@ -24399,6 +24697,7 @@ function renderClientMatches(panel, rows, client){
     draw(panel.querySelector('[data-match-filter][aria-pressed="true"]')?.dataset.matchFilter || 'all');
   });
   draw(active);
+  loadClientBoardMatches(panel, client);
 }
 
 /* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
@@ -27007,7 +27306,7 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
 
-/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+/* קישור למודעה ציבורית במדלן, ביד2 או בפוסט פייסבוק. כל כתובת אחרת נשארת בלי כפתור. */
 function boardListingHref(raw){
   if (typeof raw !== 'string') return '';
   const s = raw.trim();
@@ -27016,7 +27315,8 @@ function boardListingHref(raw){
   try { host = new URL(s).hostname.toLowerCase(); }
   catch (e) { return ''; }
   const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
-    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il')
+    || host === 'facebook.com' || host.endsWith('.facebook.com');
   return ok ? s : '';
 }
 

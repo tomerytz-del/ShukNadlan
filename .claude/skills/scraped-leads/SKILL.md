@@ -32,7 +32,11 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 אם הוא לא מתחיל ב-`facebook_` - אחרת הוא נספר `other` בבקרת הלידים.
 `madlan` ו-`yad2` כבר ברשימות האלה (מודעות בעלים פרטיים, `docs/scraped-leads.md`,
 `docs/listing-inventory.md`). מקור חדש אחריהם נכנס לאותן רשימות, וגם ל-
-`listing_inventory_sync` אם הוא מלאי ולא פוסט.
+`listing_inventory_sync` אם הוא מלאי ולא פוסט. בעל/ת מ-`facebook_group`
+נכתב/ת ל-`listing_inventory` עם `source = facebook` מטריגר, לא מהסנכרון:
+הפוסט אינו צילום עיר, וצילום יד2 לא מוחק אותו. מחפש/ת לא נכתב/ת למלאי.
+ההתאמה שלו/ה למלאי ולנכסים פעילים יוצאת בשורת הביקוש הפתוח רק כש-
+`scraped_lead_matching_enabled` דלוק. אין קריאה שנייה של הסוכן הסורק.
 
 ## 2. ביקוש פתוח: בלי פרטים מזהים, וזה נאכף במסד
 
@@ -57,6 +61,17 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 `whatsapp_template_cap_on()` כבויה. "אני פונה" על הודעה פרטית בלי פוסט
 קורא ל-`social_buyer_handover`. תור `seeker_handoffs` נכתב רק כש-
 `social_buyer_handoff_enabled` הוא 1, והוא נשאר 0. אין שליחה לפונה.
+
+## 2א. פוסט פתוח כהתאמה ללקוח/ה: הלחיצה היא "אני פונה"
+
+`client_demand_matches` מצליבה לקוח/ה מול פוסטים פתוחים של בעלי נכס, באותו
+`client_property_match`. מה שחוזר אנונימי: **אין קישור, טלפון או
+`property_details`**, והקישור נחשף רק אחרי התפיסה. פוסט "ללא תיווך" **נכנס**,
+עם תגית וההנחיה של `OPEN_DEMAND_NO_BROKER` (הצעת שיווק, לא "יש לי קונה"). הלחיצה (CRM: `claimOpenDemand`; גבריאלה: כפתור שפותח
+`/demand?k=`) היא `open_demand_claim_core`: אותה תקרה יומית ובלעדיות שאינה
+משתחררת. **התפיסה ב-POST מ-JS, לא ב-GET**, כדי שתצוגה מקדימה לא תתפוס, ובחירה
+בשורת רשימה אינה תפיסה. אל תהפכו את הדף ל-GET שתופס, ואל תוסיפו קישור לפוסט
+לתשובה של `client_demand_matches`. `docs/scraped-leads.md`.
 
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 

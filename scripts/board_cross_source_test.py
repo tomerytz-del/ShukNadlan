@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIG = ROOT / "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+MIG = ROOT / "supabase/migrations/20271121160000_board_cross_source_duplicate.sql"
 # המיגרציה שקודמת לה: העמודות size_sqm, floor, neighborhood ו-price_changes
 # שגוף listing_inventory_sync כותב אליהן.
 HISTORY = ROOT / "supabase/migrations/20271119140000_listing_inventory_price_history.sql"

@@ -82,6 +82,7 @@ import {
 } from "./inbound-kind.ts";
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import { boardButtonLabelForUrl, boardUrlFromRowId } from "./board-listings.ts";
+import { demandButton, demandTokenFromRowId } from "./demand-matches.ts";
 import {
   abortedTurnPlan,
   CAS_ATTEMPTS,
@@ -2760,6 +2761,18 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           label: ctaLabel(navPath),
           url: absoluteUrl(SITE_BASE, navPath),
         }], agent.id);
+        return;
+      }
+      // שורת פוסט בפייסבוק מרשימת ההתאמות. הבחירה אינה "אני פונה": היא שולחת
+      // כפתור, והלחיצה עליו (דף /demand, ושם POST) היא התפיסה.
+      const demandToken = demandTokenFromRowId(buttonId);
+      if (demandToken) {
+        const button = demandButton(demandToken, SITE_BASE);
+        if (button) {
+          await sendOutbox(from, [{ kind: "cta", body: button.body, label: button.label, url: button.url }], agent.id);
+        } else {
+          await reply(from, "לא הצלחתי להכין את הקישור לפוסט. אפשר לפתוח אותו מהביקוש הפתוח ב-CRM.", agent.id);
+        }
         return;
       }
       const boardUrl = boardUrlFromRowId(buttonId);

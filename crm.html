@@ -228,6 +228,391 @@ window.shukArmTrackers = function () {
   }
   @media (prefers-reduced-motion:reduce){#loginScreen .btn{transition:none}#loginScreen .btn:hover{transform:none}}
 
+  /* ---------- מסך המתנה ----------
+     זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
+     גם של מי שכבר מחובר/ת וגם החזרה מ-Google — התחילה בהבזק של טופס הסיסמה,
+     כי בדיקת ה-session היא אסינכרונית ומסתיימת רק אחרי הציור הראשון. */
+  .boot-card{text-align:center}
+  /* ‏‎.brand-loader‎ — הלוגו הוא ההמתנה: הפין קופץ ונוחת, הצל מתכווץ כשהוא
+     באוויר, בכל נחיתה יוצא ממנו פינג זהוב, ופס ברק עובר עליו. מחזור אחד
+     (‏1.6s) לכולם, כדי שזה ייקרא כקפיצה אחת. אותו רכיב יושב גם ב-
+     developer-crm.html, ובגרסה כהה במסך ההדמיות (‎assets/ai-showcase.js‎).
+     הלוגו הוא כבר הקובץ שהכותרת טוענת, ולכן אין כאן בקשה נוספת. */
+  .brand-loader{position:relative;width:110px;height:98px;margin:0 auto 14px}
+  .brand-loader .bl-pin{position:absolute;left:50%;top:4px;width:66px;margin-left:-33px;z-index:2;
+    animation:blBob 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-pin img{display:block;width:100%;height:auto}
+  .brand-loader .bl-pin::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.65) 50%,transparent 62%) 0 0/300% 100% no-repeat;
+    -webkit-mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    animation:blShine 3.2s ease-in-out infinite}
+  .brand-loader .bl-shadow{position:absolute;left:50%;bottom:9px;width:40px;height:9px;margin-left:-20px;
+    border-radius:50%;background:rgba(14,42,107,.34);filter:blur(2px);
+    animation:blShadow 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-ping{position:absolute;left:50%;bottom:1px;width:96px;height:24px;margin-left:-48px;
+    border-radius:50%;border:2px solid rgba(201,162,39,.85);opacity:0;animation:blPing 1.6s ease-out infinite}
+  .brand-loader .bl-ping-2{animation-delay:.8s}
+  @keyframes blBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  @keyframes blShadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}
+  @keyframes blShine{0%{background-position:100% 0}55%,100%{background-position:0 0}}
+  @keyframes blPing{0%{transform:scale(.3);opacity:0}15%{opacity:.9}100%{transform:scale(1);opacity:0}}
+  @media (prefers-reduced-motion:reduce){
+    .brand-loader .bl-pin,.brand-loader .bl-shadow{animation:none}
+    .brand-loader .bl-pin::after,.brand-loader .bl-ping{display:none}
+  }
+
+  /* ---------- סוף ה-CSS של הציור הראשון ----------
+     עד כאן: המשתנים, מסך הכניסה ומסך ההמתנה. ה-<style> נסגר כאן בכוונה,
+     ו-#loginScreen יושב ב-HTML לפני שאר ה-CSS (כ-550KB), כדי שמסך ההמתנה
+     יצויר כשהבתים הראשונים מגיעים ולא אחרי שכל העיצוב ירד. על קו איטי
+     זה ההבדל בין מסך ריק של שניות לבין הלוגו הקופץ. כלל שחל על מסך
+     ההמתנה נכתב כאן למעלה, אחרת הוא "קופץ" כשהחלק השני מגיע.
+     docs/agent-dashboard.md, "מסך ההמתנה לפני ה-CSS". */
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<div id="loginScreen">
+  <!-- כרטיס ההמתנה מוצג ראשון בכל טעינה; showScreen() מחליף אותו בכרטיס הנכון
+       ברגע שידוע אם יש חיבור פעיל. ראו "ניהול מסכים" בסקריפט. -->
+  <div class="card login-card boot-card" id="bootCard">
+    <!-- הלוגו עצמו הוא ההמתנה (‎.brand-loader‎), ולכן אין כאן לוגו נפרד מעליו -->
+    <div class="brand-loader" role="status" aria-live="polite" aria-label="טוען">
+      <span class="bl-ping" aria-hidden="true"></span><span class="bl-ping bl-ping-2" aria-hidden="true"></span>
+      <span class="bl-pin" aria-hidden="true"><img src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"></span>
+      <span class="bl-shadow" aria-hidden="true"></span>
+    </div>
+    <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
+  </div>
+
+  <div class="card login-card" id="loginCardMain" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <div class="auth-eyebrow">אזור יועצי הנדל״ן והמשרדים</div>
+    <h1>שוק הנדל״ן לעסקים</h1>
+    <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
+    <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
+         רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
+         ומופעל מיד אחרי ההתחברות. -->
+    <div id="inviteBanner" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;font-size:.82rem;line-height:1.55;text-align:center">
+      ✉️ הוזמנת להצטרף לצוות משרד. אפשר להיכנס עם Google, או ליצור כאן חשבון עם אימייל וסיסמה - והחיבור לכרטיס ייעשה אוטומטית.
+    </div>
+    <!-- מסלול 1: כניסה לחשבון קיים -->
+    <h2 class="auth-sec-title"><span class="auth-num" aria-hidden="true">🔑</span>כבר יש לך חשבון? כניסה</h2>
+    <p class="auth-sec-hint">הכי מהיר עם Google, ואפשר גם עם אימייל וסיסמה.</p>
+    <button type="button" class="btn btn-block auth-google" id="googleLoginBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">התחברות עם Google</span>
+    </button>
+    <div class="auth-or">או עם אימייל וסיסמה</div>
+    <form id="loginForm">
+      <div class="field"><label for="email">אימייל</label><input type="email" id="email" required autocomplete="username"></div>
+      <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה למערכת</button>
+      <div id="loginError"></div>
+      <!-- מוצג רק כשהחשבון קיים והמייל עוד לא אושר (email_not_confirmed), או
+           מיד אחרי יצירת חשבון. בלעדיו מי שמייל האישור לא הגיע אליו/ה (ספאם,
+           מכסת השליחה של Supabase) נשאר/ה מול שגיאה בלי שום דרך קדימה. -->
+      <button type="button" class="btn btn-ghost btn-block" id="resendConfirmBtn" style="display:none;margin-top:8px">שליחה חוזרת של מייל האישור</button>
+    </form>
+    <!-- ---------- יצירת חשבון למוזמן/ת ----------
+         מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
+         מבטיח "סיסמה שתגדיר/י בעצמך", אבל למסך הזה הייתה רק כניסה. מי
+         שהוזמן/ה ואינו/ה משתמש/ת ב-Google הגיע/ה לכאן, הקליד/ה את הכתובת
+         שקיבלה את ההזמנה, וקיבל/ה "אימייל או סיסמה שגויים" — בלי שום דרך
+         קדימה. הכפתור הזה הוא הדרך.
+
+         חשוב: אין כאן שום הרשאה חדשה. יצירת המשתמש היא יצירת חשבון Auth
+         בלבד; השיוך לכרטיס נעשה אחריה ב-join-agency, מול האסימון או מול
+         התאמת האימייל — בדיוק כמו במסלול Google. -->
+    <div id="inviteSignup" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-size:.78rem;color:var(--ink-soft);line-height:1.55;text-align:center;margin-bottom:9px">
+        זו הכניסה הראשונה שלך? כאן יוצרים חשבון - עם הכתובת שאליה נשלחה ההזמנה, ובסיסמה שתבחר/י (8 תווים לפחות).
+      </div>
+      <button type="button" class="btn btn-ghost btn-block" id="inviteSignupBtn">יצירת חשבון וסיסמה</button>
+    </div>
+    <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
+         מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
+    <!-- מסלול 2: הצטרפות. כרטיס נפרד בצבע אחר, כדי שמי שאין לו/ה חשבון לא
+         ינסה/תנסה להקליד סיסמה בטופס שלמעלה. -->
+    <div id="authJoinWrap">
+    <div class="auth-split">חדש/ה כאן?</div>
+    <section class="auth-join" aria-labelledby="authJoinTitle">
+      <h2 class="auth-sec-title" id="authJoinTitle"><span class="auth-num" aria-hidden="true">🏢</span>הצטרפות - פתיחת משרד חדש</h2>
+      <ul>
+        <li>ניהול נכסים, לקוחות ולידים במקום אחד</li>
+        <li>הנכסים שלך מתפרסמים באתר</li>
+        <li>ההרשמה לוקחת כמה דקות</li>
+      </ul>
+      <a href="/agency-signup" class="btn btn-block">להצטרפות ←</a>
+      <div class="auth-gift">🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי</div>
+    </section>
+    <p class="auth-agent-note">סוכן/ת במשרד שכבר רשום אצלנו? אין צורך להירשם - נכנסים למעלה עם המייל שמנהל/ת המשרד רשם/ה, ונחבר אותך לכרטיס.</p>
+    </div>
+  </div>
+
+  <!-- ---------- אימות כניסה בוואטסאפ ----------
+       מי שהפעיל/ה אימות (ומנהל/ת פלטפורמה, תמיד) נוחת/ת כאן אחרי הסיסמה או
+       Google, ולפני הדשבורד. הכפתור הוא קישור wa.me עם הודעה מוכנה
+       לגבריאלה; הקוד שבה נוצר כשהמסך עולה (wa_login_start), כדי שהלחיצה
+       תהיה ישירה ולא תיחסם כחלון קופץ. המסך הזה אינו המנעול עצמו: עד
+       שההודעה מגיעה מהנייד שבכרטיס, המסד מתייחס לחשבון כאל אורח/ת
+       (‏mfa_pre_request), ולכן עקיפה שלו לא פותחת כלום. ראו docs/mfa.md. -->
+  <div class="card login-card" id="mfaChallengeScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>אימות כניסה</h1>
+    <p class="sub">שולחים הודעה אחת לגבריאלה בוואטסאפ, מהנייד שבכרטיס שלך<span id="mfaPhoneTail"></span>, וחוזרים לכאן. הכניסה תיפתח לבד.</p>
+    <p class="mfa-help" id="mfaAdminNote" hidden style="margin:0 0 12px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) האימות הזה הוא חובה<span id="mfaAdminTrust"></span>.</p>
+    <a class="btn btn-gold btn-block" id="mfaWaLink" href="#" target="_blank" rel="noopener" aria-disabled="true">אימות בוואטסאפ</a>
+    <div id="mfaWaStatus" role="status" aria-live="polite" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <!-- מכשיר זכור (20271121150000): מוצג רק כשההגדרה mfa_device_trust_days גדולה מ-0 -->
+    <div id="mfaRememberRow" hidden>
+      <label style="display:flex;gap:8px;align-items:flex-start;justify-content:center;font-size:.84rem;line-height:1.5;margin:2px 0 4px;cursor:pointer">
+        <input type="checkbox" id="mfaRemember" checked style="margin-top:4px">
+        <span>לזכור את המכשיר הזה <b id="mfaRememberDays">30</b> יום, בלי אימות בכל כניסה. לא מסמנים במחשב משותף.</span>
+      </label>
+    </div>
+    <!-- למי שהפעיל/ה גם אפליקציית אימות: הדרך השנייה, באותו מסך. מוצג רק
+         כשיש factor מאומת (mfa_status.totp). -->
+    <form id="mfaTotpForm" hidden style="margin-top:6px;padding-top:12px;border-top:1px solid var(--line)">
+      <div class="field">
+        <label for="mfaTotpCode">או: הקוד מאפליקציית האימות</label>
+        <input type="text" id="mfaTotpCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr">
+      </div>
+      <button type="submit" class="btn btn-ghost btn-block" id="mfaTotpBtn">כניסה עם הקוד</button>
+      <div id="mfaTotpFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em;color:var(--brick)"></div>
+    </form>
+    <p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. הנייד הוחלף או אין גישה לוואטסאפ? לתמיכה: <a href="tel:+972546929991" dir="ltr">054-6929991</a></p>
+    <button type="button" class="btn btn-ghost btn-block" id="mfaChallengeLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- מי את/ה? ----------
+       המסך שקודם לפתיחת משרד חדש, ולא במקומה. עד היום חשבון בלי שורת
+       agency_members הוצג מיד כ"עדיין לא פתחת משרד" — וזה נכון רק לחלק
+       מהמקרים. סוכן/ת שמנהל/ת המשרד כבר הוסיף/ה, אבל האימייל על הכרטיס אינו
+       הכתובת שאיתה הוא/היא נכנס/ת בפועל (טעות הקלדה אחת מספיקה), הגיע/ה בדיוק
+       לכאן — ובלי המסך הזה הדרך היחידה שלו/ה קדימה הייתה לפתוח משרד מיותר.
+       מספר הרישיון מזהה את הכרטיס, ומנהל/ת המשרד מאשר/ת את החיבור. -->
+  <div class="card login-card" id="identifyScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>ברוך/ה הבא/ה!</h1>
+    <p class="sub">החשבון <b id="idEmail"></b> עדיין לא מקושר לכרטיס סוכן/ת. אם מנהל/ת המשרד כבר הוסיף/ה אותך לצוות - נחבר את הכרטיס עכשיו.</p>
+    <div id="idNotice" style="font-size:.82rem;text-align:center;margin-bottom:12px;color:var(--brick)"></div>
+    <div class="field">
+      <label>מספר רישיון התיווך שלך</label>
+      <input type="text" id="idLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="idClaimBtn">חיבור לכרטיס הקיים שלי</button>
+    <div id="idFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <div style="text-align:center;font-size:.75rem;color:var(--ink-soft);margin:16px 0 10px">- או -</div>
+    <button type="button" class="btn btn-ghost btn-block" id="idOpenAgencyBtn">אני פותח/ת משרד תיווך חדש</button>
+    <button type="button" class="btn btn-ghost btn-block" id="idLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- הבקשה הוגשה וממתינה למנהל/ת. מסך נפרד ולא הודעה חולפת, כי הכניסה הבאה
+       של הסוכן/ת (לפני האישור) חייבת לנחות כאן ולא שוב בטופס — אחרת זה נראה
+       כאילו הבקשה נעלמה, והתגובה הטבעית היא לשלוח עוד אחת. -->
+  <div class="card login-card" id="claimPendingScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>הבקשה נשלחה</h1>
+    <p class="sub">ביקשנו ממנהל/ת המשרד <b id="claimAgencyName"></b> לאשר את חיבור החשבון <b id="claimEmail"></b> לכרטיס שלך. ברגע שיאושר - הכניסה כאן תוביל ישר לאיזור הסוכנים.</p>
+    <button type="button" class="btn btn-gold btn-block" id="claimRefreshBtn">בדיקה אם אושר</button>
+    <div id="claimFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="claimCancelBtn" style="margin-top:8px">ביטול הבקשה (הקלדתי מספר שגוי)</button>
+    <button type="button" class="btn btn-ghost btn-block" id="claimLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- צילום הרישיון בבדיקה ----------
+       מי שנחסם/ה ברשם המתווכים ושלח/ה צילום נוחת/ת כאן בכל כניסה עד ההחלטה.
+       עד היום לא היה מסך כזה: החסימה לא יוצרת כלום, ולכן הכניסה הבאה נראתה
+       כמו כניסה ראשונה - שוב מספר רישיון, או "אני פותח/ת משרד חדש". אחרי
+       האישור "בדיקה אם אושר" ממשיך מאותה נקודה, בלי למלא שוב. -->
+  <div class="card login-card" id="appealPendingScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>הרישיון בבדיקה</h1>
+    <p class="sub">צילום רישיון התיווך <b id="apdLicense" dir="ltr"></b> התקבל ונמצא בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים. נעדכן במייל - ואז ממשיכים מכאן, בלי למלא שוב.</p>
+    <button type="button" class="btn btn-gold btn-block" id="apdRefreshBtn">בדיקה אם אושר</button>
+    <div id="apdFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="apdLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- ניתוק מהמשרד ----------
+       מנהל/ת המשרד השעה/תה את הסוכן/ת. זה המסך שהוא/היא פוגש/ת בכניסה הבאה,
+       ובמכוון הוא **לא** מסך הכניסה ולא "אין לך משרד": מי שהושעה/תה צריך/ה
+       לדעת מה קרה, ממי, ושהנכסים לא הלכו לאיבוד אלא עוברים איתו/ה. -->
+  <div class="card login-card" id="releasedScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>הושעית מהמשרד</h1>
+    <p class="sub">מנהל/ת המשרד <b id="relAgencyName"></b> השעה/תה אותך, והחשבון שלך כבר לא משויך אליו.</p>
+    <div style="background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
+      <b>הנכסים שלך לא הלכו לאיבוד.</b><br>
+      פתיחת משרד משלך תעביר אליו את כל מה שרשום על שמך - הנכסים, הלידים
+      והלקוחות. דף הסוכן/ת שלך נשאר באותה כתובת, ויתרת הארנק והמסלול שלך
+      נשמרים כמו שהם.
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="relOpenAgencyBtn">פתיחת משרד תיווך משלי</button>
+    <p style="font-size:.75rem;color:var(--ink-soft);text-align:center;margin:12px 0 0;line-height:1.55">
+      אם זו טעות, מנהל/ת המשרד יכול/ה לבטל את ההשעיה כל עוד לא פתחת משרד חדש.
+    </p>
+    <button type="button" class="btn btn-ghost btn-block" id="relLogoutBtn" style="margin-top:12px">יציאה</button>
+  </div>
+
+  <!-- ---------- חשבון סגור ----------
+       מי שסגר/ה את החשבון בעצמו/ה ומתחבר/ת שוב. המסך הזה לא מנסה להחזיר
+       אותו/ה: הוא מאשר שמה שביקשו קרה, אומר מה כן נשאר (בקשת ההחזר, אם
+       נפתחה), ונותן קצה חוט אחד — טלפון לתמיכה. פתיחה מחדש היא לא פעולה
+       של לחיצה: המודעות אורכבו, הדף הוסר מהאינדקס וההחזר כבר בדרך. -->
+  <div class="card login-card" id="closedScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1 id="closedTitle">החשבון נסגר</h1>
+    <p class="sub" id="closedSub">סגרת את החשבון ב-<b id="closedDate">-</b>. הדף האישי והמודעות ירדו מהאוויר, ואנחנו לא פונים אליך יותר.</p>
+    <div style="background:#fdf5f4;border:1.5px solid #e7c3c3;border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
+      <span id="closedRefundNote"></span>
+      שאלות על החשבון או על ההחזר?
+      התמיכה זמינה בטלפון <a href="tel:+972546929991" dir="ltr" style="color:var(--teal);font-weight:700">054-6929991</a>.
+    </div>
+    <a class="btn btn-gold btn-block" href="/" style="justify-content:center">חזרה לדף הבית</a>
+    <button type="button" class="btn btn-ghost btn-block" id="closedLogoutBtn" style="margin-top:12px">יציאה</button>
+  </div>
+
+  <div class="card login-card" id="createAgencyScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1 id="caTitle">ברוך/ה הבא/ה!</h1>
+    <p class="sub" id="caSubtitle">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד - בואו נקים אותו.</p>
+    <div id="caAdoptNote" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.8rem;line-height:1.6;text-align:right">
+      הנכסים, הלידים והלקוחות הרשומים על שמך יעברו למשרד הזה ברגע שייפתח.
+      המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
+    </div>
+    <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
+    <!-- ‏כתובת מלאה ואזורים להצגה - כמו ב-agency-signup.html. אין בחירת עיר:
+         השרת גוזר אותה מהכתובת (_shared/agency-city.ts), והאזורים נשמרים
+         ב-service_markets של המנהל/ת (assets/agency-markets.js). -->
+    <div class="field">
+      <label for="caAgencyAddress">כתובת המשרד המלאה</label>
+      <input type="text" id="caAgencyAddress" required maxlength="160" placeholder="רחוב, מספר ועיר - לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
+    </div>
+    <div class="field">
+      <label>באילו אזורים להציג את המשרד?</label>
+      <div id="caAgencyMarkets"></div>
+      <div class="micro">אפשר לבחור כמה אזורים, ולשנות אחר כך בפרופיל</div>
+    </div>
+    <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
+    <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
+         מכאן: היא נשאלת בפתיחת ההסכם הראשון (openAgreementWizard). -->
+    <div class="field">
+      <label for="caPhone">טלפון נייד</label>
+      <input type="tel" id="caPhone" required placeholder="050-1234567" inputmode="tel" autocomplete="tel" dir="ltr" style="text-align:right">
+      <div class="micro">💬 למספר זה יחובר הוואטסאפ של גבריאלה</div>
+    </div>
+    <div class="field"><label for="caLicense">מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456" inputmode="numeric"></div>
+    <!-- ---------- המסלול ----------
+         בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
+         המסלול המלא לחודשיים, ובחירה אמיתית תיפתח בתומה — במסך בחירת
+         המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
+         שדה נוסף למלא. -->
+    <div id="caTierField" class="promo-tag">
+      🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי
+    </div>
+    <div class="ethics-consent" style="margin-bottom:12px">
+      <input type="checkbox" id="caEthicsConsent">
+      <label for="caEthicsConsent">קראתי ומאשר/ת את <a href="/terms" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a> ו<a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">קוד האתיקה</a> של המערכת</label>
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn" style="font-size:1.05rem">יוצאים לדרך 🚀</button>
+    <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- מסך שגיאה לטעינת החשבון. קיים כדי שכשל בשאילתה (רשת/סכימה) לא יוצג
+       כ"עדיין לא פתחת משרד" — מסך פתיחת המשרד שמור למי שבאמת אין לו שורה. -->
+  <div class="card login-card" id="loadErrorScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>לא הצלחנו לטעון את החשבון</h1>
+    <p class="sub">ההתחברות הצליחה, אבל טעינת פרטי המשרד נכשלה. זו לא עדות לכך שאין לך משרד - נסו שוב בעוד רגע.</p>
+    <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-gold btn-block" id="retryLoadBtn">נסיון נוסף</button>
+    <button type="button" class="btn btn-ghost btn-block" id="loadErrorLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- שער האישור של הקוד האתי ----------
+       סוכן/ת שמנהל/ת המשרד הוסיף/ה אינו/ה עובר/ת דרך טופס הרשמה, ולכן הכניסה
+       הראשונה ל-CRM היא הרגע הראשון שבו הוא/היא פועל/ת בעצמו/ה — וזה המקום
+       היחיד שבו אפשר לקבל אישור אישי אמיתי. הטריגר במסד חוסם ממילא כל ניסיון
+       של מנהל/ת לחתום במקומם, ולכן בלי השער הזה הם היו נכנסים למערכת בלי
+       אישור כלל. סוכנים ותיקים (עד 29.8.2026) נחתמו במיגרציית ה-grandfathering
+       ולכן לא רואים את המסך הזה. -->
+  <div class="card login-card" id="ethicsGateScreen" style="display:none">
+    <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" loading="lazy" decoding="async"
+         style="width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:50%;filter:grayscale(1);opacity:.5">
+    <h1>ברוך/ה הבא/ה לנבחרת</h1>
+    <p class="sub" id="gateSub">לפני הכניסה - אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.</p>
+    <!-- ---------- מה שרק הסוכן/ת יכול/ה למסור ----------
+         טופס ההזמנה מבקש ממנהל/ת המשרד אימייל ונייד בלבד, ולכן שני הפרטים
+         האלה מגיעים כאן — במסך אחד עם אישור הקוד האתי, ולא בשלב נוסף.
+
+         **מספר הרישיון נמצא כאן ולא שם** כי כאן הוא נבדק מול מי שהוא שלו/ה.
+         בטופס של המנהל/ת ספרה שגויה חסמה הזמנה תקינה, ומסלול הערעור —
+         שדורש צילום של תעודת הרישיון — נפתח בידי מי שהתעודה אינה אצלו/ה.
+         השער עצמו לא נחלש: בלי מספר שעבר את רשם המתווכים, `join-agency`
+         אינו מקשר את החשבון לכרטיס בכלל.
+
+         השדות מוסתרים למי שהכרטיס שלו/ה כבר נושא אותם — כלומר לכל מי
+         שהצטרף/ה לפני השינוי הזה, ולמי שפתח/ה משרד בעצמו/ה. -->
+    <div id="gateProfile" style="display:none;margin-bottom:14px">
+      <div class="field" id="gateNameField" style="display:none">
+        <label for="gateName">שם מלא</label>
+        <input type="text" id="gateName" autocomplete="name" placeholder="ישראל ישראלי">
+        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+          זה השם שיופיע בדף הסוכן/ת שלך ועל מודעות הנכסים.
+        </p>
+      </div>
+      <div class="field">
+        <label for="gateLicense">מספר רישיון תיווך</label>
+        <input type="text" id="gateLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+          נבדק מול רשם המתווכים של משרד המשפטים. הרישיון מוצג בדף שלך ובמודעות שלך.
+        </p>
+      </div>
+    </div>
+    <ol class="ethics-clauses" id="gateClauses" style="margin-bottom:12px"></ol>
+    <a class="ethics-link" href="/ethics-code" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
+    <div class="ethics-consent" style="margin-bottom:12px">
+      <input type="checkbox" id="gateConsent">
+      <label for="gateConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="gateAcceptBtn">אישור הקוד וכניסה למערכת</button>
+    <div id="gateFeedback" style="font-size:.82rem;text-align:center;min-height:1.2em;margin-top:10px"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="gateLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- שער בחירת המסלול ----------
+       הרגע שבו הסוכן/ת בוחר/ת מה הוא/היא מקבל/ת — ולא מגלה/ת את זה מהתגית
+       בכותרת. עד היום מנהל/ת המשרד בחר/ה "מסלול התחלתי" בטופס ההזמנה, כלומר
+       החליט/ה על ההוצאה של מישהו אחר; טופס ההזמנה כבר לא שואל את זה.
+
+       בתקופת ההשקה אין כאן בחירה אמיתית אלא הודעה: כולם מקבלים Elite לחצי
+       שנה, והמסלולים האחרים מוצגים אפורים עם "ייפתח בתום תקופת ההתנסות". בתום
+       התקופה אותו מסך בדיוק הופך לבחירה של ממש — ‎renderTierGate()‎ בונה את
+       שניהם מאותו קטלוג.
+
+       המסך מוצג **אחרי** שער הקוד האתי: קודם ההתחייבות המקצועית, אחר כך
+       הכסף. -->
+  <div class="card login-card tier-gate" id="tierGateScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1 id="tgTitle">בחירת מסלול</h1>
+    <p class="sub" id="tgSubtitle"></p>
+    <div id="tgPlans"></div>
+    <div id="tgFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <a href="/pricing" target="_blank" rel="noopener" id="tgCompare"
+       style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:12px">השוואה מלאה בין המסלולים ←</a>
+    <button type="button" class="btn btn-ghost btn-block" id="tgLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+</div>
+<!-- שאר ה-CSS של ה-CRM. אחרי #loginScreen בכוונה: ראו ההערה בסוף ה-<style> שב-<head>. -->
+<style>
   /* ---------- כרטיס אימות הרישיון (refreshLicenseHold) ---------- */
   .lh-card{background:#f2faf5;border:1.5px solid #b9e0c8;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px}
   .lh-card .lh-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
@@ -687,39 +1072,6 @@ window.shukArmTrackers = function () {
       padding-bottom:calc(12px + var(--sa-bottom,0px))}
   }
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
-  /* ---------- מסך המתנה ----------
-     זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
-     גם של מי שכבר מחובר/ת וגם החזרה מ-Google — התחילה בהבזק של טופס הסיסמה,
-     כי בדיקת ה-session היא אסינכרונית ומסתיימת רק אחרי הציור הראשון. */
-  .boot-card{text-align:center}
-  /* ‏‎.brand-loader‎ — הלוגו הוא ההמתנה: הפין קופץ ונוחת, הצל מתכווץ כשהוא
-     באוויר, בכל נחיתה יוצא ממנו פינג זהוב, ופס ברק עובר עליו. מחזור אחד
-     (‏1.6s) לכולם, כדי שזה ייקרא כקפיצה אחת. אותו רכיב יושב גם ב-
-     developer-crm.html, ובגרסה כהה במסך ההדמיות (‎assets/ai-showcase.js‎).
-     הלוגו הוא כבר הקובץ שהכותרת טוענת, ולכן אין כאן בקשה נוספת. */
-  .brand-loader{position:relative;width:110px;height:98px;margin:0 auto 14px}
-  .brand-loader .bl-pin{position:absolute;left:50%;top:4px;width:66px;margin-left:-33px;z-index:2;
-    animation:blBob 1.6s cubic-bezier(.45,0,.55,1) infinite}
-  .brand-loader .bl-pin img{display:block;width:100%;height:auto}
-  .brand-loader .bl-pin::after{content:"";position:absolute;inset:0;
-    background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.65) 50%,transparent 62%) 0 0/300% 100% no-repeat;
-    -webkit-mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
-    mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
-    animation:blShine 3.2s ease-in-out infinite}
-  .brand-loader .bl-shadow{position:absolute;left:50%;bottom:9px;width:40px;height:9px;margin-left:-20px;
-    border-radius:50%;background:rgba(14,42,107,.34);filter:blur(2px);
-    animation:blShadow 1.6s cubic-bezier(.45,0,.55,1) infinite}
-  .brand-loader .bl-ping{position:absolute;left:50%;bottom:1px;width:96px;height:24px;margin-left:-48px;
-    border-radius:50%;border:2px solid rgba(201,162,39,.85);opacity:0;animation:blPing 1.6s ease-out infinite}
-  .brand-loader .bl-ping-2{animation-delay:.8s}
-  @keyframes blBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
-  @keyframes blShadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}
-  @keyframes blShine{0%{background-position:100% 0}55%,100%{background-position:0 0}}
-  @keyframes blPing{0%{transform:scale(.3);opacity:0}15%{opacity:.9}100%{transform:scale(1);opacity:0}}
-  @media (prefers-reduced-motion:reduce){
-    .brand-loader .bl-pin,.brand-loader .bl-shadow{animation:none}
-    .brand-loader .bl-pin::after,.brand-loader .bl-ping{display:none}
-  }
 
   /* ---------- Dashboard ---------- */
   #dashboard{display:none}
@@ -6462,6 +6814,21 @@ window.shukArmTrackers = function () {
   @media(prefers-reduced-motion:reduce){.cc-drawer{transition:none}}
 
   .cc .match-list{display:grid;grid-template-columns:1fr;gap:8px}
+  /* מודעות מהלוחות (יד2 / מדלן) במגירת ההתאמות - boardMatchesHtml ב-assets/crm.js.
+     נפרד מהנכסים בקו ובכותרת: מודעה ציבורית אינה נכס של הסוכן/ת. */
+  .cc .match-board:not(:empty){margin-top:14px;padding-top:12px;border-top:1px dashed #CBD5E1}
+  .cc .match-board .mb-h{font-weight:800;font-size:.86rem;color:#0F172A;margin-bottom:4px}
+  .cc .match-board .lead-meta{margin-bottom:8px}
+  .cc .match-board .mb-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid #E2E8F0;border-radius:12px;background:#fff;margin-bottom:6px}
+  .cc .match-board .mb-main{flex:1 1 180px;min-width:0}
+  .cc .match-board .mb-line{font-size:.8rem;color:#334155;overflow-wrap:anywhere}
+  .cc .match-board .mb-price{font-size:.84rem;color:#0F172A;margin-top:2px}
+  .cc .match-board .mb-was{color:#B45309;font-weight:700;font-size:.74rem;white-space:nowrap}
+  .cc .match-board .mb-sum{font-size:.76rem;color:#64748B;margin-top:2px;overflow-wrap:anywhere}
+  .cc .match-board .mb-nb{font-size:.76rem;color:#92400E;background:#FFFBEB;border-radius:8px;padding:5px 8px;margin-top:4px;overflow-wrap:anywhere}
+  .cc .match-board .mb-age{color:#64748B;font-size:.76rem}
+  .cc .match-board .mb-score{font-weight:800;font-size:.8rem;color:#0F766E;background:#F0FDFA;border-radius:999px;padding:3px 9px}
+  .cc .match-board .mb-open{padding:6px 12px;font-size:.78rem;white-space:nowrap}
   .cc .cc-match{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;margin:0;padding:9px;background:#fff;border:1px solid var(--edge,var(--line));
     border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
   .cc-thumb{width:88px;height:88px;flex-shrink:0;border-radius:10px;overflow:hidden;background:var(--surface-2,#f1f5f9);
@@ -7448,340 +7815,6 @@ window.shukArmTrackers = function () {
   }
 </style>
 <link rel="stylesheet" href="assets/sign-chrome.css">
-</head>
-<body>
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-
-<div id="loginScreen">
-  <!-- כרטיס ההמתנה מוצג ראשון בכל טעינה; showScreen() מחליף אותו בכרטיס הנכון
-       ברגע שידוע אם יש חיבור פעיל. ראו "ניהול מסכים" בסקריפט. -->
-  <div class="card login-card boot-card" id="bootCard">
-    <!-- הלוגו עצמו הוא ההמתנה (‎.brand-loader‎), ולכן אין כאן לוגו נפרד מעליו -->
-    <div class="brand-loader" role="status" aria-live="polite" aria-label="טוען">
-      <span class="bl-ping" aria-hidden="true"></span><span class="bl-ping bl-ping-2" aria-hidden="true"></span>
-      <span class="bl-pin" aria-hidden="true"><img src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"></span>
-      <span class="bl-shadow" aria-hidden="true"></span>
-    </div>
-    <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
-  </div>
-
-  <div class="card login-card" id="loginCardMain" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <div class="auth-eyebrow">אזור יועצי הנדל״ן והמשרדים</div>
-    <h1>שוק הנדל״ן לעסקים</h1>
-    <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
-    <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
-         רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
-         ומופעל מיד אחרי ההתחברות. -->
-    <div id="inviteBanner" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;font-size:.82rem;line-height:1.55;text-align:center">
-      ✉️ הוזמנת להצטרף לצוות משרד. אפשר להיכנס עם Google, או ליצור כאן חשבון עם אימייל וסיסמה - והחיבור לכרטיס ייעשה אוטומטית.
-    </div>
-    <!-- מסלול 1: כניסה לחשבון קיים -->
-    <h2 class="auth-sec-title"><span class="auth-num" aria-hidden="true">🔑</span>כבר יש לך חשבון? כניסה</h2>
-    <p class="auth-sec-hint">הכי מהיר עם Google, ואפשר גם עם אימייל וסיסמה.</p>
-    <button type="button" class="btn btn-block auth-google" id="googleLoginBtn">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-      <span class="gl-label">התחברות עם Google</span>
-    </button>
-    <div class="auth-or">או עם אימייל וסיסמה</div>
-    <form id="loginForm">
-      <div class="field"><label for="email">אימייל</label><input type="email" id="email" required autocomplete="username"></div>
-      <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
-      <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה למערכת</button>
-      <div id="loginError"></div>
-      <!-- מוצג רק כשהחשבון קיים והמייל עוד לא אושר (email_not_confirmed), או
-           מיד אחרי יצירת חשבון. בלעדיו מי שמייל האישור לא הגיע אליו/ה (ספאם,
-           מכסת השליחה של Supabase) נשאר/ה מול שגיאה בלי שום דרך קדימה. -->
-      <button type="button" class="btn btn-ghost btn-block" id="resendConfirmBtn" style="display:none;margin-top:8px">שליחה חוזרת של מייל האישור</button>
-    </form>
-    <!-- ---------- יצירת חשבון למוזמן/ת ----------
-         מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
-         מבטיח "סיסמה שתגדיר/י בעצמך", אבל למסך הזה הייתה רק כניסה. מי
-         שהוזמן/ה ואינו/ה משתמש/ת ב-Google הגיע/ה לכאן, הקליד/ה את הכתובת
-         שקיבלה את ההזמנה, וקיבל/ה "אימייל או סיסמה שגויים" — בלי שום דרך
-         קדימה. הכפתור הזה הוא הדרך.
-
-         חשוב: אין כאן שום הרשאה חדשה. יצירת המשתמש היא יצירת חשבון Auth
-         בלבד; השיוך לכרטיס נעשה אחריה ב-join-agency, מול האסימון או מול
-         התאמת האימייל — בדיוק כמו במסלול Google. -->
-    <div id="inviteSignup" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
-      <div style="font-size:.78rem;color:var(--ink-soft);line-height:1.55;text-align:center;margin-bottom:9px">
-        זו הכניסה הראשונה שלך? כאן יוצרים חשבון - עם הכתובת שאליה נשלחה ההזמנה, ובסיסמה שתבחר/י (8 תווים לפחות).
-      </div>
-      <button type="button" class="btn btn-ghost btn-block" id="inviteSignupBtn">יצירת חשבון וסיסמה</button>
-    </div>
-    <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
-         מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
-    <!-- מסלול 2: הצטרפות. כרטיס נפרד בצבע אחר, כדי שמי שאין לו/ה חשבון לא
-         ינסה/תנסה להקליד סיסמה בטופס שלמעלה. -->
-    <div id="authJoinWrap">
-    <div class="auth-split">חדש/ה כאן?</div>
-    <section class="auth-join" aria-labelledby="authJoinTitle">
-      <h2 class="auth-sec-title" id="authJoinTitle"><span class="auth-num" aria-hidden="true">🏢</span>הצטרפות - פתיחת משרד חדש</h2>
-      <ul>
-        <li>ניהול נכסים, לקוחות ולידים במקום אחד</li>
-        <li>הנכסים שלך מתפרסמים באתר</li>
-        <li>ההרשמה לוקחת כמה דקות</li>
-      </ul>
-      <a href="/agency-signup" class="btn btn-block">להצטרפות ←</a>
-      <div class="auth-gift">🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי</div>
-    </section>
-    <p class="auth-agent-note">סוכן/ת במשרד שכבר רשום אצלנו? אין צורך להירשם - נכנסים למעלה עם המייל שמנהל/ת המשרד רשם/ה, ונחבר אותך לכרטיס.</p>
-    </div>
-  </div>
-
-  <!-- ---------- אימות כניסה בוואטסאפ ----------
-       מי שהפעיל/ה אימות (ומנהל/ת פלטפורמה, תמיד) נוחת/ת כאן אחרי הסיסמה או
-       Google, ולפני הדשבורד. הכפתור הוא קישור wa.me עם הודעה מוכנה
-       לגבריאלה; הקוד שבה נוצר כשהמסך עולה (wa_login_start), כדי שהלחיצה
-       תהיה ישירה ולא תיחסם כחלון קופץ. המסך הזה אינו המנעול עצמו: עד
-       שההודעה מגיעה מהנייד שבכרטיס, המסד מתייחס לחשבון כאל אורח/ת
-       (‏mfa_pre_request), ולכן עקיפה שלו לא פותחת כלום. ראו docs/mfa.md. -->
-  <div class="card login-card" id="mfaChallengeScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>אימות כניסה</h1>
-    <p class="sub">שולחים הודעה אחת לגבריאלה בוואטסאפ, מהנייד שבכרטיס שלך<span id="mfaPhoneTail"></span>, וחוזרים לכאן. הכניסה תיפתח לבד.</p>
-    <p class="mfa-help" id="mfaAdminNote" hidden style="margin:0 0 12px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) האימות הזה הוא חובה בכל כניסה.</p>
-    <a class="btn btn-gold btn-block" id="mfaWaLink" href="#" target="_blank" rel="noopener" aria-disabled="true">אימות בוואטסאפ</a>
-    <div id="mfaWaStatus" role="status" aria-live="polite" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <!-- למי שהפעיל/ה גם אפליקציית אימות: הדרך השנייה, באותו מסך. מוצג רק
-         כשיש factor מאומת (mfa_status.totp). -->
-    <form id="mfaTotpForm" hidden style="margin-top:6px;padding-top:12px;border-top:1px solid var(--line)">
-      <div class="field">
-        <label for="mfaTotpCode">או: הקוד מאפליקציית האימות</label>
-        <input type="text" id="mfaTotpCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr">
-      </div>
-      <button type="submit" class="btn btn-ghost btn-block" id="mfaTotpBtn">כניסה עם הקוד</button>
-      <div id="mfaTotpFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em;color:var(--brick)"></div>
-    </form>
-    <p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. הנייד הוחלף או אין גישה לוואטסאפ? לתמיכה: <a href="tel:+972546929991" dir="ltr">054-6929991</a></p>
-    <button type="button" class="btn btn-ghost btn-block" id="mfaChallengeLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- ---------- מי את/ה? ----------
-       המסך שקודם לפתיחת משרד חדש, ולא במקומה. עד היום חשבון בלי שורת
-       agency_members הוצג מיד כ"עדיין לא פתחת משרד" — וזה נכון רק לחלק
-       מהמקרים. סוכן/ת שמנהל/ת המשרד כבר הוסיף/ה, אבל האימייל על הכרטיס אינו
-       הכתובת שאיתה הוא/היא נכנס/ת בפועל (טעות הקלדה אחת מספיקה), הגיע/ה בדיוק
-       לכאן — ובלי המסך הזה הדרך היחידה שלו/ה קדימה הייתה לפתוח משרד מיותר.
-       מספר הרישיון מזהה את הכרטיס, ומנהל/ת המשרד מאשר/ת את החיבור. -->
-  <div class="card login-card" id="identifyScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>ברוך/ה הבא/ה!</h1>
-    <p class="sub">החשבון <b id="idEmail"></b> עדיין לא מקושר לכרטיס סוכן/ת. אם מנהל/ת המשרד כבר הוסיף/ה אותך לצוות - נחבר את הכרטיס עכשיו.</p>
-    <div id="idNotice" style="font-size:.82rem;text-align:center;margin-bottom:12px;color:var(--brick)"></div>
-    <div class="field">
-      <label>מספר רישיון התיווך שלך</label>
-      <input type="text" id="idLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
-    </div>
-    <button type="button" class="btn btn-gold btn-block" id="idClaimBtn">חיבור לכרטיס הקיים שלי</button>
-    <div id="idFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <div style="text-align:center;font-size:.75rem;color:var(--ink-soft);margin:16px 0 10px">- או -</div>
-    <button type="button" class="btn btn-ghost btn-block" id="idOpenAgencyBtn">אני פותח/ת משרד תיווך חדש</button>
-    <button type="button" class="btn btn-ghost btn-block" id="idLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- הבקשה הוגשה וממתינה למנהל/ת. מסך נפרד ולא הודעה חולפת, כי הכניסה הבאה
-       של הסוכן/ת (לפני האישור) חייבת לנחות כאן ולא שוב בטופס — אחרת זה נראה
-       כאילו הבקשה נעלמה, והתגובה הטבעית היא לשלוח עוד אחת. -->
-  <div class="card login-card" id="claimPendingScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>הבקשה נשלחה</h1>
-    <p class="sub">ביקשנו ממנהל/ת המשרד <b id="claimAgencyName"></b> לאשר את חיבור החשבון <b id="claimEmail"></b> לכרטיס שלך. ברגע שיאושר - הכניסה כאן תוביל ישר לאיזור הסוכנים.</p>
-    <button type="button" class="btn btn-gold btn-block" id="claimRefreshBtn">בדיקה אם אושר</button>
-    <div id="claimFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <button type="button" class="btn btn-ghost btn-block" id="claimCancelBtn" style="margin-top:8px">ביטול הבקשה (הקלדתי מספר שגוי)</button>
-    <button type="button" class="btn btn-ghost btn-block" id="claimLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- ---------- צילום הרישיון בבדיקה ----------
-       מי שנחסם/ה ברשם המתווכים ושלח/ה צילום נוחת/ת כאן בכל כניסה עד ההחלטה.
-       עד היום לא היה מסך כזה: החסימה לא יוצרת כלום, ולכן הכניסה הבאה נראתה
-       כמו כניסה ראשונה - שוב מספר רישיון, או "אני פותח/ת משרד חדש". אחרי
-       האישור "בדיקה אם אושר" ממשיך מאותה נקודה, בלי למלא שוב. -->
-  <div class="card login-card" id="appealPendingScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>הרישיון בבדיקה</h1>
-    <p class="sub">צילום רישיון התיווך <b id="apdLicense" dir="ltr"></b> התקבל ונמצא בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים. נעדכן במייל - ואז ממשיכים מכאן, בלי למלא שוב.</p>
-    <button type="button" class="btn btn-gold btn-block" id="apdRefreshBtn">בדיקה אם אושר</button>
-    <div id="apdFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <button type="button" class="btn btn-ghost btn-block" id="apdLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- ---------- ניתוק מהמשרד ----------
-       מנהל/ת המשרד השעה/תה את הסוכן/ת. זה המסך שהוא/היא פוגש/ת בכניסה הבאה,
-       ובמכוון הוא **לא** מסך הכניסה ולא "אין לך משרד": מי שהושעה/תה צריך/ה
-       לדעת מה קרה, ממי, ושהנכסים לא הלכו לאיבוד אלא עוברים איתו/ה. -->
-  <div class="card login-card" id="releasedScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>הושעית מהמשרד</h1>
-    <p class="sub">מנהל/ת המשרד <b id="relAgencyName"></b> השעה/תה אותך, והחשבון שלך כבר לא משויך אליו.</p>
-    <div style="background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
-      <b>הנכסים שלך לא הלכו לאיבוד.</b><br>
-      פתיחת משרד משלך תעביר אליו את כל מה שרשום על שמך - הנכסים, הלידים
-      והלקוחות. דף הסוכן/ת שלך נשאר באותה כתובת, ויתרת הארנק והמסלול שלך
-      נשמרים כמו שהם.
-    </div>
-    <button type="button" class="btn btn-gold btn-block" id="relOpenAgencyBtn">פתיחת משרד תיווך משלי</button>
-    <p style="font-size:.75rem;color:var(--ink-soft);text-align:center;margin:12px 0 0;line-height:1.55">
-      אם זו טעות, מנהל/ת המשרד יכול/ה לבטל את ההשעיה כל עוד לא פתחת משרד חדש.
-    </p>
-    <button type="button" class="btn btn-ghost btn-block" id="relLogoutBtn" style="margin-top:12px">יציאה</button>
-  </div>
-
-  <!-- ---------- חשבון סגור ----------
-       מי שסגר/ה את החשבון בעצמו/ה ומתחבר/ת שוב. המסך הזה לא מנסה להחזיר
-       אותו/ה: הוא מאשר שמה שביקשו קרה, אומר מה כן נשאר (בקשת ההחזר, אם
-       נפתחה), ונותן קצה חוט אחד — טלפון לתמיכה. פתיחה מחדש היא לא פעולה
-       של לחיצה: המודעות אורכבו, הדף הוסר מהאינדקס וההחזר כבר בדרך. -->
-  <div class="card login-card" id="closedScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1 id="closedTitle">החשבון נסגר</h1>
-    <p class="sub" id="closedSub">סגרת את החשבון ב-<b id="closedDate">-</b>. הדף האישי והמודעות ירדו מהאוויר, ואנחנו לא פונים אליך יותר.</p>
-    <div style="background:#fdf5f4;border:1.5px solid #e7c3c3;border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
-      <span id="closedRefundNote"></span>
-      שאלות על החשבון או על ההחזר?
-      התמיכה זמינה בטלפון <a href="tel:+972546929991" dir="ltr" style="color:var(--teal);font-weight:700">054-6929991</a>.
-    </div>
-    <a class="btn btn-gold btn-block" href="/" style="justify-content:center">חזרה לדף הבית</a>
-    <button type="button" class="btn btn-ghost btn-block" id="closedLogoutBtn" style="margin-top:12px">יציאה</button>
-  </div>
-
-  <div class="card login-card" id="createAgencyScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1 id="caTitle">ברוך/ה הבא/ה!</h1>
-    <p class="sub" id="caSubtitle">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד - בואו נקים אותו.</p>
-    <div id="caAdoptNote" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.8rem;line-height:1.6;text-align:right">
-      הנכסים, הלידים והלקוחות הרשומים על שמך יעברו למשרד הזה ברגע שייפתח.
-      המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
-    </div>
-    <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
-    <!-- ‏כתובת מלאה ואזורים להצגה - כמו ב-agency-signup.html. אין בחירת עיר:
-         השרת גוזר אותה מהכתובת (_shared/agency-city.ts), והאזורים נשמרים
-         ב-service_markets של המנהל/ת (assets/agency-markets.js). -->
-    <div class="field">
-      <label for="caAgencyAddress">כתובת המשרד המלאה</label>
-      <input type="text" id="caAgencyAddress" required maxlength="160" placeholder="רחוב, מספר ועיר - לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
-    </div>
-    <div class="field">
-      <label>באילו אזורים להציג את המשרד?</label>
-      <div id="caAgencyMarkets"></div>
-      <div class="micro">אפשר לבחור כמה אזורים, ולשנות אחר כך בפרופיל</div>
-    </div>
-    <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
-    <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
-         מכאן: היא נשאלת בפתיחת ההסכם הראשון (openAgreementWizard). -->
-    <div class="field">
-      <label for="caPhone">טלפון נייד</label>
-      <input type="tel" id="caPhone" required placeholder="050-1234567" inputmode="tel" autocomplete="tel" dir="ltr" style="text-align:right">
-      <div class="micro">💬 למספר זה יחובר הוואטסאפ של גבריאלה</div>
-    </div>
-    <div class="field"><label for="caLicense">מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456" inputmode="numeric"></div>
-    <!-- ---------- המסלול ----------
-         בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
-         המסלול המלא לחודשיים, ובחירה אמיתית תיפתח בתומה — במסך בחירת
-         המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
-         שדה נוסף למלא. -->
-    <div id="caTierField" class="promo-tag">
-      🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי
-    </div>
-    <div class="ethics-consent" style="margin-bottom:12px">
-      <input type="checkbox" id="caEthicsConsent">
-      <label for="caEthicsConsent">קראתי ומאשר/ת את <a href="/terms" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a> ו<a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">קוד האתיקה</a> של המערכת</label>
-    </div>
-    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn" style="font-size:1.05rem">יוצאים לדרך 🚀</button>
-    <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- מסך שגיאה לטעינת החשבון. קיים כדי שכשל בשאילתה (רשת/סכימה) לא יוצג
-       כ"עדיין לא פתחת משרד" — מסך פתיחת המשרד שמור למי שבאמת אין לו שורה. -->
-  <div class="card login-card" id="loadErrorScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>לא הצלחנו לטעון את החשבון</h1>
-    <p class="sub">ההתחברות הצליחה, אבל טעינת פרטי המשרד נכשלה. זו לא עדות לכך שאין לך משרד - נסו שוב בעוד רגע.</p>
-    <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
-    <button type="button" class="btn btn-gold btn-block" id="retryLoadBtn">נסיון נוסף</button>
-    <button type="button" class="btn btn-ghost btn-block" id="loadErrorLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- ---------- שער האישור של הקוד האתי ----------
-       סוכן/ת שמנהל/ת המשרד הוסיף/ה אינו/ה עובר/ת דרך טופס הרשמה, ולכן הכניסה
-       הראשונה ל-CRM היא הרגע הראשון שבו הוא/היא פועל/ת בעצמו/ה — וזה המקום
-       היחיד שבו אפשר לקבל אישור אישי אמיתי. הטריגר במסד חוסם ממילא כל ניסיון
-       של מנהל/ת לחתום במקומם, ולכן בלי השער הזה הם היו נכנסים למערכת בלי
-       אישור כלל. סוכנים ותיקים (עד 29.8.2026) נחתמו במיגרציית ה-grandfathering
-       ולכן לא רואים את המסך הזה. -->
-  <div class="card login-card" id="ethicsGateScreen" style="display:none">
-    <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" loading="lazy" decoding="async"
-         style="width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:50%;filter:grayscale(1);opacity:.5">
-    <h1>ברוך/ה הבא/ה לנבחרת</h1>
-    <p class="sub" id="gateSub">לפני הכניסה - אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.</p>
-    <!-- ---------- מה שרק הסוכן/ת יכול/ה למסור ----------
-         טופס ההזמנה מבקש ממנהל/ת המשרד אימייל ונייד בלבד, ולכן שני הפרטים
-         האלה מגיעים כאן — במסך אחד עם אישור הקוד האתי, ולא בשלב נוסף.
-
-         **מספר הרישיון נמצא כאן ולא שם** כי כאן הוא נבדק מול מי שהוא שלו/ה.
-         בטופס של המנהל/ת ספרה שגויה חסמה הזמנה תקינה, ומסלול הערעור —
-         שדורש צילום של תעודת הרישיון — נפתח בידי מי שהתעודה אינה אצלו/ה.
-         השער עצמו לא נחלש: בלי מספר שעבר את רשם המתווכים, `join-agency`
-         אינו מקשר את החשבון לכרטיס בכלל.
-
-         השדות מוסתרים למי שהכרטיס שלו/ה כבר נושא אותם — כלומר לכל מי
-         שהצטרף/ה לפני השינוי הזה, ולמי שפתח/ה משרד בעצמו/ה. -->
-    <div id="gateProfile" style="display:none;margin-bottom:14px">
-      <div class="field" id="gateNameField" style="display:none">
-        <label for="gateName">שם מלא</label>
-        <input type="text" id="gateName" autocomplete="name" placeholder="ישראל ישראלי">
-        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
-          זה השם שיופיע בדף הסוכן/ת שלך ועל מודעות הנכסים.
-        </p>
-      </div>
-      <div class="field">
-        <label for="gateLicense">מספר רישיון תיווך</label>
-        <input type="text" id="gateLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
-        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
-          נבדק מול רשם המתווכים של משרד המשפטים. הרישיון מוצג בדף שלך ובמודעות שלך.
-        </p>
-      </div>
-    </div>
-    <ol class="ethics-clauses" id="gateClauses" style="margin-bottom:12px"></ol>
-    <a class="ethics-link" href="/ethics-code" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
-    <div class="ethics-consent" style="margin-bottom:12px">
-      <input type="checkbox" id="gateConsent">
-      <label for="gateConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
-    </div>
-    <button type="button" class="btn btn-gold btn-block" id="gateAcceptBtn">אישור הקוד וכניסה למערכת</button>
-    <div id="gateFeedback" style="font-size:.82rem;text-align:center;min-height:1.2em;margin-top:10px"></div>
-    <button type="button" class="btn btn-ghost btn-block" id="gateLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-
-  <!-- ---------- שער בחירת המסלול ----------
-       הרגע שבו הסוכן/ת בוחר/ת מה הוא/היא מקבל/ת — ולא מגלה/ת את זה מהתגית
-       בכותרת. עד היום מנהל/ת המשרד בחר/ה "מסלול התחלתי" בטופס ההזמנה, כלומר
-       החליט/ה על ההוצאה של מישהו אחר; טופס ההזמנה כבר לא שואל את זה.
-
-       בתקופת ההשקה אין כאן בחירה אמיתית אלא הודעה: כולם מקבלים Elite לחצי
-       שנה, והמסלולים האחרים מוצגים אפורים עם "ייפתח בתום תקופת ההתנסות". בתום
-       התקופה אותו מסך בדיוק הופך לבחירה של ממש — ‎renderTierGate()‎ בונה את
-       שניהם מאותו קטלוג.
-
-       המסך מוצג **אחרי** שער הקוד האתי: קודם ההתחייבות המקצועית, אחר כך
-       הכסף. -->
-  <div class="card login-card tier-gate" id="tierGateScreen" style="display:none">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1 id="tgTitle">בחירת מסלול</h1>
-    <p class="sub" id="tgSubtitle"></p>
-    <div id="tgPlans"></div>
-    <div id="tgFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
-    <a href="/pricing" target="_blank" rel="noopener" id="tgCompare"
-       style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:12px">השוואה מלאה בין המסלולים ←</a>
-    <button type="button" class="btn btn-ghost btn-block" id="tgLogoutBtn" style="margin-top:8px">יציאה</button>
-  </div>
-</div>
 
 <div id="dashboard">
 

@@ -45,9 +45,8 @@
 -- סימון נקבע פעם אחת, בקליטה. עדכון מחיר של שורה קיימת לא מסמן ולא מוחק.
 --
 -- ## הבסיס
--- scraped_lead_add מהגרסה שאחרי 20271115210000.
--- md5(prosrc) בפרודקשן ב-19.11.2026: b612faa7468b66611a7a907d3db78373
--- (אורך 12681 תווים). listing_inventory_sync מ-20271119140000 (עם size_sqm,
+-- scraped_lead_add מהגרסה של 20271121120000 (#1338: פייסבוק, גודל, קומה,
+-- אזור וחסימת תיווך; העתק מגרסה קודמת מוחק אותם בשקט). listing_inventory_sync מ-20271119140000 (עם size_sqm,
 -- floor, neighborhood ו-price_changes; העתק מגרסה קודמת מוחק אותם בשקט).
 -- md5(prosrc): 394339773a663648aea6287a6d236f1b (אורך 14832 תווים).
 -- שני הגופים זהים לפרודקשן מלבד הסימון.
@@ -353,9 +352,16 @@ declare
   v_id      uuid;
   v_notified int;
   v_routed  jsonb;
+  v_details jsonb;
+  v_area    text;
+  v_size    numeric;
+  v_floor   int;
+  v_floor_n numeric;
+  v_budget_fallback numeric;
+  v_rooms_fallback numeric;
+  v_deal_fallback text;
+  v_block   boolean := false;
   v_dup     jsonb;
-  v_rooms   numeric;
-  v_budget  numeric;
 begin
   if v_type not in ('owner_inbound', 'seeker_inbound') then
     return jsonb_build_object('error', 'invalid_lead_type');
@@ -372,6 +378,74 @@ begin
   if v_deal is not null and v_deal not in ('sale', 'rent') then
     return jsonb_build_object('error', 'invalid_deal_type');
   end if;
+
+  -- שדות מלאי ומחפש/ת לפייסבוק בלבד. יד2 ומדלן לא נקראים מכאן.
+  -- ערך לא סביר נזרק. תקציב או חדרים לא תקינים בשדה העליון עדיין
+  -- מפילים את ההכנסה, כמו קודם, ורק אחרי בדיקת הכפילות.
+  v_details := null;
+  v_area := null;
+  v_size := null;
+  v_floor := null;
+  v_budget_fallback := null;
+  v_rooms_fallback := null;
+  v_deal_fallback := null;
+  if v_source = 'facebook_group' then
+    if left(btrim(coalesce(p ->> 'property_details', '')), 1) = '{' then
+      begin
+        v_details := btrim(p ->> 'property_details')::jsonb;
+      exception when others then
+        v_details := null;
+      end;
+    end if;
+    v_area := public.listing_area_text(coalesce(
+      nullif(btrim(p ->> 'neighborhood'), ''),
+      nullif(btrim(v_details ->> 'neighborhood'), '')));
+    begin
+      v_size := nullif(coalesce(p ->> 'size_sqm', v_details ->> 'size_sqm'), '')::numeric;
+    exception when others then
+      v_size := null;
+    end;
+    if v_size is not null and (v_size < 5 or v_size > 100000 or v_size = 'NaN'::numeric) then
+      v_size := null;
+    end if;
+    begin
+      v_floor_n := nullif(coalesce(p ->> 'floor', v_details ->> 'floor'), '')::numeric;
+    exception when others then
+      v_floor_n := null;
+    end;
+    if v_floor_n is not null and v_floor_n = trunc(v_floor_n)
+       and v_floor_n >= -5 and v_floor_n <= 120 then
+      v_floor := v_floor_n::int;
+    end if;
+    begin
+      if v_type = 'owner_inbound' then
+        v_budget_fallback := nullif(coalesce(
+          p ->> 'price', v_details ->> 'price', v_details ->> 'budget'), '')::numeric;
+      else
+        v_budget_fallback := nullif(v_details ->> 'budget', '')::numeric;
+      end if;
+    exception when others then
+      v_budget_fallback := null;
+    end;
+    if v_budget_fallback is not null and (
+         v_budget_fallback <= 0 or v_budget_fallback = 'NaN'::numeric
+         or v_budget_fallback > 100000000000) then
+      v_budget_fallback := null;
+    end if;
+    begin
+      v_rooms_fallback := nullif(v_details ->> 'rooms', '')::numeric;
+    exception when others then
+      v_rooms_fallback := null;
+    end;
+    if v_rooms_fallback is not null and v_rooms_fallback <= 0 then
+      v_rooms_fallback := null;
+    end if;
+    v_deal_fallback := nullif(btrim(v_details ->> 'deal_type'), '');
+    if v_deal_fallback is not null and v_deal_fallback not in ('sale', 'rent') then
+      v_deal_fallback := null;
+    end if;
+  end if;
+
   -- 073, 083, 093, 033, also +972. Madlan shows these on many listings.
   v_virtual := public.madlan_switchboard_phone(v_phone);
 
@@ -467,10 +541,41 @@ begin
   end if;
 
   v_ref := public.scraped_lead_ref(v_url);
+  -- לפני בדיקת הכפילות: שליחה חוזרת מעדכנת broker_block, והערך חייב
+  -- להיות מחושב כבר. "ללא תיווך" לבדו אינו חסימה.
+  v_block := public.scraped_lead_broker_block(p ->> 'raw_message')
+          or public.scraped_lead_broker_block(p ->> 'property_details')
+          or public.scraped_lead_broker_block(p ->> 'summary')
+          or public.scraped_lead_broker_block(p ->> 'source_detail');
 
   -- אותו פוסט: כבר אצלנו, או שבעליו סירב/ה
   select id into v_id from public.scraped_leads where source = v_source and external_ref = v_ref;
   if v_id is not null then
+    if v_source = 'facebook_group' then
+      begin
+        update public.scraped_leads
+           set rooms = coalesce(nullif(p ->> 'rooms', '')::numeric, v_rooms_fallback, rooms),
+               budget = coalesce(nullif(p ->> 'budget', '')::numeric, v_budget_fallback, budget),
+               deal_type = coalesce(v_deal, v_deal_fallback, deal_type),
+               property_type = coalesce(
+                 nullif(btrim(p ->> 'property_type'), ''),
+                 nullif(btrim(v_details ->> 'property_type'), ''),
+                 property_type),
+               size_sqm = coalesce(v_size, size_sqm),
+               floor = coalesce(v_floor, floor),
+               area_text = coalesce(v_area, area_text),
+               broker_block = broker_block or v_block,
+               neighborhood_id = coalesce(neighborhood_id, (
+                 select n.id from public.neighborhoods n
+                  where n.city_id = scraped_leads.city_id
+                    and n.name = nullif(btrim(coalesce(
+                      p ->> 'neighborhood', v_details ->> 'neighborhood')), '')
+                  limit 1))
+         where id = v_id;
+      exception when others then
+        null;
+      end;
+    end if;
     return jsonb_build_object('duplicate', 'post', 'id', v_id);
   end if;
   if exists (select 1 from public.scraped_lead_blocks
@@ -517,34 +622,41 @@ begin
   v_ask := case when v_source in ('madlan', 'yad2') then false
                 else coalesce((p ->> 'consent_requested')::boolean, false) end;
 
+  if v_deal is null then
+    v_deal := v_deal_fallback;
+  end if;
+
   -- אותו נכס בלוח השני: סימון בלבד. הקליטה, התקרה וההתראה לא משתנות.
-  v_rooms := nullif(p ->> 'rooms', '')::numeric;
-  v_budget := nullif(p ->> 'budget', '')::numeric;
   v_dup := public.board_cross_source_match(
     v_source, v_city, v_city_id, v_deal,
-    case when v_rooms is not null and v_rooms > 0 then v_rooms end,
-    case when v_budget is not null and v_budget > 0 then v_budget end,
+    case when coalesce(nullif(p ->> 'rooms', '')::numeric, v_rooms_fallback) > 0
+         then coalesce(nullif(p ->> 'rooms', '')::numeric, v_rooms_fallback) end,
+    case when coalesce(nullif(p ->> 'budget', '')::numeric, v_budget_fallback) > 0
+         then coalesce(nullif(p ->> 'budget', '')::numeric, v_budget_fallback) end,
     null, null);
 
   insert into public.scraped_leads (lead_type, source, source_detail, post_url, external_ref, posted_at,
                                     raw_name, raw_phone, raw_message, city, city_id, neighborhood_id,
                                     deal_type, property_type, rooms, budget, move_in, property_details,
                                     consent_requested_at, no_broker, demand_summary, phone_hash,
-                                    push_site_only, date_known,
+                                    push_site_only, date_known, size_sqm, floor, area_text, broker_block,
                                     is_duplicate, duplicate_of, duplicate_match)
   values (v_type, v_source, left(nullif(btrim(p ->> 'source_detail'), ''), 120), v_url, v_ref, v_posted,
           left(nullif(btrim(p ->> 'raw_name'), ''), 80), v_phone, left(nullif(btrim(p ->> 'raw_message'), ''), 4000),
           v_city, v_city_id,
           (select n.id from public.neighborhoods n
             where n.id::text = nullif(btrim(p ->> 'neighborhood_id'), '')
-               or (n.city_id = v_city_id and n.name = nullif(btrim(p ->> 'neighborhood'), ''))
+               or (n.city_id = v_city_id and n.name = nullif(btrim(coalesce(
+                    p ->> 'neighborhood', v_details ->> 'neighborhood')), ''))
             limit 1),
-          v_deal, nullif(btrim(p ->> 'property_type'), ''),
-          v_rooms, v_budget,
+          v_deal,
+          coalesce(nullif(btrim(p ->> 'property_type'), ''), nullif(btrim(v_details ->> 'property_type'), '')),
+          coalesce(nullif(p ->> 'rooms', '')::numeric, v_rooms_fallback),
+          coalesce(nullif(p ->> 'budget', '')::numeric, v_budget_fallback),
           left(nullif(btrim(p ->> 'move_in'), ''), 60), left(nullif(btrim(p ->> 'property_details'), ''), 300),
           case when v_ask then now() end,
           v_nobrk, left(nullif(btrim(p ->> 'summary'), ''), 160), v_hash,
-          v_site_only, v_known,
+          v_site_only, v_known, v_size, v_floor, v_area, v_block,
           v_dup is not null,
           nullif(v_dup ->> 'lead_id', '')::uuid,
           v_dup)
@@ -552,7 +664,34 @@ begin
   returning id into v_id;
 
   if v_id is null then
-    return jsonb_build_object('duplicate', 'post');
+    select id into v_id from public.scraped_leads
+     where source = v_source and external_ref = v_ref;
+    if v_source = 'facebook_group' then
+      begin
+        update public.scraped_leads
+           set rooms = coalesce(nullif(p ->> 'rooms', '')::numeric, v_rooms_fallback, rooms),
+               budget = coalesce(nullif(p ->> 'budget', '')::numeric, v_budget_fallback, budget),
+               deal_type = coalesce(v_deal, v_deal_fallback, deal_type),
+               property_type = coalesce(
+                 nullif(btrim(p ->> 'property_type'), ''),
+                 nullif(btrim(v_details ->> 'property_type'), ''),
+                 property_type),
+               size_sqm = coalesce(v_size, size_sqm),
+               floor = coalesce(v_floor, floor),
+               area_text = coalesce(v_area, area_text),
+               broker_block = broker_block or v_block,
+               neighborhood_id = coalesce(neighborhood_id, (
+                 select n.id from public.neighborhoods n
+                  where n.city_id = scraped_leads.city_id
+                    and n.name = nullif(btrim(coalesce(
+                      p ->> 'neighborhood', v_details ->> 'neighborhood')), '')
+                  limit 1))
+         where id = v_id;
+      exception when others then
+        null;
+      end;
+    end if;
+    return jsonb_build_object('duplicate', 'post', 'id', v_id);
   end if;
 
   -- התאמה לסוכן/ת אחד/ת רק כשמותר לדחוף. אחרת הביקוש נשאר באתר,
