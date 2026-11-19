@@ -2134,7 +2134,7 @@ interface ToolContext {
     lines: string[];
     message: BoardInteractive;
     tool: "search_properties" | "client_matches";
-    logged: { id: string; source: "yad2" | "madlan" }[];
+    logged: { id: string; source: "yad2" | "madlan" | "facebook" }[];
   } | null;
 }
 
@@ -3759,16 +3759,22 @@ async function boardSection(
     maxRooms: filters.maxRooms,
   });
   if (!criteria) return boardStatusFields("unavailable");
-  const fetched = await fetchBoardListings(ctx.supabase, criteria);
-  if (!fetched) return boardStatusFields("unavailable");
-  if (!fetched.total) {
-    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria));
+  // יד2 ומדלן נשארים חמשת המקומות. פייסבוק נשאל בנפרד ומצטרף אחריהם.
+  const [boards, facebook] = await Promise.all([
+    fetchBoardListings(ctx.supabase, criteria, ["yad2", "madlan"]),
+    fetchBoardListings(ctx.supabase, criteria, ["facebook"]),
+  ]);
+  if (!boards && !facebook) return boardStatusFields("unavailable");
+  const rows = [...(boards?.rows || []), ...(facebook?.rows || [])];
+  const total = (boards?.total || 0) + (facebook?.total || 0);
+  if (!rows.length) {
+    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria), ["yad2", "madlan"]);
     return boardStatusFields(boardSearchStatus({
       filtered: 0,
       cityStock: stock ? stock.total : null,
     }));
   }
-  const presented = presentBoardListings(fetched.rows, fetched.total, {
+  const presented = presentBoardListings(rows, total, {
     buttons: !!ctx.outbox,
   });
   if (!presented) return boardStatusFields("unavailable");
