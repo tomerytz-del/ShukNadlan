@@ -137,7 +137,7 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 ומחיר בתוך הרצועה (2% מהמחיר הגבוה, ורצפה של 10000 במכירה או 100
 בשכירות). השורה נכנסת, תשובת ה-RPC לא משתנה, ו-`scraped_lead_notify_demand`
 עדיין נקראת. מי שמחליף את `scraped_lead_add` או את `listing_inventory_sync`
-מעתיק את הקריאה לסימון. פייסבוק ומודעה מאותו לוח לא נספרים.
+מעתיק את הקריאה לסימון. הסימון סימטרי (שני הצדדים), והצרכנים מסתירים רק את הצד החדש דרך `board_dup_hidden`, לא לפי `is_duplicate` לבדו. פייסבוק ומודעה מאותו לוח לא נספרים.
 מועמד מ-`scraped_leads` רק ב-`pending_consent`, `consented` או `open_demand`.
 `docs/listing-inventory.md`.
 
