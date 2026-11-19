@@ -495,7 +495,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_filter_clear` | "לנקות את הסינון" / "להציג את כל האזורים" במצב הריק | `tab` |
 | `social_prompt_dismiss` | ‏CRM: "לא עכשיו" בכרטיס התיוג בפרסומים (‏P1-R). נדחף ישירות ל-dataLayer (ה-CRM אינו טוען את events.js) | `mode`: ‏`later` \| `never` |
 | `gab_hint_click` | לחיצה על שאלת הדוגמה שמוקלדת בשדה של גבריאלה (‏P1-Q, v10) - השאלה נכנסת לשדה | `hint_index`: ‏0-9 (מיקום ב-`GW_HINTS`) |
-| `gab_pro_pick` | תחום בעלי מקצוע מתוך "התייעצות עם בעלי מקצוע" בגבריאלה (‏P1-P, v10) | `type`: ‏`mortgage_advisor` \| `appraiser` \| `real_estate_lawyer` \| `architect` \| `interior_designer` \| `all` |
+| `gab_pro_pick` | תחום בעלי מקצוע מתוך "התייעצות עם בעלי מקצוע" בגבריאלה (‏P1-P, v10) | `type`: ‏`mortgage_advisor` \| `appraiser` \| `real_estate_lawyer` \| `architect` \| `interior_designer` \| `contractor` \| `planning_consultant` \| `surveyor` \| `electrician` \| `plumber` \| `cleaning` \| `all` (תחום מוצג רק כשיש בו בעל/ת מקצוע פעיל/ה) |
 | `pro_signup_cta_click` | לחיצה על אחד משלושת כפתורי "פותחים עמוד מקצועי בחינם" ב-`professional-signup.html` (18.11.2026) | `cta`: ‏`hero` \| `benefits` \| `closing` |
 | `pro_signup_start` | מגע ראשון בשדה של טופס ההרשמה של בעלי המקצוע, פעם אחת לטעינת דף | — |
 | `pro_signup_error` | שליחת הטופס נעצרה, בדפדפן או בתשובת השרת. **תוכן השדות לא נשלח** | `reason`: ‏`missing` \| `no_type` \| `phone` \| `email` \| `card_exists` \| `promo_used` \| `server` \| `network` |

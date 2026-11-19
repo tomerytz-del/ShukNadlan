@@ -3907,7 +3907,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hood-map-sec{display:block}
   html.beta-hero .hood-map-sec h2{margin:0;font-size:var(--sec-h);font-weight:800;line-height:1.2;color:#0d1b3d;text-wrap:balance}
   html.beta-hero .hood-map-sub{margin:6px 0 12px;color:var(--v10-body);font-size:14px;line-height:1.5}
-  html.beta-hero .hood-map-box{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(14,42,107,.12);
+  /* ‏isolation: שכבות Leaflet (‏z-index 200-1000) נשארות בתוך התיבה. בלעדיו הן מתחרות עם
+     שכבות קבועות של הדף, והמפה כיסתה את החלון הפתוח של גבריאלה (‏z-index 206) - 19.11.2026 */
+  html.beta-hero .hood-map-box{position:relative;isolation:isolate;border-radius:16px;overflow:hidden;border:1px solid rgba(14,42,107,.12);
     box-shadow:0 4px 12px rgba(13,27,61,.07);background:#eef1f7}
   html.beta-hero .hood-map{height:230px;cursor:pointer}
   html.beta-hero .hood-map.tiles-off{background:url("/assets/map-streets-fallback-260.svg") 0 0/260px 260px,linear-gradient(160deg,#f6f1e7,#eef1f7)}
