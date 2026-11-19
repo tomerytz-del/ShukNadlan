@@ -366,9 +366,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
     <h1>אימות כניסה</h1>
     <p class="sub">שולחים הודעה אחת לגבריאלה בוואטסאפ, מהנייד שבכרטיס שלך<span id="mfaPhoneTail"></span>, וחוזרים לכאן. הכניסה תיפתח לבד.</p>
-    <p class="mfa-help" id="mfaAdminNote" hidden style="margin:0 0 12px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) האימות הזה הוא חובה בכל כניסה.</p>
+    <p class="mfa-help" id="mfaAdminNote" hidden style="margin:0 0 12px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) האימות הזה הוא חובה<span id="mfaAdminTrust"></span>.</p>
     <a class="btn btn-gold btn-block" id="mfaWaLink" href="#" target="_blank" rel="noopener" aria-disabled="true">אימות בוואטסאפ</a>
     <div id="mfaWaStatus" role="status" aria-live="polite" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <!-- מכשיר זכור (20271121150000): מוצג רק כשההגדרה mfa_device_trust_days גדולה מ-0 -->
+    <div id="mfaRememberRow" hidden>
+      <label style="display:flex;gap:8px;align-items:flex-start;justify-content:center;font-size:.84rem;line-height:1.5;margin:2px 0 4px;cursor:pointer">
+        <input type="checkbox" id="mfaRemember" checked style="margin-top:4px">
+        <span>לזכור את המכשיר הזה <b id="mfaRememberDays">30</b> יום, בלי אימות בכל כניסה. לא מסמנים במחשב משותף.</span>
+      </label>
+    </div>
     <!-- למי שהפעיל/ה גם אפליקציית אימות: הדרך השנייה, באותו מסך. מוצג רק
          כשיש factor מאומת (mfa_status.totp). -->
     <form id="mfaTotpForm" hidden style="margin-top:6px;padding-top:12px;border-top:1px solid var(--line)">
