@@ -1410,7 +1410,10 @@ async function mfaTryDevice(){
 }
 
 /* אחרי אימות אמיתי, אם התיבה מסומנת. כשל כאן לעולם לא עוצר את הכניסה. */
+let mfaRememberBusy = false;
 async function mfaRememberDevice(){
+  if (mfaRememberBusy) return;   // בדיקת ההמתנה כל 3 שניות: קריאה איטית לא מנפיקה אסימון שני
+  mfaRememberBusy = true;
   try{
     const box = document.getElementById('mfaRemember');
     const row = document.getElementById('mfaRememberRow');
@@ -1421,6 +1424,8 @@ async function mfaRememberDevice(){
     if (data?.token && session?.user?.id) mfaDeviceSet(session.user.id, data.token);
   } catch(err){
     console.warn('mfa device remember failed', err);
+  } finally {
+    mfaRememberBusy = false;
   }
 }
 
@@ -1607,7 +1612,7 @@ async function renderMfaSection(){
   accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
   host.innerHTML =
-      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
+      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום (חוץ ממכשיר שאומת ונזכר). בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
     + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
     + '<div class="mfa-block" id="mfaTotpBlock"></div>'
     + '<div class="mfa-block" id="mfaDevBlock"></div>';
