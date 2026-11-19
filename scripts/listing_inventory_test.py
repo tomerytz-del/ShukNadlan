@@ -479,6 +479,9 @@ def facebook_owner_is_inventory_not_a_second_lead(db):
     """פוסט בעלים מפייסבוק נכנס למלאי בלי ליד שני, וצילום יד2 לא מוחק אותו."""
     mig = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
     notes = psql(db, sql_text="select count(*)::text from public.notifications")
+    psql(db, sql_text="""
+      create table if not exists public.agent_clients (id uuid primary key);
+    """)
     psql(db, mig)
     added = psql(db, sql_text="""
       select public.scraped_lead_add(jsonb_build_object(

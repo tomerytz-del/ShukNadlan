@@ -24385,10 +24385,90 @@ const MATCH_SORTS = {
 let matchFilter = 'all';
 let matchSort = 'score';
 
+/* ---------- מודעות מהלוחות (יד2 / מדלן) במגירת ההתאמות ----------
+   המקור השלישי, אחרי הנכסים של הסוכן/ת ושל המשרד. ‏agent_client_board_matches
+   מדרגת כל מודעה באותו מנוע של הנכסים (client_property_match), ולכן הציון
+   כאן הוא אותו ציון. **אין כאן חישוב**: רק הצגה של מה שחזר.
+
+   שלושה דברים שהבלוק שומר עליהם (docs/listing-inventory.md):
+   - נפרד מהנכסים, בכותרת משלו. מודעה ציבורית אינה נכס של הסוכן/ת, ואין לה
+     "למיניסייט": המיניסייט שולח רק מהמאגר (הסקיל client-showcase).
+   - הקישור הוא כפתור, ורק לכתובת https של יד2, מדלן או פייסבוק.
+   - כשלא נבדק (מאפיין חובה, בלי עיר) נאמר שלא נבדק, ולא "אין מודעות".
+   הבלוק נטען אחרי שהמגירה נפתחה ואינו מעכב אותה. לפני המיגרציה הפונקציה
+   אינה קיימת, ואז הוא פשוט לא מופיע. */
+const BOARD_SOURCE_LABELS = { yad2:'יד2', madlan:'מדלן', facebook:'קבוצת פייסבוק' };
+function boardListingHref(url){
+  const u = String(url || '');
+  return /^https:\/\/([a-z0-9-]+\.)?(yad2\.co\.il|madlan\.co\.il|facebook\.com)\//i.test(u) ? u : '';
+}
+function boardMatchRow(m){
+  const src = BOARD_SOURCE_LABELS[m.source] || '';
+  const bits = [
+    src,
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.size_sqm ? `${Number(m.size_sqm)} מ״ר` : '',
+    (m.floor === 0) ? 'קומת קרקע' : (m.floor != null ? `קומה ${m.floor}` : ''),
+    m.neighborhood || m.city,
+    (m.no_broker === 'post' || m.no_broker === 'group') ? 'ללא תיווך' : '',
+  ].filter(Boolean).map(esc).join(' · ');
+  const was = m.price_was ? ` <span class="mb-was">ירד מ-${shekel(m.price_was)}</span>` : '';
+  const psm = m.price_per_sqm ? ` · ${shekel(m.price_per_sqm)}/מ״ר` : '';
+  const href = boardListingHref(m.url);
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price"><b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''}${esc(psm)}${was}</div>
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע במודעה, בלי מאפיינים">${esc(m.score)}%</span>
+      ${href ? `<a class="btn btn-ghost mb-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">פתיחה ב${esc(src || 'לוח')}</a>` : ''}
+    </div>`;
+}
+function boardMatchesHtml(r){
+  // unavailable / unsupported: לא נבדק (העיר אינה במלאי, או לקוח/ה מסחרי/ת). בלי בלוק.
+  if (!r || typeof r !== 'object' || r.status === 'unavailable' || r.status === 'unsupported') return '';
+  const head = '<div class="mb-h">מודעות מהלוחות יד 2 / מדלן</div>';
+  if (r.status === 'skipped_feature'){
+    return head + '<div class="lead-meta">מודעות בלוחות לא נבדקו, כי אין בהן נתון על המאפיין שנדרש בכרטיס.</div>';
+  }
+  if (r.status === 'no_city'){
+    return head + '<div class="lead-meta">כדי לראות מודעות מהלוחות צריך עיר בכרטיס הלקוח/ה.</div>';
+  }
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">בלוחות אין כרגע מודעות שעונות על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  // כרטיס רחב נותן את אותו ציון למאות מודעות. אומרים את זה, ואומרים לפי
+  // מה נבחרו אלה שמוצגות, אחרת חמש שורות נראות כמו "החמש המתאימות".
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהן באותו ציון (${esc(r.top_score)}%), ולכן מוצגות קודם מודעות שירדו במחיר, ואחריהן לפי מחיר למ״ר. דרישות מפורטות יותר בכרטיס (שכונה, שטח, קומה) יצמצמו את הרשימה.`
+    : '';
+  return head
+    + `<div class="lead-meta">מודעות ציבוריות, לא נכסים שלך או של המשרד. ${total === items.length
+        ? `${total} מודעות מתאימות.` : `מוצגות ${items.length} מתוך ${total} מודעות מתאימות.`}${tie}</div>`
+    + items.map(boardMatchRow).join('');
+}
+async function loadClientBoardMatches(panel, client){
+  const box = document.createElement('div');
+  box.className = 'match-board';
+  panel.appendChild(box);
+  if (!client || !client.id) return;
+  try {
+    const { data, error } = await sb.rpc('agent_client_board_matches', { p_client_id: client.id, p_limit: 5 });
+    // המגירה נסגרה ונפתחה ללקוח/ה אחר/ת בינתיים: התיבה כבר אינה במסמך
+    if (error || !box.isConnected) return;
+    box.innerHTML = boardMatchesHtml(data);
+  } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
+}
+
 function renderClientMatches(panel, rows, client){
   panel._client = client;
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
+    loadClientBoardMatches(panel, client);
     return;
   }
 
@@ -24433,6 +24513,7 @@ function renderClientMatches(panel, rows, client){
     draw(panel.querySelector('[data-match-filter][aria-pressed="true"]')?.dataset.matchFilter || 'all');
   });
   draw(active);
+  loadClientBoardMatches(panel, client);
 }
 
 /* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
@@ -27041,7 +27122,7 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
 
-/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+/* קישור למודעה ציבורית במדלן, ביד2 או בפוסט פייסבוק. כל כתובת אחרת נשארת בלי כפתור. */
 function boardListingHref(raw){
   if (typeof raw !== 'string') return '';
   const s = raw.trim();
@@ -27050,7 +27131,8 @@ function boardListingHref(raw){
   try { host = new URL(s).hostname.toLowerCase(); }
   catch (e) { return ''; }
   const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
-    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il')
+    || host === 'facebook.com' || host.endsWith('.facebook.com');
   return ok ? s : '';
 }
 

@@ -21,6 +21,8 @@ import {
   boardUrlFromRowId,
   fetchBoardListings,
   presentBoardListings,
+  boardRankNote,
+  rankedBoardRows,
   recordBoardPresentation,
   safeListingUrl,
   shouldAttachBoardListings,
@@ -324,8 +326,51 @@ const searchFn = agent.slice(agent.indexOf("async function toolSearchProperties"
 const clientFn = agent.slice(agent.indexOf("async function toolClientMatches"), agent.indexOf("async function clientBoardScope"));
 check("חיפוש עם מאפיין חובה לא מצרף לוחות",
   searchFn.includes("features: feats") && searchFn.includes("boardSection"));
+// ההתאמות ללקוח/ה עוברות בדירוג של המסד (clientBoardRanked). השער על מאפיין
+// חובה יושב שם, לפני הקריאה, וגם בגיבוי הישן.
+const rankedFn = agent.slice(agent.indexOf("async function clientBoardRanked"), agent.indexOf("async function toolSearchProperties"));
 check("התאמה עם מאפיין חובה לא מצרפת לוחות",
-  clientFn.includes("shouldAttachBoardListings({ required, waived: waive })"));
+  clientFn.includes("clientBoardRanked(ctx") &&
+  rankedFn.indexOf("shouldAttachBoardListings({ required, waived: waive })") > -1 &&
+  rankedFn.indexOf("shouldAttachBoardListings({ required, waived: waive })") < rankedFn.indexOf(".rpc("));
+check("ההתאמות ללקוח/ה מדורגות במסד, עם הוויתור של הסוכן/ת",
+  rankedFn.includes('"agent_client_board_matches_for_agent"') && rankedFn.includes("p_waive_features: waive") &&
+  rankedFn.includes("p_agent_id: ctx.agent.id"));
+check("בלי עיר בכרטיס, בכשל או לפני המיגרציה חוזרים לסינון הקודם",
+  rankedFn.includes('r.status === "no_city" || r.status === "unsupported"') && (rankedFn.match(/await legacy\(\)/g) || []).length >= 3);
+
+// שורות מדורגות: הסדר של המסד נשמר, והשדות של המודעה והציון עוברים הלאה.
+const rankedResult = {
+  status: "ok", total: 268, top_score: 100, top_count: 203,
+  items: [
+    { id: "00000000-0000-0000-0000-00000000000a", source: "yad2", city: "עפולה", property_type: "דירה",
+      rooms: 4, price: 1290000, size_sqm: 105, floor: 0, neighborhood: "גבעת המורה", score: 100,
+      price_was: 1350000, url: "https://www.yad2.co.il/realestate/item/a" },
+    { id: "00000000-0000-0000-0000-00000000000b", source: "madlan", city: "עפולה", property_type: "דירה",
+      rooms: 4, price: 1100000, score: 90, url: "https://www.madlan.co.il/listings/b" },
+    null,
+  ],
+};
+const rankedRows = rankedBoardRows(rankedResult, "sale");
+check("שורות מדורגות נשארות בסדר של המסד",
+  rankedRows.length === 2 && rankedRows[0].price === 1290000 && rankedRows[0].deal_type === "sale");
+check("תשובה בלי items היא אפס שורות", rankedBoardRows({ status: "none" }, "sale").length === 0 &&
+  rankedBoardRows(null, "sale").length === 0);
+const rankedShown = presentBoardListings(rankedRows, 268, { buttons: true, ranked: true });
+const firstRanked = (rankedShown?.listings[0] || {}) as Record<string, unknown>;
+check("המודעה המדורגת נושאת שטח, קומת קרקע, שכונה, ציון ומחיר קודם",
+  firstRanked.size_sqm === 105 && firstRanked.floor === 0 && firstRanked.neighborhood === "גבעת המורה" &&
+  firstRanked.score === 100 && firstRanked.price_was === 1350000);
+check("השורה מציגה שטח ושכונה",
+  String(firstRanked.line).includes("105 מ״ר") && String(firstRanked.line).includes("גבעת המורה"));
+check("ההנחיה למדורגות אינה אומרת שאין שכונה",
+  !!rankedShown && !rankedShown.note.includes("אין שכונה במודעות") && rankedShown.note.includes("אל תמייני מחדש"));
+check("ההנחיה הרגילה לא השתנתה",
+  (presentBoardListings([row(1)], 1, { buttons: true })?.note || "").includes("אין שכונה במודעות"));
+check("כשהרבה מודעות באותו ציון, נאמר כמה ולפי מה נבחרו",
+  (boardRankNote(rankedResult, 2) || "").includes("203") && (boardRankNote(rankedResult, 2) || "").includes("100%"));
+check("כשכל מודעות הציון הגבוה מוצגות אין הערה",
+  boardRankNote({ top_score: 100, top_count: 2 }, 2) === null && boardRankNote({}, 2) === null);
 check("היומן נכתב רק אחרי שהתשובה מציגה",
   agent.includes("boardPresentationLog") && agent.includes("recordBoardPresentation"));
 

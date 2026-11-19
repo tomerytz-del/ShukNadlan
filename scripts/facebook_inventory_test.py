@@ -35,6 +35,9 @@ alter default privileges in schema public grant execute on functions to anon, au
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
+create table public.agent_clients (
+  id uuid primary key
+);
 create table public.neighborhoods (
   id uuid primary key,
   city_id uuid,
@@ -266,6 +269,37 @@ def main():
     """)
     if blocked != "true|true|false|false":
         fail(f"הבחנת לא לפנות: {blocked}")
+    resend = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/523456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234571',
+        'deal_type', 'sale', 'budget', 900000)) ->> 'id'
+    """)
+    psql(DB, sql_text=f"""
+      update public.scraped_leads set status = 'open_demand' where id = '{resend}';
+    """)
+    if psql(DB, sql_text=f"""
+      select count(*)::text from public.listing_inventory where scraped_lead_id = '{resend}'
+    """) != "1":
+        fail("שליחה ראשונה לא נכנסה למלאי אחרי ביקוש פתוח")
+    dup = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/523456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234571',
+        'raw_message', 'מתווכים לא להתקשר', 'deal_type', 'sale')) ->> 'duplicate'
+    """)
+    if dup != "post":
+        fail(f"שליחה חוזרת: {dup}")
+    if psql(DB, sql_text=f"""
+      select broker_block::text from public.scraped_leads where id = '{resend}'
+    """) != "true":
+        fail("שליחה חוזרת לא סימנה broker_block")
+    if psql(DB, sql_text=f"""
+      select count(*)::text from public.listing_inventory where scraped_lead_id = '{resend}'
+    """) != "0":
+        fail("שליחה חוזרת עם לא להתקשר השאירה את המלאי")
     quiet = psql(DB, sql_text="""
       select public.scraped_lead_add(jsonb_build_object(
         'lead_type', 'owner_inbound', 'source', 'facebook_group',

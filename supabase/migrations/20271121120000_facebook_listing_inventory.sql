@@ -594,6 +594,12 @@ begin
   end if;
 
   v_ref := public.scraped_lead_ref(v_url);
+  -- לפני בדיקת הכפילות: שליחה חוזרת מעדכנת broker_block, והערך חייב
+  -- להיות מחושב כבר. "ללא תיווך" לבדו אינו חסימה.
+  v_block := public.scraped_lead_broker_block(p ->> 'raw_message')
+          or public.scraped_lead_broker_block(p ->> 'property_details')
+          or public.scraped_lead_broker_block(p ->> 'summary')
+          or public.scraped_lead_broker_block(p ->> 'source_detail');
 
   -- אותו פוסט: כבר אצלנו, או שבעליו סירב/ה
   select id into v_id from public.scraped_leads where source = v_source and external_ref = v_ref;
@@ -672,10 +678,6 @@ begin
   if v_deal is null then
     v_deal := v_deal_fallback;
   end if;
-  v_block := public.scraped_lead_broker_block(p ->> 'raw_message')
-          or public.scraped_lead_broker_block(p ->> 'property_details')
-          or public.scraped_lead_broker_block(p ->> 'summary')
-          or public.scraped_lead_broker_block(p ->> 'source_detail');
 
   insert into public.scraped_leads (lead_type, source, source_detail, post_url, external_ref, posted_at,
                                     raw_name, raw_phone, raw_message, city, city_id, neighborhood_id,
@@ -1460,3 +1462,203 @@ update public.scraped_leads
    and status = 'open_demand'
    and claimed_by is null
    and broker_block = false;
+
+-- client_board_matches מ-20271120130000 סיננה רק כתובות יד2 ומדלן.
+-- פוסט פייסבוק במלאי הוא בלי טלפון ובלי שם, ולכן הוא נשאר בתוצאה,
+-- עם source = facebook. התווית במסך היא "קבוצת פייסבוק".
+create or replace function public.client_board_matches(
+  p_client public.agent_clients,
+  p_limit int default 5,
+  p_waive_features text[] default '{}'
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit   int := least(greatest(coalesce(p_limit, 5), 1), 20);
+  v_min     int := 50;   -- אותו סף של match_properties_for_client
+  v_waive   text[] := coalesce(p_waive_features, '{}'::text[]);
+  v_wants_land boolean;
+  v_city_ids uuid[];
+  v_stock   int;
+  v_out     jsonb;
+begin
+  if p_client.id is null
+     or p_client.client_kind is distinct from 'seeker'
+     or p_client.deal_type is null then
+    return null;
+  end if;
+  -- מאפיין חובה שהסוכן/ת לא ויתר/ה עליו במפורש (p_waive_features, כמו בגבריאלה)
+  -- חוסם: במודעה אין מאפיינים, והמנוע היה פוסל את כולן.
+  if exists (select 1 from unnest(coalesce(p_client.required_features, '{}'::text[])) f
+              where f is not null and f <> '' and not (f = any (v_waive))) then
+    return jsonb_build_object('status', 'skipped_feature');
+  end if;
+  -- מגרש נכנס רק כשהכרטיס מבקש מגרש במפורש. כרטיס בלי סוג נכס מחפש בית,
+  -- ומגרש ב-900 אלף אינו "דירה זולה".
+  v_wants_land := coalesce(p_client.property_types, '{}'::text[]) && array['מגרש', 'מגרשים'];
+  -- במלאי אין נכסים מסחריים (רק מגורים ומגרשים). לקוח/ה מסחרי/ת שאינו/ה
+  -- מחפש/ת מגרש לא נבדק/ת כאן, וזה נאמר: "אין מודעות" היה שקר.
+  if p_client.category is distinct from 'residential' and not v_wants_land then
+    return jsonb_build_object('status', 'unsupported');
+  end if;
+  if cardinality(coalesce(p_client.cities, '{}'::text[])) = 0 then
+    return jsonb_build_object('status', 'no_city');
+  end if;
+
+  select coalesce(array_agg(distinct x), '{}'::uuid[]) into v_city_ids
+    from unnest(p_client.cities) c(name), unnest(public.city_ids_for_name(c.name)) x;
+
+  select count(*)::int into v_stock
+    from public.listing_inventory i
+   where i.removed_at is null
+     and i.deal_type = p_client.deal_type
+     and i.city_id = any (v_city_ids);
+  if v_stock = 0 then
+    return jsonb_build_object('status', 'unavailable');
+  end if;
+
+  with cand as (
+    -- סינון זול לפני המנוע: אותם גבולות מחיר של השער שלו, כדי לא להריץ
+    -- אותו על מודעות שהוא ידחה ממילא.
+    select i.id, i.source, i.city, i.city_id, i.deal_type, i.rooms, i.price, i.size_sqm,
+           i.floor, i.neighborhood, i.url, i.no_broker, i.first_seen_at,
+           public.board_listing_site_type(i.property_type) as site_type,
+           public.board_listing_kind(i.property_type) as kind
+      from public.listing_inventory i
+     where i.removed_at is null
+       and i.deal_type = p_client.deal_type
+       and i.city_id = any (v_city_ids)
+       and i.price is not null and i.price > 0 and i.price <> 'NaN'::numeric
+       and (p_client.max_price is null or i.price <= p_client.max_price * 1.10)
+       and (p_client.min_price is null or i.price >= p_client.min_price * 0.85)
+       -- רק מודעה שאפשר לפתוח: בלי קישור של לוח אין מה להציג, והיא לא
+       -- נספרת ב-total ולא תופסת מקום בחמש הראשונות.
+       and (
+         i.url ~ '^https://(www\.)?(yad2|madlan)\.co\.il/'
+         or (i.source = 'facebook' and i.url ~ '^https://([a-z0-9-]+\.)?facebook\.com/')
+       )
+       -- to_jsonb ולא i.is_duplicate: העמודה מגיעה עם #1330, ועד אז אינה קיימת
+       and not coalesce((to_jsonb(i) ->> 'is_duplicate')::boolean, false)
+  ),
+  typed as (
+    -- סוג שאין לו סיווג (משק, בניין, חניה, מסחרי) אינו נכס מגורים ואינו מגרש:
+    -- הוא לא נכנס. ומגרש רק למי שביקש מגרש.
+    select c.* from cand c
+     where c.kind is not null
+       and (c.kind <> 'land' or v_wants_land)
+       and (c.kind = 'land' or p_client.category = 'residential')
+  ),
+  hoods as (
+    -- שם השכונה שבמודעה -> מזהה, פעם אחת לכל שם, ורק כשהכרטיס מבקש שכונה
+    select h.city, h.neighborhood, public.neighborhood_ids_for(h.city, h.neighborhood) as ids
+      from (select distinct c.city, c.neighborhood from typed c
+             where p_client.neighborhood_id is not null and c.neighborhood is not null) h
+  ),
+  scored as (
+    select c.*, m.score, m.reasons
+      from typed c
+      left join hoods h on h.city = c.city and h.neighborhood = c.neighborhood
+      cross join lateral public.client_property_match(
+        p_client,
+        jsonb_populate_record(null::public.properties, jsonb_build_object(
+          'id', c.id,
+          'status', 'active',
+          'deal_type', c.deal_type,
+          -- מגרש אינו "מגורים" או "מסחרי" במודעת לוח: הוא מקבל את הקטגוריה
+          -- ואת שם הסוג שבכרטיס ("מגרש" / "מגרשים"), אם הכרטיס מבקש מגרש.
+          'category', case when c.kind = 'land' then p_client.category else 'residential' end,
+          'property_type', case
+              when c.kind = 'land' then coalesce(
+                (select t from unnest(coalesce(p_client.property_types, '{}'::text[])) t
+                  where t in ('מגרש', 'מגרשים') limit 1), c.site_type)
+              else c.site_type end,
+          'price', c.price,
+          'rooms', c.rooms,
+          'size_sqm', c.size_sqm,
+          'floor', c.floor,
+          'city', c.city,
+          'city_id', c.city_id,
+          'neighborhood_id', case
+              when h.ids is null or cardinality(h.ids) = 0 then null
+              when p_client.neighborhood_id = any (h.ids) then p_client.neighborhood_id
+              else h.ids[1] end,
+          'features', '{}'::text[])),
+        v_waive
+      ) m
+     where m.score >= v_min
+  ),
+  priced as (
+    select s.*,
+           -- מחיר למ"ר רק במכירה: שכירות חודשית חלקי שטח אינה מחיר למ"ר
+           case when s.size_sqm > 0 and s.kind is distinct from 'land' and s.deal_type = 'sale'
+                then round(s.price / s.size_sqm) end as price_per_sqm,
+           -- המחיר שהיה בתחילת 30 הימים, רק אם הוא גבוה מהמחיר היום (ירידה נטו)
+           (select h.old_price
+              from public.listing_inventory_price_history h
+             where h.listing_id = s.id
+               and h.changed_at >= pg_catalog.now() - interval '30 days'
+             order by h.changed_at, h.id
+             limit 1) as first_old
+      from scored s
+  ),
+  ranked as (
+    -- **הציון לבדו אינו מבחין.** הוא נמדד מול הדרישות שבכרטיס, וכרטיס רחב
+    -- ("דירה, 4 חדרים ומעלה, עד 1.5 מיליון") נותן 100% למאות מודעות: 203 מתוך
+    -- 268 בעפולה, נמדד 19.11.2026. לכן בתוך אותו ציון הסדר הוא: מודעה שירדה
+    -- במחיר, אחר כך המחיר למ"ר הנמוך, אחר כך החדשה. זה סדר הצגה ולא כלל
+    -- התאמה, ו-top_count אומר למסך כמה חולקות את הציון הגבוה.
+    select p.*, count(*) over () as total,
+           count(*) over (partition by p.score) as same_score,
+           case when p.first_old > p.price and p.price >= p.first_old * 0.5 then p.first_old end as price_was,
+           row_number() over (
+             order by p.score desc,
+                      case when p.first_old > p.price and p.price >= p.first_old * 0.5 then 0 else 1 end,
+                      p.price_per_sqm asc nulls last,
+                      p.first_seen_at desc, p.id) as rn
+      from priced p
+  )
+  select jsonb_build_object(
+           'status', 'ok',
+           'total', max(r.total),
+           'top_score', max(r.score),
+           'top_count', max(r.same_score) filter (where r.rn = 1),
+           'items', jsonb_agg(jsonb_build_object(
+             'id', r.id,
+             'source', r.source,
+             'city', r.city,
+             'deal_type', r.deal_type,
+             'neighborhood', r.neighborhood,
+             'property_type', r.site_type,
+             'rooms', r.rooms,
+             'size_sqm', r.size_sqm,
+             'floor', r.floor,
+             'price', r.price,
+             'price_per_sqm', r.price_per_sqm,
+             'score', r.score,
+             'reasons', to_jsonb(r.reasons),
+             'first_seen_at', r.first_seen_at,
+             'price_was', r.price_was,
+             'url', r.url,
+             'no_broker', r.no_broker
+           ) order by r.rn))
+    into v_out
+    from ranked r
+   where r.rn <= v_limit;
+
+  -- אגרגט בלי group by מחזיר שורה גם על אפס מודעות (items הוא null), ולכן
+  -- בודקים את items ולא את v_out.
+  if v_out is null or jsonb_typeof(v_out->'items') is distinct from 'array' then
+    return jsonb_build_object('status', 'none', 'total', 0);
+  end if;
+  return v_out;
+end $$;
+
+comment on function public.client_board_matches(public.agent_clients, int, text[]) is
+  'מודעות יד2, מדלן ופייסבוק שמתאימות ללקוח/ה, מדורגות ב-client_property_match על שורת properties שנבנית מהמודעה. בלי כלל התאמה משלה. status אומר למה אין מודעות (skipped_feature / no_city / unavailable / none). docs/listing-inventory.md';
+revoke all on function public.client_board_matches(public.agent_clients, int, text[]) from public, anon, authenticated;
+grant execute on function public.client_board_matches(public.agent_clients, int, text[]) to service_role;
+
