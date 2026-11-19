@@ -274,6 +274,54 @@ function cmaFeatureLabel(code, s){
   return cmaFeatureLabel.map[code] || (s && s.feature_labels && s.feature_labels[code]) || code;
 }
 
+/* ההיצע בלוחות (יד2 / מדלן). ‏`board_supply` מגיע מ-`listing_supply_stats`
+   דרך `cma_report_finish`: מודעות ציבוריות פעילות באותה עיר, אותו סוג נכס
+   וחדרים ±0.5. **מחירים מבוקשים**, ברמת עיר, ולכן סעיף נפרד שאינו נוגע
+   בממוצע. המסד משתיק מתחת לסף (`status: 'too_few'` בלי מספרים); כאן רק
+   מציגים מה שהגיע. דוח ישן או דוח לפני המיגרציה מגיע בלי המפתח. */
+const CMA_BOARD_KINDS = { unit:'דירות', house:'בתים פרטיים', garden:'דירות גן', roof:'פנטהאוזים ודירות גג', land:'מגרשים' };
+function cmaBoardSupply(r){
+  const b = r && r.board_supply;
+  if (!b || typeof b !== 'object') return '';
+  const rent  = b.deal_type === 'rent';
+  const deal  = rent ? 'להשכרה' : 'למכירה';
+  const kind  = CMA_BOARD_KINDS[b.kind] || 'נכסים';
+  const rooms = (b.rooms_from != null && b.rooms_to != null)
+    ? `, ${esc(b.rooms_from)} עד ${esc(b.rooms_to)} חדרים` : '';
+  const where = `${esc(kind)} ${deal}${b.city ? ' ב' + esc(b.city) : ''}${rooms}`;
+  if (b.status !== 'ok'){
+    if (b.status !== 'too_few') return '';
+    return `
+    <section class="cma-sec">
+      <h3 class="cma-h">ההיצע בלוחות</h3>
+      <div class="cma-note">ביד2 ובמדלן יש כרגע ${esc(Number(b.sample) || 0)} מודעות פעילות של ${where}. זה פחות מדי כדי להציג טווח מחירים.</div>
+    </section>`;
+  }
+  const src = b.sources || {};
+  const from = [Number(src.yad2) ? 'יד2' : '', Number(src.madlan) ? 'מדלן' : ''].filter(Boolean).join(' ו');
+  const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
+  const place = pct === null ? '' : `
+      <div class="cma-note">המחיר המבוקש של הנכס גבוה מ-<strong>${esc(pct)}%</strong> מהמודעות האלה`
+      + ` (${esc(b.cheaper_count)} מתוך ${esc(b.sample)} זולות ממנו).</div>`;
+  const d = b.price_drops;
+  const drops = (d && Number(d.listings) > 0) ? `
+      <div class="cma-note">${esc(d.listings)} מהמודעות (${esc(d.share_pct)}%) הורידו מחיר ב-${esc(d.window_days)} הימים האחרונים,`
+      + ` בחציון של ${esc(d.median_drop_pct)}%.</div>` : '';
+  return `
+    <section class="cma-sec">
+      <h3 class="cma-h">ההיצע בלוחות</h3>
+      <p class="cma-cap">מודעות פעילות${from ? ' ב' + from : ''}: ${where}.
+        <strong>אלה מחירים מבוקשים ולא מחירי עסקה</strong>, ולכן הם אינם נכנסים לממוצע שלמעלה.
+        ההשוואה היא ברמת העיר, בלי התאמה לשכונה, לשטח או למאפיינים, ואותו נכס יכול להופיע ביותר ממודעה אחת.</p>
+      <div class="cma-stats">
+        <div class="cma-stat"><div class="n">${esc(b.sample)}</div><div class="l">מודעות מתחרות</div></div>
+        <div class="cma-stat"><div class="n">${shekel(b.p25_price)}</div><div class="l">רבעון תחתון</div></div>
+        <div class="cma-stat"><div class="n">${shekel(b.median_price)}</div><div class="l">מבוקש חציוני${rent ? ' לחודש' : ''}</div></div>
+        <div class="cma-stat"><div class="n">${shekel(b.p75_price)}</div><div class="l">רבעון עליון</div></div>
+      </div>${place}${drops}
+    </section>`;
+}
+
 function cmaMarketNote(cov){
   if (!cov || !Number(cov.market_comparables_total)) return '';
   const total = Number(cov.market_comparables_total);
@@ -800,6 +848,8 @@ function renderCmaReport(r, brand){
       ${Number(cov.market_comparables_total) > marketComps.length
         ? `<p class="cma-cap">מוצגים ${esc(marketComps.length)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</p>` : ''}
     </section>` : ''}
+
+    ${cmaBoardSupply(r)}
 
     ${hoodComps.length ? `
     <section class="cma-sec">
