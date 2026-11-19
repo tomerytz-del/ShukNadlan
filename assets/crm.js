@@ -7512,7 +7512,7 @@ const PRO_MEDIA_BUCKET = 'property-images';
    נשמר כמפתח באנגלית ומתורגם רק בתצוגה. */
 const PRO_TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', electrician:'חשמלאי/ת', plumber:'אינסטלטור/ית', general:'בעל/ת מקצוע',
 };
 
 /* "מוצגת באתר" אינו status='active' בלבד: כרטיסייה שתקופת הפרסום שלה
@@ -24393,14 +24393,14 @@ let matchSort = 'score';
    שלושה דברים שהבלוק שומר עליהם (docs/listing-inventory.md):
    - נפרד מהנכסים, בכותרת משלו. מודעה ציבורית אינה נכס של הסוכן/ת, ואין לה
      "למיניסייט": המיניסייט שולח רק מהמאגר (הסקיל client-showcase).
-   - הקישור הוא כפתור, ורק לכתובת https של יד2 או מדלן.
+   - הקישור הוא כפתור, ורק לכתובת https של יד2, מדלן או פייסבוק.
    - כשלא נבדק (מאפיין חובה, בלי עיר) נאמר שלא נבדק, ולא "אין מודעות".
    הבלוק נטען אחרי שהמגירה נפתחה ואינו מעכב אותה. לפני המיגרציה הפונקציה
    אינה קיימת, ואז הוא פשוט לא מופיע. */
-const BOARD_SOURCE_LABELS = { yad2:'יד2', madlan:'מדלן' };
+const BOARD_SOURCE_LABELS = { yad2:'יד2', madlan:'מדלן', facebook:'קבוצת פייסבוק' };
 function boardListingHref(url){
   const u = String(url || '');
-  return /^https:\/\/(www\.)?(yad2|madlan)\.co\.il\//.test(u) ? u : '';
+  return /^https:\/\/([a-z0-9-]+\.)?(yad2\.co\.il|madlan\.co\.il|facebook\.com)\//i.test(u) ? u : '';
 }
 function boardMatchRow(m){
   const src = BOARD_SOURCE_LABELS[m.source] || '';
@@ -24411,6 +24411,7 @@ function boardMatchRow(m){
     m.size_sqm ? `${Number(m.size_sqm)} מ״ר` : '',
     (m.floor === 0) ? 'קומת קרקע' : (m.floor != null ? `קומה ${m.floor}` : ''),
     m.neighborhood || m.city,
+    (m.no_broker === 'post' || m.no_broker === 'group') ? 'ללא תיווך' : '',
   ].filter(Boolean).map(esc).join(' · ');
   const was = m.price_was ? ` <span class="mb-was">ירד מ-${shekel(m.price_was)}</span>` : '';
   const psm = m.price_per_sqm ? ` · ${shekel(m.price_per_sqm)}/מ״ר` : '';
@@ -27182,7 +27183,7 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
 
-/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+/* קישור למודעה ציבורית במדלן, ביד2 או בפוסט פייסבוק. כל כתובת אחרת נשארת בלי כפתור. */
 function boardListingHref(raw){
   if (typeof raw !== 'string') return '';
   const s = raw.trim();
@@ -27191,7 +27192,8 @@ function boardListingHref(raw){
   try { host = new URL(s).hostname.toLowerCase(); }
   catch (e) { return ''; }
   const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
-    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il')
+    || host === 'facebook.com' || host.endsWith('.facebook.com');
   return ok ? s : '';
 }
 

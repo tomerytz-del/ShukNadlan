@@ -1,13 +1,13 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-11-15 18:19:52",
+    "exportTime": "2026-11-18 18:01:29",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/19",
+        "path": "accounts/6376638087/containers/264013397/versions/20",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "19",
-        "name": "Add GA4 and Meta Pixel checkout and purchase tags, triggers, and variables",
-        "description": "Tags:\n* Added a \"GA4 — begin_checkout\" tag triggered by \"CE — begin_checkout\".\n* Added a \"GA4 — purchase\" tag triggered by \"CE — purchase\".\n* Added a \"meta pixel initiatecheckout\" tag triggered by \"CE — begin_checkout\".\n* Added a \"meta pixel purchase\" tag triggered by \"CE — purchase\".\n\nTriggers:\n* Added the \"CE — begin_checkout\" custom event trigger for event \"begin_checkout\".\n* Added the \"CE — purchase\" custom event trigger for event \"purchase\".\n\nVariables:\n* Added Data Layer Variable \"DLV - ecommerce.transaction_id\" reading \"ecommerce.transaction_id\".\n* Added Data Layer Variable \"DLV - ecommerce.value\" reading \"ecommerce.value\".",
+        "containerVersionId": "20",
+        "name": "Add GA4 pro signup event tags and triggers",
+        "description": "Tags:\n* Added \"GA4 — pro_signup_complete\" tag triggered by \"CE — pro_signup_complete\".\n* Added \"GA4 — pro_signup_start\" tag triggered by \"CE — pro_signup_start\".\n* Added \"GA4 — pro_signup_cta_click\" tag triggered by \"CE — pro_signup_cta_click\".\n* Added \"GA4 — pro_signup_error\" tag triggered by \"CE — pro_signup_error\".\n\nTriggers:\n* Added custom event trigger \"CE — pro_signup_complete\" for event \"pro_signup_complete\".\n* Added custom event trigger \"CE — pro_signup_start\" for event \"pro_signup_start\".\n* Added custom event trigger \"CE — pro_signup_cta_click\" for event \"pro_signup_cta_click\".\n* Added custom event trigger \"CE — pro_signup_error\" for event \"pro_signup_error\".",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -13380,6 +13380,279 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "435",
+                "name": "GA4 — pro_signup_complete",
+                "type": "gaawe",
+                "notes": "ההרשמה התקבלה בשרת ומסך הסיום הוצג. type: תחום העיסוק שנבחר",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - type}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "pro_signup_complete"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1795024854440",
+                "firingTriggerId": [
+                    "434"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "437",
+                "name": "GA4 — pro_signup_start",
+                "type": "gaawe",
+                "notes": "מגע ראשון בשדה של טופס ההרשמה (פעם אחת לטעינת דף)",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "pro_signup_start"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1795024854440",
+                "firingTriggerId": [
+                    "436"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "439",
+                "name": "GA4 — pro_signup_cta_click",
+                "type": "gaawe",
+                "notes": "לחיצה על כפתור \"פותחים עמוד מקצועי בחינם\" בדף ההרשמה של בעלי המקצוע. cta: hero | benefits | closing",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "cta"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - cta}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "pro_signup_cta_click"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1795024854440",
+                "firingTriggerId": [
+                    "438"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "441",
+                "name": "GA4 — pro_signup_error",
+                "type": "gaawe",
+                "notes": "שליחת הטופס נעצרה. reason: missing | no_type | phone | email | card_exists | promo_used | server | network. בלי תוכן השדות",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "reason"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - reason}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "pro_signup_error"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1795024854440",
+                "firingTriggerId": [
+                    "440"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -17207,6 +17480,106 @@
                     }
                 ],
                 "fingerprint": "1794765879389"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "434",
+                "name": "CE — pro_signup_complete",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "pro_signup_complete"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1795024854439"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "436",
+                "name": "CE — pro_signup_start",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "pro_signup_start"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1795024854440"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "438",
+                "name": "CE — pro_signup_cta_click",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "pro_signup_cta_click"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1795024854440"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "440",
+                "name": "CE — pro_signup_error",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "pro_signup_error"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1795024854440"
             }
         ],
         "variable": [
@@ -20346,7 +20719,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1794766772382",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/19?apiLink=version"
+        "fingerprint": "1795024865721",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/20?apiLink=version"
     }
 }
