@@ -1089,7 +1089,18 @@ Deno.serve(async (req: Request) => {
   // ‏claim רושמת את שורות היומן **לפני** השליחה. נפילה מכאן והלאה משאירה
   // שורה עם status='pending' — "יצא, לא ידוע אם הגיע" — ולא אותן התראות
   // בסבב הבא.
+  //
+  // ‏זמן הקריאה נרשם תמיד: ב-pg_stat_statements הממוצע שלה 2.5 שניות, ובהרצה
+  // בודדת במסד היא לוקחת 115-170ms (20.11.2026). הפער הוא הקשר הקריאה
+  // (נעילה מייעצת מול שלושת ה-cron-ים, או שורות בפועל לשליחה), ורק מדידה
+  // כאן מבדילה ביניהם. מחפשים `notif_claim_ms` ביומני הפונקציה.
+  const claimT0 = Date.now();
   const { data: batch, error } = await sb.rpc("notification_push_claim", { p_limit: BATCH });
+  console.log("notif_claim_ms", JSON.stringify({
+    ms: Date.now() - claimT0,
+    rows: Array.isArray(batch) ? batch.length : 0,
+    ok: !error,
+  }));
   if (error) return json({ error: "db_error", detail: error.message }, 500);
   if (!batch || batch.length === 0) return json({ sent: 0, failed: 0, empty: true });
 
