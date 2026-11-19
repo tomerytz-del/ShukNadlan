@@ -879,6 +879,8 @@ const PATHS = {
   contractor:'<path d="M3 18h18"/><path d="M5 18v-3a7 7 0 0 1 14 0v3"/><path d="M10 8V5h4v3"/>',
   planning_consultant:'<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 14l2 2 4-4"/>',
   surveyor:'<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5V21M12 13l-5 8M12 13l5 8"/>',
+  electrician:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  plumber:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   arrow:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
@@ -895,19 +897,19 @@ const icon = (key, size = 22, stroke = 2) =>
    professional.html מחזיק את אותן שתי הראשונות. */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עו״ד מקרקעין',
-  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', general:'בעל מקצוע',
+  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', electrician:'חשמלאי', plumber:'אינסטלטור', general:'בעל מקצוע',
 };
 const TYPE_PLURAL = {
   mortgage_advisor:'יועצי משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עורכי דין מקרקעין',
-  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', contractor:'קבלני בנייה ושיפוצים', planning_consultant:'יועצי תכנון ובנייה', surveyor:'מודדים מוסמכים', general:'בעלי מקצוע',
+  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', contractor:'קבלני בנייה ושיפוצים', planning_consultant:'יועצי תכנון ובנייה', surveyor:'מודדים מוסמכים', electrician:'חשמלאים', plumber:'אינסטלטורים', general:'בעלי מקצוע',
 };
 const TYPE_FIELD = {
   mortgage_advisor:'משכנתאות', appraiser:'שמאות', real_estate_lawyer:'עריכת דין',
-  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון', contractor:'בנייה ושיפוצים', planning_consultant:'תכנון ובנייה', surveyor:'מדידות',
+  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון', contractor:'בנייה ושיפוצים', planning_consultant:'תכנון ובנייה', surveyor:'מדידות', electrician:'חשמל', plumber:'אינסטלציה',
 };
 /* סדר קבוע לאריחים ולמיון "לפי תחום". ‏general ("אחר" בטופס ההרשמה) אינו
    אריח: מי שבחר בו מופיע תחת "כל התחומים". */
-const TYPE_ORDER = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','contractor','planning_consultant','surveyor','general'];
+const TYPE_ORDER = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','contractor','planning_consultant','surveyor','electrician','plumber','general'];
 const TILE_TYPES = TYPE_ORDER.filter(k => k !== 'general');
 
 /* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה — אותו נוסח שבעמוד
