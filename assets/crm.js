@@ -24451,17 +24451,86 @@ function boardMatchesHtml(r){
         ? `${total} מודעות מתאימות.` : `מוצגות ${items.length} מתוך ${total} מודעות מתאימות.`}${tie}</div>`
     + items.map(boardMatchRow).join('');
 }
+/* ---------- פוסטים בפייסבוק (ביקוש פתוח) במגירת ההתאמות ----------
+   בעלי נכס שפרסמו בקבוצות ושעוד אין להם סוכן. אותו דירוג של הנכסים
+   (agent_client_demand_matches -> client_property_match), בלי קישור, טלפון או
+   פרטי נכס: הקישור לפוסט נחשף רק למי שתפס/ה.
+
+   **הלחיצה היא "אני פונה"** (תומר, 19.11.2026): הכפתור קורא ל-claimOpenDemand
+   (crm-leads.js, open_demand_claim) ופותח את הפוסט. התפיסה בלעדית ולא
+   משתחררת, עד תקרה יומית (open_demand_claims_daily), ולכן הכפתור אומר את זה
+   במפורש ואינו "פתיחה". פוסט "ללא תיווך" כן כאן, עם תגית והנחיה. */
+function demandMatchRow(m){
+  const bits = [
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.city,
+  ].filter(Boolean).map(esc).join(' · ');
+  const age = m.days_ago == null ? '' : (m.days_ago === 0 ? 'פורסם היום' : `פורסם לפני ${m.days_ago} ימים`);
+  const price = m.price ? `<b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''} (מבוקש)` : 'מחיר לא צוין';
+  const label = m.mine ? 'פתיחת הפוסט (כבר תפסת)' : 'אני פונה ופתיחת הפוסט';
+  // "ללא תיווך": לא גובים דמי תיווך, אבל ייתכן שיעניינו אותם שירותי תיווך. הפוסט
+  // נשאר בהתאמות עם ההנחיה של הביקוש הפתוח (OPEN_DEMAND_NO_BROKER, crm-leads.js):
+  // הצעה אחת ומנומסת לשיווק מקצועי, לא "יש לי קונה".
+  const nb = (typeof OPEN_DEMAND_NO_BROKER !== 'undefined' && OPEN_DEMAND_NO_BROKER[m.no_broker]) || null;
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price">${price}${age ? ` · <span class="mb-age">${esc(age)}</span>` : ''}</div>
+        ${m.summary ? `<div class="mb-sum">${esc(m.summary)}</div>` : ''}
+        ${nb ? `<div class="mb-nb"><b>${esc(nb.tag)}</b>. ${esc(nb.rule)}</div>` : ''}
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע בפוסט">${esc(m.score)}%</span>
+      <button type="button" class="btn ${m.mine ? 'btn-ghost' : 'btn-gold'} mb-open" data-demand-claim="${esc(m.id)}" data-open-post="1">${esc(label)}</button>
+    </div>`;
+}
+function demandMatchesHtml(r){
+  if (!r || typeof r !== 'object') return '';
+  // לא נבדק או כבר נאמר בבלוק של הלוחות (מאפיין חובה, בלי עיר), ולקוח/ה מסחרי/ת
+  if (['unavailable', 'unsupported', 'no_city', 'skipped_feature'].includes(r.status)) return '';
+  const head = '<div class="mb-h">פוסטים בפייסבוק: בעלי נכס שמחפשים סוכן</div>';
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">אין כרגע פוסט פתוח בקבוצות שעונה על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהם באותו ציון (${esc(r.top_score)}%), ולכן מוצגים קודם אלה שתפסת, ואחריהם החדשים.` : '';
+  return head
+    + `<div class="lead-meta">פוסטים של בעלי נכס, בלי פרטי קשר. <b>הלחיצה מסמנת "אני פונה"</b>:
+        הפוסט נתפס עבורך, לא נשאר פתוח לסוכנים אחרים ולא משתחרר, ונספר בתקרה היומית. ${total === items.length
+        ? `${total} פוסטים מתאימים.` : `מוצגים ${items.length} מתוך ${total} פוסטים מתאימים.`}${tie}</div>`
+    + items.map(demandMatchRow).join('');
+}
 async function loadClientBoardMatches(panel, client){
   const box = document.createElement('div');
   box.className = 'match-board';
   panel.appendChild(box);
   if (!client || !client.id) return;
-  try {
-    const { data, error } = await sb.rpc('agent_client_board_matches', { p_client_id: client.id, p_limit: 5 });
+  const fetchBlocks = async () => {
+    // שתי הקריאות במקביל. כשל באחת (לפני המיגרציה) משאיר רק את השנייה.
+    const [boards, demand] = await Promise.all([
+      sb.rpc('agent_client_board_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+      sb.rpc('agent_client_demand_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+    ]);
     // המגירה נסגרה ונפתחה ללקוח/ה אחר/ת בינתיים: התיבה כבר אינה במסמך
-    if (error || !box.isConnected) return;
-    box.innerHTML = boardMatchesHtml(data);
-  } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
+    if (!box.isConnected) return;
+    box.innerHTML = (boards.error ? '' : boardMatchesHtml(boards.data)) + (demand.error ? '' : demandMatchesHtml(demand.data));
+  };
+  // המאזין נקשר מיד, לפני הטעינה: כשל בטעינה אינו משאיר כפתורים מתים.
+  let claiming = false;
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (!b || claiming || typeof claimOpenDemand !== 'function') return;
+    claiming = true;   // לחיצה כפולה לא תופסת פעמיים ולא פותחת שני חלונות
+    try {
+      await claimOpenDemand(b.getAttribute('data-demand-claim'), b);
+      // המצב השתנה (נתפס, או כבר לא פתוח): מציירים שוב
+      await fetchBlocks();
+    } catch (_e) { /* נשאר מה שהיה */ } finally { claiming = false; }
+  });
+  try { await fetchBlocks(); } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
 }
 
 function renderClientMatches(panel, rows, client){
