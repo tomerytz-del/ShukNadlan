@@ -97,7 +97,10 @@ drop trigger if exists listing_inventory_price_history_trg on public.listing_inv
 create trigger listing_inventory_price_history_trg
   after update of price on public.listing_inventory
   for each row
-  when (old.price is not null and new.price is not null and old.price <> new.price)
+  -- מודעה שעברה ממכירה להשכרה (או להפך) אינה שינוי מחיר: 1,500,000 מול
+  -- 5,000 היה נקרא כירידה של 99%.
+  when (old.price is not null and new.price is not null and old.price <> new.price
+        and old.deal_type is not distinct from new.deal_type)
   execute function public.listing_inventory_price_history_log();
 
 create or replace function public.listing_inventory_sync(p_source text, p_city text, p_items jsonb)
@@ -236,7 +239,10 @@ begin
     exception when others then
       v_price := null;
     end;
-    if v_price is not null and v_price <= 0 then
+    -- NaN ו-Infinity עוברים את "גדול מאפס" (NaN גדול מכל מספר ב-Postgres),
+    -- ומחיר כזה היה נכתב להיסטוריה ומרעיל כל ממוצע.
+    if v_price is not null
+       and (v_price <= 0 or v_price = 'NaN'::numeric or v_price > 100000000000) then
       v_price := null;
     end if;
     -- שטח, קומה ושכונה: רשות. ערך שאינו סביר נזרק ולא מנוחש.
@@ -257,6 +263,14 @@ begin
       v_floor := null;
     end if;
     v_hood := left(nullif(btrim(v_item ->> 'neighborhood'), ''), 60);
+    -- שם שכונה בלבד. חמש ספרות ומעלה הן טלפון או מיקוד, ו"רחוב ..." הוא
+    -- כתובת: שניהם לא נשמרים במלאי.
+    if v_hood is not null
+       and (char_length(regexp_replace(v_hood, '\D', '', 'g')) >= 5
+            or v_hood ~ '^(רחוב\s|רח''|רח׳|רח\.)')
+    then
+      v_hood := null;
+    end if;
     v_phone := left(nullif(btrim(v_item ->> 'raw_phone'), ''), 40);
     v_name := left(nullif(btrim(v_item ->> 'raw_name'), ''), 80);
     v_summary := left(nullif(btrim(v_item ->> 'summary'), ''), 160);
@@ -326,7 +340,8 @@ begin
    where i.source = p_source
      and i.price is not null
      and t.price is not null
-     and t.price <> i.price;
+     and t.price <> i.price
+     and coalesce(t.deal_type, i.deal_type) is not distinct from i.deal_type;
 
   insert into public.listing_inventory (
     source, external_ref, city, city_id, deal_type, property_type, rooms, price,

@@ -7,9 +7,7 @@ name: מלאי מודעות יד2
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
       - "supabase/migrations/**"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
@@ -18,9 +16,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
       - "supabase/migrations/**"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"

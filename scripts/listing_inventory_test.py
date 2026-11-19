@@ -428,15 +428,33 @@ def price_history_and_details():
     """) != "900000>910000":
         fail("הטריגר לא רשם עדכון ישיר, או רשם עדכון בלי שינוי")
 
-    # סנכרון של עיר אחת לא רושם שינוי למודעות של עיר אחרת.
-    if psql(DB, sql_text="""
-      select count(*)::text from public.listing_inventory_price_history where city <> 'חדרה'
-    """) != psql(DB, sql_text="""
-      select count(*)::text from public.listing_inventory_price_history h
-        join public.listing_inventory i on i.id = h.listing_id
-       where h.city <> 'חדרה' and i.city = h.city
-    """):
-        fail("שינוי מחיר נרשם תחת עיר שאינה של המודעה")
+    # מודעה שעברה ממכירה להשכרה אינה שינוי מחיר, ומחיר שאינו מספר נזרק.
+    before = psql(DB, sql_text="select count(*)::text from public.listing_inventory_price_history")
+    flipped = psql(DB, sql_text="""
+      select public.listing_inventory_sync('yad2', 'חדרה', jsonb_build_array(
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h1',
+                           'deal_type', 'rent', 'price', 5000),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h2',
+                           'deal_type', 'sale', 'price', 'NaN'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h3',
+                           'deal_type', 'sale', 'price', 'Infinity'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h4',
+                           'deal_type', 'sale', 'price', 800000,
+                           'neighborhood', 'הרצל 12, 052-1111111'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h5',
+                           'deal_type', 'sale', 'price', 800000,
+                           'neighborhood', 'רחוב הנשיא')
+      )) ->> 'price_changes'
+    """)
+    after = psql(DB, sql_text="select count(*)::text from public.listing_inventory_price_history")
+    if flipped != "0" or before != after:
+        fail(f"החלפת סוג עסקה או מחיר שאינו מספר נרשמו כשינוי: {flipped} {before} {after}")
+    safe = psql(DB, sql_text="""
+      select string_agg(price::text || '/' || coalesce(neighborhood, '-'), ',' order by external_ref)
+        from public.listing_inventory where external_ref ~ '/h[2345]$'
+    """)
+    if safe != "2100000/-,910000/-,800000/-,800000/-":
+        fail(f"NaN, טלפון או רחוב נשמרו במלאי: {safe}")
 
 
 def latest_sync_keeps_the_new_fields():
@@ -444,10 +462,12 @@ def latest_sync_keeps_the_new_fields():
     marker = "create or replace function public.listing_inventory_sync"
     defining = sorted(
         path for path in (ROOT / "supabase/migrations").glob("*.sql")
-        if marker in path.read_text(encoding="utf-8")
+        if marker in path.read_text(encoding="utf-8").lower()
     )
     text = defining[-1].read_text(encoding="utf-8")
-    body = text[text.index(marker):]
+    start = text.lower().rindex(marker)
+    # רק גוף הפונקציה: הערה או פונקציה אחרת בהמשך הקובץ אינן הוכחה.
+    body = text[start:text.index("end $$;", start)]
     missing = [word for word in ("size_sqm", "neighborhood", "v_floor", "price_changes")
                if word not in body]
     if missing:
