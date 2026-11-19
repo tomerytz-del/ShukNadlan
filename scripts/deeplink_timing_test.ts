@@ -33,6 +33,8 @@ check("שליחה עם keepalive על ה-fetch של supabase, וחזרה מיד"
 check("נטישה ב-pagehide וב-visibilitychange", js.includes('addEventListener("pagehide"') && js.includes('addEventListener("visibilitychange"'));
 check("בלי user agent גולמי", !js.includes("p_ua:u") && js.includes('"w"') && js.includes('"i"') && js.includes('"c"'));
 check("ה-CRM מסמן כניסה, ניתוב ויעד", ["dlMark('login')", "dlMark('auth')", "dlMark('route')", "dlMark('visible')", "dlMark('error')"].every((s) => crm.includes(s)));
+// מסך האימות הדו-שלבי: בלי הסימון הזה הזמן עד שנשלחה ההודעה לגבריאלה נספר כזמן טעינה.
+check("מסך האימות מסמן mfa", /showScreen\('mfaChallenge'\);[\s\S]{0,600}dlMark\('mfa'\)/.test(crm));
 const timingSrc = html.indexOf('src="assets/deeplink-timing.js"');
 const crmSrc = html.indexOf('src="assets/crm.js"');
 check("המדידה לפני crm.js", timingSrc > 0 && timingSrc < crmSrc);
@@ -113,6 +115,35 @@ check("הזמנים הם מתחילת הניווט", sent[3] === 12 && sent[4] =
 sandbox.document.hidden = true;
 listeners.get("visibilitychange")!();
 check("אחרי reached אין שורת נטישה", calls.length === 1);
+
+// כניסה, מסך אימות, ואז כניסה שנייה כשהאימות עבר: auth_ms הוא של השנייה.
+{
+  const before = calls.length;
+  let now = 0;
+  const hooks = new Map<string, () => void>();
+  const box = {
+    ...sandbox,
+    window: {} as { dlMark?: (k: string) => void },
+    performance: { ...sandbox.performance, now: () => now },
+    document: { hidden: false },
+    addEventListener: (name: string, fn: () => void) => { hooks.set(name, fn); },
+  };
+  vm.createContext(box);
+  vm.runInContext(js, box);
+  now = 2000; box.window.dlMark!("auth");
+  now = 2500; box.window.dlMark!("mfa");
+  box.document.hidden = true;
+  hooks.get("visibilitychange")!();
+  await new Promise((r) => setTimeout(r, 0));
+  const left = (calls[before].body || []) as unknown[];
+  check("עזיבה במסך האימות היא מסך כניסה, בלי זמן כניסה", calls.length === before + 1 && left[9] === "l" && left[5] == null, left);
+  box.document.hidden = false;
+  now = 34000; box.window.dlMark!("auth");
+  now = 36000; box.window.dlMark!("route"); box.window.dlMark!("visible");
+  await new Promise((r) => setTimeout(r, 0));
+  const done = (calls[calls.length - 1].body || []) as unknown[];
+  check("אחרי האימות auth_ms נמדד מהכניסה השנייה", calls.length === before + 2 && done[9] === "r" && done[5] === 34000 && done[7] === 36000, done);
+}
 
 function callsBody(): unknown[] {
   return (calls[0].body || []) as unknown[];
