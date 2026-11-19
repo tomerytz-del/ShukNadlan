@@ -1367,8 +1367,76 @@ async function mfaWaStart(enable){
   };
 }
 
+/* ---------- מכשיר זכור (20271121130000) ----------
+   אחרי אימות אמיתי הדפדפן שומר אסימון. בכניסה חדשה mfa_device_claim מאמתת בו
+   את ה-session בלי הודעה: אותה שורה מאומתת שהודעת הוואטסאפ כותבת, והמנעול
+   (mfa_pre_request) לא זז. האסימון נשמר לפי משתמש/ת, כדי ששני חשבונות באותו
+   דפדפן לא יתערבבו, ובמסד נשאר רק ה-hash שלו. docs/mfa.md, "מכשיר זכור". */
+const MFA_DEVICE_KEY = 'shuknadlan.mfa_device.';
+let mfaDeviceTriedFor = null;
+
+function mfaDeviceGet(uid){
+  try { return localStorage.getItem(MFA_DEVICE_KEY + uid) || ''; } catch(_){ return ''; }
+}
+function mfaDeviceSet(uid, token){
+  try {
+    if (token) localStorage.setItem(MFA_DEVICE_KEY + uid, token);
+    else localStorage.removeItem(MFA_DEVICE_KEY + uid);
+  } catch(_){ /* גלישה פרטית: בלי זכירה, והאימות הרגיל ממשיך לעבוד */ }
+}
+
+/* true = ה-session אומת מהאסימון והניתוב מחדש יצא. פעם אחת לכל משתמש/ת
+   בטעינת דף, כדי שכשל מוזר לא יהפוך ללולאה. */
+async function mfaTryDevice(){
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid || mfaDeviceTriedFor === uid) return false;
+    mfaDeviceTriedFor = uid;
+    const token = mfaDeviceGet(uid);
+    if (!token) return false;
+    const { data, error } = await sb.rpc('mfa_device_claim', { p_token: token });
+    if (error) throw error;
+    if (data !== true){ mfaDeviceSet(uid, ''); return false; }   // פג, נמחק, או הזכירה כבויה
+    /* אנחנו בתוך ניתוב שעוד לא נסגר (showMfaChallenge נקרא מ-loadDashboard):
+       routeAfterAuth היה מצטרף אליו ולא מנתב שוב. ממתינים לסופו. */
+    const again = () => routeAfterAuth(session, { force:true });
+    if (authRouting) authRouting.finally(again); else again();
+    return true;
+  } catch(err){
+    console.warn('mfa device claim failed', err);
+    return false;
+  }
+}
+
+/* אחרי אימות אמיתי, אם התיבה מסומנת. כשל כאן לעולם לא עוצר את הכניסה. */
+async function mfaRememberDevice(){
+  try{
+    const box = document.getElementById('mfaRemember');
+    const row = document.getElementById('mfaRememberRow');
+    if (!box || !box.checked || !row || row.hidden) return;
+    const { data, error } = await sb.rpc('mfa_device_remember');
+    if (error) throw error;
+    const { data: { session } } = await sb.auth.getSession();
+    if (data?.token && session?.user?.id) mfaDeviceSet(session.user.id, data.token);
+  } catch(err){
+    console.warn('mfa device remember failed', err);
+  }
+}
+
+async function mfaShowRemember(){
+  const row = document.getElementById('mfaRememberRow');
+  try{
+    const { data } = await sb.rpc('mfa_device_trust_days');
+    const days = Number(data) || 0;
+    document.getElementById('mfaRememberDays').textContent = String(days);
+    row.hidden = !days;
+  } catch(_){ row.hidden = true; }
+}
+
 /* ---------- מסך האימות בכניסה ---------- */
 async function showMfaChallenge(status){
+  if (await mfaTryDevice()) return;
   const link = document.getElementById('mfaWaLink');
   const st = document.getElementById('mfaWaStatus');
   link.setAttribute('aria-disabled', 'true'); link.href = '#';
@@ -1384,6 +1452,7 @@ async function showMfaChallenge(status){
      ומי שעוזב/ת כאן נספר/ת כמסך כניסה ולא כנטישה של היעד (19.11.2026:
      36 שניות של "טעינה" היו 32 שניות עד שנשלחה ההודעה לגבריאלה). */
   if (window.dlMark) window.dlMark('mfa');
+  mfaShowRemember();
   try{
     const { url, tail } = await mfaWaStart(false);
     link.href = url; link.removeAttribute('aria-disabled');
@@ -1407,6 +1476,7 @@ document.getElementById('mfaWaLink').addEventListener('click', ()=>{
     if (s.pending) return false;
     // ‏pending ירד = ה-session אומת. ניתוב מחדש עם force, כי routedUserId
     // כבר נקבע לפני שעצרנו כאן.
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     routeAfterAuth(session, { force:true });
     return true;
@@ -1441,6 +1511,7 @@ document.getElementById('mfaTotpForm').addEventListener('submit', async (e)=>{
     const { error: vErr } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     if (vErr) throw vErr;
     mfaStopPolling();
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     await routeAfterAuth(session, { force:true });
   } catch(err){
@@ -1538,9 +1609,11 @@ async function renderMfaSection(){
   host.innerHTML =
       ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
     + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
-    + '<div class="mfa-block" id="mfaTotpBlock"></div>';
+    + '<div class="mfa-block" id="mfaTotpBlock"></div>'
+    + '<div class="mfa-block" id="mfaDevBlock"></div>';
   renderMfaWaBlock(document.getElementById('mfaWaBlock'), s, fb);
   renderMfaTotpBlock(document.getElementById('mfaTotpBlock'), s, fb);
+  renderMfaDevicesBlock(document.getElementById('mfaDevBlock'), s, fb);
 }
 
 /* ---- וואטסאפ ---- */
@@ -1592,6 +1665,40 @@ function renderMfaWaBlock(box, s, fb){
     showToast('האימות בוואטסאפ כובה');
     renderMfaSection();
   });
+}
+
+/* ---- מכשירים זכורים ---- */
+async function renderMfaDevicesBlock(box, s, fb){
+  if (!s.required){ box.remove(); return; }
+  try{
+    const [{ data: days }, { data: n }] = await Promise.all([
+      sb.rpc('mfa_device_trust_days'), sb.rpc('mfa_devices_count')]);
+    if (!Number(days)){ box.remove(); return; }
+    const count = Number(n) || 0;
+    box.innerHTML = '<p class="mfa-block-h">🔒 מכשירים זכורים</p>'
+      + '<p class="mfa-help" style="margin:0 0 8px;text-align:right">מכשיר שאומת נזכר ' + Number(days) + ' יום, ובכניסה ממנו אין צורך בהודעה נוספת. '
+      + (count === 0 ? 'אין מכשירים זכורים כרגע.' : count === 1 ? 'כרגע מכשיר אחד זכור.' : 'כרגע ' + count + ' מכשירים זכורים.') + '</p>'
+      + (count ? '<button type="button" class="btn btn-ghost btn-block">לשכוח את כל המכשירים</button>' : '');
+    const btn = box.querySelector('button');
+    if (!btn) return;
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('לשכוח את כל המכשירים? בכניסה הבאה מכל מכשיר יידרש אימות מחדש.')) return;
+      btn.disabled = true;
+      const { error } = await sb.rpc('mfa_devices_forget');
+      if (error){
+        fb.style.color = 'var(--brick)'; fb.textContent = heErr(error);
+        btn.disabled = false;
+        return;
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user?.id) mfaDeviceSet(session.user.id, '');
+      showToast('המכשירים הזכורים נמחקו');
+      renderMfaSection();
+    });
+  } catch(err){
+    console.warn('mfa devices block failed', err);
+    box.remove();
+  }
 }
 
 /* ---- אפליקציית אימות ---- */
