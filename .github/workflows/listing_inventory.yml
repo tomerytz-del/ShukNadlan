@@ -9,6 +9,7 @@ on:
     paths:
       - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
+      - "scripts/listing_supply_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -18,6 +19,7 @@ on:
     paths:
       - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
+      - "scripts/listing_supply_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -52,3 +54,6 @@ jobs:
 
       - name: בדיקת מלאי מודעות
         run: python3 scripts/listing_inventory_test.py
+
+      - name: בדיקת ההיצע בלוחות
+        run: python3 scripts/listing_supply_test.py

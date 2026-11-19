@@ -41,6 +41,7 @@ function ownerReportEnsureModal(){
           <label for="orNote">הערה אישית לבעלים (לא חובה)</label>
           <textarea id="orNote" rows="3" maxlength="${OWNER_REPORT_NOTE_MAX}" placeholder="למשל: ההתעניינות עלתה אחרי הסרטון החדש. כדאי לדבר על המחיר."></textarea>
         </div>
+        <p class="exp-note" id="orBoard" style="display:none"></p>
         <div class="pm-actions">
           <button type="button" class="btn btn-ghost" id="orCancel">ביטול</button>
           <button type="button" class="btn btn-gold" id="orMake">הפקת הדוח</button>
@@ -135,6 +136,14 @@ async function openOwnerReport(p){
 
   el.querySelector('#orWhat').textContent = p.title || '';
   el.querySelector('#orNote').value = '';
+  /* ההיצע בלוחות, ליועץ/ת בלבד. הדף שהבעלים רואים אינו מציג אותו: שיחת מחיר
+     שייכת להערה האישית, והיועץ/ת מחליט/ה אם לצטט את המספרים. textContent,
+     כי שם העיר מגיע מהמסד. */
+  const board = el.querySelector('#orBoard');
+  const boardText = (typeof propertyBoardSupply !== 'undefined' && typeof boardSupplyText === 'function')
+    ? boardSupplyText(propertyBoardSupply[p.id]) : '';
+  board.textContent = boardText ? 'לידיעתך בלבד, לא מופיע בדוח: ' + boardText + ' אלה מחירים מבוקשים ולא עסקאות.' : '';
+  board.style.display = boardText ? '' : 'none';
   el.querySelector('#orStepMake').style.display = '';
   el.querySelector('#orStepShare').style.display = 'none';
   const make = el.querySelector('#orMake');
