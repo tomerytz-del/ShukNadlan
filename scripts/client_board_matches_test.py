@@ -59,7 +59,8 @@ create function public.neighborhood_ids_for(p_city text, p_name text) returns uu
   select case when p_name = 'גבעת המורה' then array['{HOOD}'::uuid] else '{{}}'::uuid[] end $$;
 -- המנוע האמיתי אינו נבדק כאן. ה-stub שומר על החוזה שלו: שורת לקוח/ה ושורת נכס,
 -- ושורה אחת עם ציון רק כשהשער עובר.
-create function public.client_property_match(p_client public.agent_clients, p_property public.properties)
+create function public.client_property_match(p_client public.agent_clients, p_property public.properties,
+                                             p_waive_features text[])
 returns table (score int, reasons text[], missing_features text[]) language sql stable as $$
   select 100 - case when p_property.size_sqm is null then 10 else 0 end
              - case when p_client.neighborhood_id is not null
@@ -198,13 +199,32 @@ def main():
         for n in "6789a") + ")")
     expect(statuses, "skipped_feature|no_city|unavailable|none|null", "סטטוסים")
 
+    # העטיפה של גבריאלה: אותה תשובה כמו של הדפדפן, והוויתור של הסוכן/ת פותח
+    # כרטיס עם מאפיין חובה. ויתור על מאפיין אחר אינו פותח.
+    bot = "public.agent_client_board_matches_for_agent"
+    expect(psql(f"""
+      select (r->>'status') || '|' || (r->>'total') || '|' || jsonb_array_length(r->'items')::text
+        from (select {bot}('{A1}', 'c0000000-0000-0000-0000-000000000001', 3, '{{}}') as r) s
+    """), "ok|5|3", "העטיפה של גבריאלה מחזירה את אותו מדגם")
+    expect(psql(f"""
+      select concat_ws('|',
+        {bot}('{A1}', 'c0000000-0000-0000-0000-000000000006', 5, '{{}}') ->> 'status',
+        {bot}('{A1}', 'c0000000-0000-0000-0000-000000000006', 5, array['elevator']) ->> 'status',
+        {bot}('{A1}', 'c0000000-0000-0000-0000-000000000006', 5, array['mamad']) ->> 'status',
+        coalesce({bot}('{A2}', 'c0000000-0000-0000-0000-000000000006', 5, array['mamad']) ->> 'status', 'null'))
+    """), "skipped_feature|skipped_feature|ok|null", "ויתור על מאפיין חובה")
+    expect(psql(f"""
+      select has_function_privilege('authenticated', '{bot}(uuid,uuid,int,text[])', 'execute')::text
+          || '|' || has_function_privilege('anon', '{bot}(uuid,uuid,int,text[])', 'execute')::text
+    """), "false|false", "העטיפה של גבריאלה סגורה לדפדפן")
+
     # הרשאה: רק הלקוח/ה של הסוכן/ת המחובר/ת.
     expect(as_agent(A2, f"select ({r1} is null)::text"), "true", "לקוח/ה של סוכן/ת אחר/ת")
     expect(psql(f"select ({r1} is null)::text"), "true", "בלי קורא/ת")
     expect(psql("""
       select has_function_privilege('anon', 'public.agent_client_board_matches(uuid,int)', 'execute')::text
           || '|' || has_function_privilege('authenticated', 'public.agent_client_board_matches(uuid,int)', 'execute')::text
-          || '|' || has_function_privilege('authenticated', 'public.client_board_matches(public.agent_clients,int)', 'execute')::text
+          || '|' || has_function_privilege('authenticated', 'public.client_board_matches(public.agent_clients,int,text[])', 'execute')::text
     """), "false|true|false", "הרשאות")
 
     # מודעה שסומנה כאותו נכס בלוח השני אינה חוזרת (העמודה מגיעה עם #1330).

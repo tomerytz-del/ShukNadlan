@@ -18,6 +18,9 @@
 --      מודעה נבנית שורת properties בזיכרון (כמו הנכס של דוח ה-CMA לכתובת),
 --      והיא עוברת ב-client_property_match - מקור האמת היחיד לציון. כלל
 --      שישתנה שם חל גם על הלוחות, בלי שורה כאן.
+--   4. agent_client_board_matches_for_agent(agent, client, limit, waive): העטיפה
+--      לגבריאלה (service_role), עם הוויתור על מאפיין חובה שהסוכן/ת אישר/ה שם.
+--      כך הבוט וה-CRM מציגים את אותן מודעות באותו סדר.
 --   3. agent_client_board_matches(client_id, limit): העטיפה לדפדפן. רק לקוח/ה
 --      של הסוכן/ת המחובר/ת, כמו match_properties_for_client, ואותו סף ציון (50).
 --
@@ -60,7 +63,11 @@ comment on function public.board_listing_site_type(text) is
 revoke all on function public.board_listing_site_type(text) from public, anon, authenticated;
 grant execute on function public.board_listing_site_type(text) to service_role;
 
-create or replace function public.client_board_matches(p_client public.agent_clients, p_limit int default 5)
+create or replace function public.client_board_matches(
+  p_client public.agent_clients,
+  p_limit int default 5,
+  p_waive_features text[] default '{}'
+)
 returns jsonb
 language plpgsql
 stable
@@ -70,6 +77,7 @@ as $$
 declare
   v_limit   int := least(greatest(coalesce(p_limit, 5), 1), 20);
   v_min     int := 50;   -- אותו סף של match_properties_for_client
+  v_waive   text[] := coalesce(p_waive_features, '{}'::text[]);
   v_city_ids uuid[];
   v_stock   int;
   v_out     jsonb;
@@ -79,7 +87,10 @@ begin
      or p_client.deal_type is null then
     return null;
   end if;
-  if cardinality(coalesce(p_client.required_features, '{}'::text[])) > 0 then
+  -- מאפיין חובה שהסוכן/ת לא ויתר/ה עליו במפורש (p_waive_features, כמו בגבריאלה)
+  -- חוסם: במודעה אין מאפיינים, והמנוע היה פוסל את כולן.
+  if exists (select 1 from unnest(coalesce(p_client.required_features, '{}'::text[])) f
+              where f is not null and f <> '' and not (f = any (v_waive))) then
     return jsonb_build_object('status', 'skipped_feature');
   end if;
   if cardinality(coalesce(p_client.cities, '{}'::text[])) = 0 then
@@ -149,7 +160,8 @@ begin
               when h.ids is null or cardinality(h.ids) = 0 then null
               when p_client.neighborhood_id = any (h.ids) then p_client.neighborhood_id
               else h.ids[1] end,
-          'features', '{}'::text[]))
+          'features', '{}'::text[])),
+        v_waive
       ) m
      where m.score >= v_min
   ),
@@ -215,10 +227,10 @@ begin
   return v_out;
 end $$;
 
-comment on function public.client_board_matches(public.agent_clients, int) is
+comment on function public.client_board_matches(public.agent_clients, int, text[]) is
   'מודעות יד2/מדלן שמתאימות ללקוח/ה, מדורגות ב-client_property_match על שורת properties שנבנית מהמודעה. בלי כלל התאמה משלה. status אומר למה אין מודעות (skipped_feature / no_city / unavailable / none). docs/listing-inventory.md';
-revoke all on function public.client_board_matches(public.agent_clients, int) from public, anon, authenticated;
-grant execute on function public.client_board_matches(public.agent_clients, int) to service_role;
+revoke all on function public.client_board_matches(public.agent_clients, int, text[]) from public, anon, authenticated;
+grant execute on function public.client_board_matches(public.agent_clients, int, text[]) to service_role;
 
 create or replace function public.agent_client_board_matches(p_client_id uuid, p_limit int default 5)
 returns jsonb
@@ -241,10 +253,44 @@ begin
   if not found then
     return null;
   end if;
-  return public.client_board_matches(v_client, p_limit);
+  return public.client_board_matches(v_client, p_limit, '{}'::text[]);
 end $$;
 
 comment on function public.agent_client_board_matches(uuid, int) is
   'התאמות ללקוח/ה מהלוחות יד2/מדלן, למגירת ההתאמות בכרטיס הלקוח/ה ב-CRM. רק לקוח/ה של הסוכן/ת. קריאה בלבד: בלי ליד, התראה או חיוב.';
 revoke all on function public.agent_client_board_matches(uuid, int) from public, anon, authenticated;
 grant execute on function public.agent_client_board_matches(uuid, int) to authenticated, service_role;
+
+-- העטיפה לגבריאלה. הזהות מגיעה מהבוט (service_role), כמו ב-agent_client_matches,
+-- ורק לקוח/ה של אותו/ה סוכן/ת. p_waive_features הוא ויתור שהסוכן/ת אישר/ה בשיחה.
+create or replace function public.agent_client_board_matches_for_agent(
+  p_agent_id       uuid,
+  p_client_id      uuid,
+  p_limit          int    default 5,
+  p_waive_features text[] default '{}'
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_client public.agent_clients;
+begin
+  if p_agent_id is null or p_client_id is null then
+    return null;
+  end if;
+  select * into v_client
+    from public.agent_clients
+   where id = p_client_id and agent_id = p_agent_id;
+  if not found then
+    return null;
+  end if;
+  return public.client_board_matches(v_client, p_limit, p_waive_features);
+end $$;
+
+comment on function public.agent_client_board_matches_for_agent(uuid, uuid, int, text[]) is
+  'התאמות ללקוח/ה מהלוחות יד2/מדלן, לגבריאלה: אותו דירוג של agent_client_board_matches, עם ויתור על מאפיין חובה שהסוכן/ת אישר/ה. service_role בלבד.';
+revoke all on function public.agent_client_board_matches_for_agent(uuid, uuid, int, text[]) from public, anon, authenticated;
+grant execute on function public.agent_client_board_matches_for_agent(uuid, uuid, int, text[]) to service_role;

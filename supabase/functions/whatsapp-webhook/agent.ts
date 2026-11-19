@@ -90,15 +90,18 @@ import {
   shouldLogSearchMiss,
 } from "./property-search.ts";
 import {
+  BOARD_CAP,
   boardCityStockCriteria,
   boardCriteria,
   boardInteractiveForReply,
   boardPresentationLog,
+  boardRankNote,
   boardSearchStatus,
   boardStatusFields,
   boardToolFields,
   fetchBoardListings,
   presentBoardListings,
+  rankedBoardRows,
   recordBoardPresentation,
   shouldAttachBoardListings,
   type BoardInteractive,
@@ -3775,6 +3778,77 @@ async function boardSection(
   return { ...boardToolFields(presented), ...boardStatusFields("matches") };
 }
 
+/**
+ * מודעות הלוחות ללקוח/ה, **מדורגות באותו מנוע של הנכסים** (20271120113000):
+ * agent_client_board_matches_for_agent מריצה כל מודעה ב-client_property_match,
+ * ולכן הבוט וה-CRM מציגים את אותן מודעות באותו סדר. הסינון של boardSection
+ * (חמש האחרונות שנראו) נשאר רק כגיבוי: לפני שהמיגרציה רצה, בכשל, וכשבכרטיס
+ * אין עיר - שם ממשיכים לערי השוק של המשרד, כמו קודם.
+ */
+async function clientBoardRanked(
+  ctx: ToolContext,
+  client: Record<string, unknown>,
+  clientId: string,
+  required: string[],
+  waive: string[],
+): Promise<Record<string, unknown>> {
+  if (!shouldAttachBoardListings({ required, waived: waive })) return boardStatusFields("skipped_feature");
+  const legacy = async () =>
+    boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
+      dealType: client.deal_type,
+      propertyTypes: client.property_types,
+      minPrice: client.min_price,
+      maxPrice: client.max_price,
+      minRooms: client.min_rooms,
+      maxRooms: client.max_rooms,
+      required,
+      waived: waive,
+    });
+  try {
+    const { data, error } = await ctx.supabase.rpc("agent_client_board_matches_for_agent", {
+      p_agent_id: ctx.agent.id,
+      p_client_id: clientId,
+      p_limit: BOARD_CAP,
+      p_waive_features: waive,
+    });
+    const r = (data && typeof data === "object" && !Array.isArray(data) ? data : null) as
+      | Record<string, unknown>
+      | null;
+    if (error || !r || typeof r.status !== "string") {
+      if (error) console.warn("ranked board matches skipped", error.message);
+      return await legacy();
+    }
+    if (r.status === "no_city") return await legacy();
+    if (r.status === "skipped_feature") return boardStatusFields("skipped_feature");
+    if (r.status === "none") return boardStatusFields("none");
+    if (r.status !== "ok") return boardStatusFields("unavailable");
+    const rows = rankedBoardRows(r, client.deal_type);
+    const total = Number(r.total);
+    const presented = presentBoardListings(rows, Number.isFinite(total) ? total : rows.length, {
+      buttons: !!ctx.outbox,
+      ranked: true,
+    });
+    if (!presented) return boardStatusFields("unavailable");
+    if (ctx.outbox && presented.message) {
+      ctx.pendingBoard = {
+        lines: presented.lines,
+        message: presented.message,
+        tool: "client_matches",
+        logged: presented.logged,
+      };
+    }
+    const rankNote = boardRankNote(r, presented.shown);
+    return {
+      ...boardToolFields(presented),
+      ...boardStatusFields("matches"),
+      ...(rankNote ? { board_rank_note: rankNote } : {}),
+    };
+  } catch (err) {
+    console.warn("ranked board matches skipped", err instanceof Error ? err.message : "error");
+    return await legacy();
+  }
+}
+
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
   const res = await agentPropertySearch(ctx, input, limit);
@@ -6763,18 +6837,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       : required.length && !(data || []).length && !marketMatches.length
       ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
-    ...(shouldAttachBoardListings({ required, waived: waive })
-      ? await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
-        dealType: client.deal_type,
-        propertyTypes: client.property_types,
-        minPrice: client.min_price,
-        maxPrice: client.max_price,
-        minRooms: client.min_rooms,
-        maxRooms: client.max_rooms,
-        required,
-        waived: waive,
-      })
-      : boardStatusFields("skipped_feature")),
+    ...(await clientBoardRanked(ctx, client as Record<string, unknown>, clientId, required, waive)),
   };
 }
 
