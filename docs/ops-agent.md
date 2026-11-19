@@ -762,7 +762,7 @@ Finished processing build request in 1.034s
 - **`connection failed`** (ארבע דקות, תמיד דקה עגולה): בלוג של Postgres
   באותה שנייה `remaining connection slots are reserved for roles with the
   SUPERUSER attribute`. ‏`max_connections` הוא 90, ‏pg_cron פותח חיבור לכל job,
-  ובדקה 0 ו-30 רצו יחד 27 jobs. ‏`20271119130000_cron_stagger_schedules.sql`
+  ובדקה 0 ו-30 רצו יחד 27 jobs. ‏`20271120120000_cron_stagger_schedules.sql`
   מפזרת 13 מהם להיסטים אחרים באותה תדירות, והשיא יורד ל-17
   (‏`scripts/cron_stagger_test.py`). **‏job חדש של `*/5`, ‏`*/10` או `*/15`
   נכתב עם היסט** (‏`3-59/5`), ולא על הדקה העגולה.

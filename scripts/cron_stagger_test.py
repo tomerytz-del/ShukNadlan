@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIG = ROOT / "supabase/migrations/20271119130000_cron_stagger_schedules.sql"
+MIG = ROOT / "supabase/migrations/20271120120000_cron_stagger_schedules.sql"
 DB = os.environ.get("CRON_STAGGER_DB", "cron_stagger_test")
 
 # שדה הדקות של כל job פעיל שרץ לפחות פעם בשעה (cron.job, 19.11.2026).

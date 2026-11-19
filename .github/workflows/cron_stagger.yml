@@ -6,13 +6,13 @@ name: פיזור תזמוני cron
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271119130000_cron_stagger_schedules.sql"
+      - "supabase/migrations/20271120120000_cron_stagger_schedules.sql"
       - "scripts/cron_stagger_test.py"
       - ".github/workflows/cron_stagger.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271119130000_cron_stagger_schedules.sql"
+      - "supabase/migrations/20271120120000_cron_stagger_schedules.sql"
       - "scripts/cron_stagger_test.py"
       - ".github/workflows/cron_stagger.yml"
   workflow_dispatch:
