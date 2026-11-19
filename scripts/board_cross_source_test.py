@@ -11,6 +11,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+# המיגרציה שקודמת לה: העמודות size_sqm, floor, neighborhood ו-price_changes
+# שגוף listing_inventory_sync כותב אליהן.
+HISTORY = ROOT / "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
 DB = os.environ.get("BOARD_CROSS_SOURCE_DB", "board_cross_source_test")
 C1 = "11111111-1111-1111-1111-111111111111"
 C2 = "22222222-2222-2222-2222-222222222222"
@@ -360,6 +363,7 @@ def main():
     subprocess.check_call(["createdb", "--maintenance-db=postgres", DB])
     psql(DB, sql_text=SETUP)
     psql(DB, sql_text=FIXTURES)
+    psql(DB, HISTORY)
     psql(DB, MIG)
 
     # 4 חדרים 1,430,000: שני לידי מדלן מצביעים על ליד היד2 הוותיק.
@@ -562,7 +566,7 @@ def main():
         )
 
     first = sync("yad2", "נצרת", [item("https://www.yad2.co.il/realestate/item/nz1", 2000000)])
-    if first != "1|0|0|0|true|false|added,new_leads,removals_skipped,removed,seeded,updated":
+    if first != "1|0|0|0|true|false|added,new_leads,price_changes,removals_skipped,removed,seeded,updated":
         fail(f"זריעת נצרת: {first}")
     if psql(DB, sql_text="""
       select is_duplicate::text from public.listing_inventory

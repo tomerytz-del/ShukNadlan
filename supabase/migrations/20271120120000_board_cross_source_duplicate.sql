@@ -42,8 +42,9 @@
 -- ## הבסיס
 -- scraped_lead_add מהגרסה שאחרי 20271115210000.
 -- md5(prosrc) בפרודקשן ב-19.11.2026: b612faa7468b66611a7a907d3db78373
--- (אורך 12681 תווים). listing_inventory_sync מ-20271112130000.
--- md5(prosrc): 2593f055fc95dc358c0c4f5a57f22540 (אורך 12417 תווים).
+-- (אורך 12681 תווים). listing_inventory_sync מ-20271119140000 (עם size_sqm,
+-- floor, neighborhood ו-price_changes; העתק מגרסה קודמת מוחק אותם בשקט).
+-- md5(prosrc): 394339773a663648aea6287a6d236f1b (אורך 14832 תווים).
 -- שני הגופים זהים לפרודקשן מלבד הסימון.
 --
 -- מילוי חד-פעמי מסמן שורות קיימות באותו כלל, ורק את שלוש העמודות החדשות.
@@ -659,6 +660,10 @@ declare
   v_type     text;
   v_rooms    numeric;
   v_price    numeric;
+  v_size     numeric;
+  v_floor    numeric;
+  v_hood     text;
+  v_price_changes int := 0;
   v_phone    text;
   v_name     text;
   v_summary  text;
@@ -720,6 +725,9 @@ begin
     property_type text,
     rooms numeric,
     price numeric,
+    size_sqm numeric,
+    floor int,
+    neighborhood text,
     raw_phone text,
     raw_name text,
     summary text
@@ -755,20 +763,54 @@ begin
     exception when others then
       v_price := null;
     end;
-    if v_price is not null and v_price <= 0 then
+    -- NaN ו-Infinity עוברים את "גדול מאפס" (NaN גדול מכל מספר ב-Postgres),
+    -- ומחיר כזה היה נכתב להיסטוריה ומרעיל כל ממוצע.
+    if v_price is not null
+       and (v_price <= 0 or v_price = 'NaN'::numeric or v_price > 100000000000) then
       v_price := null;
+    end if;
+    -- שטח, קומה ושכונה: רשות. ערך שאינו סביר נזרק ולא מנוחש.
+    begin
+      v_size := nullif(v_item ->> 'size_sqm', '')::numeric;
+    exception when others then
+      v_size := null;
+    end;
+    if v_size is not null and (v_size < 5 or v_size > 100000) then
+      v_size := null;
+    end if;
+    begin
+      v_floor := nullif(v_item ->> 'floor', '')::numeric;
+    exception when others then
+      v_floor := null;
+    end;
+    if v_floor is not null and (v_floor <> trunc(v_floor) or v_floor < -5 or v_floor > 120) then
+      v_floor := null;
+    end if;
+    v_hood := left(nullif(btrim(v_item ->> 'neighborhood'), ''), 60);
+    -- שם שכונה בלבד. חמש ספרות ומעלה הן טלפון או מיקוד, ו"רחוב ..." הוא
+    -- כתובת: שניהם לא נשמרים במלאי.
+    if v_hood is not null
+       and (char_length(regexp_replace(v_hood, '\D', '', 'g')) >= 5
+            or v_hood ~ '^(רחוב\s|רח''|רח׳|רח\.)')
+    then
+      v_hood := null;
     end if;
     v_phone := left(nullif(btrim(v_item ->> 'raw_phone'), ''), 40);
     v_name := left(nullif(btrim(v_item ->> 'raw_name'), ''), 80);
     v_summary := left(nullif(btrim(v_item ->> 'summary'), ''), 160);
-    insert into _li_in (external_ref, url, deal_type, property_type, rooms, price, raw_phone, raw_name, summary)
-    values (v_ref, v_url, v_deal, v_type, v_rooms, v_price, v_phone, v_name, v_summary)
+    insert into _li_in (external_ref, url, deal_type, property_type, rooms, price,
+                        size_sqm, floor, neighborhood, raw_phone, raw_name, summary)
+    values (v_ref, v_url, v_deal, v_type, v_rooms, v_price,
+            v_size, v_floor::int, v_hood, v_phone, v_name, v_summary)
     on conflict (external_ref) do update
       set url = excluded.url,
           deal_type = coalesce(excluded.deal_type, _li_in.deal_type),
           property_type = coalesce(excluded.property_type, _li_in.property_type),
           rooms = coalesce(excluded.rooms, _li_in.rooms),
           price = coalesce(excluded.price, _li_in.price),
+          size_sqm = coalesce(excluded.size_sqm, _li_in.size_sqm),
+          floor = coalesce(excluded.floor, _li_in.floor),
+          neighborhood = coalesce(excluded.neighborhood, _li_in.neighborhood),
           raw_phone = coalesce(excluded.raw_phone, _li_in.raw_phone),
           raw_name = coalesce(excluded.raw_name, _li_in.raw_name),
           summary = coalesce(excluded.summary, _li_in.summary);
@@ -814,12 +856,25 @@ begin
       join _li_in t on t.external_ref = i.external_ref
      where i.source = p_source;
 
+  -- רק ספירה, לתשובה וליומן. את השורה בהיסטוריה כותב הטריגר
+  -- listing_inventory_price_history_trg, באותו תנאי.
+  select count(*)::int into v_price_changes
+    from public.listing_inventory i
+    join _li_in t on t.external_ref = i.external_ref
+   where i.source = p_source
+     and i.price is not null
+     and t.price is not null
+     and t.price <> i.price
+     and coalesce(t.deal_type, i.deal_type) is not distinct from i.deal_type;
+
   insert into public.listing_inventory (
-    source, external_ref, city, city_id, deal_type, property_type, rooms, price, url,
+    source, external_ref, city, city_id, deal_type, property_type, rooms, price,
+    size_sqm, floor, neighborhood, url,
     first_seen_at, last_seen_at, removed_at, from_seed
   )
   select p_source, t.external_ref, v_city, v_city_id, t.deal_type, t.property_type,
-         t.rooms, t.price, t.url, pg_catalog.now(), pg_catalog.now(), null, false
+         t.rooms, t.price, t.size_sqm, t.floor, t.neighborhood, t.url,
+         pg_catalog.now(), pg_catalog.now(), null, false
     from _li_in t
   on conflict (source, external_ref) do update
     set city = excluded.city,
@@ -828,6 +883,9 @@ begin
         property_type = coalesce(excluded.property_type, public.listing_inventory.property_type),
         rooms = coalesce(excluded.rooms, public.listing_inventory.rooms),
         price = coalesce(excluded.price, public.listing_inventory.price),
+        size_sqm = coalesce(excluded.size_sqm, public.listing_inventory.size_sqm),
+        floor = coalesce(excluded.floor, public.listing_inventory.floor),
+        neighborhood = coalesce(excluded.neighborhood, public.listing_inventory.neighborhood),
         url = excluded.url,
         last_seen_at = pg_catalog.now(),
         removed_at = null;
@@ -967,10 +1025,10 @@ begin
 
   insert into public.listing_inventory_sync_log (
     source, city, item_count, active_before, added, updated, removed,
-    new_leads, seeded, removals_skipped, note
+    new_leads, seeded, removals_skipped, note, price_changes
   ) values (
     p_source, v_city, v_n, v_active, v_added, v_updated, v_removed,
-    v_new, (v_is_seed or v_catchup), v_skip, v_note
+    v_new, (v_is_seed or v_catchup), v_skip, v_note, v_price_changes
   );
 
   return jsonb_build_object(
@@ -979,11 +1037,12 @@ begin
     'removed', v_removed,
     'new_leads', v_new,
     'seeded', (v_is_seed or v_catchup),
-    'removals_skipped', v_skip
+    'removals_skipped', v_skip,
+    'price_changes', v_price_changes
   );
 end $$;
 
 comment on function public.listing_inventory_sync(text, text, jsonb) is
-  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. מודעה חדשה שמזהה מלאי או ליד של הלוח השני מסומנת is_duplicate. שורה שכבר הייתה לא מסומנת מחדש. docs/listing-inventory.md';
+  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. קולט גם size_sqm, floor ו-neighborhood, ומחזיר price_changes. מודעה חדשה שמזהה מלאי או ליד של הלוח השני מסומנת is_duplicate. שורה שכבר הייתה לא מסומנת מחדש. docs/listing-inventory.md';
 revoke all on function public.listing_inventory_sync(text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.listing_inventory_sync(text, text, jsonb) to service_role;
