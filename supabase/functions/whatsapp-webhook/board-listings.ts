@@ -37,7 +37,39 @@ export type BoardListingRow = {
   rooms?: unknown;
   price?: unknown;
   url?: unknown;
+  // רק בשורה מדורגת (client_board_matches): מה שהמודעה נושאת מעבר לבסיס
+  size_sqm?: unknown;
+  floor?: unknown;
+  neighborhood?: unknown;
+  score?: unknown;
+  price_was?: unknown;
 };
+
+/**
+ * התשובה של agent_client_board_matches_for_agent -> שורות להצגה, באותו סדר.
+ * הדירוג נעשה במסד (client_property_match, ואז ירידת מחיר ומחיר למ"ר בתוך
+ * אותו ציון). כאן לא ממיינים ולא מסננים: רק מוסיפים את סוג העסקה של הכרטיס.
+ */
+export function rankedBoardRows(result: unknown, dealType: unknown): BoardListingRow[] {
+  const items = result && typeof result === "object" ? (result as { items?: unknown }).items : null;
+  if (!Array.isArray(items)) return [];
+  const out: BoardListingRow[] = [];
+  for (const raw of items) {
+    if (!raw || typeof raw !== "object") continue;
+    out.push({ ...(raw as BoardListingRow), deal_type: dealType });
+  }
+  return out;
+}
+
+/** מה אומרים כשהרבה מודעות חולקות את הציון הגבוה. null כשאין מה לומר. */
+export function boardRankNote(result: unknown, shown: number): string | null {
+  const r = (result && typeof result === "object" ? result : {}) as Record<string, unknown>;
+  const top = finite(r.top_count);
+  const score = finite(r.top_score);
+  if (top === null || score === null || top <= shown) return null;
+  return `${top} מודעות קיבלו את אותו ציון (${score}%), ולכן מוצגות קודם מודעות שירדו במחיר ` +
+    "ואחריהן לפי מחיר למ״ר. אמרי את זה במשפט אחד, והציעי לפרט בכרטיס שכונה, שטח או קומה כדי לצמצם.";
+}
 
 export type BoardScope = {
   /** true כשהסוכן/ת או כרטיס הלקוח/ה ציינו עיר. בלי מזהה לא נופלים לשוק המשרד. */
@@ -436,12 +468,16 @@ export function boardLine(row: BoardListingRow): string | null {
   const priceText = price !== null && price > 0
     ? `${formatNis(price)} ₪${deal === "rent" ? " לחודש" : ""}`
     : "";
+  const size = finite(row.size_sqm);
+  const hood = String(row.neighborhood || "").trim();
   return [
     label,
     kind || null,
     rooms !== null && rooms > 0 ? roomsLabel(rooms) : null,
+    size !== null && size > 0 ? `${size} מ״ר` : null,
     dealLabel(deal),
     priceText || null,
+    hood || null,
     city || null,
   ].filter(Boolean).join(" - ");
 }
@@ -497,7 +533,7 @@ export function boardInteractiveMessage(
 export function presentBoardListings(
   rows: readonly BoardListingRow[],
   total: number,
-  opts: { buttons: boolean },
+  opts: { buttons: boolean; ranked?: boolean },
 ): BoardPresentation | null {
   const picked: { row: BoardListingRow; line: string; url: string; label: string }[] = [];
   for (const row of rows) {
@@ -525,6 +561,17 @@ export function presentBoardListings(
       price: finite(row.price),
       line,
     };
+    // שורה מדורגת נושאת גם את מה שהמודעה אומרת על עצמה, ואת הציון של המנוע
+    const size = finite(row.size_sqm);
+    if (size !== null && size > 0) item.size_sqm = size;
+    const floor = row.floor === null || row.floor === undefined || row.floor === "" ? null : Number(row.floor);
+    if (floor !== null && Number.isFinite(floor)) item.floor = floor;
+    const hood = String(row.neighborhood || "").trim();
+    if (hood) item.neighborhood = hood;
+    const score = finite(row.score);
+    if (score !== null) item.score = score;
+    const was = finite(row.price_was);
+    if (was !== null && was > 0) item.price_was = was;
     if (!opts.buttons) item.url = url;
     return item;
   });
@@ -541,7 +588,11 @@ export function presentBoardListings(
     `${BOARD_HEADING}. אלה מודעות ציבוריות, לא נכסים שלך ולא של המשרד. ` +
       "להציג אותן אחרי הנכסים שלך ושל המשרד, בכותרת הזו, בלי לערבב.",
     "אין טלפון ואין שם ואין כתובת רחוב. אין לפנות לבעלים, ואין חיוב. " +
-      "אין שכונה במודעות. אם נשאלה שכונה, אל תאמרי שהמודעה בה.",
+      (opts.ranked
+        ? "neighborhood הוא שם השכונה שכתוב במודעה. בשורה בלי neighborhood אל תאמרי שהמודעה בשכונה שנשאלה. " +
+          "score הוא אותו ציון התאמה של הנכסים, לפי מה שמופיע במודעה בלי מאפיינים. " +
+          "price_was הוא המחיר לפני ירידה ב-30 הימים האחרונים. הסדר כבר מדורג: אל תמייני מחדש."
+        : "אין שכונה במודעות. אם נשאלה שכונה, אל תאמרי שהמודעה בה."),
   ];
   if (opts.buttons) {
     bits.push(
