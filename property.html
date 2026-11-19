@@ -909,7 +909,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 
   /* ====== לייטבוקס גלריה ====== */
   .lb{position:fixed;inset:0;z-index:400;background:rgba(8,14,24,.97);display:none;flex-direction:column}
-  .lb.open{display:flex;animation:dsFade .16s var(--ease-out)}
+  .lb{opacity:0;pointer-events:none;transition:opacity .15s var(--ease-out),display .15s allow-discrete}
+  .lb.open{display:flex;opacity:1;pointer-events:auto;animation:dsFade .16s var(--ease-out)}
   .lb-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff;flex:0 0 auto}
   .lb-count{font-size:.85rem;font-weight:700;opacity:.85}
   .lb-close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center}
@@ -1151,6 +1152,19 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .mlead-overlay.open .mlead-panel{animation:dsSheetRise .28s var(--ease-drawer)}
   @media(min-width:520px){.mlead-overlay.open .mlead-panel{animation:dsModalIn .2s var(--ease-out)}}
   @media(prefers-reduced-motion:reduce){.mlead-overlay.open .mlead-panel{animation:dsFade .15s ease}}
+  /* יציאה לחלון הפנייה, בלי JS: ‏display עובר מעבר (allow-discrete), והחלון דוהה אל מצב "סגור" שהבסיס מגדיר (גיליון יורד מתחת ל-520px) */
+  .mlead-overlay{background-color:transparent;pointer-events:none;transition:background-color .15s var(--ease-out),display .15s allow-discrete}
+  .mlead-overlay.open{background-color:rgba(14,42,107,.55);pointer-events:auto}
+  .mlead-overlay .mlead-panel{transform:translateY(100%);transition:transform .15s var(--ease-out),opacity .15s var(--ease-out)}
+  .mlead-overlay.open .mlead-panel{transform:none}
+  @media(min-width:520px){
+    .mlead-overlay .mlead-panel{opacity:0;transform:scale(.96)}
+    .mlead-overlay.open .mlead-panel{opacity:1;transform:none}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .mlead-overlay .mlead-panel{opacity:0;transform:none}
+    .mlead-overlay.open .mlead-panel{opacity:1}
+  }
   .mlead-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--hair);flex:0 0 auto}
   .mlead-head h3{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--teal-dark);margin:0}
   .mlead-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
