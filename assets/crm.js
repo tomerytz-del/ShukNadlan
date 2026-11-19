@@ -24459,7 +24459,7 @@ function boardMatchesHtml(r){
    **הלחיצה היא "אני פונה"** (תומר, 19.11.2026): הכפתור קורא ל-claimOpenDemand
    (crm-leads.js, open_demand_claim) ופותח את הפוסט. התפיסה בלעדית ולא
    משתחררת, עד תקרה יומית (open_demand_claims_daily), ולכן הכפתור אומר את זה
-   במפורש ואינו "פתיחה". פוסט "ללא תיווך" אינו כאן: שם הכלל הוא "לא להציע קונים". */
+   במפורש ואינו "פתיחה". פוסט "ללא תיווך" כן כאן, עם תגית והנחיה. */
 function demandMatchRow(m){
   const bits = [
     m.property_type,
@@ -24469,11 +24469,16 @@ function demandMatchRow(m){
   const age = m.days_ago == null ? '' : (m.days_ago === 0 ? 'פורסם היום' : `פורסם לפני ${m.days_ago} ימים`);
   const price = m.price ? `<b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''} (מבוקש)` : 'מחיר לא צוין';
   const label = m.mine ? 'פתיחת הפוסט (כבר תפסת)' : 'אני פונה ופתיחת הפוסט';
+  // "ללא תיווך": לא גובים דמי תיווך, אבל ייתכן שיעניינו אותם שירותי תיווך. הפוסט
+  // נשאר בהתאמות עם ההנחיה של הביקוש הפתוח (OPEN_DEMAND_NO_BROKER, crm-leads.js):
+  // הצעה אחת ומנומסת לשיווק מקצועי, לא "יש לי קונה".
+  const nb = (typeof OPEN_DEMAND_NO_BROKER !== 'undefined' && OPEN_DEMAND_NO_BROKER[m.no_broker]) || null;
   return `<div class="mb-row">
       <div class="mb-main">
         <div class="mb-line">${bits}</div>
         <div class="mb-price">${price}${age ? ` · <span class="mb-age">${esc(age)}</span>` : ''}</div>
         ${m.summary ? `<div class="mb-sum">${esc(m.summary)}</div>` : ''}
+        ${nb ? `<div class="mb-nb"><b>${esc(nb.tag)}</b>. ${esc(nb.rule)}</div>` : ''}
       </div>
       <span class="mb-score" title="לפי מה שמופיע בפוסט">${esc(m.score)}%</span>
       <button type="button" class="btn ${m.mine ? 'btn-ghost' : 'btn-gold'} mb-open" data-demand-claim="${esc(m.id)}" data-open-post="1">${esc(label)}</button>

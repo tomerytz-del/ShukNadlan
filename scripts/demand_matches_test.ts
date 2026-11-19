@@ -101,6 +101,15 @@ check("עד עשר שורות",
   (combinedMatchMessage([], demandItems({ items: Array.from({ length: 14 }, (_, i) => item(i + 1)) }), BASE) as { rows?: unknown[] })?.rows?.length === 10);
 check("בלי SITE_BASE אין שורת פוסט", combinedMatchMessage([], d, "") === null);
 
+// --- "ללא תיווך": נשאר בהתאמות, עם תגית והנחיה
+const nb = demandItems({ items: [item(1, { no_broker: "post" }), item(2, { no_broker: "group" }), item(3, { no_broker: "x" })] });
+check("no_broker נקרא כ-post או group, וערך אחר כאין", nb[0].noBroker === "post" && nb[1].noBroker === "group" && nb[2].noBroker === null);
+check("השורה אומרת ללא תיווך", demandLine(nb[0]).includes("ללא תיווך") && !demandLine(nb[2]).includes("ללא תיווך"));
+const nbSeen = demandListings(nb) as { no_broker_rule: string | null }[];
+check("המודל מקבל את ההנחיה: הצעת שיווק ולא קונים",
+  (nbSeen[0].no_broker_rule || "").includes("לא להציע קונים") && (nbSeen[1].no_broker_rule || "").includes("רק בהודעה פרטית") && nbSeen[2].no_broker_rule === null);
+check("בשורת הרשימה יש תגית", (combinedMatchMessage([], nb, BASE) as { rows?: { description?: string }[] })?.rows?.[0]?.description?.includes("ללא תיווך") === true);
+
 // --- שער ההצגה: התשובה חייבת להציג את הפוסטים
 check("כותרת הפוסטים מוציאה את ההודעה", replyPresentsBoard(`התאמות ללקוח\n${DEMAND_HEADING}\n- דירה`, []));
 check("שורת פוסט בתשובה מוציאה את ההודעה", replyPresentsBoard("יש: " + demandLine(parsed[0]), [demandLine(parsed[0])]));

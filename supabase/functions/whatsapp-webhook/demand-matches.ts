@@ -1,6 +1,6 @@
 // פוסטים בפייסבוק (ביקוש פתוח) שמתאימים ללקוח/ה, בהודעת הוואטסאפ של גבריאלה.
 //
-// המקור: agent_client_demand_matches_for_agent (20271120140000). כל פוסט חוזר
+// המקור: agent_client_demand_matches_for_agent (20271121130000). כל פוסט חוזר
 // עם link_token, והשורה ברשימה נושאת אותו (dc:<token>). **בחירה בשורה אינה
 // תפיסה**: היא שולחת כפתור, והלחיצה על הכפתור פותחת את /demand?k=, ושם נעשה
 // "אני פונה" (supabase/functions/demand-claim). בוט, תצוגה מקדימה ובחירה
@@ -38,6 +38,8 @@ export type DemandItem = {
   score: number;
   daysAgo: number | null;
   mine: boolean;
+  /** "ללא תיווך": post / group. המפרסם/ת לא גובה דמי תיווך, אבל ייתכן שיעניינו שירותי תיווך. */
+  noBroker: "post" | "group" | null;
 };
 
 function num(value: unknown): number | null {
@@ -69,6 +71,7 @@ export function demandItems(result: unknown): DemandItem[] {
       score,
       daysAgo: num(r.days_ago),
       mine: r.mine === true,
+      noBroker: r.no_broker === "post" ? "post" : r.no_broker === "group" ? "group" : null,
     });
   }
   return out;
@@ -112,6 +115,7 @@ export function demandLine(item: DemandItem): string {
     priceText || null,
     item.city || null,
     ageLabel(item.daysAgo),
+    item.noBroker ? "ללא תיווך" : null,
     item.mine ? "כבר תפסת" : null,
   ].filter(Boolean).join(" - ");
 }
@@ -155,9 +159,18 @@ export function demandListings(items: readonly DemandItem[]): Record<string, unk
     score: d.score,
     days_ago: d.daysAgo,
     already_mine: d.mine,
+    no_broker: d.noBroker,
+    // ההנחיה לפוסט "ללא תיווך", אותה אחת של הביקוש הפתוח ב-CRM
+    no_broker_rule: d.noBroker ? NO_BROKER_RULE[d.noBroker] : null,
     line: demandLine(d),
   }));
 }
+
+/** אותן הנחיות של OPEN_DEMAND_NO_BROKER ב-assets/crm-leads.js. */
+const NO_BROKER_RULE: Record<"post" | "group", string> = {
+  post: "הצעה אחת ומנומסת לשיווק מקצועי, עדיף בהודעה פרטית בפייסבוק. לא להציע קונים.",
+  group: "לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.",
+};
 
 export const DEMAND_NOTE =
   `${DEMAND_HEADING}: פוסטים של בעלי נכס בקבוצות, בלי פרטי קשר. אלה אינם נכסים שלך או של המשרד. ` +
@@ -165,7 +178,9 @@ export const DEMAND_NOTE =
   "בהודעה, שורה של פייסבוק שולחת כפתור, **והלחיצה על הכפתור מסמנת \"אני פונה\"** ופותחת את הפוסט: " +
   "הפוסט נתפס לסוכן/ת הזה, לא נשאר פתוח לאחרים, ונספר בתקרה היומית. אמרי את זה במשפט אחד, " +
   "ואל תבטיחי שהפוסט עוד פנוי. score הוא אותו ציון התאמה של הנכסים, לפי מה שמופיע בפוסט. " +
-  "אין לפנות לבעל הנכס בשום דרך אחרת, ואין להציע לו קונים בלי שהסוכן/ת בחר/ה בפוסט.";
+  "אין לפנות לבעל הנכס בשום דרך אחרת. פוסט עם no_broker: המפרסם/ת כתב/ה שהוא/היא לא רוצה לשלם " +
+  "תיווך, אבל ייתכן שיעניינו שירותי תיווך. כתבי ליד השורה \"ללא תיווך\" ואת no_broker_rule כמו שהיא, " +
+  "ואל תציעי לסוכן/ת לפתוח ב\"יש לי קונה\".";
 
 function rowTitle(item: DemandItem): string {
   const t = item.rooms !== null && item.rooms > 0 ? `פייסבוק - ${item.rooms} חדרים` : "פייסבוק";
@@ -177,6 +192,7 @@ function rowDescription(item: DemandItem): string {
     item.city || null,
     item.price !== null && item.price > 0 ? `${nis(item.price)} ₪` : null,
     ageLabel(item.daysAgo),
+    item.noBroker ? "ללא תיווך" : null,
     `${item.score}%`,
   ].filter(Boolean).join(" · ");
   return Array.from(bits).slice(0, 72).join("");

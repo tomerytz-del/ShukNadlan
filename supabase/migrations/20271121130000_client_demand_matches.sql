@@ -14,8 +14,9 @@
 --      client_property_match**, כמו מודעות הלוחות (20271120130000): כל פוסט
 --      הופך לשורת properties בזיכרון. אין כאן כלל התאמה משלו. רק פוסט שהסוכן/ת
 --      רשאי/ת לתפוס (agent_works_city, כמו open_demand_claim_core), שלא נתפס
---      בידי אחר/ת, ושאינו "ללא תיווך": שם הכלל הוא "לא להציע קונים", וזה בדיוק
---      מה שהתאמה ללקוח/ה היא, ולכן הפוסטים האלה נשארים בלשונית הביקוש הפתוח.
+--      בידי אחר/ת. פוסט "ללא תיווך" **נכנס** (תומר, 19.11.2026): המפרסם/ת לא
+--      גובה דמי תיווך, אבל ייתכן שיעניינו אותו שירותי תיווך. הוא חוזר עם
+--      no_broker, והמסכים מציגים תגית והנחיה.
 --      מה שחוזר אנונימי: עיר, סוג, חדרים, מחיר מבוקש, ציון, גיל הפוסט, וה-
 --      demand_summary. **אין קישור, אין טלפון ואין property_details.**
 --   2. demand_claim_links: קישור קצר לכל זוג (סוכן/ת, פוסט). הקישור הוא
@@ -123,7 +124,6 @@ begin
      and s.lead_type = 'owner_inbound'
      and s.deal_type = p_client.deal_type
      and s.city_id = any (v_city_ids)
-     and s.no_broker is null
      and public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
      and (s.claimed_by is null or s.claimed_by = p_agent);
   if v_stock = 0 then
@@ -131,7 +131,7 @@ begin
   end if;
 
   with cand as (
-    select s.id, s.city, s.city_id, s.neighborhood_id, s.deal_type, s.rooms, s.budget,
+    select s.id, s.city, s.city_id, s.neighborhood_id, s.deal_type, s.rooms, s.budget, s.no_broker,
            s.posted_at, s.created_at, s.demand_summary, coalesce(s.claimed_by = p_agent, false) as mine,
            public.board_listing_site_type(s.property_type) as site_type,
            public.board_listing_kind(s.property_type) as kind
@@ -140,10 +140,6 @@ begin
        and s.lead_type = 'owner_inbound'
        and s.deal_type = p_client.deal_type
        and s.city_id = any (v_city_ids)
-       -- "ללא תיווך": הכלל בביקוש הפתוח הוא "לא להציע קונים" (OPEN_DEMAND_NO_BROKER
-       -- ב-assets/crm-leads.js), וזה בדיוק מה שהתאמה ללקוח/ה היא. הפוסטים האלה
-       -- נשארים בלשונית הביקוש הפתוח, עם ההנחיה, ולא נכנסים להתאמות.
-       and s.no_broker is null
        and public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
        and (s.claimed_by is null or s.claimed_by = p_agent)
        -- אותו תנאי של open_demand_claim_core: מי שאינו/ה עובד/ת בעיר לא יכול/ה לתפוס
@@ -209,6 +205,11 @@ begin
              'days_ago', case when r.posted_at is null then null
                               else greatest(0, floor(extract(epoch from (pg_catalog.now() - r.posted_at)) / 86400))::int end,
              'mine', r.mine,
+             -- "ללא תיווך" (post / group): המפרסם/ת לא רוצה לשלם דמי תיווך, אבל ייתכן
+             -- שיעניינו אותו/ה שירותי תיווך. הפוסט נשאר בהתאמות, עם ההנחיה
+             -- (OPEN_DEMAND_NO_BROKER ב-assets/crm-leads.js): הצעה אחת ומנומסת לשיווק
+             -- מקצועי, לא פנייה "יש לי קונה".
+             'no_broker', r.no_broker,
              'summary', left(r.demand_summary, 140)
            ) order by r.rn))
     into v_out
@@ -396,3 +397,106 @@ comment on function public.agent_client_demand_matches_for_agent(uuid, uuid, int
   'התאמות ללקוח/ה מפוסטים פתוחים בפייסבוק, לגבריאלה: כל פוסט עם link_token ל-/demand?k=. הלחיצה היא "אני פונה". service_role בלבד.';
 revoke all on function public.agent_client_demand_matches_for_agent(uuid, uuid, int, text[]) from public, anon, authenticated;
 grant execute on function public.agent_client_demand_matches_for_agent(uuid, uuid, int, text[]) to service_role;
+
+
+-- ---------------------------------------------------------------------------
+-- ההיצע בלוחות: רק יד2 ומדלן
+--
+-- #1338 (21.11.2026) הכניס פוסטים של בעלי נכס מפייסבוק ל-listing_inventory
+-- (source = 'facebook', 46 שורות פעילות, והכתובת היא הפוסט). listing_supply_stats
+-- נבנתה לפני כן וסופרת כל שורה פעילה, ולכן הייתה מערבבת פוסט בקבוצה עם מודעה
+-- בלוח, תחת הנוסח "ביד2 ובמדלן יש N מודעות". פוסט הוא לא מודעה בלוח: הוא ביקוש
+-- פתוח שנתפס בלחיצה, ויש לו מסלול משלו (client_demand_matches). הפונקציה כאן
+-- היא העתק מלא של _listing_supply_pool מ-20271120110000, עם מסנן מקור בשתי
+-- השאילתות.
+-- ---------------------------------------------------------------------------
+create or replace function public._listing_supply_pool(
+  p_city  text,
+  p_deal  text,
+  p_kind  text,
+  p_rooms numeric
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_city     text := nullif(btrim(p_city), '');
+  v_city_id  uuid;
+  v_lo       numeric;
+  v_hi       numeric;
+  v_has_dup  boolean;
+  v_stale    int := 4;
+  v_boards   jsonb;
+  v_as_of    timestamptz;
+  v_items    jsonb;
+begin
+  if v_city is null or p_deal is null or p_deal not in ('sale', 'rent') or p_kind is null then
+    return null;
+  end if;
+  -- בלי חדרים אין "דומה": דירת 2 ודירת 6 אינן אותו שוק. מגרש נספר בלי חדרים.
+  if p_kind <> 'land' and (p_rooms is null or p_rooms <= 0) then
+    return null;
+  end if;
+
+  if p_deal = 'sale' then v_lo := 100000; v_hi := 50000000;
+  else v_lo := 500; v_hi := 50000; end if;
+
+  v_city_id := public.city_id_for_name(v_city);
+
+  -- האם המלאי מכסה את העיר בכלל, ומתי נראתה בה מודעה לאחרונה. עיר שאינה
+  -- נסרקת אינה "0 מודעות בלוחות", וצילום שהפסיק להגיע אינו "כרגע".
+  select coalesce(jsonb_agg(distinct i.source), '[]'::jsonb), max(i.last_seen_at)
+    into v_boards, v_as_of
+    from public.listing_inventory i
+   where i.removed_at is null
+     and i.source in ('yad2', 'madlan')
+     and i.deal_type = p_deal
+     and ((v_city_id is not null and i.city_id = v_city_id) or btrim(i.city) = v_city);
+  if v_as_of is null then
+    return null;
+  end if;
+  begin
+    v_stale := coalesce((select value::int from public.app_config
+                          where key = 'listing_supply_stale_days'), 4);
+  exception when others then
+    v_stale := 4;
+  end;
+  if v_stale < 1 then v_stale := 4; end if;
+  if v_as_of < pg_catalog.now() - make_interval(days => v_stale) then
+    return null;
+  end if;
+
+  -- is_duplicate מגיע עם #1330. כל עוד העמודה אינה קיימת - אין מה לסנן.
+  v_has_dup := exists (
+    select 1 from pg_catalog.pg_attribute a
+     where a.attrelid = 'public.listing_inventory'::regclass
+       and a.attname = 'is_duplicate' and not a.attisdropped);
+
+  execute '
+    select coalesce(jsonb_agg(jsonb_build_object(
+             ''id'', i.id, ''source'', i.source, ''price'', i.price)), ''[]''::jsonb)
+      from public.listing_inventory i
+     where i.removed_at is null
+       and i.source in (''yad2'', ''madlan'')
+       and i.deal_type = $1
+       and i.price between $2 and $3
+       and i.price <> ''NaN''::numeric
+       and (($4::uuid is not null and i.city_id = $4) or btrim(i.city) = $5)
+       and public.board_listing_kind(i.property_type) = $6
+       and ($6 = ''land'' or (i.rooms is not null and abs(i.rooms - $7) <= 0.5))'
+    || case when v_has_dup then ' and not coalesce(i.is_duplicate, false)' else '' end
+     into v_items
+    using p_deal, v_lo, v_hi, v_city_id, v_city, p_kind, p_rooms;
+
+  return jsonb_build_object(
+    'city', v_city, 'deal_type', p_deal, 'kind', p_kind,
+    'rooms', case when p_kind <> 'land' then p_rooms end,
+    'boards', v_boards, 'as_of', v_as_of,
+    'price_lo', v_lo, 'price_hi', v_hi,
+    'items', v_items);
+end $$;
+revoke all on function public._listing_supply_pool(text, text, text, numeric) from public, anon, authenticated;
+grant execute on function public._listing_supply_pool(text, text, text, numeric) to service_role;

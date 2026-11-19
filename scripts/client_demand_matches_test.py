@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""התאמות ללקוח/ה מפוסטים בפייסבוק, וקישור "אני פונה" (20271120140000).
+"""התאמות ללקוח/ה מפוסטים בפייסבוק, וקישור "אני פונה" (20271121130000).
 
     python3 scripts/client_demand_matches_test.py
 
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGS = ROOT / "supabase/migrations"
 SUPPLY = MIGS / "20271120110000_cma_board_supply.sql"
 BOARD = MIGS / "20271120130000_client_board_matches.sql"
-MIG = MIGS / "20271120140000_client_demand_matches.sql"
+MIG = MIGS / "20271121130000_client_demand_matches.sql"
 DB = os.environ.get("CLIENT_DEMAND_DB", "client_demand_matches_test")
 CITY = "11111111-1111-1111-1111-111111111111"
 OTHER_CITY = "22222222-2222-2222-2222-222222222222"
@@ -177,7 +177,7 @@ def main():
     post("b", rooms="null", days=1)                     # מתאים, בלי חדרים: ציון נמוך יותר
     post("c", deal="rent", budget="5000")               # שכירות
     post("d", url=None)                                 # בלי קישור לפוסט
-    post("e", days=1)                                   # ללא תיווך: לא להציע קונים
+    post("e", days=1)                                   # ללא תיווך: נשאר בהתאמות, עם התגית
     psql(f"update public.scraped_leads set no_broker = 'post' where id = '{ref_id('e')}'")
 
     c1 = client("1", property_types="array['דירה']", cities="array['עפולה']", max_price="1500000")
@@ -187,9 +187,14 @@ def main():
                   from jsonb_array_elements(r->'items') with ordinality t(i, ord)))
         from (select public.agent_client_demand_matches('{c1}', 10) as r) s
     """)
-    # תואמים: 1,2,3,b,d (d בלי קישור עדיין מתאים; הוא נושר רק מהקישור). ציון 100: 3 (שלי) ראשון,
-    # אז 1 (טרי), 2, d (טרי יותר מ-2? ימים=1) - ראו סדר: mine, ואז posted_at יורד.
-    expect(got, "ok|5|100|4|3:100,d:100,1:100,2:100,b:90", "מי מתאים ובאיזה סדר")
+    # תואמים: 1,2,3,b,d,e (d בלי קישור עדיין מתאים; הוא נושר רק מהקישור, ו-e "ללא תיווך"
+    # נשאר). ציון 100: 3 (שלי) ראשון, ואז לפי תאריך הפוסט היורד (e נוצר אחרי d).
+    expect(got, "ok|6|100|5|3:100,e:100,d:100,1:100,2:100,b:90", "מי מתאים ובאיזה סדר")
+    expect(as_agent(A1, f"""
+      select string_agg(right(i->>'id', 1) || '=' || coalesce(i->>'no_broker', '-'), ',' order by i->>'id')
+        from jsonb_array_elements(public.agent_client_demand_matches('{c1}', 10) -> 'items') i
+       where i->>'id' ~ '[1e]$'
+    """), "1=-,e=post", 'פוסט "ללא תיווך" נשאר, עם הסימון')
 
     # מה שחוזר אנונימי: אין קישור, טלפון, או פרטי נכס.
     keys = as_agent(A1, f"""
@@ -197,7 +202,7 @@ def main():
         from (select jsonb_object_keys(i) k
                 from jsonb_array_elements(public.agent_client_demand_matches('{c1}', 10) -> 'items') i) x
     """)
-    expect(keys, "city,days_ago,deal_type,id,mine,price,property_type,rooms,score,summary", "שדות התשובה בדפדפן")
+    expect(keys, "city,days_ago,deal_type,id,mine,no_broker,price,property_type,rooms,score,summary", "שדות התשובה בדפדפן")
     if re.search(r"url|phone|raw_|details|link", keys):
         sys.exit(f"שדה מזהה בתשובה: {keys}")
 
@@ -208,12 +213,12 @@ def main():
              (select bool_and(i->>'link_token' ~ '^[0-9a-f]{{32}}$') from jsonb_array_elements(r->'items') i)::text
         from (select {bot()} as r) s
     """)
-    expect(first, "ok|5|true", "טוקנים לגבריאלה")
+    expect(first, "ok|6|true", "טוקנים לגבריאלה")
     expect(psql(f"""
       select (select count(*) from public.demand_claim_links)::text || '|' ||
              ((select string_agg(i->>'link_token', ',' order by i->>'id') from jsonb_array_elements((select {bot()})->'items') i)
               = (select string_agg(i->>'link_token', ',' order by i->>'id') from jsonb_array_elements((select {bot()})->'items') i))::text
-    """), "5|true", "אותו זוג, אותו קישור")
+    """), "6|true", "אותו זוג, אותו קישור")
     expect(psql(f"select ((select agent_client_demand_matches('{c1}', 5)) is null)::text"), "true", "בלי קורא/ת")
 
     # סטטוסים.
