@@ -15740,6 +15740,21 @@ let propertyExclusivities = {};
 // property_id → הלקוחות שלי שהנכס התאים להם (‏client_match_alerts, בלי
 // מה שנדחה ובלי לקוח/ה שסגר/ה עסקה), מהציון הגבוה לנמוך
 let propertyMatchedClients = {};
+/* ההיצע בלוחות יד2/מדלן לכל נכס פעיל: { [property_id]: board_supply }, מ-
+   properties_board_supply (אותו חישוב של דוח ה-CMA, listing_supply_stats).
+   נטען פעם אחת ב-loadProperties. משמש את התגית בכרטיס ואת חלון "דוח
+   לבעלים" (crm-owner-report.js). docs/listing-inventory.md */
+let propertyBoardSupply = {};
+/* משפט אחד ליועץ/ת על ההיצע בלוחות. מחירים מבוקשים, ברמת העיר. מחזיר ''
+   כשאין מדגם: המסד משתיק מתחת לסף, וכאן לא מנחשים. */
+function boardSupplyText(b){
+  if (!b || b.status !== 'ok') return '';
+  const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
+  return `ביד2 ובמדלן יש כרגע ${Number(b.sample)} מודעות דומות${b.city ? ' ב' + b.city : ''}`
+    + ` (${b.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}, אותו סוג נכס ומספר חדרים דומה).`
+    + ` המחיר המבוקש החציוני ${shekel(b.median_price)}, וחצי מהמודעות בין ${shekel(b.p25_price)} ל-${shekel(b.p75_price)}.`
+    + (pct === null ? '' : ` המחיר של הנכס גבוה מ-${pct}% מהן.`);
+}
 
 /* בלעדיות: שורה חיה ב-property_exclusivities (נתבעה מול הסכם חתום, ויש לה
    מועד סיום), או המאפיין "בבלעדיות" שסוכנים מסמנים בטופס. השני הוא גם מה
@@ -16478,7 +16493,7 @@ async function loadProperties(agentId, opts){
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
-    propertyExclusivities = {}; propertyMatchedClients = {};
+    propertyExclusivities = {}; propertyMatchedClients = {}; propertyBoardSupply = {};
     syncPropertyFilterOptions();
     renderProperties();
     return;
@@ -16489,7 +16504,7 @@ async function loadProperties(agentId, opts){
      סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
      שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
      את הרשימה, כמו קודם. */
-  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }, boardRes] = await Promise.all([
     loadPropertyViewCounts(propertyIds),
     sb.from('property_planning_info').select('*').in('property_id', propertyIds),
     // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
@@ -16500,11 +16515,17 @@ async function loadProperties(agentId, opts){
       .gte('ends_on', localIsoDate(new Date())),
     sb.from('client_match_alerts').select('property_id, client_id, score, agent_clients(full_name, status)')
       .in('property_id', propertyIds).neq('status', 'dismissed'),
+    // ההיצע בלוחות, קריאה אחת לכל הרשימה. לפני המיגרציה הפונקציה אינה
+    // קיימת: שגיאה משאירה את התגית בחוץ, כמו שאר הקריאות כאן.
+    sb.rpc('properties_board_supply', { p_ids: props.filter(p => p.status === 'active').map(p => p.id).slice(0, 500) })
+      .then(r => r, () => ({ data: null })),
     // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
     // אחרי הפעם הראשונה
     ensureNeighborhoodsLoaded(),
   ]);
   propertyViewCounts = viewCounts;
+  propertyBoardSupply = (boardRes && boardRes.data && typeof boardRes.data === 'object' && !Array.isArray(boardRes.data))
+    ? boardRes.data : {};
 
   propertyPlanningInfo = {};
   (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
@@ -16823,6 +16844,11 @@ function buildPropertyCard(p, agentId){
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     window.ShukAirLiving && ShukAirLiving.crmSpec(p) && { text: ShukAirLiving.crmSpec(p) },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    // ההיצע בלוחות: רק כשיש מדגם ומחיר. מחירים מבוקשים ברמת העיר, ולכן
+    // נתון ולא אזהרה (בלי גוון), והפירוט ב-title.
+    (b => b && b.status === 'ok' && b.subject_percentile != null && {
+      html:`📊 יקר מ-<b>${esc(b.subject_percentile)}%</b> בלוחות`, title: boardSupplyText(b) + ' מחירים מבוקשים, לא עסקאות.',
+    })(propertyBoardSupply[p.id]),
     // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
     p.price_unit === 'sqm'
       ? (p.price_total && p.price_total !== p.price && { text:`≈ ${shekel(p.price_total)} לכל הנכס`, title:'המחיר למ״ר כפול השטח' })

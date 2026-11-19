@@ -19,6 +19,8 @@
 --      סוג נכס וחדרים ±0.5; רבעוני המחיר המבוקש; איפה המחיר של הנכס ביניהן;
 --      וכמה מהן ירדו במחיר ב-30 הימים האחרונים. כל צרכן עתידי (כרטיס הנכס,
 --      דוח לבעלים) קורא לה ולא מחשב בעצמו.
+--   4. properties_board_supply(ids): אותו חישוב לרשימת הנכסים של הסוכן/ת,
+--      לכרטיס הנכס ולחלון "דוח לבעלים" ב-CRM (ליועץ/ת בלבד). בסוף הקובץ.
 --   3. cma_report_finish: העתק מלא מ-20271106100000 (md5(prosrc) בפרודקשן
 --      4e96b8c46c32780017359e95459ca2f9, זהה לקובץ) עם בלוק אחד: board_supply.
 --      הסיום משותף לדוח לנכס ולדוח לכתובת, ולכן שניהם מקבלים אותו.
@@ -417,3 +419,55 @@ comment on function public.cma_report_finish(jsonb, text, text) is
 
 revoke all on function public.cma_report_finish(jsonb, text, text) from public, anon, authenticated;
 grant execute on function public.cma_report_finish(jsonb, text, text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- ההיצע בלוחות לנכסים של הסוכן/ת: כרטיס הנכס וחלון "דוח לבעלים" ב-CRM
+--
+-- קריאה אחת לכל הרשימה (loadProperties), לא קריאה לכל כרטיס. אותו חישוב של
+-- הדוח: listing_supply_stats. רק נכס שבאוויר, ורק של הסוכן/ת או של המשרד
+-- שהוא/היא מנהל/ת, באותו תנאי null-safe של owner_report_create. נכס אחר
+-- פשוט אינו בתשובה. **ליועץ/ת בלבד**: הדף שהבעלים רואים אינו מקבל את זה,
+-- כי המערכת אינה מציעה לבעלים לדבר על מחיר (docs/owner-report.md).
+-- ---------------------------------------------------------------------------
+create or replace function public.properties_board_supply(p_ids uuid[])
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_agent  uuid := public.current_agent_id();
+  v_agency uuid := public.current_agency_id();
+  v_mgr    boolean := coalesce(public.current_member_role() = 'manager', false);
+  v_out    jsonb := '{}'::jsonb;
+  v_one    jsonb;
+  r        record;
+begin
+  if v_agent is null or p_ids is null or coalesce(cardinality(p_ids), 0) = 0 then
+    return v_out;
+  end if;
+  for r in
+    select p.id, p.city, p.deal_type, p.property_type, p.rooms, p.price
+      from public.properties p
+     where p.id = any (p_ids[1:500])
+       and p.status = 'active'
+       and coalesce(p.agent_id = v_agent
+                    or (v_mgr and v_agency is not null and p.agency_id = v_agency), false)
+  loop
+    begin
+      v_one := public.listing_supply_stats(r.city, r.deal_type, r.property_type, r.rooms, r.price);
+    exception when others then
+      v_one := null;
+    end;
+    if v_one is not null then
+      v_out := v_out || jsonb_build_object(r.id::text, v_one);
+    end if;
+  end loop;
+  return v_out;
+end $$;
+
+comment on function public.properties_board_supply(uuid[]) is
+  'ההיצע בלוחות יד2/מדלן לנכסים פעילים של הסוכן/ת (או של המשרד, למנהל/ת): מפה לפי מזהה נכס, מ-listing_supply_stats. לכרטיס הנכס ולחלון "דוח לבעלים" ב-CRM, ליועץ/ת בלבד. docs/listing-inventory.md';
+revoke all on function public.properties_board_supply(uuid[]) from public, anon, authenticated;
+grant execute on function public.properties_board_supply(uuid[]) to authenticated, service_role;

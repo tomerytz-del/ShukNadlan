@@ -45,6 +45,18 @@ create table public.listing_inventory_price_history (
   new_price numeric not null,
   changed_at timestamptz not null default now()
 );
+create table public.properties (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid, agency_id uuid, status text, city text, deal_type text,
+  property_type text, rooms numeric, price numeric
+);
+-- הקורא/ת נקבע בהגדרת סשן, כדי לבדוק את ההרשאה בלי auth.
+create function public.current_agent_id() returns uuid language sql stable as $$
+  select nullif(current_setting('test.agent', true), '')::uuid $$;
+create function public.current_agency_id() returns uuid language sql stable as $$
+  select nullif(current_setting('test.agency', true), '')::uuid $$;
+create function public.current_member_role() returns text language sql stable as $$
+  select nullif(current_setting('test.role', true), '') $$;
 create function public.city_id_for_name(p_name text) returns uuid language sql stable as $$
   select case when btrim(p_name) = 'עפולה' then '{CITY_ID}'::uuid end
 $$;
@@ -83,6 +95,50 @@ def stats(ptype, rooms, price, deal="sale", city="עפולה"):
     return f"public.listing_supply_stats('{city}', '{deal}', '{ptype}', {rooms}, {price})"
 
 
+A1 = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
+A2 = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"
+OFFICE = "33333333-3333-3333-3333-333333333333"
+
+
+def as_caller(agent, agency, role, sql):
+    return psql(f"""
+      set test.agent = '{agent}'; set test.agency = '{agency}'; set test.role = '{role}';
+      {sql}
+    """)
+
+
+def rpc_for_the_agent_only():
+    """properties_board_supply: רק נכס פעיל, ורק של הסוכן/ת או של המשרד שמנהלים."""
+    psql(f"""
+      insert into public.properties (id, agent_id, agency_id, status, city, deal_type, property_type, rooms, price) values
+        ('00000000-0000-0000-0000-000000000001', '{A1}', '{OFFICE}', 'active',      'עפולה', 'sale', 'דירה', 4, 1200000),
+        ('00000000-0000-0000-0000-000000000002', '{A1}', '{OFFICE}', 'unpublished', 'עפולה', 'sale', 'דירה', 4, 1200000),
+        ('00000000-0000-0000-0000-000000000003', '{A2}', '{OFFICE}', 'active',      'עפולה', 'sale', 'דירה', 4, 1300000),
+        ('00000000-0000-0000-0000-000000000004', '{A1}', '{OFFICE}', 'active',      'עפולה', 'sale', 'משרדים', 4, 900000);
+    """)
+    ids = "array(select id from public.properties)"
+    keys = "(select coalesce(string_agg(right(k, 1), ',' order by k), '') from jsonb_object_keys(r) k)"
+    own = as_caller(A1, OFFICE, "agent",
+                    f"select {keys} || '|' || (r->'00000000-0000-0000-0000-000000000001'->>'subject_percentile') "
+                    f"from (select public.properties_board_supply({ids}) as r) s")
+    # הנכס שלו/ה הפעיל בלבד: לא הטיוטה, לא של הקולגה, ולא המשרד (אין לו השוואה).
+    expect(own, "1|71", "סוכן/ת רואה רק את הנכס הפעיל שלו/ה")
+    mgr = as_caller(A2, OFFICE, "manager",
+                    f"select {keys} from (select public.properties_board_supply({ids}) as r) s")
+    expect(mgr, "1,3", "מנהל/ת רואה את נכסי המשרד")
+    other = as_caller(A2, "44444444-4444-4444-4444-444444444444", "manager",
+                      f"select {keys} from (select public.properties_board_supply({ids}) as r) s")
+    expect(other, "3", "מנהל/ת של משרד אחר רואה רק את שלו/ה")
+    # בלי קורא/ת מזוהה, ועם תפקיד וסוכנות ריקים: לא נפתח כלום (null-safe).
+    nobody = psql(f"select public.properties_board_supply({ids})::text")
+    expect(nobody, "{}", "בלי קורא/ת")
+    grants = psql("""
+      select has_function_privilege('anon', 'public.properties_board_supply(uuid[])', 'execute')::text
+          || '|' || has_function_privilege('authenticated', 'public.properties_board_supply(uuid[])', 'execute')::text
+    """)
+    expect(grants, "false|true", "הרשאת properties_board_supply")
+
+
 def main():
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", DB])
@@ -92,6 +148,7 @@ def main():
     src = MIG.read_text(encoding="utf-8")
     part = src[src.index("create or replace function public.board_listing_kind"):
                src.index("create or replace function public.cma_report_finish")]
+    part += src[src.index("create or replace function public.properties_board_supply"):]
     for _ in range(2):  # אידמפוטנטית
         psql(part)
 
@@ -200,6 +257,8 @@ def main():
     """)
     # 2 מתוך 12 = 17%. הירידות 5% ו-10%, חציון 7.5.
     expect(drops, "2|17|7.5|10", "ירידות מחיר")
+
+    rpc_for_the_agent_only()
 
     # מודעה שסומנה כאותו נכס בלוח השני נספרת פעם אחת, כשהעמודה קיימת (#1330).
     psql("""

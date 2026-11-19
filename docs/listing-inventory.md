@@ -155,8 +155,14 @@ select public.listing_inventory_sync('yad2', 'עפולה', '[...]'::jsonb);
 
 `listing_supply_stats(city, deal, type, rooms, price)` (`20271120110000`) היא
 **החישוב היחיד** של "מול כמה מודעות הנכס מתחרה בלוחות". צרכן חדש קורא לה
-ולא סופר בעצמו. היום קורא לה דוח ה-CMA (`cma_report_finish`, המפתח
-`board_supply`), לנכס ולכתובת.
+ולא סופר בעצמו. שלושה קוראים לה היום:
+
+- דוח ה-CMA (`cma_report_finish`, המפתח `board_supply`), לנכס ולכתובת.
+- כרטיס הנכס ב-CRM: התגית "📊 יקר מ-X% בלוחות", מ-`properties_board_supply`
+  שנקראת פעם אחת ב-`loadProperties` לכל הנכסים הפעילים.
+- חלון "דוח לבעלים" ב-CRM: שורה **ליועץ/ת בלבד**, מאותה מפה
+  (`propertyBoardSupply`). הדף שהבעלים רואים אינו מקבל אותה
+  (`docs/owner-report.md`).
 
 מה נספר: מודעה פעילה (`removed_at is null`) באותה עיר, אותו סוג עסקה, אותו
 סוג נכס, וחדרים ±0.5 (מגרש בלי חדרים). מה שחוזר: מספר המודעות, רבעוני המחיר
