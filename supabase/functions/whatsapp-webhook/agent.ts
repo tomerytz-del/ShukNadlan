@@ -3802,6 +3802,12 @@ async function boardSection(
  * (חמש האחרונות שנראו) נשאר רק כגיבוי: לפני שהמיגרציה רצה, בכשל, וכשבכרטיס
  * אין עיר - שם ממשיכים לערי השוק של המשרד, כמו קודם.
  */
+/**
+ * הבסיס של קישור /demand. אותה ברירת מחדל של index.ts (שורת הרשימה שנבחרת שם
+ * נבנית ממנו): בלי env הפוסטים לא נעלמים בשקט מ-client_matches.
+ */
+const DEMAND_SITE_BASE = (SITE_BASE_URL || "https://shuknadlan.co.il").replace(/\/$/, "");
+
 async function clientBoardRanked(
   ctx: ToolContext,
   client: Record<string, unknown>,
@@ -3831,7 +3837,7 @@ async function clientBoardRanked(
         p_limit: BOARD_CAP,
         p_waive_features: waive,
       }),
-      SITE_BASE_URL
+      DEMAND_SITE_BASE
         ? ctx.supabase.rpc("agent_client_demand_matches_for_agent", {
           p_agent_id: ctx.agent.id,
           p_client_id: clientId,
@@ -3892,7 +3898,7 @@ async function clientBoardRanked(
     // יש פוסטים: הודעה אחת ברשימה משולבת. ביומן ההצגה נכנסות רק מודעות הלוחות.
     const lines = [...(presented ? presented.lines : []), ...merged.demand.map(demandLine)];
     if (ctx.outbox) {
-      const message = combinedMatchMessage(merged.boards, merged.demand, SITE_BASE_URL);
+      const message = combinedMatchMessage(merged.boards, merged.demand, DEMAND_SITE_BASE);
       if (message) {
         ctx.pendingBoard = {
           lines,

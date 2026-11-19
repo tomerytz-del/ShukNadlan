@@ -121,7 +121,8 @@ const index = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index
 const ranked = agent.slice(agent.indexOf("async function clientBoardRanked"), agent.indexOf("async function toolSearchProperties"));
 check("הפוסטים נקראים עם הוויתור של הסוכן/ת ובמקביל ללוחות",
   ranked.includes('"agent_client_demand_matches_for_agent"') && ranked.includes("Promise.all") && ranked.includes("p_waive_features: waive"));
-check("כשל בפוסטים לא מפיל את הלוחות", ranked.includes("demandError") && ranked.includes("SITE_BASE_URL"));
+check("כשל בפוסטים לא מפיל את הלוחות", ranked.includes("demandError") && ranked.includes("DEMAND_SITE_BASE"));
+check("אותה ברירת מחדל ל-/demand כמו ב-index.ts", agent.includes('(SITE_BASE_URL || "https://shuknadlan.co.il")'));
 check("הודעה אחת: הלוחות והפוסטים ברשימה משולבת", ranked.includes("combinedMatchMessage(") && ranked.includes("logged: presented ? presented.logged : []"));
 const create = agent.slice(agent.indexOf("async function toolCreateClient"), agent.indexOf("async function toolUpdateClient"));
 check("create_client מריץ התאמות רק לקונה עם עסקה ועיר",

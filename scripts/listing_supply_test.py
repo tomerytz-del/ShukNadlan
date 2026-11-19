@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271120110000_cma_board_supply.sql"
 # מקור פייסבוק (#1338) נכנס למלאי אחרי הבריכה המקורית, והבריכה מוחלפת כאן.
-POOL_FIX = ROOT / "supabase/migrations/20271121130000_client_demand_matches.sql"
+POOL_FIX = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
 DB = os.environ.get("LISTING_SUPPLY_DB", "listing_supply_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -162,7 +162,8 @@ def main():
     for _ in range(2):  # אידמפוטנטית
         psql(part)
     fix = POOL_FIX.read_text(encoding="utf-8")
-    pool_fix = fix[fix.index("create or replace function public._listing_supply_pool"):]
+    start = fix.index("create or replace function public._listing_supply_pool")
+    pool_fix = fix[start:fix.index("revoke all on function public._listing_supply_pool", start)]
     for _ in range(2):
         psql(pool_fix)
 

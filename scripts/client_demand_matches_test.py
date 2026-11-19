@@ -51,7 +51,7 @@ create table public.properties (
 create table public.scraped_leads (
   id uuid primary key default gen_random_uuid(), source text, lead_type text, status text,
   city text, city_id uuid, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
-  budget numeric, demand_summary text, posted_at timestamptz, post_url text, no_broker text,
+  budget numeric, demand_summary text, posted_at timestamptz, post_url text, source_post_url text, no_broker text,
   claimed_by uuid, claimed_at timestamptz, created_at timestamptz not null default now()
 );
 create table public.pricing_config (key text primary key, value int);
@@ -121,16 +121,17 @@ def slice_fn(text, name, end_marker=None):
 
 def post(ref, ptype="דירה", rooms="4", budget="1300000", city=CITY, days=1, status="open_demand",
          source="facebook_group", lead_type="owner_inbound", claimed=None,
-         url="https://www.facebook.com/groups/1/posts/{ref}", deal="sale", summary=None):
+         url="https://www.facebook.com/groups/1/posts/{ref}", deal="sale", summary=None, source_url=None):
     url = ("'" + url.format(ref=ref) + "'") if url else "null"
+    source_url = ("'" + source_url + "'") if source_url else "null"
     claimed = f"'{claimed}'" if claimed else "null"
     summary = f"'{summary or 'דירה ' + ref}'"
     psql(f"""
       insert into public.scraped_leads
         (id, source, lead_type, status, city, city_id, deal_type, property_type, rooms, budget,
-         demand_summary, posted_at, post_url, claimed_by)
+         demand_summary, posted_at, post_url, source_post_url, claimed_by)
       values ('{ref_id(ref)}', '{source}', '{lead_type}', '{status}', 'עפולה', '{city}', '{deal}', '{ptype}',
-              {rooms}, {budget}, {summary}, now() - interval '{days} days', {url}, {claimed})
+              {rooms}, {budget}, {summary}, now() - interval '{days} days', {url}, {source_url}, {claimed})
     """)
 
 
@@ -176,7 +177,10 @@ def main():
     post("a", status="pending_consent")                 # עוד לא ביקוש פתוח
     post("b", rooms="null", days=1)                     # מתאים, בלי חדרים: ציון נמוך יותר
     post("c", deal="rent", budget="5000")               # שכירות
-    post("d", url=None)                                 # בלי קישור לפוסט
+    post("d", url=None)                                 # בלי קישור לפוסט: אינו מוצע ואינו נתפס
+    post("f", url="https://www.example.com/x")          # קישור שאינו פייסבוק: אותו דבר
+    post("10", url="https://www.facebook.com/x?tab=demand")  # קישור פנימי ל-CRM
+    post("1f", days=3, url=None, source_url="https://www.facebook.com/groups/2/posts/g")  # רק source_post_url
     post("e", days=1)                                   # ללא תיווך: נשאר בהתאמות, עם התגית
     psql(f"update public.scraped_leads set no_broker = 'post' where id = '{ref_id('e')}'")
 
@@ -187,9 +191,9 @@ def main():
                   from jsonb_array_elements(r->'items') with ordinality t(i, ord)))
         from (select public.agent_client_demand_matches('{c1}', 10) as r) s
     """)
-    # תואמים: 1,2,3,b,d,e (d בלי קישור עדיין מתאים; הוא נושר רק מהקישור, ו-e "ללא תיווך"
-    # נשאר). ציון 100: 3 (שלי) ראשון, ואז לפי תאריך הפוסט היורד (e נוצר אחרי d).
-    expect(got, "ok|6|100|5|3:100,e:100,d:100,1:100,2:100,b:90", "מי מתאים ובאיזה סדר")
+    # תואמים: 1,2,3,b,e,1f. d/f/10 אין להם קישור פייסבוק שאפשר לפתוח, ולכן אינם מוצעים;
+    # 1f רק עם source_post_url, ו-e "ללא תיווך" נשאר. ציון 100: 3 (שלי) ראשון, ואז לפי תאריך הפוסט היורד.
+    expect(got, "ok|6|100|5|3:100,e:100,1:100,f:100,2:100,b:90", "מי מתאים ובאיזה סדר")
     expect(as_agent(A1, f"""
       select string_agg(right(i->>'id', 1) || '=' || coalesce(i->>'no_broker', '-'), ',' order by i->>'id')
         from jsonb_array_elements(public.agent_client_demand_matches('{c1}', 10) -> 'items') i
@@ -259,11 +263,22 @@ def main():
     expect(j(f"public.demand_claim_open('{t2}') ->> 'error'"), "daily_cap", "תקרה יומית")
     expect(j(f"(select claimed_by is null from public.scraped_leads where id = '{ref_id('2')}')::text"), "true",
            "תקרה לא תופסת")
-    # פוסט בלי קישור: לא נתפס.
-    t_d = tok("d")
-    expect(j(f"public.demand_claim_open('{t_d}') ->> 'error'"), "no_link", "פוסט בלי קישור")
-    expect(j(f"(select claimed_by is null from public.scraped_leads where id = '{ref_id('d')}')::text"), "true",
+    # פוסט שאין לו קישור פייסבוק שאפשר לפתוח: לא מוצע ולא נוצר לו קישור.
+    for ref in ("d", "f", "10"):
+        expect(j(f"public.demand_claim_link_create('{A1}', '{ref_id(ref)}', null) is null"), "t",
+               f"קישור לפוסט בלי קישור פתיח ({ref})")
+    # הקישור נעלם אחרי שנוצר: לא נתפס, והסטטוס אומר למה.
+    t_b = tok("b")
+    psql(f"update public.scraped_leads set post_url = null where id = '{ref_id('b')}'")
+    expect(j(f"public.demand_claim_open('{t_b}') ->> 'error'"), "no_link", "פוסט שהקישור שלו נעלם")
+    expect(j(f"(select claimed_by is null from public.scraped_leads where id = '{ref_id('b')}')::text"), "true",
            "פוסט בלי קישור לא נתפס")
+    expect(j(f"(select claim_status from public.demand_claim_links where id = '{t_b}')"), "no_link", "סטטוס הקישור")
+    # רק source_post_url: הקישור נפתח ממנו, כמו בליבה. (התקרה הוגדלה כדי שלא תחסום.)
+    psql("update public.pricing_config set value = 4 where key = 'open_demand_claims_daily'")
+    opened_g = psql(f"select public.demand_claim_open('{tok('1f')}')::text")
+    if '"url": "https://www.facebook.com/groups/2/posts/g"' not in opened_g:
+        sys.exit(f"קישור מ-source_post_url: {opened_g}")
     # קישור פג תוקף, ולא תקין.
     psql(f"update public.demand_claim_links set expires_at = now() - interval '1 minute' where id = '{t2}'")
     expect(j(f"public.demand_claim_open('{t2}') ->> 'error'"), "not_found", "קישור שפג")

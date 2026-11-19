@@ -24518,16 +24518,19 @@ async function loadClientBoardMatches(panel, client){
     if (!box.isConnected) return;
     box.innerHTML = (boards.error ? '' : boardMatchesHtml(boards.data)) + (demand.error ? '' : demandMatchesHtml(demand.data));
   };
-  try {
-    await fetchBlocks();
-    box.addEventListener('click', async e => {
-      const b = e.target.closest('[data-demand-claim]');
-      if (!b || typeof claimOpenDemand !== 'function') return;
+  // המאזין נקשר מיד, לפני הטעינה: כשל בטעינה אינו משאיר כפתורים מתים.
+  let claiming = false;
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (!b || claiming || typeof claimOpenDemand !== 'function') return;
+    claiming = true;   // לחיצה כפולה לא תופסת פעמיים ולא פותחת שני חלונות
+    try {
       await claimOpenDemand(b.getAttribute('data-demand-claim'), b);
       // המצב השתנה (נתפס, או כבר לא פתוח): מציירים שוב
-      try { await fetchBlocks(); } catch (_e) { /* נשאר מה שהיה */ }
-    });
-  } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
+      await fetchBlocks();
+    } catch (_e) { /* נשאר מה שהיה */ } finally { claiming = false; }
+  });
+  try { await fetchBlocks(); } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
 }
 
 function renderClientMatches(panel, rows, client){
