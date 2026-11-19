@@ -399,8 +399,28 @@ def main():
     psql(DB, sql_text=FIXTURES)
     psql(DB, HISTORY)
     psql(DB, sql_text=facebook_helpers())
+    # שני הצרכנים החיים, בגוף מינימלי שמכיל את התנאי הישן. המיגרציה מחליפה אותו.
+    psql(DB, sql_text="""
+      create function public._listing_supply_pool() returns text language sql as
+        $f$ select ' and not coalesce(i.is_duplicate, false)' $f$;
+      create function public.client_board_matches() returns text language sql as
+        $f$ select $q$not coalesce((to_jsonb(i) ->> 'is_duplicate')::boolean, false)$q$ $f$;
+    """)
     psql(DB, MIG)
 
+    for fn in ("_listing_supply_pool", "client_board_matches"):
+        src = psql(DB, sql_text=f"select prosrc from pg_proc where proname = '{fn}'")
+        if "board_dup_hidden" not in src or "coalesce(" in src and "is_duplicate" in src.replace("board_dup_hidden", ""):
+            fail("התנאי של " + fn + " לא הוחלף: " + src)
+    # זוג נשאר עותק אחד: בדיוק צד אחד מוסתר, ומועמד שירד אינו מסתיר.
+    hid = psql(DB, sql_text="""
+      select string_agg(public.board_dup_hidden(is_duplicate, id, created_at, duplicate_match)::text, ',' order by id)
+        from public.scraped_leads
+       where id in ('aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000002')
+    """)
+    if sorted(hid.split(",")) != ["false", "true"]:
+        fail("זוג 1430000 לא נשאר עותק אחד: " + hid)
+    # 4 חדרים 1,250,000: ליד מדלן מול שמונה יד2. הוותיק של יד2 מסתיר אותו.
     # 4 חדרים 1,430,000: שני לידי מדלן מצביעים על ליד היד2 הוותיק.
     eq_flag = flag
     if eq_flag("scraped_leads", "aaaaaaaa-0000-0000-0000-000000000002") != (

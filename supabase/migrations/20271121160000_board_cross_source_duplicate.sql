@@ -1192,3 +1192,96 @@ comment on function public.listing_inventory_sync(text, text, jsonb) is
   'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. קולט גם size_sqm, floor ו-neighborhood, ומחזיר price_changes. מודעה חדשה שמזהה מלאי או ליד של הלוח השני מסומנת is_duplicate. שורה שכבר הייתה לא מסומנת מחדש. docs/listing-inventory.md';
 revoke all on function public.listing_inventory_sync(text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.listing_inventory_sync(text, text, jsonb) to service_role;
+
+-- ============================================================================
+-- מי מוסתר מהצרכנים: הצד החדש בלבד
+--
+-- הסימון סימטרי (שני הצדדים is_duplicate), כדי שמילוי לאחור ושליחה בכל סדר
+-- ייתנו אותה תוצאה. אבל סינון על is_duplicate לבדו היה מוציא את שני
+-- העותקים, והנכס היה נעלם מההתאמות ללקוחות ומסטטיסטיקת ההיצע. לכן
+-- הצרכנים מסתירים רק את מי שיש לו מועמד חי **ותיק ממנו** (first_seen_at,
+-- ובשוויון המזהה הקטן). מועמד שירד מהלוח אינו מסתיר.
+-- ============================================================================
+create or replace function public.board_dup_hidden(
+  p_is_dup boolean,
+  p_id uuid,
+  p_seen timestamptz,
+  p_match jsonb
+) returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_lid uuid := nullif(p_match ->> 'lead_id', '')::uuid;
+  v_iid uuid := nullif(p_match ->> 'inventory_id', '')::uuid;
+  v_ls timestamptz := nullif(p_match ->> 'lead_seen_at', '')::timestamptz;
+  v_is timestamptz := nullif(p_match ->> 'inventory_seen_at', '')::timestamptz;
+begin
+  if not coalesce(p_is_dup, false) or p_match is null or p_seen is null then
+    return false;
+  end if;
+  if v_lid is not null and v_ls is not null
+     and (v_ls < p_seen or (v_ls = p_seen and v_lid < p_id))
+     and exists (
+       select 1 from public.scraped_leads s
+        where s.id = v_lid
+          and s.status in ('pending_consent', 'consented', 'open_demand')) then
+    return true;
+  end if;
+  if v_iid is not null and v_is is not null
+     and (v_is < p_seen or (v_is = p_seen and v_iid < p_id))
+     and exists (
+       select 1 from public.listing_inventory i
+        where i.id = v_iid and i.removed_at is null) then
+    return true;
+  end if;
+  return false;
+end
+$$;
+
+comment on function public.board_dup_hidden(boolean, uuid, timestamptz, jsonb) is
+  'האם מודעה מסומנת is_duplicate צריכה להיעלם מהצרכנים: רק אם יש מועמד חי וותיק ממנה. כך זוג נשאר עותק אחד. docs/listing-inventory.md';
+revoke all on function public.board_dup_hidden(boolean, uuid, timestamptz, jsonb) from public, anon, authenticated;
+grant execute on function public.board_dup_hidden(boolean, uuid, timestamptz, jsonb) to service_role;
+
+-- שני הצרכנים שכבר חיים מסננים על is_duplicate. מחליפים את התנאי בגוף
+-- הקיים ולא מעתיקים אותו, כדי לא למחוק בשקט שדות שנוספו אחרי. פונקציה
+-- שאינה קיימת (בסיס בדיקה) מדולגת, ופונקציה שהתנאי שלה כבר הוחלף נשארת.
+do $$
+declare
+  v_def text;
+  v_new text;
+  v_fn  text;
+  v_pairs text[][] := array[
+    array['public._listing_supply_pool', ' and not coalesce(i.is_duplicate, false)',
+          ' and not public.board_dup_hidden(i.is_duplicate, i.id, i.first_seen_at, i.duplicate_match)'],
+    array['public.client_board_matches', 'not coalesce((to_jsonb(i) ->> ''is_duplicate'')::boolean, false)',
+          'not public.board_dup_hidden(i.is_duplicate, i.id, i.first_seen_at, i.duplicate_match)']
+  ];
+  r record;
+begin
+  for r in
+    select p.oid, n.nspname || '.' || p.proname as fqn
+      from pg_catalog.pg_proc p
+      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname in ('_listing_supply_pool', 'client_board_matches')
+  loop
+    v_def := pg_get_functiondef(r.oid);
+    if v_def like '%board_dup_hidden%' then
+      continue;
+    end if;
+    v_new := v_def;
+    for i in 1 .. array_length(v_pairs, 1) loop
+      if v_pairs[i][1] = r.fqn then
+        v_new := replace(v_new, v_pairs[i][2], v_pairs[i][3]);
+      end if;
+    end loop;
+    if v_new = v_def then
+      raise exception 'לא נמצא תנאי is_duplicate בגוף %', r.fqn;
+    end if;
+    execute v_new;
+  end loop;
+end $$;
