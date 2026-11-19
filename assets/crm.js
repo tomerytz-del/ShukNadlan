@@ -7512,7 +7512,7 @@ const PRO_MEDIA_BUCKET = 'property-images';
    נשמר כמפתח באנגלית ומתורגם רק בתצוגה. */
 const PRO_TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', electrician:'חשמלאי/ת', plumber:'אינסטלטור/ית', general:'בעל/ת מקצוע',
 };
 
 /* "מוצגת באתר" אינו status='active' בלבד: כרטיסייה שתקופת הפרסום שלה
