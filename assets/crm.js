@@ -1380,6 +1380,10 @@ async function showMfaChallenge(status){
   document.getElementById('mfaTotpCode').value = '';
   document.getElementById('mfaTotpFeedback').textContent = '';
   showScreen('mfaChallenge');
+  /* מסך האימות אינו "כניסה": השעון של auth מתחיל מחדש כשהאימות עובר,
+     ומי שעוזב/ת כאן נספר/ת כמסך כניסה ולא כנטישה של היעד (19.11.2026:
+     36 שניות של "טעינה" היו 32 שניות עד שנשלחה ההודעה לגבריאלה). */
+  if (window.dlMark) window.dlMark('mfa');
   try{
     const { url, tail } = await mfaWaStart(false);
     link.href = url; link.removeAttribute('aria-disabled');
