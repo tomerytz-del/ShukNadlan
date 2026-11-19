@@ -367,6 +367,32 @@ test('הדוגמאות המוקלדות: כולן עוברות ב-parse עם ל�
   });
 });
 
+/* דוגמאות לבעלי מקצוע (19.11.2026). הן אינן עוברות ב-parse (אינן חיפוש נכסים), ולכן הבדיקה היא על
+   הצד השני: PRO_INTENTS ב-assets/home.js חייב לזהות כל אחת, ובלי להתבלבל עם חיפוש נכס. גולש/ת
+   שמקליד/ה דוגמה שהאתר עצמו הציע ולא מקבל/ת הצעה - זו הדוגמה שמלמדת שהחיפוש לא עובד. */
+test('דוגמאות בעלי המקצוע: כל אחת מזוהה ב-PRO_INTENTS, ונכנסות ללא תלות בשוק', () => {
+  const fs = require('fs');
+  const home = fs.readFileSync(path.join(__dirname, '..', 'assets', 'home.js'), 'utf8');
+  const i = home.indexOf('const PRO_INTENTS'), j = home.indexOf('(function searchExtras');
+  const k = home.indexOf('  function proOf(t){'), k2 = home.indexOf('  function show(html)');
+  assert.ok(i > 0 && j > i && k > j && k2 > k, 'לא נמצא PRO_INTENTS או proOf ב-home.js');
+  const proOf = new Function(home.slice(i, j) + home.slice(k, k2) + '; return proOf;')();
+  const list = C.proExamplePhrases();
+  assert.ok(list.length >= 3, JSON.stringify(list));
+  const types = [];
+  list.forEach(p => {
+    const hit = proOf(p);
+    assert.ok(hit, 'דוגמה שאינה מזוהה ב-PRO_INTENTS: ' + p);
+    types.push(hit.type);
+    assert.ok(!/[–—]/.test(p), p);
+    assert.ok(p.length <= C.SHORT_MAX, p + ' ארוך מדי לנייד');
+    assert.strictEqual(C.parse(p, C.defaultState(), AREAS).fields.length < 2, true, p + ' נקרא כחיפוש נכס');
+  });
+  assert.deepStrictEqual(types, ['real_estate_lawyer', 'cleaning', 'mortgage_advisor']);
+  // האיות הנפוץ "נקיון" (בלי יוד) מזוהה כמו הכתיב המלא
+  assert.ok(proOf('חברת נקיון'), 'חברת נקיון');
+});
+
 test('הדוגמאות המוקלדות נבנות מהשוק ולא מקובעות לעפולה', () => {
   const props = [
     P({ id: 'x1', city: 'חיפה', deal_type: 'sale', property_type: 'דירה', rooms: 4, price: 1900000, neighborhood_id: 9, neighborhood_name: 'כרמל צרפתי' }),

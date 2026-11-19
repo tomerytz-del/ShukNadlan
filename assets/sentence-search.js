@@ -984,6 +984,14 @@
     });
   }
 
+  /* דוגמאות לבעלי מקצוע (19.11.2026): בין דוגמאות הנכסים מוקלדות גם "עורך דין מומלץ", "חברת ניקיון"
+     ו"יועץ משכנתאות", כדי שגולשים ידעו שאפשר לחפש גם אותם ולא רק נכסים. **אינן עוברות ב-parse()**:
+     הן אינן חיפוש נכסים, ו-PRO_INTENTS ב-home.js הוא שמזהה אותן. כל דוגמה כאן חייבת להיות מזוהה שם
+     (‏scripts/sentence_search_test.cjs מריץ את שני הצדדים), אחרת גולש/ת שמקליד/ה אותה מקבל/ת חיפוש נכסים
+     ריק. בלי עיר ובלי אזור: שוק אחר לא צריך שורה אחרת, ושם עיר כמו "בית שאן" מבטל זיהוי של תחום bare. */
+  var PRO_EXAMPLES = ['עורך דין מומלץ', 'חברת ניקיון', 'יועץ משכנתאות'];
+  function proExamplePhrases() { return PRO_EXAMPLES.slice(); }
+
   /* ---------- הסינון המתקדם מהכתובת, לדף אחר (‏R5-5) ----------
      ‏/swipe מקבל את הכתובת של דף הבית ומחיל אותה כמו שהיא. אותם פרמטרים של
      ‏ADV_URL_PARAMS ב-home.js ואותם תנאים של applyAdvancedFilters - שינוי שם חייב
@@ -1081,7 +1089,7 @@
   }
 
   var Core = {
-    TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
+    TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, proExamplePhrases: proExamplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
     defaultState: defaultState, norm: norm, deriveAreas: deriveAreas, findArea: findArea,
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
@@ -2027,7 +2035,12 @@
       var i = 0, timer = 0, running = false, visible = true;
 
       function list() {
-        var l = examplePhrases(areas, mq.matches);
+        var base = examplePhrases(areas, mq.matches), pro = proExamplePhrases(), l = [], bi = 0, pi = 0;
+        // שתי דוגמאות נכסים ואחריהן דוגמה לבעל מקצוע, וכך הן מופיעות כבר בסבב הראשון
+        while (bi < base.length || pi < pro.length) {
+          for (var k = 0; k < 2 && bi < base.length; k++) l.push(base[bi++]);
+          if (pi < pro.length) l.push(pro[pi++]);
+        }
         return l.length ? l : [mq.matches ? shortPlaceholder : longPlaceholder].filter(Boolean);
       }
       function blocked() {
