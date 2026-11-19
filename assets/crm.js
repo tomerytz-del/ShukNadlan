@@ -29387,7 +29387,7 @@ function navTypingIn(el){
 // חלון של אשף או ייבוא שפתוח עכשיו - N שם הוא אות בשם, לא פקודה
 function navOverlayOpen(){
   return [...document.querySelectorAll('.imp-overlay,.pm-overlay')]
-    .some(el => getComputedStyle(el).display !== 'none');
+    .some(el => el.style.display !== 'none' && getComputedStyle(el).display !== 'none'); // inline קודם: אחרי סגירה ה-computed נשאר flex כ-150ms (יציאה מונפשת)
 }
 
 document.addEventListener('keydown', (e)=>{
