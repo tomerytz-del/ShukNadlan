@@ -17,10 +17,12 @@
 --   2. size_sqm, floor, neighborhood ב-listing_inventory. רשות: סורק שאינו
 --      שולח אותם ממשיך לעבוד כמו היום, וערך חסר אינו דורס ערך קיים.
 --      ערך שאינו סביר נזרק ולא מנוחש. אין כתובת רחוב.
+--      את השורה כותב טריגר על listing_inventory, לא גוף הסנכרון.
 --   3. listing_inventory_sync: העתק מלא של הגרסה מ-20271112130000
 --      (md5(prosrc) בפרודקשן 2593f055fc95dc358c0c4f5a57f22540, זהה לקובץ),
---      עם שלושת השדות, רישום שינוי המחיר לפני הדריסה, ו-price_changes
---      בתשובה וביומן.
+--      עם שלושת השדות ו-price_changes בתשובה וביומן.
+--      מי שמחליף את הפונקציה אחרי המיגרציה הזו מעתיק מכאן:
+--      scripts/listing_inventory_test.py נכשל על העתק שחסרים בו השדות.
 --
 -- מה לא משתנה: הזריעה, הלידים, ההתראות, סימון ההסרות, וההפרדה בין מקור
 -- למקור ובין עיר לעיר. docs/listing-inventory.md
@@ -68,6 +70,35 @@ create index if not exists listing_inventory_price_history_city_idx
 alter table public.listing_inventory_price_history enable row level security;
 revoke all on table public.listing_inventory_price_history from public, anon, authenticated;
 grant select, insert, update, delete on table public.listing_inventory_price_history to service_role;
+
+-- הרישום בטריגר ולא בגוף listing_inventory_sync, בכוונה: הפונקציה מוחלפת
+-- כולה בכל מיגרציה שנוגעת בה (ו-PR פתוח, #1330, כבר מעתיק אותה מהגרסה
+-- הקודמת). העתק ישן שנכנס אחרי המיגרציה הזו היה מוחק את הרישום בשקט, ושינוי
+-- מחיר שלא נרשם אינו ניתן לשחזור. טריגר על הטבלה אינו תלוי בגרסת הפונקציה.
+create or replace function public.listing_inventory_price_history_log()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  insert into public.listing_inventory_price_history (
+    listing_id, source, city, deal_type, old_price, new_price
+  ) values (
+    new.id, new.source, new.city, new.deal_type, old.price, new.price
+  );
+  return null;
+end $$;
+comment on function public.listing_inventory_price_history_log() is
+  'טריגר: שורה ב-listing_inventory_price_history לכל שינוי מחיר במלאי. docs/listing-inventory.md';
+revoke all on function public.listing_inventory_price_history_log() from public, anon, authenticated;
+grant execute on function public.listing_inventory_price_history_log() to service_role;
+
+drop trigger if exists listing_inventory_price_history_trg on public.listing_inventory;
+create trigger listing_inventory_price_history_trg
+  after update of price on public.listing_inventory
+  for each row
+  when (old.price is not null and new.price is not null and old.price <> new.price)
+  execute function public.listing_inventory_price_history_log();
 
 create or replace function public.listing_inventory_sync(p_source text, p_city text, p_items jsonb)
 returns jsonb
@@ -287,19 +318,15 @@ begin
       join _li_in t on t.external_ref = i.external_ref
      where i.source = p_source;
 
-  -- שינוי מחיר נרשם לפני שהשורה נדרסת. רק כשיש מחיר ישן ומחיר חדש
-  -- והם שונים: מחיר ראשון אינו שינוי, ומחיר שנעלם מהתמונה אינו ירידה.
-  insert into public.listing_inventory_price_history (
-    listing_id, source, city, deal_type, old_price, new_price
-  )
-  select i.id, p_source, v_city, coalesce(t.deal_type, i.deal_type), i.price, t.price
+  -- רק ספירה, לתשובה וליומן. את השורה בהיסטוריה כותב הטריגר
+  -- listing_inventory_price_history_trg, באותו תנאי.
+  select count(*)::int into v_price_changes
     from public.listing_inventory i
     join _li_in t on t.external_ref = i.external_ref
    where i.source = p_source
      and i.price is not null
      and t.price is not null
      and t.price <> i.price;
-  get diagnostics v_price_changes = row_count;
 
   insert into public.listing_inventory (
     source, external_ref, city, city_id, deal_type, property_type, rooms, price,
@@ -459,6 +486,6 @@ begin
 end $$;
 
 comment on function public.listing_inventory_sync(text, text, jsonb) is
-  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. שינוי מחיר נרשם ב-listing_inventory_price_history. docs/listing-inventory.md';
+  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. קולט גם size_sqm, floor ו-neighborhood, ומחזיר price_changes. docs/listing-inventory.md';
 revoke all on function public.listing_inventory_sync(text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.listing_inventory_sync(text, text, jsonb) to service_role;

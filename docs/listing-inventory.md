@@ -6,7 +6,7 @@
 (`quota_source` `yad2_free` או `madlan_free`).
 
 המיגרציה: `20271112130000_listing_inventory_yad2.sql`. היסטוריית המחירים
-ושלושת שדות הפירוט: `20271119130000_listing_inventory_price_history.sql`.
+ושלושת שדות הפירוט: `20271119140000_listing_inventory_price_history.sql`.
 הקליטה: `listing-inventory-intake`. הכללים של הליד עצמו:
 `docs/scraped-leads.md`.
 
@@ -62,6 +62,12 @@ RLS דלוק. אין `grant` ל-`anon` או ל-`authenticated`. הכתיבה ה�
 | מודעה בלי מחיר בתמונה | לא, והמחיר הקיים נשאר |
 | אותה תמונה פעמיים | לא |
 | מודעה שירדה מהאוויר וחזרה במחיר אחר | כן |
+
+את השורה כותב טריגר על הטבלה (`listing_inventory_price_history_trg`), לא
+גוף `listing_inventory_sync`. הפונקציה מוחלפת כולה בכל מיגרציה שנוגעת בה,
+והעתק מגרסה ישנה היה מוחק את הרישום בשקט. מאותה סיבה
+`scripts/listing_inventory_test.py` נכשל כשהמיגרציה האחרונה שמגדירה את
+הפונקציה חסרה את `size_sqm`, `floor`, `neighborhood` או `price_changes`.
 
 הטבלה היא יומן: השינוי נכתב כמו שהסנכרון ראה אותו, כולל שינוי שנראה כמו
 טעות הקלדה. מי שמחשב ממנה אחוז ירידה מסנן קצוות בעצמו. התשובה של הסנכרון

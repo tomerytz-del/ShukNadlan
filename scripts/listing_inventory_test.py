@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
 PHONELESS = ROOT / "supabase/migrations/20271115130000_board_lead_without_phone.sql"
-HISTORY = ROOT / "supabase/migrations/20271119130000_listing_inventory_price_history.sql"
+HISTORY = ROOT / "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
 REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 DB = os.environ.get("LISTING_INVENTORY_DB", "listing_inventory_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
@@ -415,6 +415,19 @@ def price_history_and_details():
     if back != "1":
         fail(f"מודעה שחזרה במחיר אחר: {back}")
 
+    # הרישום הוא בטריגר: גם עדכון שאינו עובר בסנכרון נרשם, ועדכון בלי שינוי לא.
+    psql(DB, sql_text="""
+      update public.listing_inventory set price = price where external_ref like '%/h3';
+      update public.listing_inventory set price = 910000 where external_ref like '%/h3';
+    """)
+    if psql(DB, sql_text="""
+      select string_agg(old_price::int::text || '>' || new_price::int::text, ',')
+        from public.listing_inventory_price_history h
+        join public.listing_inventory i on i.id = h.listing_id
+       where i.external_ref like '%/h3'
+    """) != "900000>910000":
+        fail("הטריגר לא רשם עדכון ישיר, או רשם עדכון בלי שינוי")
+
     # סנכרון של עיר אחת לא רושם שינוי למודעות של עיר אחרת.
     if psql(DB, sql_text="""
       select count(*)::text from public.listing_inventory_price_history where city <> 'חדרה'
@@ -426,7 +439,24 @@ def price_history_and_details():
         fail("שינוי מחיר נרשם תחת עיר שאינה של המודעה")
 
 
+def latest_sync_keeps_the_new_fields():
+    """הפונקציה מוחלפת כולה בכל מיגרציה. העתק מגרסה ישנה מוחק את השדות בשקט."""
+    marker = "create or replace function public.listing_inventory_sync"
+    defining = sorted(
+        path for path in (ROOT / "supabase/migrations").glob("*.sql")
+        if marker in path.read_text(encoding="utf-8")
+    )
+    text = defining[-1].read_text(encoding="utf-8")
+    body = text[text.index(marker):]
+    missing = [word for word in ("size_sqm", "neighborhood", "v_floor", "price_changes")
+               if word not in body]
+    if missing:
+        fail(f"{defining[-1].name} מחליף את listing_inventory_sync בלי {', '.join(missing)}. "
+             f"להעתיק את הגוף מהגרסה האחרונה ({HISTORY.name} או מאוחרת ממנה), לא מגרסה קודמת.")
+
+
 def main():
+    latest_sync_keeps_the_new_fields()
     board_listing_url_stays_on_the_card()
     whatsapp_template_line_has_no_board_url()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
