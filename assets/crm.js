@@ -1380,6 +1380,10 @@ async function showMfaChallenge(status){
   document.getElementById('mfaTotpCode').value = '';
   document.getElementById('mfaTotpFeedback').textContent = '';
   showScreen('mfaChallenge');
+  /* מסך האימות אינו "כניסה": השעון של auth מתחיל מחדש כשהאימות עובר,
+     ומי שעוזב/ת כאן נספר/ת כמסך כניסה ולא כנטישה של היעד (19.11.2026:
+     36 שניות של "טעינה" היו 32 שניות עד שנשלחה ההודעה לגבריאלה). */
+  if (window.dlMark) window.dlMark('mfa');
   try{
     const { url, tail } = await mfaWaStart(false);
     link.href = url; link.removeAttribute('aria-disabled');
@@ -2854,7 +2858,9 @@ function handleGotoParam(){
           : raw === 'sign' ? ['agrModal']
           : raw === 'waShare' ? ['waShareModal']
           : raw === 'mentor' ? ['coachSheet']
-          : [raw];
+          /* כינוי (accSharedWithMe) אינו אלמנט: נמדד לפי הקטגוריה שהוא פותח.
+             בלי זה כל לחיצה על "נכס ששותף איתך" נרשמה כנטישה (19.11.2026). */
+          : [accAliasTarget(raw)];
         for (var i = 0; i < ids.length; i++){
           var dlEl = document.getElementById(ids[i]);
           if (dlEl && dlEl.getClientRects().length) return true;
