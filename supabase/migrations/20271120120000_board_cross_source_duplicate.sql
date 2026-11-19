@@ -32,6 +32,11 @@
 -- מועמד בטבלה השניה נשמר ב-duplicate_match (lead_id או inventory_id),
 -- כי מפתח זר לא חוצה טבלה. candidate_count הוא סכום השורות, ואותה מודעה
 -- יכולה להיספר פעם כליד ופעם כמלאי. מלאי עם removed_at אינו מועמד.
+-- ליד מועמד רק כש-status הוא pending_consent, consented או open_demand.
+-- זו הרשימה הסגורה של scraped_leads (נבדק 19.11.2026: 305, 21 ו-64).
+-- אין status של rejected, closed, spam או lost. סירוב מוחק את השורה.
+-- שלושת המצבים חיים: ממתין, ביקוש פתוח, או שכבר נמסר לסוכן/ת.
+-- המילוי קורא לאותה פונקציה, ולכן גם הוא מדלג על מצב אחר.
 --
 -- השורה החדשה נכנסת כרגיל. אין מחיקה, אין דילוג, ואין שינוי בתשובת
 -- ה-RPC. ההתראה לסוכנים לא משתנה: התאמה של 1250000 לשמונה מודעות אינה
@@ -128,7 +133,8 @@ create index if not exists listing_inventory_cross_source_idx
 
 create index if not exists scraped_leads_board_cross_source_idx
   on public.scraped_leads (source, city_id, deal_type, rooms)
-  where source in ('yad2', 'madlan');
+  where source in ('yad2', 'madlan')
+    and status in ('pending_consent', 'consented', 'open_demand');
 
 create index if not exists listing_inventory_duplicate_of_idx
   on public.listing_inventory (duplicate_of)
@@ -189,6 +195,7 @@ begin
       select s.id, s.budget, s.created_at, (count(*) over ())::int as cnt
         from public.scraped_leads s
        where s.source = v_other
+         and s.status in ('pending_consent', 'consented', 'open_demand')
          and (p_exclude_lead is null or s.id is distinct from p_exclude_lead)
          and s.deal_type = p_deal
          and s.rooms = p_rooms

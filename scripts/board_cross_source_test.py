@@ -254,6 +254,21 @@ values
    'https://www.madlan.co.il/listings/bf-one-id', 'madlan.co.il/listings/bf-one-id',
    'עפולה', null, 'sale', 7, 800000, '2026-11-02');
 
+-- מצב שאינו ברשימה החיה אינו מועמד. בטבלת הבדיקה אין אילוץ הסטטוס,
+-- כדי שאפשר לשים rejected. בפרודקשן הסירוב נמחק והאילוץ מתיר רק שלושה.
+insert into public.scraped_leads
+  (id, lead_type, source, post_url, external_ref, city, city_id, deal_type, rooms, budget, created_at, status)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000020', 'owner_inbound', 'yad2',
+   'https://www.yad2.co.il/realestate/item/bf-rej', 'yad2.co.il/realestate/item/bf-rej',
+   'עפולה', '{C1}', 'sale', 8, 770000, '2026-10-01', 'rejected'),
+  ('aaaaaaaa-0000-0000-0000-000000000021', 'owner_inbound', 'yad2',
+   'https://www.yad2.co.il/realestate/item/bf-rej-old', 'yad2.co.il/realestate/item/bf-rej-old',
+   'עפולה', '{C1}', 'sale', 8, 880000, '2026-10-01', 'rejected'),
+  ('aaaaaaaa-0000-0000-0000-000000000022', 'owner_inbound', 'yad2',
+   'https://www.yad2.co.il/realestate/item/bf-rej-live', 'yad2.co.il/realestate/item/bf-rej-live',
+   'עפולה', '{C1}', 'sale', 8, 880000, '2026-11-15', 'pending_consent');
+
 insert into public.listing_inventory
   (id, source, external_ref, city, city_id, deal_type, rooms, price, url, first_seen_at)
 values
@@ -544,6 +559,38 @@ def main():
          and external_ref like 'facebook.com/groups/9%'
     """) != "false":
         fail("פייסבוק חדש סומן")
+    # ליד rejected ישן אינו מועמד: מדלן חדש לא מסומן בגללו,
+    # וכשיש גם ליד חי, duplicate_of מצביע על החי ולא על הישן.
+    psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'madlan',
+        'external_ref', 'https://www.madlan.co.il/listings/only-rejected',
+        'city', 'עפולה', 'deal_type', 'sale', 'rooms', 8, 'budget', 770000,
+        'date_known', false
+      ))
+    """)
+    if psql(DB, sql_text="""
+      select is_duplicate::text || '|' || coalesce(duplicate_of::text, '')
+        from public.scraped_leads
+       where external_ref = 'madlan.co.il/listings/only-rejected'
+    """) != "false|":
+        fail("מדלן חדש סומן בגלל ליד rejected")
+    psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'madlan',
+        'external_ref', 'https://www.madlan.co.il/listings/rej-and-live',
+        'city', 'עפולה', 'deal_type', 'sale', 'rooms', 8, 'budget', 880000,
+        'date_known', false
+      ))
+    """)
+    picked = psql(DB, sql_text="""
+      select is_duplicate::text || '|' || coalesce(duplicate_of::text, '')
+             || '|' || coalesce(duplicate_match->>'lead_count', '')
+        from public.scraped_leads
+       where external_ref = 'madlan.co.il/listings/rej-and-live'
+    """)
+    if picked != "true|aaaaaaaa-0000-0000-0000-000000000022|1":
+        fail(f"duplicate_of לא דילג על rejected: {picked}")
     notify_after = psql(DB, sql_text="select count(*)::text from public._notify_log")
     if int(notify_after) <= int(notify_before):
         fail("ההתראה לא נקראה על שורה שנקלטה, כולל מסומנת")

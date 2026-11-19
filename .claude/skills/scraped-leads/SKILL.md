@@ -123,6 +123,7 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 בשכירות). השורה נכנסת, תשובת ה-RPC לא משתנה, ו-`scraped_lead_notify_demand`
 עדיין נקראת. מי שמחליף את `scraped_lead_add` או את `listing_inventory_sync`
 מעתיק את הקריאה לסימון. פייסבוק ומודעה מאותו לוח לא נספרים.
+מועמד מ-`scraped_leads` רק ב-`pending_consent`, `consented` או `open_demand`.
 `docs/listing-inventory.md`.
 
 ## 6. תקופת ההשקה - בהגדרה, לא בקוד

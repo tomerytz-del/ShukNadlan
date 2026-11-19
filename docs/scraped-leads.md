@@ -112,7 +112,8 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
    השני עם אותה עיר, אותו `deal_type`, אותו `rooms`, ומחיר בתוך הרצועה
    (`max(2% מהמחיר הגבוה, 10000)` במכירה ו-`100` בשכירות). השורה נכנסת,
    התשובה לא משתנה, וההתראה יוצאת כרגיל. פייסבוק ושתי מודעות מאותו לוח
-   לא נספרים. הפירוט: `docs/listing-inventory.md`, "אותו נכס ביד2 ובמדלן".
+   לא נספרים. ליד מועמד רק ב-`pending_consent`, `consented` או `open_demand`.
+   הפירוט: `docs/listing-inventory.md`, "אותו נכס ביד2 ובמדלן".
 
 ## מדלן
 
