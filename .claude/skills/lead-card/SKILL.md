@@ -131,7 +131,8 @@ description: כרטיס הליד ב-CRM של שוק נדל״ן - buildLeadCard /
 ## בדיקה
 
 אין לדשבורד שרת מקומי עם התחברות. הדרך שעבדה: לחלץ את הפונקציות מ-
-`assets/crm.js` ואת ה-`<style>` מ-`crm.html` לדף בדיקה, עם stubs ל-
+`assets/crm.js` ואת **שני** בלוקי ה-`<style>` מ-`crm.html` (מ-19.11.2026 ה-CSS מפוצל,
+הסקיל `crm-startup`) לדף בדיקה, עם stubs ל-
 `currentAgent`, ‏`myPropertyRows`, ‏`allNeighborhoods` ו-`leadWork`, ולצלם
 ב-Playwright ברוחב 1250 ו-390. שימו לב: ‏`#dashboard{display:none}` עד
 ההתחברות, וצריך לבטל אותו בדף הבדיקה - אחרת הצילום ריק.
