@@ -752,6 +752,31 @@ Finished processing build request in 1.034s
 שבורה". מעכשיו כשל בודד מתוך 12 הרצות ומעלה הוא `low`; job יומי שנכשל פעם
 אחת נשאר `high`, כי שם כשל אחד הוא כל הריצות.
 
+### `cron_failing`: כל ה-jobs באותה דקה הם סיבה אחת, והיא לא ב-job
+
+ב-18.11.2026 נפתחו עשרה ממצאי `cron_failing` באותה סריקה, שבעה מהם high
+(3-4 כשלים מתוך 1,439 הרצות לכל job של "כל דקה"). ב-`cron.job_run_details`
+כל הכשלים של שלושה ימים ישבו בשבע דקות בלבד, ובכל אחת מהן נפלו 6-22 jobs
+יחד. שתי סיבות, ושתיהן אינן ב-job עצמו:
+
+- **`connection failed`** (ארבע דקות, תמיד דקה עגולה): בלוג של Postgres
+  באותה שנייה `remaining connection slots are reserved for roles with the
+  SUPERUSER attribute`. ‏`max_connections` הוא 90, ‏pg_cron פותח חיבור לכל job,
+  ובדקה 0 ו-30 רצו יחד 27 jobs. ‏`20271119130000_cron_stagger_schedules.sql`
+  מפזרת 13 מהם להיסטים אחרים באותה תדירות, והשיא יורד ל-17
+  (‏`scripts/cron_stagger_test.py`). **‏job חדש של `*/5`, ‏`*/10` או `*/15`
+  נכתב עם היסט** (‏`3-59/5`), ולא על הדקה העגולה.
+- **`job startup timeout`** (שלוש דקות, כל ה-jobs כולל אלה של "כל דקה"):
+  המסד לא ענה כעשר שניות. באותן דקות שלוש קריאות של פאנל מנהל/ת הפלטפורמה
+  נחתכו ב-`statement_timeout` של 8 שניות (‏`deals_import_priorities`,
+  ‏`market_deals_coverage`, ‏`csm_agents_overview`). זה מתאם ולא הוכחה: אותן
+  קריאות נחתכו גם בדקות שבהן ה-cron עבר. הפיזור אינו פותר את זה.
+
+ה-probe מדד נכון (ה-jobs באמת לא רצו באותה דקה), ולכן הוא לא שונה. מה
+שכדאי לזכור בקריאה: עשרה ממצאים עם אותה `last_error` ואותו `first_seen` הם
+ממצא אחד, ובודקים אותו לפי דקה (`date_trunc('minute', start_time)`) ולא
+לפי job.
+
 ### `access_log_stale`: ה-cron השעתי של GitHub רץ כל 5-8 שעות
 
 ב-11.11.2026 הממצא נפתח בדרגה גבוהה (6.7 שעות בלי ריצה), והריצה הבאה של

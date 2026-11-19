@@ -1,0 +1,40 @@
+name: פיזור תזמוני cron
+
+# אותה תדירות לכל job, שיא נמוך יותר של jobs בדקה, ומיגרציה שאינה נוגעת
+# ב-job שהתזמון שלו כבר שונה.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271119130000_cron_stagger_schedules.sql"
+      - "scripts/cron_stagger_test.py"
+      - ".github/workflows/cron_stagger.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271119130000_cron_stagger_schedules.sql"
+      - "scripts/cron_stagger_test.py"
+      - ".github/workflows/cron_stagger.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת פיזור התזמונים
+        run: python3 scripts/cron_stagger_test.py
