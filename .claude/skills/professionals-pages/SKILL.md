@@ -22,7 +22,7 @@ description: דפי בעלי המקצוע בשוק נדל״ן - professionals.ht
 | האייקון | `PATHS` | `PATHS` |
 | הסדר | `TYPE_ORDER` (ומתוכו `TILE_TYPES`) | `TILE_TYPES` |
 
-**והתחומים שגבריאלה מציעה בחלון שבאתר יושבים ב-`GW_PROS` ב-`assets/gabriela-widget.js`** (רבים, כמו `TYPE_PLURAL`; תחום מוצג שם רק כשיש בו כרטיסייה פעילה). **`TYPE_LABELS` מופיע גם ב-`assets/home.js`** (רצועת `#proStrip` בדף הבית - הסקיל `home-page`). **ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
+**ושורת החיפוש בדף הבית מזהה תחום לפי ביטוי ב-`PRO_INTENTS` ב-`assets/home.js`** (לא מספיק להוסיף תווית: בלי ביטוי הגולש/ת שכותב/ת "חשמלאי" לא מקבל/ת הצעה; `docs/home-page-sections.md`). **והתחומים שגבריאלה מציעה בחלון שבאתר יושבים ב-`GW_PROS` ב-`assets/gabriela-widget.js`** (רבים, כמו `TYPE_PLURAL`; תחום מוצג שם רק כשיש בו כרטיסייה פעילה). **`TYPE_LABELS` מופיע גם ב-`assets/home.js`** (רצועת `#proStrip` בדף הבית - הסקיל `home-page`). **ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
 (‏`professionalMeta`), שבונה בשרת את הכותרת, ה-JSON-LD ואת תוכן הפרופיל
 לסורק.
 
