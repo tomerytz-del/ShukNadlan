@@ -5,6 +5,7 @@
     python3 scripts/board_cross_source_test.py
 """
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,8 @@ MIG = ROOT / "supabase/migrations/20271121160000_board_cross_source_duplicate.sq
 # המיגרציה שקודמת לה: העמודות size_sqm, floor, neighborhood ו-price_changes
 # שגוף listing_inventory_sync כותב אליהן.
 HISTORY = ROOT / "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
+# גוף scraped_lead_add שהמיגרציה בונה עליו: פייסבוק, גודל, קומה, אזור וחסימת תיווך.
+FACEBOOK = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
 DB = os.environ.get("BOARD_CROSS_SOURCE_DB", "board_cross_source_test")
 C1 = "11111111-1111-1111-1111-111111111111"
 C2 = "22222222-2222-2222-2222-222222222222"
@@ -109,6 +112,9 @@ create table public.scraped_leads (
   phone_hash text,
   push_site_only boolean not null default false,
   date_known boolean not null default false,
+  claimed_by uuid, claimed_at timestamptz,
+  size_sqm numeric, floor int, area_text text,
+  broker_block boolean not null default false,
   created_at timestamptz not null default now(),
   unique (source, external_ref)
 );
@@ -372,6 +378,19 @@ def static_checks():
         fail("תשובת הסנכרון נעלמה")
 
 
+def facebook_helpers():
+    # שתי הפונקציות ש-scraped_lead_add של #1338 קוראת להן. המיגרציה המלאה
+    # תלויה בעשרות טבלאות שאין כאן, ולכן שולפים רק אותן.
+    src = FACEBOOK.read_text(encoding="utf-8")
+    out = []
+    for name in ("listing_area_text", "scraped_lead_broker_block"):
+        m = re.search(r"create or replace function public\." + name + r"\(.*?\n(\$\w*\$);", src, re.S)
+        if not m:
+            fail("לא נמצאה " + name + " במיגרציית הפייסבוק")
+        out.append(m.group(0))
+    return "\n".join(out)
+
+
 def main():
     static_checks()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
@@ -379,6 +398,7 @@ def main():
     psql(DB, sql_text=SETUP)
     psql(DB, sql_text=FIXTURES)
     psql(DB, HISTORY)
+    psql(DB, sql_text=facebook_helpers())
     psql(DB, MIG)
 
     # 4 חדרים 1,430,000: שני לידי מדלן מצביעים על ליד היד2 הוותיק.
