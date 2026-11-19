@@ -24,7 +24,9 @@ export const BOARD_FEATURE_LINE =
 export type BoardStatus = "matches" | "none" | "skipped_feature" | "unavailable";
 
 /** רק העמודות לחיפוש. id ליומן ההצגה, לא לתשובה לסוכן/ת. */
-export const BOARD_COLUMNS = "id, source, city, deal_type, property_type, rooms, price, url";
+export const BOARD_COLUMNS = "id, source, city, deal_type, property_type, rooms, price, url, no_broker";
+/** בלי no_broker, אם המיגרציה עוד לא רצה. חיפוש הלוחות נשאר. */
+const BOARD_COLUMNS_BASE = "id, source, city, deal_type, property_type, rooms, price, url";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,6 +39,7 @@ export type BoardListingRow = {
   rooms?: unknown;
   price?: unknown;
   url?: unknown;
+  no_broker?: unknown;
 };
 
 export type BoardScope = {
@@ -455,6 +458,7 @@ export function boardLine(row: BoardListingRow): string | null {
   const priceText = price !== null && price > 0
     ? `${formatNis(price)} ₪${deal === "rent" ? " לחודש" : ""}`
     : "";
+  const noFee = row.no_broker === "post" || row.no_broker === "group" ? "ללא תיווך" : null;
   return [
     label,
     kind || null,
@@ -462,6 +466,7 @@ export function boardLine(row: BoardListingRow): string | null {
     dealLabel(deal),
     priceText || null,
     city || null,
+    noFee,
   ].filter(Boolean).join(" - ");
 }
 
@@ -590,6 +595,9 @@ export function presentBoardListings(
   } else {
     bits.push("בכל שורה יש url. העתיקי אותו לתשובה: בוואטסאפ הוא יוצא ככפתור ולא כטקסט גלוי.");
   }
+  if (picked.some((item) => item.row.no_broker === "post" || item.row.no_broker === "group")) {
+    bits.push("מסומן ללא תיווך: הבעלים לא משלמים עמלה. מותר להציג את המודעה.");
+  }
   if (more > 0) bits.push(`מוצגות ${shown} מתוך ${counted}. יש עוד ${more}.`);
   bits.push("אם אין נכסים שלך או של המשרד ויש כאן מודעות - יש מה להראות, לא אפס.");
   return {
@@ -649,7 +657,21 @@ export async function fetchBoardListings(
       else if (op.op === "order") query = query.order(op.column, { ascending: op.ascending });
       else if (op.op === "limit") query = query.limit(op.value);
     }
-    const res = await query as BoardResult;
+    let res = await query as BoardResult;
+    if (res.error && /no_broker/i.test(res.error.message || "")) {
+      let again = db.from("listing_inventory").select(BOARD_COLUMNS_BASE, { count: "exact" });
+      for (const op of ops) {
+        if (op.op === "is") again = again.is(op.column, op.value);
+        else if (op.op === "eq") again = again.eq(op.column, op.value);
+        else if (op.op === "gte") again = again.gte(op.column, op.value);
+        else if (op.op === "lte") again = again.lte(op.column, op.value);
+        else if (op.op === "in") again = again.in(op.column, op.value);
+        else if (op.op === "or") again = again.or(op.value);
+        else if (op.op === "order") again = again.order(op.column, { ascending: op.ascending });
+        else if (op.op === "limit") again = again.limit(op.value);
+      }
+      res = await again as BoardResult;
+    }
     if (res.error || !res.data) {
       console.warn("board listings skipped", res.error?.message || "empty");
       return null;

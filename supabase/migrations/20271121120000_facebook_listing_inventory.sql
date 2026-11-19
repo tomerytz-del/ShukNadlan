@@ -53,6 +53,19 @@ comment on column public.scraped_leads.size_sqm is
 comment on column public.scraped_leads.floor is
   'קומה שסורק הפייסבוק שלח. 0 היא קרקע.';
 
+-- true כשהפוסט אומר במפורש לא לפנות למתווכים ("לא למתווכים",
+-- "מתווכים לא להתקשר"). "ללא תיווך" לבדו אינו זה: שם מותר להציג.
+alter table public.scraped_leads
+  add column if not exists broker_block boolean not null default false;
+comment on column public.scraped_leads.broker_block is
+  'הפוסט מבקש לא לפנות למתווכים. לא נכנס למלאי. נקבע בקליטה, כי הטקסט נמחק אחרי 7 ימים.';
+
+alter table public.listing_inventory
+  add column if not exists no_broker text
+    check (no_broker is null or no_broker in ('post', 'group'));
+comment on column public.listing_inventory.no_broker is
+  'post או group כשהבעלים כתבו ללא תיווך. בלי טלפון ובלי שם. ריק כשאין סימון.';
+
 -- source: קוראים את האילוץ הקיים ומוסיפים facebook. seeds ו-sync_log
 -- נשארים יד2 ומדלן, כי לפייסבוק אין צילום.
 do $src$
@@ -181,6 +194,25 @@ comment on function public.listing_inventory_facebook_ref(text, text) is
 revoke all on function public.listing_inventory_facebook_ref(text, text) from public, anon, authenticated;
 grant execute on function public.listing_inventory_facebook_ref(text, text) to service_role;
 
+-- "ללא תיווך" נשאר ב-scraped_lead_no_broker ומותר להצגה.
+-- כאן רק בקשה מפורשת לא לפנות.
+create or replace function public.scraped_lead_broker_block(p_text text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $fn$
+  select coalesce(p_text, '') ~ (
+       'לא[[:space:]]*למתווכ'
+    || '|מתווכ\S*[[:space:]]+(נא[[:space:]]*)?(לא[[:space:]]*)?(להתקשר|אל[[:space:]]*תתקשרו|לא[[:space:]]*לפנות)'
+    || '|אל[[:space:]]*תתקשרו[[:space:]]+ל?מתווכ'
+  );
+$fn$;
+comment on function public.scraped_lead_broker_block(text) is
+  'הטקסט מבקש לא לפנות למתווכים. ללא תיווך לבדו אינו כזה. docs/scraped-leads.md';
+revoke all on function public.scraped_lead_broker_block(text) from public, anon, authenticated;
+grant execute on function public.scraped_lead_broker_block(text) to service_role;
+
 create or replace function public.listing_inventory_facebook_sync()
 returns trigger
 language plpgsql
@@ -193,6 +225,7 @@ declare
   v_price numeric;
   v_size numeric;
   v_url text;
+  v_expose boolean;
 begin
   if tg_op = 'DELETE' then
     if old.source = 'facebook_group' and old.lead_type = 'owner_inbound' then
@@ -206,13 +239,30 @@ begin
     return old;
   end if;
 
-  if new.source is distinct from 'facebook_group'
-     or new.lead_type is distinct from 'owner_inbound' then
-    if tg_op = 'UPDATE'
-       and old.source = 'facebook_group'
-       and old.lead_type = 'owner_inbound' then
+  -- רק ביקוש פתוח שלא נתפס. pending_consent, הסכמה, ותפיסה לא נחשפים.
+  -- בקשה מפורשת לא לפנות למתווכים גם לא. OLD נקרא רק ב-UPDATE.
+  v_expose := new.source = 'facebook_group'
+          and new.lead_type = 'owner_inbound'
+          and new.status = 'open_demand'
+          and new.claimed_by is null
+          and not coalesce(new.broker_block, false);
+  if not v_expose then
+    if new.source = 'facebook_group' and new.lead_type = 'owner_inbound' then
       delete from public.listing_inventory
-       where source = 'facebook' and scraped_lead_id = old.id;
+       where source = 'facebook'
+         and (
+           scraped_lead_id = new.id
+           or external_ref = public.listing_inventory_facebook_ref(new.post_url, new.external_ref)
+         );
+    elsif tg_op = 'UPDATE'
+          and old.source = 'facebook_group'
+          and old.lead_type = 'owner_inbound' then
+      delete from public.listing_inventory
+       where source = 'facebook'
+         and (
+           scraped_lead_id = old.id
+           or external_ref = public.listing_inventory_facebook_ref(old.post_url, old.external_ref)
+         );
     end if;
     return new;
   end if;
@@ -247,7 +297,7 @@ begin
 
     insert into public.listing_inventory (
       source, external_ref, city, city_id, deal_type, property_type, rooms, price,
-      size_sqm, floor, neighborhood, url,
+      size_sqm, floor, neighborhood, url, no_broker,
       first_seen_at, last_seen_at, removed_at,
       scraped_lead_id, from_seed, lead_offered_at
     ) values (
@@ -256,6 +306,7 @@ begin
       left(nullif(btrim(new.property_type), ''), 40),
       case when new.rooms is not null and new.rooms > 0 then new.rooms end,
       v_price, v_size, new.floor, v_hood, v_url,
+      case when new.no_broker in ('post', 'group') then new.no_broker end,
       coalesce(new.posted_at, pg_catalog.now()), pg_catalog.now(), null,
       new.id, true, coalesce(new.created_at, pg_catalog.now())
     )
@@ -270,6 +321,7 @@ begin
           floor = coalesce(excluded.floor, public.listing_inventory.floor),
           neighborhood = coalesce(excluded.neighborhood, public.listing_inventory.neighborhood),
           url = coalesce(excluded.url, public.listing_inventory.url),
+          no_broker = excluded.no_broker,
           last_seen_at = pg_catalog.now(),
           removed_at = null,
           scraped_lead_id = excluded.scraped_lead_id,
@@ -282,14 +334,15 @@ end
 $fn$;
 
 comment on function public.listing_inventory_facebook_sync() is
-  'טריגר: בעל/ת מקבוצת פייסבוק נכתב/ת למלאי בלי טלפון ובלי שם. מחיקת הליד מוחקת את השורה. אין ליד שני. docs/listing-inventory.md';
+  'טריגר: בעל/ת בביקוש פתוח שלא נתפס נכתב/ת למלאי. תפיסה, סטטוס אחר, או בקשה לא לפנות מוחקים את השורה. אין ליד שני. docs/listing-inventory.md';
 revoke all on function public.listing_inventory_facebook_sync() from public, anon, authenticated;
 grant execute on function public.listing_inventory_facebook_sync() to service_role;
 
 drop trigger if exists listing_inventory_facebook_trg on public.scraped_leads;
 create trigger listing_inventory_facebook_trg
   after insert or update of city, city_id, deal_type, property_type, rooms, budget,
-    neighborhood_id, area_text, size_sqm, floor, post_url
+    neighborhood_id, area_text, size_sqm, floor, post_url,
+    status, claimed_by, no_broker, broker_block
   on public.scraped_leads
   for each row
   execute function public.listing_inventory_facebook_sync();
@@ -361,6 +414,7 @@ declare
   v_budget_fallback numeric;
   v_rooms_fallback numeric;
   v_deal_fallback text;
+  v_block   boolean := false;
 begin
   if v_type not in ('owner_inbound', 'seeker_inbound') then
     return jsonb_build_object('error', 'invalid_lead_type');
@@ -557,6 +611,7 @@ begin
                size_sqm = coalesce(v_size, size_sqm),
                floor = coalesce(v_floor, floor),
                area_text = coalesce(v_area, area_text),
+               broker_block = broker_block or v_block,
                neighborhood_id = coalesce(neighborhood_id, (
                  select n.id from public.neighborhoods n
                   where n.city_id = scraped_leads.city_id
@@ -617,12 +672,16 @@ begin
   if v_deal is null then
     v_deal := v_deal_fallback;
   end if;
+  v_block := public.scraped_lead_broker_block(p ->> 'raw_message')
+          or public.scraped_lead_broker_block(p ->> 'property_details')
+          or public.scraped_lead_broker_block(p ->> 'summary')
+          or public.scraped_lead_broker_block(p ->> 'source_detail');
 
   insert into public.scraped_leads (lead_type, source, source_detail, post_url, external_ref, posted_at,
                                     raw_name, raw_phone, raw_message, city, city_id, neighborhood_id,
                                     deal_type, property_type, rooms, budget, move_in, property_details,
                                     consent_requested_at, no_broker, demand_summary, phone_hash,
-                                    push_site_only, date_known, size_sqm, floor, area_text)
+                                    push_site_only, date_known, size_sqm, floor, area_text, broker_block)
   values (v_type, v_source, left(nullif(btrim(p ->> 'source_detail'), ''), 120), v_url, v_ref, v_posted,
           left(nullif(btrim(p ->> 'raw_name'), ''), 80), v_phone, left(nullif(btrim(p ->> 'raw_message'), ''), 4000),
           v_city, v_city_id,
@@ -638,7 +697,7 @@ begin
           left(nullif(btrim(p ->> 'move_in'), ''), 60), left(nullif(btrim(p ->> 'property_details'), ''), 300),
           case when v_ask then now() end,
           v_nobrk, left(nullif(btrim(p ->> 'summary'), ''), 160), v_hash,
-          v_site_only, v_known, v_size, v_floor, v_area)
+          v_site_only, v_known, v_size, v_floor, v_area, v_block)
   on conflict (source, external_ref) do nothing
   returning id into v_id;
 
@@ -658,6 +717,7 @@ begin
                size_sqm = coalesce(v_size, size_sqm),
                floor = coalesce(v_floor, floor),
                area_text = coalesce(v_area, area_text),
+               broker_block = broker_block or v_block,
                neighborhood_id = coalesce(neighborhood_id, (
                  select n.id from public.neighborhoods n
                   where n.city_id = scraped_leads.city_id
@@ -1377,8 +1437,26 @@ comment on function public.scraped_seeker_supply(uuid) is
 revoke all on function public.scraped_seeker_supply(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_seeker_supply(uuid) to service_role;
 
--- מילוי שקט. לא קורא ל-scraped_lead_add ולא שולח התראה.
+-- סימון בקשה לא לפנות, כל עוד הטקסט עוד קיים. אחרי 7 ימים הוא נמחק
+-- ונשאר רק no_broker, בלי ההבחנה הזו.
+update public.scraped_leads
+   set broker_block = true
+ where source = 'facebook_group'
+   and lead_type = 'owner_inbound'
+   and broker_block = false
+   and (
+     public.scraped_lead_broker_block(raw_message)
+     or public.scraped_lead_broker_block(property_details)
+     or public.scraped_lead_broker_block(source_detail)
+     or public.scraped_lead_broker_block(demand_summary)
+   );
+
+-- מילוי שקט: רק ביקוש פתוח שלא נתפס ושלא ביקש לא לפנות.
+-- לא קורא ל-scraped_lead_add ולא שולח התראה.
 update public.scraped_leads
    set area_text = area_text
  where source = 'facebook_group'
-   and lead_type = 'owner_inbound';
+   and lead_type = 'owner_inbound'
+   and status = 'open_demand'
+   and claimed_by is null
+   and broker_block = false;

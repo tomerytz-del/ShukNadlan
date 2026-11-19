@@ -225,6 +225,13 @@ def main():
     """)
     if not owner:
         fail("בעלים לא נקלט")
+    if psql(DB, sql_text="""
+      select count(*)::text from public.listing_inventory where source = 'facebook'
+    """) != "0":
+        fail("pending_consent נכנס למלאי")
+    psql(DB, sql_text=f"""
+      update public.scraped_leads set status = 'open_demand' where id = '{owner}';
+    """)
     inv = psql(DB, sql_text="""
       select external_ref || '|' || coalesce(neighborhood, '-')
              || '|' || price::int::text || '|' || size_sqm::int::text
@@ -251,6 +258,49 @@ def main():
     """)
     if street != "t":
         fail(f"ניקוי שכונה: {street}")
+    blocked = psql(DB, sql_text="""
+      select public.scraped_lead_broker_block('מתווכים לא להתקשר')::text
+          || '|' || public.scraped_lead_broker_block('לא למתווכים')::text
+          || '|' || public.scraped_lead_broker_block('ללא תיווך')::text
+          || '|' || public.scraped_lead_broker_block('מפרטי לפרטי')::text
+    """)
+    if blocked != "true|true|false|false":
+        fail(f"הבחנת לא לפנות: {blocked}")
+    quiet = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/423456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234570',
+        'raw_message', 'מתווכים לא להתקשר', 'deal_type', 'sale')) ->> 'id'
+    """)
+    psql(DB, sql_text=f"""
+      update public.scraped_leads set status = 'open_demand' where id = '{quiet}';
+    """)
+    if psql(DB, sql_text=f"""
+      select broker_block::text || '|' ||
+             (select count(*)::text from public.listing_inventory
+               where scraped_lead_id = '{quiet}')
+        from public.scraped_leads where id = '{quiet}'
+    """) != "true|0":
+        fail("בקשה לא לפנות נכנסה למלאי")
+    psql(DB, sql_text=f"""
+      update public.scraped_leads set claimed_by = '{AGENT}' where id = '{owner}';
+    """)
+    if psql(DB, sql_text="""
+      select count(*)::text from public.listing_inventory
+       where external_ref = '555:123456789012345'
+    """) != "0":
+        fail("תפיסה השאירה את הפוסט במלאי")
+    psql(DB, sql_text=f"""
+      update public.scraped_leads
+         set claimed_by = null, status = 'open_demand'
+       where id = '{owner}';
+    """)
+    if psql(DB, sql_text="""
+      select from_seed::text || '|' || (lead_offered_at is not null)::text
+        from public.listing_inventory where external_ref = '555:123456789012345'
+    """) != "true|true":
+        fail("חזרה לביקוש פתוח לא שחזרה את המלאי בלי ליד")
 
     psql(DB, sql_text=f"""
       insert into public.properties

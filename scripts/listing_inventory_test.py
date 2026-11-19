@@ -492,6 +492,15 @@ def facebook_owner_is_inventory_not_a_second_lead(db):
     """)
     if added != "true":
         fail(f"פוסט פייסבוק לא נקלט: {added}")
+    if psql(db, sql_text="""
+      select count(*)::text from public.listing_inventory where source = 'facebook'
+    """) != "0":
+        fail("pending_consent נכנס למלאי")
+    psql(db, sql_text="""
+      update public.scraped_leads set status = 'open_demand'
+       where source = 'facebook_group'
+         and external_ref like '%123456789012345%';
+    """)
     row = psql(db, sql_text="""
       select i.external_ref || '|' || coalesce(i.neighborhood, '-')
              || '|' || coalesce(i.size_sqm::int::text, '-')

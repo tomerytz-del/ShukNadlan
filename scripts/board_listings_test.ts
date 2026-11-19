@@ -268,6 +268,10 @@ check("כתובת לא תקינה לא מוצגת",
   presentBoardListings([row(1, { url: "notaurl" })], 1, { buttons: true }) === null);
 check("השורה בלי כתובת אתר", boardLine(row(2))?.includes("http") === false && boardLine(row(2))?.startsWith("יד2") === true);
 check("תוויות", boardButtonLabel("yad2") === "פתיחה ביד2" && boardButtonLabel("madlan") === "פתיחה במדלן" && safeListingUrl("http://x") === null);
+check("ללא תיווך מופיע בשורת פייסבוק",
+  boardLine(row(1, { source: "facebook", url: "https://www.facebook.com/groups/9/posts/123456789012345/", no_broker: "post" }))
+    ?.includes("ללא תיווך") === true
+  && boardLine(row(2))?.includes("ללא תיווך") === false);
 
 type Rec = { op: string; column?: string; value?: unknown };
 class FakeDb {
