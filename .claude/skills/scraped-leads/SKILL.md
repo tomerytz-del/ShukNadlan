@@ -58,6 +58,17 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 קורא ל-`social_buyer_handover`. תור `seeker_handoffs` נכתב רק כש-
 `social_buyer_handoff_enabled` הוא 1, והוא נשאר 0. אין שליחה לפונה.
 
+## 2א. פוסט פתוח כהתאמה ללקוח/ה: הלחיצה היא "אני פונה"
+
+`client_demand_matches` מצליבה לקוח/ה מול פוסטים פתוחים של בעלי נכס, באותו
+`client_property_match`. מה שחוזר אנונימי: **אין קישור, טלפון או
+`property_details`**, והקישור נחשף רק אחרי התפיסה. פוסט "ללא תיווך" אינו
+נכנס ("לא להציע קונים"). הלחיצה (CRM: `claimOpenDemand`; גבריאלה: כפתור שפותח
+`/demand?k=`) היא `open_demand_claim_core`: אותה תקרה יומית ובלעדיות שאינה
+משתחררת. **התפיסה ב-POST מ-JS, לא ב-GET**, כדי שתצוגה מקדימה לא תתפוס, ובחירה
+בשורת רשימה אינה תפיסה. אל תהפכו את הדף ל-GET שתופס, ואל תוסיפו קישור לפוסט
+לתשובה של `client_demand_matches`. `docs/scraped-leads.md`.
+
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 
 `agent_works_city` ו-`agent_handles_type` קובעות את הסוכן/ת שמקבל/ת ליד אחרי
