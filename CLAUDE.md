@@ -613,8 +613,9 @@ python scripts/check_escapers.py
 המיגרציה `20271112130000_listing_inventory_yad2.sql`). הפרטים המלאים:
 `docs/listing-inventory.md`.
 
-**מה יש:** הטבלאות `listing_inventory`, ‏`listing_inventory_seeds` ו-
-`listing_inventory_sync_log` (כולן עם RLS), ה-RPC ‏`listing_inventory_sync`,
+**מה יש:** הטבלאות `listing_inventory`, ‏`listing_inventory_seeds`,
+‏`listing_inventory_sync_log` ו-`listing_inventory_price_history` (שינויי
+מחיר מ-19.11.2026; כולן עם RLS), ה-RPC ‏`listing_inventory_sync`,
 ופונקציית ה-Edge ‏`listing-inventory-intake` - מקבלת `POST` עם הכותרת
 `x-listing-intake-secret` (הסוד `LISTING_INTAKE_SECRET`). ‏`yad2` הוא מקור
 רביעי ב-`scraped_lead_add`, לצד `facebook_group`, ‏`facebook_marketplace`

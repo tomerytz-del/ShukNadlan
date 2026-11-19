@@ -249,7 +249,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ====== lightbox ====== */
   .lightbox{position:fixed;inset:0;z-index:200;background:rgba(6,20,34,.94);display:none;align-items:center;justify-content:center;padding:20px}
-  .lightbox[data-open]{display:flex;animation:dsFade .16s var(--ease-out)}
+  .lightbox{opacity:0;pointer-events:none;transition:opacity .15s var(--ease-out),display .15s allow-discrete}
+  .lightbox[data-open]{display:flex;opacity:1;pointer-events:auto;animation:dsFade .16s var(--ease-out)}
   .lightbox img{max-width:100%;max-height:86vh;object-fit:contain;border-radius:12px}
   .lightbox .lb-close,.lightbox .lb-nav{
     position:absolute;color:#fff;font-size:1.7rem;line-height:1;width:46px;height:46px;border-radius:50%;

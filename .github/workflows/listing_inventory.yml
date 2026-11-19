@@ -1,13 +1,13 @@
 name: מלאי מודעות יד2
 
 # זריעה שקטה, ליד אחד למודעה חדשה, סימון ירידה, תמונה ריקה שלא מוחקת,
-# וליד יד2 שנפתח בלי חיוב.
+# וליד יד2 שנפתח בלי חיוב. רץ על כל מיגרציה: listing_inventory_sync מוחלפת
+# כולה בכל קובץ שנוגע בה, והבדיקה תופסת העתק מגרסה ישנה.
 
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
@@ -16,8 +16,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"

@@ -5750,6 +5750,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   .prop-more-menu{animation:crmMenuIn .12s var(--ease-out)}
   .img-menu{animation:crmFade .1s var(--ease-out)}
   @media (prefers-reduced-motion:reduce){.pm-card,.imp-card,.photo-sheet-card,.air-sheet-card,.menu-panel,.prop-more-menu{animation:crmFade .15s ease}}
+  /* יציאה למודלים ולגיליונות, בלי לגעת ב-JS של אף אשף (הסקיל animate). ‏display עצמו עובר מעבר (transition-behavior: allow-discrete,
+     מ-Chrome 117 / Safari 17.4 / Firefox 129): כשהקוד מסתיר את החלון ב-style.display='none' או ב-hidden, ‏style.display והמחלקות
+     נקראים כסגורים מיד, אבל החלון נשאר מצויר 150ms כשהרקע והכרטיס דוהים אל מצב "סגור" שמוגדר כאן (ההפך מהכניסה). בדפדפן שלא
+     תומך, ההצהרה כולה נפסלת והחלון נעלם מיד כמו קודם. פתיחה באמצע היציאה פשוט הופכת את המעבר. חלון שנוצר ב-JS ומוסר מה-DOM
+     (דוחות הלידים והבעלים) אינו עובר מעבר: אין לו מצב "סגור" */
+  .pm-overlay,.imp-overlay,.photo-sheet,.air-sheet{transition:background-color .15s var(--ease-out),display .15s allow-discrete}
+  .pm-card,.imp-card,.photo-sheet-card,.air-sheet-card{transition:opacity .15s var(--ease-out),transform .15s var(--ease-out)}
+  .pm-overlay:is([style*="display: none"],[style*="display:none"]),.imp-overlay:is([style*="display: none"],[style*="display:none"]),.air-sheet[hidden]{background-color:transparent;pointer-events:none}
+  .pm-overlay:is([style*="display: none"],[style*="display:none"]) .pm-card,.imp-overlay:is([style*="display: none"],[style*="display:none"]) .imp-card{opacity:0;transform:scale(.96)}
+  .air-sheet[hidden] .air-sheet-card{transform:translateY(100%)}
+  @media(min-width:760px){.air-sheet[hidden] .air-sheet-card{opacity:0;transform:scale(.96)}}
+  @media (prefers-reduced-motion:reduce){
+    .pm-overlay:is([style*="display: none"],[style*="display:none"]) .pm-card,.imp-overlay:is([style*="display: none"],[style*="display:none"]) .imp-card,.air-sheet[hidden] .air-sheet-card{opacity:0;transform:none}
+  }
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;
