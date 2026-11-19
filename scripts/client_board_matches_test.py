@@ -130,7 +130,7 @@ def main():
         from unnest(array['בית פרטי/ קוטג''', 'בית פרטי', 'קוטג'' טורי', 'גג/ פנטהאוז', 'פנטהאוז',
                           'מיני פנטהאוז', 'דירת גג', 'סטודיו/ לופט', 'דירה', 'דו משפחתי', '', null])
              with ordinality as u(t, ord)
-    """), "בית פרטי/קוטג'|בית פרטי/קוטג'|בית פרטי/קוטג'|גג/פנטהאוז|גג/פנטהאוז|גג/פנטהאוז|גג/פנטהאוז|סטודיו|דירה|דו משפחתי|-|-",
+    """), "בית פרטי/קוטג'|בית פרטי/קוטג'|בית פרטי/קוטג'|גג/פנטהאוז|גג/פנטהאוז|גג/פנטהאוז|גג/פנטהאוז|סטודיו/לופט|דירה|דו משפחתי|-|-",
            "סוג הנכס בכתיב של האתר")
 
     # מלאי: ארבע דירות 4 חדרים (אחת בלי שטח), בית בכתיב של יד2, פנטהאוז של
@@ -144,7 +144,8 @@ def main():
     listing("l", "מגרשים", "null", 900000, 500)
     listing("x", "דירה", 4, 1000000, 100, removed=True)
     listing("y", "דירה", 4, 1000000, 100, city="חיפה")
-    listing("bad", "דירה", 4, 1250000, 100, url="http://evil.example/x")  # 12,500 למ"ר
+    listing("bad", "דירה", 4, 1250000, 100, url="http://evil.example/x")  # לא קישור של לוח
+    listing("shop", "חנויות/שטח מסחרי", "null", 400000, 60)              # אין לו סיווג
     psql("""
       insert into public.listing_inventory_price_history (listing_id, old_price, new_price)
       select id, 1380000, 1300000 from public.listing_inventory where url like '%/item/c'
@@ -160,9 +161,22 @@ def main():
                r->'items'->0->>'price_was')
         from (select {r1} as r) s
     """)
-    # 5 דירות חיות בעפולה. ארבע ב-100: קודם זו שירדה (c), אז מחיר למ"ר (b 12,000,
-    # bad 12,500). הקישור של bad אינו https של לוח ולכן חוזר ריק.
-    expect(got, "ok|5|100|4|c:100,b:100,nourl:100|1380000", "דירוג, סדר בתוך אותו ציון ומחיר קודם")
+    # 4 דירות חיות עם קישור של לוח. שלוש ב-100: קודם זו שירדה (c), אז מחיר למ"ר
+    # (b 12,000, a 14,000). bad בלי קישור של לוח אינה נספרת ואינה תופסת מקום.
+    expect(got, "ok|4|100|3|c:100,b:100,a:100|1380000", "דירוג, סדר בתוך אותו ציון ומחיר קודם")
+
+    # כרטיס בלי סוג נכס מחפש בית: לא מגרש, ולא סוג בלי סיווג (חנות).
+    client("c0000000-0000-0000-0000-00000000000b", cities="array['עפולה']")
+    expect(as_agent(A1, f"""
+      select (r->>'total') || '|' || (select bool_or(i->>'property_type' in ('מגרשים', 'חנויות/שטח מסחרי'))::text
+                                       from jsonb_array_elements(r->'items') i)
+        from (select {board('c0000000-0000-0000-0000-00000000000b', 20)} as r) s
+    """), "6|false", "מגרש וחנות לא נכנסים לכרטיס בלי סוג נכס")
+    # לקוח/ה מסחרי/ת שאינו/ה מחפש/ת מגרש: לא נבדק, ולא "אין מודעות".
+    client("c0000000-0000-0000-0000-00000000000c", cities="array['עפולה']", category="'commercial'",
+           property_types="array['משרדים']")
+    expect(as_agent(A1, f"select {board('c0000000-0000-0000-0000-00000000000c')} ->> 'status'"),
+           "unsupported", "לקוח/ה מסחרי/ת")
     expect(as_agent(A1, f"select jsonb_array_length({r1} -> 'items')::text"), "3", "החיתוך ל-limit")
 
     # בית: הכרטיס בכתיב של האתר, המודעה בכתיב של יד2.
@@ -205,7 +219,7 @@ def main():
     expect(psql(f"""
       select (r->>'status') || '|' || (r->>'total') || '|' || jsonb_array_length(r->'items')::text
         from (select {bot}('{A1}', 'c0000000-0000-0000-0000-000000000001', 3, '{{}}') as r) s
-    """), "ok|5|3", "העטיפה של גבריאלה מחזירה את אותו מדגם")
+    """), "ok|4|3", "העטיפה של גבריאלה מחזירה את אותו מדגם")
     expect(psql(f"""
       select concat_ws('|',
         {bot}('{A1}', 'c0000000-0000-0000-0000-000000000006', 5, '{{}}') ->> 'status',
@@ -232,7 +246,7 @@ def main():
       alter table public.listing_inventory add column is_duplicate boolean not null default false;
       update public.listing_inventory set is_duplicate = true where url like '%/item/b';
     """)
-    expect(as_agent(A1, f"select ({r1} ->> 'total')"), "4", "is_duplicate לא חוזר")
+    expect(as_agent(A1, f"select ({r1} ->> 'total')"), "3", "is_duplicate לא חוזר")
 
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
     print("client board matches: ok")

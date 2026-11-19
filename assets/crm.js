@@ -24418,14 +24418,15 @@ function boardMatchRow(m){
   return `<div class="mb-row">
       <div class="mb-main">
         <div class="mb-line">${bits}</div>
-        <div class="mb-price"><b>${shekel(m.price)}</b>${esc(psm)}${was}</div>
+        <div class="mb-price"><b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''}${esc(psm)}${was}</div>
       </div>
       <span class="mb-score" title="לפי מה שמופיע במודעה, בלי מאפיינים">${esc(m.score)}%</span>
       ${href ? `<a class="btn btn-ghost mb-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">פתיחה ב${esc(src || 'לוח')}</a>` : ''}
     </div>`;
 }
 function boardMatchesHtml(r){
-  if (!r || typeof r !== 'object' || r.status === 'unavailable') return '';
+  // unavailable / unsupported: לא נבדק (העיר אינה במלאי, או לקוח/ה מסחרי/ת). בלי בלוק.
+  if (!r || typeof r !== 'object' || r.status === 'unavailable' || r.status === 'unsupported') return '';
   const head = '<div class="mb-h">מודעות מהלוחות יד 2 / מדלן</div>';
   if (r.status === 'skipped_feature'){
     return head + '<div class="lead-meta">מודעות בלוחות לא נבדקו, כי אין בהן נתון על המאפיין שנדרש בכרטיס.</div>';

@@ -35,6 +35,7 @@
 --                     מאפיינים. המנוע היה פוסל את כולן; אומרים שלא נבדק.
 --   no_city         - בכרטיס אין עיר. לא סורקים את כל הארץ.
 --   unavailable     - המלאי אינו מכסה את הערים של הכרטיס.
+--   unsupported     - לקוח/ה מסחרי/ת שאינו/ה מחפש/ת מגרש: במלאי אין נכסים מסחריים.
 --   none            - נבדק, ואין מודעה מעל הסף.
 --
 -- מה שנשמר מהכללים של המלאי (docs/listing-inventory.md): קריאה בלבד, אין
@@ -53,7 +54,6 @@ as $$
     when t is null then null
     when t in ('בית פרטי', 'קוטג''', 'קוטג'' טורי', 'וילה') then 'בית פרטי/קוטג'''
     when t in ('פנטהאוז', 'מיני פנטהאוז', 'דירת גג') then 'גג/פנטהאוז'
-    when t = 'סטודיו/לופט' then 'סטודיו'
     else t
   end
   from (select nullif(regexp_replace(btrim(coalesce(p_type, '')), '\s*/\s*', '/', 'g'), '') as t) s
@@ -78,6 +78,7 @@ declare
   v_limit   int := least(greatest(coalesce(p_limit, 5), 1), 20);
   v_min     int := 50;   -- אותו סף של match_properties_for_client
   v_waive   text[] := coalesce(p_waive_features, '{}'::text[]);
+  v_wants_land boolean;
   v_city_ids uuid[];
   v_stock   int;
   v_out     jsonb;
@@ -92,6 +93,14 @@ begin
   if exists (select 1 from unnest(coalesce(p_client.required_features, '{}'::text[])) f
               where f is not null and f <> '' and not (f = any (v_waive))) then
     return jsonb_build_object('status', 'skipped_feature');
+  end if;
+  -- מגרש נכנס רק כשהכרטיס מבקש מגרש במפורש. כרטיס בלי סוג נכס מחפש בית,
+  -- ומגרש ב-900 אלף אינו "דירה זולה".
+  v_wants_land := coalesce(p_client.property_types, '{}'::text[]) && array['מגרש', 'מגרשים'];
+  -- במלאי אין נכסים מסחריים (רק מגורים ומגרשים). לקוח/ה מסחרי/ת שאינו/ה
+  -- מחפש/ת מגרש לא נבדק/ת כאן, וזה נאמר: "אין מודעות" היה שקר.
+  if p_client.category is distinct from 'residential' and not v_wants_land then
+    return jsonb_build_object('status', 'unsupported');
   end if;
   if cardinality(coalesce(p_client.cities, '{}'::text[])) = 0 then
     return jsonb_build_object('status', 'no_city');
@@ -123,18 +132,29 @@ begin
        and i.price is not null and i.price > 0 and i.price <> 'NaN'::numeric
        and (p_client.max_price is null or i.price <= p_client.max_price * 1.10)
        and (p_client.min_price is null or i.price >= p_client.min_price * 0.85)
+       -- רק מודעה שאפשר לפתוח: בלי קישור של לוח אין מה להציג, והיא לא
+       -- נספרת ב-total ולא תופסת מקום בחמש הראשונות.
+       and i.url ~ '^https://(www\.)?(yad2|madlan)\.co\.il/'
        -- to_jsonb ולא i.is_duplicate: העמודה מגיעה עם #1330, ועד אז אינה קיימת
        and not coalesce((to_jsonb(i) ->> 'is_duplicate')::boolean, false)
+  ),
+  typed as (
+    -- סוג שאין לו סיווג (משק, בניין, חניה, מסחרי) אינו נכס מגורים ואינו מגרש:
+    -- הוא לא נכנס. ומגרש רק למי שביקש מגרש.
+    select c.* from cand c
+     where c.kind is not null
+       and (c.kind <> 'land' or v_wants_land)
+       and (c.kind = 'land' or p_client.category = 'residential')
   ),
   hoods as (
     -- שם השכונה שבמודעה -> מזהה, פעם אחת לכל שם, ורק כשהכרטיס מבקש שכונה
     select h.city, h.neighborhood, public.neighborhood_ids_for(h.city, h.neighborhood) as ids
-      from (select distinct c.city, c.neighborhood from cand c
+      from (select distinct c.city, c.neighborhood from typed c
              where p_client.neighborhood_id is not null and c.neighborhood is not null) h
   ),
   scored as (
     select c.*, m.score, m.reasons
-      from cand c
+      from typed c
       left join hoods h on h.city = c.city and h.neighborhood = c.neighborhood
       cross join lateral public.client_property_match(
         p_client,
@@ -167,7 +187,9 @@ begin
   ),
   priced as (
     select s.*,
-           case when s.size_sqm > 0 and s.kind <> 'land' then round(s.price / s.size_sqm) end as price_per_sqm,
+           -- מחיר למ"ר רק במכירה: שכירות חודשית חלקי שטח אינה מחיר למ"ר
+           case when s.size_sqm > 0 and s.kind is distinct from 'land' and s.deal_type = 'sale'
+                then round(s.price / s.size_sqm) end as price_per_sqm,
            -- המחיר שהיה בתחילת 30 הימים, רק אם הוא גבוה מהמחיר היום (ירידה נטו)
            (select h.old_price
               from public.listing_inventory_price_history h
@@ -202,6 +224,7 @@ begin
              'id', r.id,
              'source', r.source,
              'city', r.city,
+             'deal_type', r.deal_type,
              'neighborhood', r.neighborhood,
              'property_type', r.site_type,
              'rooms', r.rooms,
@@ -213,7 +236,7 @@ begin
              'reasons', to_jsonb(r.reasons),
              'first_seen_at', r.first_seen_at,
              'price_was', r.price_was,
-             'url', case when r.url ~ '^https://(www\.)?(yad2|madlan)\.co\.il/' then r.url end
+             'url', r.url
            ) order by r.rn))
     into v_out
     from ranked r

@@ -3818,7 +3818,9 @@ async function clientBoardRanked(
       if (error) console.warn("ranked board matches skipped", error.message);
       return await legacy();
     }
-    if (r.status === "no_city") return await legacy();
+    // no_city: ממשיכים לערי השוק של המשרד. unsupported: לקוח/ה מסחרי/ת, שהדירוג
+    // אינו מכסה - הסינון הקודם כן מחפש לפי סוג הנכס.
+    if (r.status === "no_city" || r.status === "unsupported") return await legacy();
     if (r.status === "skipped_feature") return boardStatusFields("skipped_feature");
     if (r.status === "none") return boardStatusFields("none");
     if (r.status !== "ok") return boardStatusFields("unavailable");

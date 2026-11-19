@@ -311,7 +311,7 @@ check("ההתאמות ללקוח/ה מדורגות במסד, עם הוויתור
   rankedFn.includes('"agent_client_board_matches_for_agent"') && rankedFn.includes("p_waive_features: waive") &&
   rankedFn.includes("p_agent_id: ctx.agent.id"));
 check("בלי עיר בכרטיס, בכשל או לפני המיגרציה חוזרים לסינון הקודם",
-  rankedFn.includes('r.status === "no_city"') && (rankedFn.match(/await legacy\(\)/g) || []).length >= 3);
+  rankedFn.includes('r.status === "no_city" || r.status === "unsupported"') && (rankedFn.match(/await legacy\(\)/g) || []).length >= 3);
 
 // שורות מדורגות: הסדר של המסד נשמר, והשדות של המודעה והציון עוברים הלאה.
 const rankedResult = {
