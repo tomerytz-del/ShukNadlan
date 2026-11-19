@@ -1,6 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
+import { applyShownStreets } from "../_shared/geocode/street-alias.ts";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
@@ -1142,7 +1143,7 @@ async function searchProperties(
 
   return {
     count: rows.length,
-    properties: rows.map(publicProperty),
+    properties: (await applyShownStreets(ctx.supabase, rows)).map(publicProperty),
     cards_sent: cards,
     cards_note: cards
       ? "הכרטיסים של ההתאמות כבר נשלחו מהחיפוש - **לא** לקרוא ל-send_property_card " +
@@ -1218,7 +1219,8 @@ async function getProperty(
   if (!data) return { found: false, note: "הנכס אינו פעיל באתר כרגע." };
 
   // deno-lint-ignore no-explicit-any
-  const p = data as any;
+  const loaded = data as any;
+  const [p] = await applyShownStreets(ctx.supabase, [loaded]);
   ctx.conv.last_property_id = p.id;
 
   // שם המשרד והסוכן/ת בשאילתות נפרדות ולא ב-embed: ‏PostgREST מחזיר PGRST201

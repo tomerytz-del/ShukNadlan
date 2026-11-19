@@ -24,6 +24,8 @@
 // ברחוב הרשמי, ולכן התרגום לבדו אינו מייצר פין.
 // ============================================================================
 
+import { aliasDisplayName, streetKey } from "./street-alias.ts";
+
 const PREFIX_WORDS = new Set(["רחוב", "רח", "שדרות", "שד", "סמטת", "סמ", "דרך"]);
 
 function normWords(s: string): string[] {
@@ -89,6 +91,7 @@ export function resolveOfficialStreet(typed: string, official: string[]): string
 // מטמון לכל isolate, כמו loadCitySource: רשימת רחובות משתנה בסנכרון לילי,
 // והסורק קורא לכאן 25 פעם בסבב.
 const cache = new Map<string, { at: number; names: string[] }>();
+const aliasCache = new Map<string, { at: number; rows: Array<{ alias: string; name: string }> }>();
 const TTL_MS = 10 * 60 * 1000;
 
 // deno-lint-ignore no-explicit-any
@@ -121,6 +124,36 @@ export async function loadOfficialStreets(supabase: SupabaseLike, city: string):
   }
 }
 
+/** כינויים של המפתח הזה בעיר. כשל או טבלה חסרה: רשימה ריקה, והשלבים הישנים רצים. */
+async function aliasesForKey(
+  supabase: SupabaseLike,
+  city: string,
+  key: string,
+): Promise<Array<{ alias: string; name: string }>> {
+  const cacheKey = `${city}|${key}`;
+  const hit = aliasCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.rows;
+  try {
+    const { data, error } = await supabase
+      .from("street_registry_aliases")
+      .select("alias, name")
+      .eq("city", city)
+      .eq("alias_key", key)
+      .limit(5);
+    if (error) return [];
+    const rows = (data || []).map((row: { alias: string; name: string }) => ({
+      alias: String(row.alias),
+      name: String(row.name),
+    }));
+    // רשימה ריקה לא נשמרת: המיגרציה יכולה להיכנס דקות אחרי הפונקציה.
+    if (rows.length) aliasCache.set(cacheKey, { at: Date.now(), rows });
+    return rows;
+  } catch (err) {
+    console.warn("aliasesForKey failed", err);
+    return [];
+  }
+}
+
 /** הנוחות לקוראים: השם הרשמי לשאילתה, או `null`. */
 export async function officialStreetFor(
   supabase: SupabaseLike | null | undefined,
@@ -128,5 +161,14 @@ export async function officialStreetFor(
   street: string,
 ): Promise<string | null> {
   if (!supabase) return null;
-  return resolveOfficialStreet(street, await loadOfficialStreets(supabase, city));
+  const names = await loadOfficialStreets(supabase, city);
+  const raw = String(street || "").trim();
+  const key = streetKey(raw);
+  // כינוי לפני השלבים, ורק אם השם הרשמי הוא רחוב gis. בלי רשימת gis
+  // (עיר אחרת) אין כאן תרגום. ‏docs/geocoding.md
+  if (raw && key && names.length) {
+    const shown = aliasDisplayName(city, raw, names, await aliasesForKey(supabase, city, key));
+    if (shown) return shown;
+  }
+  return resolveOfficialStreet(street, names);
 }
