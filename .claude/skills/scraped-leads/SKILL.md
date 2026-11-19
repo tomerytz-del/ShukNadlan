@@ -117,6 +117,14 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 לוואטסאפ או למייל. דחיות `missing_phone` ישנות נכנסו עם `push_site_only`,
 בלי דחיפה. אין חסימת סירוב לצמיתות: אחרי 30 יום מותר לקלוט שוב.
 
+שכבה רביעית היא **סימון ולא חסימה**. `board_cross_source_match` מסמנת
+`is_duplicate` כשמודעת יד2 ומודעת מדלן חולקות עיר, `deal_type`, `rooms`
+ומחיר בתוך הרצועה (2% מהמחיר הגבוה, ורצפה של 10000 במכירה או 100
+בשכירות). השורה נכנסת, תשובת ה-RPC לא משתנה, ו-`scraped_lead_notify_demand`
+עדיין נקראת. מי שמחליף את `scraped_lead_add` או את `listing_inventory_sync`
+מעתיק את הקריאה לסימון. פייסבוק ומודעה מאותו לוח לא נספרים.
+`docs/listing-inventory.md`.
+
 ## 6. תקופת ההשקה - בהגדרה, לא בקוד
 
 `pricing_config.scraped_leads_launch_until` (‏`yyyymmdd`, ‏`0` = כבוי) ו-

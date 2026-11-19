@@ -1,0 +1,40 @@
+name: אותו נכס ביד2 ובמדלן
+
+# סימון בלי חסימה: עיר, סוג עסקה, חדרים ומחיר בתוך הרצועה.
+# השורה נכנסת, תשובת ה-RPC לא משתנה, וההתראה עדיין נקראת.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+      - "scripts/board_cross_source_test.py"
+      - ".github/workflows/board_cross_source.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271120120000_board_cross_source_duplicate.sql"
+      - "scripts/board_cross_source_test.py"
+      - ".github/workflows/board_cross_source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת הסימון
+        run: python3 scripts/board_cross_source_test.py
