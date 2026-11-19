@@ -388,9 +388,25 @@ test('דוגמאות בעלי המקצוע: כל אחת מזוהה ב-PRO_INTENT
     assert.ok(p.length <= C.SHORT_MAX, p + ' ארוך מדי לנייד');
     assert.strictEqual(C.parse(p, C.defaultState(), AREAS).fields.length < 2, true, p + ' נקרא כחיפוש נכס');
   });
-  assert.deepStrictEqual(types, ['real_estate_lawyer', 'cleaning', 'mortgage_advisor']);
+  assert.deepStrictEqual(types, ['real_estate_lawyer', 'cleaning', 'mortgage_advisor', 'contractor', 'contractor']);
   // האיות הנפוץ "נקיון" (בלי יוד) מזוהה כמו הכתיב המלא
   assert.ok(proOf('חברת נקיון'), 'חברת נקיון');
+});
+
+test('שילוב דוגמאות בעלי המקצוע: פיזור שווה, בלי רצף ובלי איבוד דוגמה', () => {
+  [false, true].forEach(short => {
+    const base = C.examplePhrases(AREAS, short), pro = C.proExamplePhrases();
+    const mixed = C.mixProExamples(base, pro);
+    assert.strictEqual(mixed.length, base.length + pro.length);
+    assert.deepStrictEqual(mixed.filter(x => base.includes(x)), base, 'סדר דוגמאות הנכסים נשמר');
+    assert.deepStrictEqual(mixed.filter(x => pro.includes(x)), pro, 'סדר דוגמאות המקצוע נשמר');
+    const isPro = mixed.map(x => pro.includes(x));
+    for (let i = 1; i < isPro.length; i++) assert.ok(!(isPro[i] && isPro[i - 1]), 'שתי דוגמאות מקצועיות ברצף: ' + JSON.stringify(mixed));
+    assert.strictEqual(isPro[0], false, 'הדוגמה הראשונה צריכה להיות נכס: ' + JSON.stringify(mixed));
+    assert.ok(isPro.indexOf(true) <= 2, 'הראשונה מופיעה רק מאוחר: ' + JSON.stringify(mixed));
+  });
+  assert.deepStrictEqual(C.mixProExamples([], ['a', 'b']), ['a', 'b']);
+  assert.deepStrictEqual(C.mixProExamples(['x'], []), ['x']);
 });
 
 test('הדוגמאות המוקלדות נבנות מהשוק ולא מקובעות לעפולה', () => {

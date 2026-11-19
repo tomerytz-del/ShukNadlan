@@ -989,8 +989,18 @@
      הן אינן חיפוש נכסים, ו-PRO_INTENTS ב-home.js הוא שמזהה אותן. כל דוגמה כאן חייבת להיות מזוהה שם
      (‏scripts/sentence_search_test.cjs מריץ את שני הצדדים), אחרת גולש/ת שמקליד/ה אותה מקבל/ת חיפוש נכסים
      ריק. בלי עיר ובלי אזור: שוק אחר לא צריך שורה אחרת, ושם עיר כמו "בית שאן" מבטל זיהוי של תחום bare. */
-  var PRO_EXAMPLES = ['עורך דין מקרקעין', 'חברת ניקיון', 'יועץ משכנתאות'];
+  var PRO_EXAMPLES = ['עורך דין מקרקעין', 'חברת ניקיון', 'יועץ משכנתאות', 'קבלן שיפוצים', 'הנדימן'];
   function proExamplePhrases() { return PRO_EXAMPLES.slice(); }
+  /* משלבת את דוגמאות בעלי המקצוע בין דוגמאות הנכסים, בפיזור שווה ולא בזנב: כך הן מופיעות כבר בסבב הראשון,
+     ואין שתי דוגמאות מקצועיות ברצף כשיש מספיק דוגמאות נכסים. הראשונה תמיד נכס: זה מה שהשדה נועד לו. בלי דוגמאות נכסים (שוק ריק) - רק הן. */
+  function mixProExamples(base, pro) {
+    var l = [], bi = 0, pi = 0, total = base.length + pro.length;
+    for (var k = 0; k < total; k++) {
+      var wantPro = pi < pro.length && (bi >= base.length || pi < Math.floor((k + 1) * pro.length / total));
+      if (wantPro) l.push(pro[pi++]); else l.push(base[bi++]);
+    }
+    return l;
+  }
 
   /* ---------- הסינון המתקדם מהכתובת, לדף אחר (‏R5-5) ----------
      ‏/swipe מקבל את הכתובת של דף הבית ומחיל אותה כמו שהיא. אותם פרמטרים של
@@ -1089,7 +1099,7 @@
   }
 
   var Core = {
-    TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, proExamplePhrases: proExamplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
+    TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, proExamplePhrases: proExamplePhrases, mixProExamples: mixProExamples, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
     defaultState: defaultState, norm: norm, deriveAreas: deriveAreas, findArea: findArea,
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
@@ -2035,12 +2045,7 @@
       var i = 0, timer = 0, running = false, visible = true;
 
       function list() {
-        var base = examplePhrases(areas, mq.matches), pro = proExamplePhrases(), l = [], bi = 0, pi = 0;
-        // שתי דוגמאות נכסים ואחריהן דוגמה לבעל מקצוע, וכך הן מופיעות כבר בסבב הראשון
-        while (bi < base.length || pi < pro.length) {
-          for (var k = 0; k < 2 && bi < base.length; k++) l.push(base[bi++]);
-          if (pi < pro.length) l.push(pro[pi++]);
-        }
+        var l = mixProExamples(examplePhrases(areas, mq.matches), proExamplePhrases());
         return l.length ? l : [mq.matches ? shortPlaceholder : longPlaceholder].filter(Boolean);
       }
       function blocked() {
