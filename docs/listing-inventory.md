@@ -155,7 +155,7 @@ select public.listing_inventory_sync('yad2', 'עפולה', '[...]'::jsonb);
 
 במגירת ההתאמות של כרטיס הלקוח/ה, מתחת לנכסים של הסוכן/ת ושל המשרד, מופיע
 בלוק "מודעות מהלוחות יד 2 / מדלן" (`boardMatchesHtml` ב-`assets/crm.js`,
-`agent_client_board_matches` במסד, `20271120113000`).
+`agent_client_board_matches` במסד, `20271120130000`).
 
 **אין לו כלל התאמה משלו.** `client_board_matches` בונה לכל מודעה שורת
 `properties` בזיכרון ומעבירה אותה ב-`client_property_match`, מקור האמת של

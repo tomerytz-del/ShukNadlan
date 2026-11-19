@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPLY = ROOT / "supabase/migrations/20271120110000_cma_board_supply.sql"
-MIG = ROOT / "supabase/migrations/20271120113000_client_board_matches.sql"
+MIG = ROOT / "supabase/migrations/20271120130000_client_board_matches.sql"
 DB = os.environ.get("CLIENT_BOARD_DB", "client_board_matches_test")
 CITY = "11111111-1111-1111-1111-111111111111"
 HOOD = "22222222-2222-2222-2222-222222222222"
