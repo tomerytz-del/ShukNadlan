@@ -346,6 +346,31 @@ _QUERY_CANDIDATES = 200
 # ב-config.py כמו כל סף אחר.
 _MIN_LIFETIME_CALLS = 10
 
+# ‏הדגימה שמוצגת בממצא. קריאת RPC דרך PostgREST נראית כך:
+#   WITH pgrst_source AS (SELECT ... json_to_record(...) AS _("p_limit" integer)
+#   LIMIT $4) pgrst_body , LATERAL "public"."notification_push_claim"(...)
+# ושם הפונקציה יושב אחרי התו ה-200. חיתוך עיוור השאיר רק את העטיפה, ולכן
+# כל RPC עם `p_limit` נראתה זהה והממצא "שאילתה איטית" לא אמר איזו פונקציה
+# לבדוק (20.11.2026, notification_push_claim ב-2.5 שניות). מוציאים את השם
+# מהטקסט המלא ומקדימים אותו, והשאר נחתך כמו קודם.
+_SAMPLE_SQL = r"""(
+    case
+      when query like 'WITH pgrst_source%%'
+       and query like '%%pgrst_call%%'
+       and substring(query from '"public"\."([a-z_0-9]+)"\(') is not null
+      then 'rpc: ' || substring(query from '"public"\."([a-z_0-9]+)"\(')
+           || ' | ' || left(regexp_replace(query, '\s+', ' ', 'g'), 150)
+      else left(regexp_replace(query, '\s+', ' ', 'g'), 200)
+    end)"""
+
+
+def _rpc_name(sample: str | None) -> str | None:
+    """שם הפונקציה מדגימה שנבנתה ב-`_SAMPLE_SQL`, או None לשאילתה רגילה."""
+    if sample and sample.startswith("rpc: "):
+        return sample[5:].split(" | ", 1)[0].strip() or None
+    return None
+
+
 # פקודת cron (‏`net.http_post ... where <gate>()`) נמדדת בחיבור **קר**:
 # ‏pg_cron פותח חיבור חדש לכל הרצה, וזמן הטעינה של הקטלוג נספר לשאילתה.
 # נמדד ב-12.10.2026 על `showing_coord_ready()`: ‏11ms בקריאה הראשונה
@@ -486,8 +511,7 @@ def _slow_queries(ctx) -> Iterator[Finding]:
             select sum(calls)::bigint                          as calls,
                    sum(total_exec_time)                        as total_ms,
                    extract(epoch from (now() - min({window}))) as age_sec,
-                   min(left(regexp_replace(query, '\\s+', ' ', 'g'), 200))
-                                                               as sample,
+                   min({sample})                               as sample,
                    md5(query)                                  as fingerprint
               from extensions.pg_stat_statements
              where query not ilike '%%pg_stat_statements%%'
@@ -496,7 +520,8 @@ def _slow_queries(ctx) -> Iterator[Finding]:
             having sum(calls) >= %s
              order by sum(total_exec_time) desc
              limit {limit}
-            """.format(window=_window_start(ctx), limit=_QUERY_CANDIDATES),
+            """.format(window=_window_start(ctx), limit=_QUERY_CANDIDATES,
+                       sample=_SAMPLE_SQL),
             (_MIN_LIFETIME_CALLS,),
         )
     except Exception as err:
@@ -537,7 +562,8 @@ def _slow_queries(ctx) -> Iterator[Finding]:
                 severity="high" if m["mean_ms"] >= t.slow_query_mean_ms * 5
                          else "medium",
                 subject="query_" + m["fingerprint"],
-                title="שאילתה איטית — ממוצע %.0fms" % m["mean_ms"],
+                title="שאילתה איטית%s - ממוצע %.0fms"
+                      % (_label(m), m["mean_ms"]),
                 detail="%d קריאות ביום, ממוצע %.1fms, %.0f שניות מסד ליום. %s"
                        % (m["calls_per_day"], m["mean_ms"], m["sec_per_day"],
                           _window_text(m)),
@@ -551,7 +577,7 @@ def _slow_queries(ctx) -> Iterator[Finding]:
             yield Finding(
                 area="cost", code="heavy_query", severity="medium",
                 subject="query_" + m["fingerprint"],
-                title="שאילתה שצורכת את רוב זמן המסד",
+                title="שאילתה שצורכת את רוב זמן המסד%s" % _label(m),
                 detail="%.0f שניות מסד ליום — %d קריאות ביום, ממוצע %.1fms "
                        "בלבד. %s"
                        % (m["sec_per_day"], m["calls_per_day"], m["mean_ms"],
@@ -602,6 +628,12 @@ def _measure(row: dict, samples: dict[str, dict]) -> dict:
         "sec_per_day": (d_ms / 1_000.0) / days,
         "mean_ms": (d_ms / d_calls) if d_calls else 0.0,
     }
+
+
+def _label(m: dict) -> str:
+    """` (שם_פונקציה)` לכותרת, כדי שהכרטיס יגיד מה לבדוק."""
+    name = _rpc_name(m["sample"])
+    return " (%s)" % name if name else ""
 
 
 def _window_text(m: dict) -> str:
