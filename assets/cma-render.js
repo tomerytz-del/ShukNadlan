@@ -279,6 +279,12 @@ function cmaFeatureLabel(code, s){
    וחדרים ±0.5. **מחירים מבוקשים**, ברמת עיר, ולכן סעיף נפרד שאינו נוגע
    בממוצע. המסד משתיק מתחת לסף (`status: 'too_few'` בלי מספרים); כאן רק
    מציגים מה שהגיע. דוח ישן או דוח לפני המיגרציה מגיע בלי המפתח. */
+/* שמות הלוחות שבאמת מכסים את העיר (`boards` מהמסד), לא "יד2 ומדלן" קבוע:
+   מדלן עוד לא מסונכרן, ואסור לטעון לכיסוי שאין. */
+function cmaBoardNames(b){
+  const list = Array.isArray(b && b.boards) ? b.boards : [];
+  return [list.includes('yad2') ? 'יד2' : '', list.includes('madlan') ? 'מדלן' : ''].filter(Boolean).join(' ו') || 'הלוחות';
+}
 const CMA_BOARD_KINDS = { unit:'דירות', house:'בתים פרטיים', garden:'דירות גן', roof:'פנטהאוזים ודירות גג', land:'מגרשים' };
 function cmaBoardSupply(r){
   const b = r && r.board_supply;
@@ -294,11 +300,11 @@ function cmaBoardSupply(r){
     return `
     <section class="cma-sec">
       <h3 class="cma-h">ההיצע בלוחות</h3>
-      <div class="cma-note">ביד2 ובמדלן יש כרגע ${esc(Number(b.sample) || 0)} מודעות פעילות של ${where}. זה פחות מדי כדי להציג טווח מחירים.</div>
+      <div class="cma-note">ב${esc(cmaBoardNames(b))} יש כרגע ${esc(Number(b.sample) || 0)} מודעות פעילות של ${where}. זה פחות מדי כדי להציג טווח מחירים.</div>
     </section>`;
   }
-  const src = b.sources || {};
-  const from = [Number(src.yad2) ? 'יד2' : '', Number(src.madlan) ? 'מדלן' : ''].filter(Boolean).join(' ו');
+  const from = cmaBoardNames(b);
+  const asOf = b.as_of ? ` נכון ל-${esc(hebDate(b.as_of))}.` : '';
   const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
   const place = pct === null ? '' : `
       <div class="cma-note">המחיר המבוקש של הנכס גבוה מ-<strong>${esc(pct)}%</strong> מהמודעות האלה`
@@ -310,7 +316,7 @@ function cmaBoardSupply(r){
   return `
     <section class="cma-sec">
       <h3 class="cma-h">ההיצע בלוחות</h3>
-      <p class="cma-cap">מודעות פעילות${from ? ' ב' + from : ''}: ${where}.
+      <p class="cma-cap">מודעות פעילות ב${esc(from)}: ${where}.${asOf}
         <strong>אלה מחירים מבוקשים ולא מחירי עסקה</strong>, ולכן הם אינם נכנסים לממוצע שלמעלה.
         ההשוואה היא ברמת העיר, בלי התאמה לשכונה, לשטח או למאפיינים, ואותו נכס יכול להופיע ביותר ממודעה אחת.</p>
       <div class="cma-stats">

@@ -5332,8 +5332,10 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     board_price_drop_share_pct: hasBoard ? boardDrops.share_pct : undefined,
     board_price_drop_median_pct: hasBoard ? boardDrops.median_drop_pct : undefined,
     board_price_drop_window_days: hasBoard ? boardDrops.window_days : undefined,
+    // אילו לוחות באמת מכסים את העיר (yad2 / madlan). לא לטעון ללוח שאינו ברשימה.
+    board_sources: hasBoard || board.status === "too_few" ? board.boards : undefined,
     board_guidance: hasBoard
-      ? "מודעות פעילות ביד 2 ובמדלן באותה עיר, אותו סוג נכס ומספר חדרים דומה. " +
+      ? "מודעות פעילות בלוחות שב-board_sources בלבד, באותה עיר, אותו סוג נכס ומספר חדרים דומה. " +
         "מחירים מבוקשים ולא עסקאות, ברמת העיר בלי שכונה, שטח או מאפיינים. " +
         "לומר בנפרד מהממוצע, ולא כאומדן שווי. board_subject_percentile הוא אחוז המודעות שזולות מהנכס."
       : board.status === "too_few"
@@ -10385,7 +10387,7 @@ const SYSTEM_STATIC: string = (() => {
       "**ו-market_* הם שכבה אחרת לגמרי: נכסים שמוצעים בשוק עכשיו, כלומר מחירים " +
       "מבוקשים ולא מחירי עסקה.** הם עונים על \"מול מי אנחנו מתחרים\" ולא על \"כמה שווה\", " +
       "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו. " +
-      "**ו-board_* הם ההיצע בלוחות יד 2 ומדלן באותה עיר**: גם הם מחירים מבוקשים, ונאמרים במשפט נפרד לפי board_guidance.",
+      "**ו-board_* הם ההיצע בלוחות (יד 2, מדלן, לפי board_sources) באותה עיר**: גם הם מחירים מבוקשים, ונאמרים במשפט נפרד לפי board_guidance.",
     "- **דוח CMA לכתובת** (\"תכין דוח CMA לרוטשילד 1 בראשון\", \"כמה שווה דירת 4 חדרים בהרצל 20\"): " +
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +

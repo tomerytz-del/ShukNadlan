@@ -48,7 +48,7 @@ create table public.listing_inventory_price_history (
 create table public.properties (
   id uuid primary key default gen_random_uuid(),
   agent_id uuid, agency_id uuid, status text, city text, deal_type text,
-  property_type text, rooms numeric, price numeric
+  property_type text, rooms numeric, price numeric, price_unit text, price_total numeric
 );
 -- הקורא/ת נקבע בהגדרת סשן, כדי לבדוק את ההרשאה בלי auth.
 create function public.current_agent_id() returns uuid language sql stable as $$
@@ -115,6 +115,9 @@ def rpc_for_the_agent_only():
         ('00000000-0000-0000-0000-000000000002', '{A1}', '{OFFICE}', 'unpublished', 'עפולה', 'sale', 'דירה', 4, 1200000),
         ('00000000-0000-0000-0000-000000000003', '{A2}', '{OFFICE}', 'active',      'עפולה', 'sale', 'דירה', 4, 1300000),
         ('00000000-0000-0000-0000-000000000004', '{A1}', '{OFFICE}', 'active',      'עפולה', 'sale', 'משרדים', 4, 900000);
+      -- מחיר למ"ר בלי מחיר כולל: יש רבעונים, אין אחוזון.
+      insert into public.properties (id, agent_id, agency_id, status, city, deal_type, property_type, rooms, price, price_unit) values
+        ('00000000-0000-0000-0000-000000000005', '{A1}', '{OFFICE}', 'active', 'עפולה', 'sale', 'דירה', 4, 2500, 'sqm');
     """)
     ids = "array(select id from public.properties)"
     keys = "(select coalesce(string_agg(right(k, 1), ',' order by k), '') from jsonb_object_keys(r) k)"
@@ -122,10 +125,15 @@ def rpc_for_the_agent_only():
                     f"select {keys} || '|' || (r->'00000000-0000-0000-0000-000000000001'->>'subject_percentile') "
                     f"from (select public.properties_board_supply({ids}) as r) s")
     # הנכס שלו/ה הפעיל בלבד: לא הטיוטה, לא של הקולגה, ולא המשרד (אין לו השוואה).
-    expect(own, "1|71", "סוכן/ת רואה רק את הנכס הפעיל שלו/ה")
+    expect(own, "1,5|71", "סוכן/ת רואה רק את הנכסים הפעילים שלו/ה")
+    sqm = as_caller(A1, OFFICE, "agent",
+                    f"select (r->'00000000-0000-0000-0000-000000000005'->>'status') || '|' || "
+                    f"(r->'00000000-0000-0000-0000-000000000005'->>'subject_percentile' is null)::text "
+                    f"from (select public.properties_board_supply({ids}) as r) s")
+    expect(sqm, "ok|true", "נכס שמחירו למ״ר")
     mgr = as_caller(A2, OFFICE, "manager",
                     f"select {keys} from (select public.properties_board_supply({ids}) as r) s")
-    expect(mgr, "1,3", "מנהל/ת רואה את נכסי המשרד")
+    expect(mgr, "1,3,5", "מנהל/ת רואה את נכסי המשרד")
     other = as_caller(A2, "44444444-4444-4444-4444-444444444444", "manager",
                       f"select {keys} from (select public.properties_board_supply({ids}) as r) s")
     expect(other, "3", "מנהל/ת של משרד אחר רואה רק את שלו/ה")
@@ -158,9 +166,10 @@ def main():
         from unnest(array['דירה', 'בית פרטי/ קוטג''', 'בית פרטי/קוטג''', 'גג/ פנטהאוז',
                           'גג/פנטהאוז', 'מיני פנטהאוז', 'דירת גן', 'דו משפחתי', 'מגרשים',
                           'קוטג'' טורי', 'סטודיו/ לופט', 'יחידת דיור', 'משרדים',
-                          'משק חקלאי/ נחלה', 'בניין מגורים', '', null]) with ordinality as u(t, ord)
+                          'משק חקלאי/ נחלה', 'בניין מגורים', '', null,
+                          'מגרש לבית פרטי', 'דירת גג', 'מחסן עם גג']) with ordinality as u(t, ord)
     """)
-    expect(kinds, "unit,house,house,roof,roof,roof,garden,house,land,house,unit,unit,-,-,-,-,-",
+    expect(kinds, "unit,house,house,roof,roof,roof,garden,house,land,house,unit,unit,-,-,-,-,-,land,roof,-",
            "סיווג סוגי הנכס")
 
     leaked = psql("""
@@ -177,6 +186,17 @@ def main():
         from (select {stats('דירה', 4, 1200000)} as r) s
     """)
     expect(few, "too_few|7|false", "מתחת לסף")
+    expect(psql(f"select {stats('דירה', 4, 1200000)} -> 'boards' ->> 0"), "yad2", "הלוחות שמכסים את העיר")
+
+    # עיר שהמלאי אינו מכסה אינה "0 מודעות": אין השוואה בכלל.
+    expect(psql(f"select ({stats('דירה', 4, 1200000, city='נתניה')} is null)::text"), "true",
+           "עיר שלא נסרקת")
+    # צילום שהפסיק להגיע (5 ימים) אינו "כרגע".
+    add(9, "דירה", 3, 700000, city="בית שאן")
+    psql("update public.listing_inventory set last_seen_at = now() - interval '5 days' where city = 'בית שאן'")
+    expect(psql(f"select ({stats('דירה', 3, 700000, city='בית שאן')} is null)::text"), "true", "צילום ישן")
+    psql("update public.listing_inventory set last_seen_at = now() - interval '2 days' where city = 'בית שאן'")
+    expect(psql(f"select {stats('דירה', 3, 700000, city='בית שאן')} ->> 'status'"), "ok", "צילום מלפני יומיים")
 
     # 11 דירות 4 חדרים: 7 ב-1,000,000, ועוד 1.1 / 1.2 / 1.3 / 1.4 מיליון.
     for price in (1100000, 1200000, 1300000, 1400000):
@@ -227,8 +247,14 @@ def main():
         from (select {stats('דירה', 4, 'null')} as r) s
     """)
     expect(nopr, "1000000|true", "בלי מחיר לנכס")
+    # מחיר למ"ר (2,500) אינו מחיר כולל: רבעונים כן, אחוזון לא.
+    expect(psql(f"""
+      select (r->>'status') || '|' || (r->>'subject_percentile' is null)::text
+        from (select {stats('דירה', 4, 2500)} as r) s
+    """), "ok|true", "מחיר למ״ר בלי אחוזון")
 
-    # ירידות מחיר: שתי מודעות ירדו (5% ו-10%), אחת עלתה, אחת "ירדה" ב-90% (טעות).
+    # ירידות מחיר נטו: שתי מודעות ירדו (5% ו-10%), אחת עלתה, אחת "ירדה" ב-90%
+    # (טעות), ואחת ירדה ואז עלתה מעל המחיר שהיה בתחילת החלון.
     psql("""
       with l as (
         select id, row_number() over (order by price, id) rn
@@ -240,6 +266,16 @@ def main():
       select id, case rn when 1 then 1052632 when 2 then 1111111 when 3 then 900000 else 10000000 end,
              1000000
         from l where rn <= 4;
+      with l as (
+        select id, row_number() over (order by price, id) rn
+          from public.listing_inventory
+         where city = 'עפולה' and deal_type = 'sale' and property_type = 'דירה'
+           and rooms = 4 and removed_at is null and price = 1000000
+      )
+      insert into public.listing_inventory_price_history (listing_id, old_price, new_price, changed_at)
+      select id, 990000, 950000, now() - interval '2 days' from l where rn = 5
+      union all
+      select id, 950000, 1000000, now() - interval '1 day' from l where rn = 5;
     """)
     # ירידות מוצגות רק אחרי 7 ימי מעקב: שלושה ימים - אין, עשרה - יש.
     psql("insert into public.app_config (key, value) values "

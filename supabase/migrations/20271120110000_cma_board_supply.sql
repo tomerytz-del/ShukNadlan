@@ -37,7 +37,11 @@
 --     כתובת שלפיה אפשר לאחד. שורה ש-#1330 יסמן is_duplicate (אותו נכס בלוח
 --     השני) נספרת פעם אחת, כשהעמודה קיימת.
 --   * ירידות מחיר נספרות רק אחרי 7 ימי מעקב (ההיסטוריה התחילה ב-19.11.2026),
---     ושינוי של יותר מ-50% נחשב טעות הקלדה ולא ירידה.
+--     נטו (המחיר בתחילת החלון מול המחיר היום), וירידה של יותר מ-50% נחשבת
+--     טעות הקלדה.
+--   * עיר שהמלאי אינו מכסה, או שלא נראתה בה מודעה 4 ימים, מחזירה null ולא
+--     "0 מודעות": מה שלא נסרק אינו ריק.
+--   * מחיר נכס מחוץ לטווח הסביר (נכס שמחירו למ"ר) אינו מקבל אחוזון.
 --   * מחיר שאינו סביר נשאר מחוץ לחישוב: מכירה 100 אלף עד 50 מיליון, שכירות
 --     500 עד 50 אלף.
 --
@@ -51,12 +55,14 @@ language sql
 immutable
 set search_path = ''
 as $$
+  -- מגרש קודם: "מגרש לבית פרטי" הוא מגרש. גג רק בתחילת השם או כ"דירת גג",
+  -- כדי שמילה אחרת עם "גג" לא תהפוך לפנטהאוז.
   select case
     when t is null then null
-    when t ~ '(פנטהאוז|גג)' then 'roof'
-    when t ~ 'דירת גן' then 'garden'
-    when t ~ '(קוטג|בית פרטי|דו משפחתי|דו-משפחתי|וילה)' then 'house'
     when t ~ '^מגרש' then 'land'
+    when t ~ '(פנטהאוז|^גג|דירת גג)' then 'roof'
+    when t ~ 'דירת גן' then 'garden'
+    when t ~ '(קוטג|^בית פרטי|^דו משפחתי|^דו-משפחתי|^וילה)' then 'house'
     when t ~ '^(דירה|דופלקס|טריפלקס|יחידת דיור|סטודיו)' then 'unit'
   end
   from (select nullif(regexp_replace(btrim(coalesce(p_type, '')), '\s*/\s*', '/', 'g'), '') as t) s
@@ -65,6 +71,225 @@ comment on function public.board_listing_kind(text) is
   'סוג נכס של מודעת לוח (ושל הנכס שמשווים אליה): house / garden / roof / unit / land, או null לסוג שאין לו השוואה (מסחרי, משק, בניין). סובל את הכתיב של יד2 עם רווח אחרי הלוכסן. docs/listing-inventory.md';
 revoke all on function public.board_listing_kind(text) from public, anon, authenticated;
 grant execute on function public.board_listing_kind(text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- הבריכה: המודעות שנספרות, פעם אחת לכל (עיר, עסקה, סוג, חדרים).
+-- null = אין השוואה בכלל (קלט חסר, עיר שהמלאי אינו מכסה, או צילום ישן).
+-- אחרת: { city, deal_type, kind, rooms, boards, as_of, items: [...] }.
+-- ---------------------------------------------------------------------------
+create or replace function public._listing_supply_pool(
+  p_city  text,
+  p_deal  text,
+  p_kind  text,
+  p_rooms numeric
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_city     text := nullif(btrim(p_city), '');
+  v_city_id  uuid;
+  v_lo       numeric;
+  v_hi       numeric;
+  v_has_dup  boolean;
+  v_stale    int := 4;
+  v_boards   jsonb;
+  v_as_of    timestamptz;
+  v_items    jsonb;
+begin
+  if v_city is null or p_deal is null or p_deal not in ('sale', 'rent') or p_kind is null then
+    return null;
+  end if;
+  -- בלי חדרים אין "דומה": דירת 2 ודירת 6 אינן אותו שוק. מגרש נספר בלי חדרים.
+  if p_kind <> 'land' and (p_rooms is null or p_rooms <= 0) then
+    return null;
+  end if;
+
+  if p_deal = 'sale' then v_lo := 100000; v_hi := 50000000;
+  else v_lo := 500; v_hi := 50000; end if;
+
+  v_city_id := public.city_id_for_name(v_city);
+
+  -- האם המלאי מכסה את העיר בכלל, ומתי נראתה בה מודעה לאחרונה. עיר שאינה
+  -- נסרקת אינה "0 מודעות בלוחות", וצילום שהפסיק להגיע אינו "כרגע".
+  select coalesce(jsonb_agg(distinct i.source), '[]'::jsonb), max(i.last_seen_at)
+    into v_boards, v_as_of
+    from public.listing_inventory i
+   where i.removed_at is null
+     and i.deal_type = p_deal
+     and ((v_city_id is not null and i.city_id = v_city_id) or btrim(i.city) = v_city);
+  if v_as_of is null then
+    return null;
+  end if;
+  begin
+    v_stale := coalesce((select value::int from public.app_config
+                          where key = 'listing_supply_stale_days'), 4);
+  exception when others then
+    v_stale := 4;
+  end;
+  if v_stale < 1 then v_stale := 4; end if;
+  if v_as_of < pg_catalog.now() - make_interval(days => v_stale) then
+    return null;
+  end if;
+
+  -- is_duplicate מגיע עם #1330. כל עוד העמודה אינה קיימת - אין מה לסנן.
+  v_has_dup := exists (
+    select 1 from pg_catalog.pg_attribute a
+     where a.attrelid = 'public.listing_inventory'::regclass
+       and a.attname = 'is_duplicate' and not a.attisdropped);
+
+  execute '
+    select coalesce(jsonb_agg(jsonb_build_object(
+             ''id'', i.id, ''source'', i.source, ''price'', i.price)), ''[]''::jsonb)
+      from public.listing_inventory i
+     where i.removed_at is null
+       and i.deal_type = $1
+       and i.price between $2 and $3
+       and i.price <> ''NaN''::numeric
+       and (($4::uuid is not null and i.city_id = $4) or btrim(i.city) = $5)
+       and public.board_listing_kind(i.property_type) = $6
+       and ($6 = ''land'' or (i.rooms is not null and abs(i.rooms - $7) <= 0.5))'
+    || case when v_has_dup then ' and not coalesce(i.is_duplicate, false)' else '' end
+     into v_items
+    using p_deal, v_lo, v_hi, v_city_id, v_city, p_kind, p_rooms;
+
+  return jsonb_build_object(
+    'city', v_city, 'deal_type', p_deal, 'kind', p_kind,
+    'rooms', case when p_kind <> 'land' then p_rooms end,
+    'boards', v_boards, 'as_of', v_as_of,
+    'price_lo', v_lo, 'price_hi', v_hi,
+    'items', v_items);
+end $$;
+revoke all on function public._listing_supply_pool(text, text, text, numeric) from public, anon, authenticated;
+grant execute on function public._listing_supply_pool(text, text, text, numeric) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- מה שאינו תלוי במחיר הנכס: מדגם, רבעונים וירידות מחיר. פעם אחת לבריכה.
+-- ---------------------------------------------------------------------------
+create or replace function public._listing_supply_base(p_pool jsonb)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_min    int := 8;
+  v_n      int;
+  v_track  timestamptz := '2026-11-19 17:00:00+00';  -- תחילת רישום שינויי המחיר
+  v_days   int;
+  v_drops  jsonb := null;
+  v_head   jsonb;
+begin
+  if p_pool is null then
+    return null;
+  end if;
+  v_n := jsonb_array_length(p_pool->'items');
+  v_head := jsonb_build_object(
+    'city', p_pool->'city', 'deal_type', p_pool->'deal_type', 'kind', p_pool->'kind',
+    'boards', p_pool->'boards', 'as_of', p_pool->'as_of');
+
+  begin
+    v_min := coalesce((select value::int from public.app_config
+                        where key = 'listing_supply_min_sample'), 8);
+  exception when others then
+    v_min := 8;
+  end;
+  if v_min < 3 then v_min := 8; end if;
+
+  if v_n < v_min then
+    return v_head || jsonb_build_object('status', 'too_few', 'sample', v_n, 'min_required', v_min);
+  end if;
+
+  -- מתי התחיל רישום שינויי המחיר. ברירת המחדל היא המיזוג של 20271119140000.
+  begin
+    v_track := coalesce((select value::timestamptz from public.app_config
+                          where key = 'listing_price_history_since'), v_track);
+  exception when others then
+    null;
+  end;
+  -- ירידות מחיר: רק אחרי שבוע של מעקב. הירידה היא **נטו**: המחיר שהיה
+  -- בתחילת החלון מול המחיר של המודעה היום. מודעה שירדה ואז עלתה מעליו אינה
+  -- ירידה, וירידה נטו של יותר מ-50% נחשבת טעות הקלדה.
+  v_days := least(30, floor(extract(epoch from (pg_catalog.now() - v_track)) / 86400)::int);
+  if v_days >= 7 then
+    select jsonb_build_object(
+             'window_days', v_days,
+             'listings', count(*),
+             'share_pct', round(100.0 * count(*) / v_n),
+             'median_drop_pct', round((percentile_cont(0.5) within group (order by d.pct))::numeric, 1))
+      into v_drops
+      from (
+        select 100.0 * (f.first_old - (x->>'price')::numeric) / f.first_old as pct
+          from jsonb_array_elements(p_pool->'items') x
+          join lateral (
+            select h.old_price as first_old
+              from public.listing_inventory_price_history h
+             where h.listing_id = (x->>'id')::uuid
+               and h.changed_at >= pg_catalog.now() - make_interval(days => v_days)
+             order by h.changed_at, h.id
+             limit 1
+          ) f on true
+         where (x->>'price')::numeric < f.first_old
+           and (x->>'price')::numeric >= f.first_old * 0.5
+      ) d;
+  end if;
+
+  return (
+    select v_head || jsonb_build_object(
+             'status', 'ok',
+             'sample', v_n,
+             'min_required', v_min,
+             'rooms_from', (p_pool->>'rooms')::numeric - 0.5,
+             'rooms_to',   (p_pool->>'rooms')::numeric + 0.5,
+             'p25_price',    round((percentile_cont(0.25) within group (order by (x->>'price')::numeric))::numeric),
+             'median_price', round((percentile_cont(0.5)  within group (order by (x->>'price')::numeric))::numeric),
+             'p75_price',    round((percentile_cont(0.75) within group (order by (x->>'price')::numeric))::numeric),
+             'min_price', min((x->>'price')::numeric),
+             'max_price', max((x->>'price')::numeric),
+             'sources', jsonb_build_object(
+               'yad2',   count(*) filter (where x->>'source' = 'yad2'),
+               'madlan', count(*) filter (where x->>'source' = 'madlan')),
+             'price_drops', v_drops)
+      from jsonb_array_elements(p_pool->'items') x
+  );
+end $$;
+revoke all on function public._listing_supply_base(jsonb) from public, anon, authenticated;
+grant execute on function public._listing_supply_base(jsonb) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- מה שתלוי במחיר הנכס: כמה מהמודעות זולות ממנו (שוויון בחצי), כמו האחוזון
+-- ב-stats. מחיר מחוץ לטווח הסביר של הבריכה אינו מחיר כולל (נכס שמחירו למ"ר,
+-- price_unit = 'sqm'), ואז אין אחוזון: 2,500 שקל למ"ר אינו "זול מכל הלוחות".
+-- ---------------------------------------------------------------------------
+create or replace function public._listing_supply_place(p_pool jsonb, p_base jsonb, p_price numeric)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p_base is null then null
+    when p_base->>'status' <> 'ok'
+      or p_price is null or p_price = 'NaN'::numeric
+      or p_price < (p_pool->>'price_lo')::numeric
+      or p_price > (p_pool->>'price_hi')::numeric
+    then p_base
+    else p_base || (
+      select jsonb_build_object(
+               'subject_percentile', round(100.0 *
+                 (count(*) filter (where (x->>'price')::numeric < p_price)
+                  + 0.5 * count(*) filter (where (x->>'price')::numeric = p_price)) / count(*)),
+               'cheaper_count', count(*) filter (where (x->>'price')::numeric < p_price))
+        from jsonb_array_elements(p_pool->'items') x)
+  end
+$$;
+revoke all on function public._listing_supply_place(jsonb, jsonb, numeric) from public, anon, authenticated;
+grant execute on function public._listing_supply_place(jsonb, jsonb, numeric) to service_role;
 
 create or replace function public.listing_supply_stats(
   p_city  text,
@@ -80,134 +305,14 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_city     text := nullif(btrim(p_city), '');
-  v_city_id  uuid;
-  v_kind     text := public.board_listing_kind(p_type);
-  v_min      int := 8;
-  v_lo       numeric;
-  v_hi       numeric;
-  v_has_dup  boolean;
-  v_track    timestamptz := '2026-11-19 17:00:00+00';  -- תחילת רישום שינויי המחיר
-  v_days     int;
-  v_n        int := 0;
-  v_stats    jsonb;
-  v_drops    jsonb := null;
-  v_sql      text;
+  v_pool jsonb;
 begin
-  if v_city is null or p_deal is null or p_deal not in ('sale', 'rent') or v_kind is null then
-    return null;
-  end if;
-  -- בלי חדרים אין "דומה": דירת 2 ודירת 6 אינן אותו שוק. מגרש נספר בלי חדרים.
-  if v_kind <> 'land' and (p_rooms is null or p_rooms <= 0) then
-    return null;
-  end if;
-
-  begin
-    v_min := coalesce((select value::int from public.app_config
-                        where key = 'listing_supply_min_sample'), 8);
-  exception when others then
-    v_min := 8;
-  end;
-  if v_min < 3 then v_min := 8; end if;
-  -- מתי התחיל רישום שינויי המחיר. ברירת המחדל היא המיזוג של 20271119140000.
-  begin
-    v_track := coalesce((select value::timestamptz from public.app_config
-                          where key = 'listing_price_history_since'), v_track);
-  exception when others then
-    null;
-  end;
-
-  if p_deal = 'sale' then v_lo := 100000; v_hi := 50000000;
-  else v_lo := 500; v_hi := 50000; end if;
-
-  v_city_id := public.city_id_for_name(v_city);
-
-  -- is_duplicate מגיע עם #1330. כל עוד העמודה אינה קיימת - אין מה לסנן.
-  v_has_dup := exists (
-    select 1 from pg_catalog.pg_attribute a
-     where a.attrelid = 'public.listing_inventory'::regclass
-       and a.attname = 'is_duplicate' and not a.attisdropped);
-
-  v_sql := '
-    select i.id, i.source, i.price, i.last_seen_at
-      from public.listing_inventory i
-     where i.removed_at is null
-       and i.deal_type = $1
-       and i.price between $2 and $3
-       and i.price <> ''NaN''::numeric
-       and (($4::uuid is not null and i.city_id = $4) or btrim(i.city) = $5)
-       and public.board_listing_kind(i.property_type) = $6
-       and ($6 = ''land'' or (i.rooms is not null and abs(i.rooms - $7) <= 0.5))'
-    || case when v_has_dup then ' and not coalesce(i.is_duplicate, false)' else '' end;
-
-  -- פונקציה stable אינה יוצרת טבלה: הבריכה נאספת למערך של שורות jsonb.
-  execute 'select coalesce(jsonb_agg(jsonb_build_object(
-             ''id'', q.id, ''source'', q.source, ''price'', q.price, ''seen'', q.last_seen_at)), ''[]''::jsonb)
-             from (' || v_sql || ') q'
-     into v_stats
-    using p_deal, v_lo, v_hi, v_city_id, v_city, v_kind, p_rooms;
-
-  v_n := jsonb_array_length(v_stats);
-
-  if v_n < v_min then
-    return jsonb_build_object(
-      'status', 'too_few', 'sample', v_n, 'min_required', v_min,
-      'city', v_city, 'deal_type', p_deal, 'kind', v_kind);
-  end if;
-
-  -- ירידות מחיר: רק אחרי שבוע של מעקב, ורק ירידה של עד 50% (מעבר לזה טעות הקלדה).
-  v_days := least(30, floor(extract(epoch from (pg_catalog.now() - v_track)) / 86400)::int);
-  if v_days >= 7 then
-    select jsonb_build_object(
-             'window_days', v_days,
-             'listings', count(*),
-             'share_pct', round(100.0 * count(*) / v_n),
-             'median_drop_pct', round((percentile_cont(0.5) within group (order by d.pct))::numeric, 1))
-      into v_drops
-      from (
-        select h.listing_id,
-               100.0 * (max(h.old_price) - min(h.new_price)) / max(h.old_price) as pct
-          from public.listing_inventory_price_history h
-          join jsonb_array_elements(v_stats) x on (x->>'id')::uuid = h.listing_id
-         where h.changed_at >= pg_catalog.now() - make_interval(days => v_days)
-           and h.new_price < h.old_price
-           and h.new_price >= h.old_price * 0.5
-         group by h.listing_id
-      ) d;
-  end if;
-
-  return (
-    select jsonb_build_object(
-             'status', 'ok',
-             'sample', v_n,
-             'min_required', v_min,
-             'city', v_city,
-             'deal_type', p_deal,
-             'kind', v_kind,
-             'rooms_from', case when v_kind <> 'land' then p_rooms - 0.5 end,
-             'rooms_to',   case when v_kind <> 'land' then p_rooms + 0.5 end,
-             'p25_price',    round((percentile_cont(0.25) within group (order by (x->>'price')::numeric))::numeric),
-             'median_price', round((percentile_cont(0.5)  within group (order by (x->>'price')::numeric))::numeric),
-             'p75_price',    round((percentile_cont(0.75) within group (order by (x->>'price')::numeric))::numeric),
-             'min_price', min((x->>'price')::numeric),
-             'max_price', max((x->>'price')::numeric),
-             -- כמה מהמודעות זולות מהנכס (שוויון נספר בחצי), כמו האחוזון ב-stats
-             'subject_percentile', case when p_price is not null and p_price > 0 then round(100.0 *
-                 (count(*) filter (where (x->>'price')::numeric < p_price)
-                  + 0.5 * count(*) filter (where (x->>'price')::numeric = p_price)) / count(*)) end,
-             'cheaper_count', case when p_price is not null and p_price > 0 then
-                 count(*) filter (where (x->>'price')::numeric < p_price) end,
-             'sources', jsonb_build_object(
-               'yad2',   count(*) filter (where x->>'source' = 'yad2'),
-               'madlan', count(*) filter (where x->>'source' = 'madlan')),
-             'price_drops', v_drops,
-             'as_of', max((x->>'seen')::timestamptz))
-      from jsonb_array_elements(v_stats) x
-  );
+  v_pool := public._listing_supply_pool(p_city, p_deal, public.board_listing_kind(p_type), p_rooms);
+  return public._listing_supply_place(v_pool, public._listing_supply_base(v_pool), p_price);
 end $$;
 
 comment on function public.listing_supply_stats(text, text, text, numeric, numeric) is
-  'ההיצע בלוחות יד2/מדלן לנכס: מודעות פעילות באותה עיר, סוג עסקה, סוג נכס וחדרים ±0.5; רבעוני המחיר המבוקש, אחוזון הנכס, וירידות מחיר. מתחת לסף - status too_few בלי מספרים. מחירים מבוקשים, לא עסקאות. החישוב היחיד: כל צרכן קורא לה. docs/listing-inventory.md';
+  'ההיצע בלוחות יד2/מדלן לנכס: מודעות פעילות באותה עיר, סוג עסקה, סוג נכס וחדרים ±0.5; רבעוני המחיר המבוקש, אחוזון הנכס, וירידות מחיר נטו. null כשהמלאי אינו מכסה את העיר או שהצילום ישן; מתחת לסף - status too_few בלי מספרים. מחירים מבוקשים, לא עסקאות. החישוב היחיד: כל צרכן קורא לה או לשלבים שלה. docs/listing-inventory.md';
 revoke all on function public.listing_supply_stats(text, text, text, numeric, numeric) from public, anon, authenticated;
 grant execute on function public.listing_supply_stats(text, text, text, numeric, numeric) to service_role;
 
@@ -441,23 +546,39 @@ declare
   v_agency uuid := public.current_agency_id();
   v_mgr    boolean := coalesce(public.current_member_role() = 'manager', false);
   v_out    jsonb := '{}'::jsonb;
+  v_key    text := null;
+  v_pool   jsonb;
+  v_base   jsonb;
   v_one    jsonb;
   r        record;
 begin
   if v_agent is null or p_ids is null or coalesce(cardinality(p_ids), 0) = 0 then
     return v_out;
   end if;
+  -- ממוין לפי (עיר, עסקה, סוג, חדרים): הבריכה והרבעונים מחושבים פעם אחת
+  -- לכל צירוף, ורק האחוזון לכל נכס. 300 דירות 4 חדרים בעפולה הן מעבר אחד
+  -- על המלאי, לא 300.
   for r in
-    select p.id, p.city, p.deal_type, p.property_type, p.rooms, p.price
+    select p.id, p.city, p.deal_type, p.rooms,
+           -- נכס שמחירו למ"ר: המחיר הכולל, אם יש. אחרת אין אחוזון.
+           case when p.price_unit = 'sqm' then p.price_total else p.price end as price,
+           public.board_listing_kind(p.property_type) as kind
       from public.properties p
      where p.id = any (p_ids[1:500])
        and p.status = 'active'
        and coalesce(p.agent_id = v_agent
                     or (v_mgr and v_agency is not null and p.agency_id = v_agency), false)
+     order by p.city, p.deal_type, 6, p.rooms
   loop
     begin
-      v_one := public.listing_supply_stats(r.city, r.deal_type, r.property_type, r.rooms, r.price);
+      if v_key is distinct from concat_ws('|', r.city, r.deal_type, r.kind, r.rooms::text) then
+        v_key  := concat_ws('|', r.city, r.deal_type, r.kind, r.rooms::text);
+        v_pool := public._listing_supply_pool(r.city, r.deal_type, r.kind, r.rooms);
+        v_base := public._listing_supply_base(v_pool);
+      end if;
+      v_one := public._listing_supply_place(v_pool, v_base, r.price);
     exception when others then
+      v_key := null;
       v_one := null;
     end;
     if v_one is not null then

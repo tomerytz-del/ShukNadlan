@@ -15756,7 +15756,9 @@ let propertyBoardSupply = {};
 function boardSupplyText(b){
   if (!b || b.status !== 'ok') return '';
   const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
-  return `ביד2 ובמדלן יש כרגע ${Number(b.sample)} מודעות דומות${b.city ? ' ב' + b.city : ''}`
+  const boards = Array.isArray(b.boards) ? b.boards : [];
+  const names = [boards.includes('yad2') ? 'יד2' : '', boards.includes('madlan') ? 'מדלן' : ''].filter(Boolean).join(' ו') || 'הלוחות';
+  return `ב${names} יש כרגע ${Number(b.sample)} מודעות דומות${b.city ? ' ב' + b.city : ''}`
     + ` (${b.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}, אותו סוג נכס ומספר חדרים דומה).`
     + ` המחיר המבוקש החציוני ${shekel(b.median_price)}, וחצי מהמודעות בין ${shekel(b.p25_price)} ל-${shekel(b.p75_price)}.`
     + (pct === null ? '' : ` המחיר של הנכס גבוה מ-${pct}% מהן.`);
