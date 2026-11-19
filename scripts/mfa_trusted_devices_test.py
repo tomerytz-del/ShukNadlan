@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIG = ROOT / "supabase/migrations/20271121130000_mfa_trusted_devices.sql"
+MIG = ROOT / "supabase/migrations/20271121150000_mfa_trusted_devices.sql"
 DB = os.environ.get("MFA_DEVICES_DB", "mfa_devices_test")
 
 USER_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
