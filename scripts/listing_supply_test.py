@@ -12,6 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271120110000_cma_board_supply.sql"
+# מקור פייסבוק (#1338) נכנס למלאי אחרי הבריכה המקורית, והבריכה מוחלפת כאן.
+POOL_FIX = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
 DB = os.environ.get("LISTING_SUPPLY_DB", "listing_supply_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -159,6 +161,11 @@ def main():
     part += src[src.index("create or replace function public.properties_board_supply"):]
     for _ in range(2):  # אידמפוטנטית
         psql(part)
+    fix = POOL_FIX.read_text(encoding="utf-8")
+    start = fix.index("create or replace function public._listing_supply_pool")
+    pool_fix = fix[start:fix.index("revoke all on function public._listing_supply_pool", start)]
+    for _ in range(2):
+        psql(pool_fix)
 
     # הכתיב של יד2 (רווח אחרי הלוכסן) והכתיב של האתר מסווגים זהה.
     kinds = psql("""
@@ -295,6 +302,11 @@ def main():
     expect(drops, "2|17|7.5|10", "ירידות מחיר")
 
     rpc_for_the_agent_only()
+
+    # פוסט מפייסבוק במלאי אינו מודעת לוח: לא נספר בהיצע ולא ברשימת הלוחות.
+    add(6, "דירה", 4, 1000000, source="facebook")
+    expect(psql(f"select ({stats('דירה', 4, 1200000)} ->> 'sample') || '|' || ({stats('דירה', 4, 1200000)} -> 'boards')::text"),
+           '12|["yad2"]', "פוסט פייסבוק לא נספר בהיצע בלוחות")
 
     # מודעה שסומנה כאותו נכס בלוח השני נספרת פעם אחת, כשהעמודה קיימת (#1330).
     psql("""

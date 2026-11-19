@@ -11,6 +11,7 @@ on:
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_supply_test.py"
       - "scripts/client_board_matches_test.py"
+      - "scripts/client_demand_matches_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -22,6 +23,7 @@ on:
       - "scripts/listing_inventory_test.py"
       - "scripts/listing_supply_test.py"
       - "scripts/client_board_matches_test.py"
+      - "scripts/client_demand_matches_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -62,3 +64,6 @@ jobs:
 
       - name: בדיקת התאמות ללקוח/ה מהלוחות
         run: python3 scripts/client_board_matches_test.py
+
+      - name: בדיקת התאמות ללקוח/ה מפוסטים בפייסבוק, והלחיצה
+        run: python3 scripts/client_demand_matches_test.py
