@@ -50,7 +50,7 @@
     'html.a11y-min .a11y-hide{display:none}',
     'html.a11y-links a{text-decoration:underline !important;font-weight:700 !important}',
     'html.a11y-readable,html.a11y-readable *{font-family:Arial,Helvetica,sans-serif !important}',
-    'html.a11y-nomotion *{animation:none !important;transition:none !important;scroll-behavior:auto !important}',
+    '/* html.a11y-nomotion: מקור אחד ב-assets/design-system.css */',
     'html.a11y-contrast body{background:#000 !important;color:#fff !important}',
     'html.a11y-contrast .a11y-panel,html.a11y-contrast .sw-sheet,html.a11y-contrast .sw-li,html.a11y-contrast .sw-views,html.a11y-contrast .sw-act,',
     'html.a11y-contrast .sw-sum,html.a11y-contrast .sw-ic,html.a11y-contrast .sw-chip,html.a11y-contrast .sw-tabs{background:#000 !important;border-color:#fff !important;color:#fff !important}',
