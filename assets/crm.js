@@ -29220,7 +29220,7 @@ function closeNavLayers(){
   if (typeof closeCoachLayer === 'function') closeCoachLayer();
   // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
   // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
-  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
+  if (typeof closeLeadPrefsSheetNow === 'function') closeLeadPrefsSheetNow();
 }
 
 function setNavLayer(layer){
@@ -33644,7 +33644,8 @@ const navLayerReturn = {};
    (‏closeNavLayers, ‏:not([hidden]), נעילת הגלילה) רואה אותה סגורה; ‏is-leaving
    רק משאיר אותה מצוירת 200ms עם אנימציית היציאה (ה-CSS גובר על [hidden]).
    ‏searchSheet אינו ברשימה: הוא נפתח ב-Ctrl+K ובלי תנועה. ‏leadPrefsSheet אינו
-   ברשימה: סגירתו מחזירה את התוכן למקומו, והיציאה הייתה מראה גיליון ריק. */
+   ברשימה כי סגירתו מחזירה את הסעיפים למקומם בדף: היציאה שלו נעשית ב-
+   closeLeadPrefsSheet (assets/crm-leads.js), שדוחה את ההחזרה לסוף היציאה. */
 const NAV_LAYER_LEAVES = new Set(['createSheet', 'coachSheet']);
 
 /* פתיחה או סגירה מהמקלדת (N, Escape) בלי תנועה: פעולה שחוזרת עשרות פעמים ביום
