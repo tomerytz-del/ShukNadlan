@@ -5,6 +5,7 @@ import {
   aliasStreetLabel,
   canonicalStreet,
   equivalentStreetKeys,
+  replaceStreetInAddress,
   storedStreetMatches,
   streetCanonIndex,
   streetKey,
@@ -104,6 +105,32 @@ ok("גאוקוד: קריית ים לא מקבלת את השם של עפולה",
   aliasDisplayName("קריית ים", "קקל", ["קרן קימת"], [{ alias: "קקל", name: "קרן קימת" }]) === "קרן קימת");
 ok("גאוקוד: השם המלא עצמו אינו תרגום",
   aliasDisplayName("עפולה", OFFICIAL, gis, [{ alias: "קק״ל", name: OFFICIAL }]) === null);
+
+// הכתובת בכרטיס נשמרת לעיתים בגרשיים אחרים מעמודת הרחוב. ההחלפה לא דורשת
+// התאמה תו-תו: אותם גרשיים ש-street_name_key מוריד, וגם "רח'".
+const addressForms: Array<[string, string]> = [
+  ['קק"ל 12', OFFICIAL + " 12"],
+  ["קק״ל 12", OFFICIAL + " 12"],
+  ["קק'ל 12", OFFICIAL + " 12"],
+  ["קקל 12", OFFICIAL + " 12"],
+  ['רח\' קק"ל 12', OFFICIAL + " 12"],
+  ["רחוב קק״ל 9", OFFICIAL + " 9"],
+  ['קק"ל 12, קומה 3', OFFICIAL + " 12, קומה 3"],
+];
+for (const [address, want] of addressForms) {
+  ok(`כתובת «${address}» מוצגת בשם המלא`,
+    replaceStreetInAddress(address, "קק״ל", OFFICIAL) === want);
+}
+ok("עמודת רחוב בגרש ASCII והכתובת בגרשיים",
+  replaceStreetInAddress("קק״ל 8", 'קק"ל', OFFICIAL) === OFFICIAL + " 8");
+ok("יהוד: הכתובת מקבלת את הרחוב של יהוד",
+  replaceStreetInAddress('קק"ל 2', "קקל", "בר סימנטוב יעקב") === "בר סימנטוב יעקב 2");
+ok("קרן היסוד בכתובת לא מוחלף",
+  replaceStreetInAddress("קרן היסוד 4", "קק״ל", OFFICIAL) === "קרן היסוד 4");
+ok("מילה שמכילה את האותיות לא נתפסת",
+  replaceStreetInAddress("הקקלון 1", "קק״ל", OFFICIAL) === "הקקלון 1");
+ok("השם המלא בכתובת נשאר",
+  replaceStreetInAddress(OFFICIAL + " 35", OFFICIAL, OFFICIAL) === OFFICIAL + " 35");
 
 if (fail) {
   console.error(`\n${fail} נכשלו`);

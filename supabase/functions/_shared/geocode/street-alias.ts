@@ -313,6 +313,71 @@ export async function areaAliasIndex(
   }
 }
 
+// אותם גרשיים ש-street_name_key מוריד (העותק ב-search-core.js). בלי דגל g,
+// כדי ש-test לא יזיז lastIndex.
+const STREET_QUOTE = /['"`׳״‘’“”]/;
+const STREET_PREFIX = /^(?:רחוב|רח|שדרות|שדרת|שד)\s+/;
+
+function isHebrewLetter(ch: string | undefined): boolean {
+  return !!ch && ch >= "א" && ch <= "ת";
+}
+
+/** הטקסט בלי הגרשיים, עם המיקום המקורי של כל תו שנשאר. */
+function withoutStreetQuotes(s: string): { text: string; map: number[] } {
+  const map: number[] = [];
+  let text = "";
+  for (let i = 0; i < s.length; i++) {
+    if (STREET_QUOTE.test(s[i])) continue;
+    map.push(i);
+    text += s[i];
+  }
+  return { text, map };
+}
+
+/**
+ * מחליף את הרחוב בתוך הכתובת המוצגת גם כשהגרשיים או תחילית "רח" אינם
+ * כמו בעמודת הרחוב. "קק"ל 12" ו-"רח' קק״ל 12" הופכים ל-"קרן קיימת לישראל 12".
+ * ההשוואה היא אחרי הורדת אותם גרשיים ש-street_name_key מוריד. מילה ארוכה
+ * יותר (הקקלון) לא נתפסת, ומספר הבית נשאר.
+ */
+export function replaceStreetInAddress(address: string, street: string, shown: string): string {
+  if (!address || !street || !shown || street === shown) return address;
+
+  const bare = withoutStreetQuotes(street).text.replace(/\s+/g, " ").trim().replace(STREET_PREFIX, "");
+  if (!bare) return address;
+  const { text: hay, map } = withoutStreetQuotes(address);
+  const spans: Array<{ start: number; end: number }> = [];
+  let from = 0;
+  while (from <= hay.length - bare.length) {
+    const idx = hay.indexOf(bare, from);
+    if (idx < 0) break;
+    const after = idx + bare.length;
+    const bounded = (idx === 0 || !isHebrewLetter(hay[idx - 1]))
+      && (after === hay.length || !isHebrewLetter(hay[after]));
+    if (!bounded) {
+      from = idx + 1;
+      continue;
+    }
+    let start = idx;
+    const head = hay.slice(0, idx);
+    const pref = head.match(/(?:רחוב|רח|שדרות|שדרת|שד)\s+$/);
+    if (pref) {
+      const prefStart = idx - pref[0].length;
+      if (prefStart === 0 || !isHebrewLetter(hay[prefStart - 1])) start = prefStart;
+    }
+    spans.push({ start: map[start], end: map[after - 1] + 1 });
+    from = after;
+  }
+  if (!spans.length) return address;
+  let out = "";
+  let cursor = 0;
+  for (const span of spans) {
+    out += address.slice(cursor, span.start) + shown;
+    cursor = span.end;
+  }
+  return out + address.slice(cursor);
+}
+
 /** בכרטיס: רחוב שנשמר ככינוי מוצג בשם הרשמי של העיר שלו. כשל אינו משנה שורות. */
 export async function applyShownStreets<T extends Record<string, unknown>>(
   supabase: Sb | null | undefined,
@@ -340,7 +405,9 @@ export async function applyShownStreets<T extends Record<string, unknown>>(
       const street = clean(row.street);
       const shown = canonicalStreet(index, clean(row.city), street);
       if (!street || shown === street) return row;
-      const address = typeof row.address === "string" ? row.address.split(street).join(shown) : row.address;
+      const address = typeof row.address === "string"
+        ? replaceStreetInAddress(row.address, street, shown)
+        : row.address;
       return { ...row, street: shown, address };
     });
   } catch {
