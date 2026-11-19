@@ -14,6 +14,11 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 // תקציב. עותק זהה של assets/search-core.js (‏check_search_core.py).
 import "../_shared/search-core.js";
 import { airLivingFilterGroups } from "../_shared/air-living.ts";
+import {
+  aliasStreetLabel,
+  areaAliasIndex,
+  storedStreetMatches,
+} from "../_shared/geocode/street-alias.ts";
 
 // deno-lint-ignore no-explicit-any
 export const SearchCore = (globalThis as any).SearchCore;
@@ -538,13 +543,46 @@ export async function filterByArea<T>(
 
   const hit = SearchCore.findAreas(area, index, { partial: true }) as { targets: string[] } | null;
   let out: T[];
+  // כינוי רחוב (street_registry_aliases) אינו שכונה. "קק״ל" בעפולה הוא
+  // "קרן קיימת לישראל", וגם נכס שנשמר באחת משתי הצורות נמצא. עיר בלי
+  // הכינוי אינה משתנה. כשל בטעינה משאיר את textMatches כמו קודם.
+  const askedCity = city ? city.trim() : "";
+  const streetCities = [...new Set([
+    ...cities,
+    ...(askedCity ? [askedCity] : []),
+  ])];
+  const streetIndex = hit ? null : await areaAliasIndex(supabase, area, streetCities);
+  const streetName = streetIndex
+    ? aliasStreetLabel(streetIndex, streetCities, area, askedCity || null)
+    : null;
   if (hit) {
     out = rows.filter((p) => SearchCore.inAreas(p, hit.targets, index));
   } else {
-    out = rows.filter((p) => SearchCore.textMatches(p, area));
+    out = rows.filter((p) => {
+      if (SearchCore.textMatches(p, area)) return true;
+      const rowCity = String((p as { city?: unknown }).city || "");
+      const rowStreet = String((p as { street?: unknown }).street || "");
+      if (streetIndex && storedStreetMatches(streetIndex, rowCity, rowStreet, area)) return true;
+      // השם המלא רק על נכס בעיר שנשאלה. עיר אחרת נשארת עם המיפוי שלה.
+      const sameCity = !askedCity || rowCity.trim() === askedCity || !rowCity.trim();
+      return !!(streetName && sameCity && SearchCore.textMatches(p, streetName));
+    });
   }
 
-  if (out.length || !opts.withHint || hit) return { rows: out, hint: {} };
+  if (out.length || !opts.withHint || hit) {
+    return streetName ? { rows: out, hint: { street_name: streetName } } : { rows: out, hint: {} };
+  }
+
+  if (streetName) {
+    return {
+      rows: out,
+      hint: {
+        street_name: streetName,
+        area_note:
+          `הרחוב הוא ${streetName}. אין נכסים שתואמים. אמור/י את השם המלא, ואל תאמר/י שהשכונה לא מוכרת.`,
+      },
+    };
+  }
 
   /* שם שאינו שכונה, כינוי, רחוב או יישוב, ולא נמצא דבר - לדוח "שמות שלא
      זוהו" (‏area_name_misses). מנהל/ת מאשר/ת אותו ככינוי ב-CRM, ומאותו רגע

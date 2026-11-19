@@ -36,6 +36,12 @@ import {
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
+  aliasMatchFilters,
+  applyShownStreets,
+  resolveStreetAlias,
+  streetKey as streetAliasKey,
+} from "../_shared/geocode/street-alias.ts";
+import {
   addMonthsIso,
   documentHtml,
   insertPayload,
@@ -2560,9 +2566,16 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
     updated_at: string | null;
   }>;
 
-  const sameAddress = (p: Record<string, unknown>) =>
-    !!(street && house && normText(p.city) === city &&
-       normText(p.street) === street && sameHouseNumber(p.house_number, house));
+  const resolvedStreet = await resolveStreetAlias(
+    ctx.supabase, String(payload.city || ""), String(payload.street || ""),
+  );
+  const sameAddress = (p: Record<string, unknown>) => {
+    const stored = String(p.street || "");
+    const streetSame = normText(stored) === street
+      || (resolvedStreet.keys.length > 1 && resolvedStreet.keys.includes(streetAliasKey(stored)));
+    return !!(street && house && normText(p.city) === city &&
+      streetSame && sameHouseNumber(p.house_number, house));
+  };
   const sameTitlePrice = (p: Record<string, unknown>) =>
     !!(title && normText(p.title) === title && Number(p.price) === Number(payload.price));
   const sameUnit = (p: Record<string, unknown>) => {
@@ -2607,6 +2620,7 @@ async function activeAtStreet(
   street: unknown,
   house: unknown,
   excludeId: string | null,
+  aliasKeys: string[] = [],
 ): Promise<ListedUnit[] | null> {
   const cityKey = normText(city);
   const streetKey = normText(street);
@@ -2632,8 +2646,11 @@ async function activeAtStreet(
   return (second.data as unknown as Record<string, unknown>[])
     .filter((p) => {
       if (excludeId && String(p.id) === excludeId) return false;
+      const storedStreet = String(p.street || "");
+      const streetSame = normText(storedStreet) === streetKey
+        || (aliasKeys.length > 1 && aliasKeys.includes(streetAliasKey(storedStreet)));
       return normText(p.city) === cityKey
-        && normText(p.street) === streetKey
+        && streetSame
         && sameHouseNumber(p.house_number, house);
     })
     .map((p) => ({
@@ -2659,7 +2676,8 @@ async function addressShareStop(
   commercial: boolean,
   excludeId: string | null,
 ): Promise<ShareStop | null> {
-  const rows = await activeAtStreet(ctx, city, street, house, excludeId);
+  const resolvedStreet = await resolveStreetAlias(ctx.supabase, String(city || ""), String(street || ""));
+  const rows = await activeAtStreet(ctx, city, street, house, excludeId, resolvedStreet.keys);
   if (!rows) return null;
   return shareStop(
     {
@@ -2802,6 +2820,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
   const statedCity = String(payload.city ?? "").trim();
   payload.city = statedCity || await listingCityWhenOmitted(ctx);
+  if (payload.street) {
+    const resolved = await resolveStreetAlias(ctx.supabase, String(payload.city), String(payload.street));
+    payload.street = resolved.display;
+  }
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
   // ברירת המחדל: טיוטה. האתר, החיפוש, ה-sitemap, השיתוף והתראות ההתאמה
@@ -2850,6 +2872,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     if (duplicate) {
       const m = duplicate.match;
       ctx.conv.last_property_id = m.id;
+      const shownStreet = (await resolveStreetAlias(ctx.supabase, String(m.city || ""), String(m.street || ""))).display;
       return {
         ok: false,
         duplicate: true,
@@ -2857,7 +2880,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
         listing_number: m.listing_number,
         status: m.status,
         title: m.title,
-        address: [m.street, m.house_number, m.city].filter(Boolean).join(" "),
+        address: [shownStreet || m.street, m.house_number, m.city].filter(Boolean).join(" "),
         price: m.price,
         rooms: m.rooms,
         floor: m.floor,
@@ -3092,6 +3115,11 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   const payload = pickWritable(input);
   const airErr = applyAirLiving(payload, input);
   if (airErr) return { ok: false, error: airErr };
+  if (payload.street) {
+    const city = String(payload.city ?? existing.city ?? "");
+    const resolved = await resolveStreetAlias(ctx.supabase, city, String(payload.street));
+    payload.street = resolved.display;
+  }
   if (input.neighborhood) {
     const city = String(payload.city ?? existing.city ?? "");
     const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
@@ -3363,13 +3391,17 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
       // public.street_name_key שמחשב את העמודה (‏docs/street-registry.md).
       const key = String(SearchCore.streetNameKey(safe)).replace(/[,()*"\\]/g, "");
       orWithKey = key ? `${orPlain},street_key.eq."${key}"` : orPlain;
+      // כינוי רחוב בעיר שלו (street_registry_aliases): "קק״ל" בעפולה מוצא גם
+      // נכס ששמור כ"קרן קיימת לישראל", ולהפך. עיר אחרת נשארת עם הכינוי שלה.
+      const aliasOr = await aliasMatchFilters(ctx.supabase, safe);
+      if (aliasOr.length && orWithKey) orWithKey = `${orWithKey},${aliasOr.join(",")}`;
     }
   }
 
   const build = (or: string | null) => {
     let query = ctx.supabase
       .from("properties")
-      .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
+      .select("id, listing_number, title, address, city, street, price, rooms, deal_type, status, created_at")
       .eq("agent_id", ctx.agent.id)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -3430,11 +3462,18 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const variants = (scanRes?.data || [])
     .filter((p) => !seen.has(String(p.id)) &&
       fuzzyMatches(q, [p.title, p.street, p.house_number, p.address, p.city].filter(Boolean).join(" ")))
-    .map(({ street: _s, house_number: _h, ...p }) => ({ ...p, spelling_variant: true }));
+    .map((p) => ({ ...p, spelling_variant: true }));
 
   const exactTotal = typeof count === "number" ? count : data.length;
   const total = exactTotal + variants.length;
-  const rows = [...data, ...variants].slice(0, limit);
+  const shownRows = await applyShownStreets(
+    ctx.supabase,
+    [...data, ...variants].slice(0, limit) as Record<string, unknown>[],
+  );
+  const rows = shownRows.map((p) => {
+    const { street: _street, house_number: _house, ...rest } = p;
+    return rest;
+  });
   // סטטוס שה-CRM מסנן (propStatusFilter). חיפוש חופשי בעברית אינו נתיב,
   // ולכן "הכול" אינו מתיימר להיות תוצאת החיפוש.
   const propertiesCategory = status && (STATUSES as readonly string[]).includes(status)
@@ -3626,7 +3665,10 @@ async function agentPropertySearch(
   const bySource: Record<string, number> = {};
   for (const t of tagged) bySource[t.source] = (bySource[t.source] || 0) + 1;
 
-  const results = tagged.slice(0, limit).map(({ p, source }) => {
+  const page = tagged.slice(0, limit);
+  const shownPage = await applyShownStreets(ctx.supabase, page.map((t) => t.p));
+  const results = page.map(({ source }, i) => {
+    const p = shownPage[i];
     const member = one(p.agency_members);
     const hood = neighborhoodPublicName(one(p.neighborhoods)) || p.sales_area || null;
     // מספר בית - רק במה שהמשרד מחזיק או שותף איתו. נכס של משרד אחר שלא שיתף
@@ -4502,7 +4544,8 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const neighborhood = neighborhoodPublicName(
     hoodRow && typeof hoodRow === "object" ? hoodRow as { name?: string | null; is_planned?: boolean | null } : null,
   ) || String(p.sales_area || "");
-  const address = [p.street, neighborhood].filter(Boolean).join(", ");
+  const shownStreet = (await resolveStreetAlias(ctx.supabase, String(p.city || ""), String(p.street || ""))).display;
+  const address = [shownStreet || p.street, neighborhood].filter(Boolean).join(", ");
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
@@ -4678,9 +4721,12 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
  * להדפסה נשאר בדשבורד.
  */
 async function toolBuildingDeveloperLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const city = String(input.city || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const { data, error } = await ctx.supabase.rpc("building_developer_lookup", {
-    p_city: String(input.city || "").trim(),
-    p_street: String(input.street || "").trim(),
+    p_city: city,
+    p_street: street,
     p_house_number: String(input.house_number || "").trim(),
   });
   if (error) {
@@ -4799,7 +4845,8 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   // השם ברישום ולא הכינוי (ראו toolMarketDealsLookup): "תל אביב" לבדה לא
   // מצאה מיקום ולא עסקאות, כי המאגר כותב "תל אביב - יפו".
   const city = await canonicalCityName(ctx.supabase, String(input.city || "").trim()) || "";
-  const street = String(input.street || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
   const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -5070,6 +5117,13 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
       : undefined;
   };
 
+  // ההיצע בלוחות (יד2 / מדלן), מ-listing_supply_stats דרך cma_report_finish.
+  // מחירים מבוקשים ברמת העיר. המסד משתיק מתחת לסף: status 'too_few' מגיע
+  // בלי מספרים, ולכן כאן רק מעבירים מה שהגיע.
+  const board = (report.board_supply || {}) as Record<string, unknown>;
+  const hasBoard = board.status === "ok";
+  const boardDrops = (hasBoard && board.price_drops ? board.price_drops : {}) as Record<string, unknown>;
+
   // שכבת השכונה: עסקאות רשמיות **בלי פין** באותה שכונה כמו הנכס
   // (20270114091000). חציון משלה, נפרד מממוצע הרדיוס, ומושתק מתחת לסף
   // בדיוק כמוהו - `neighborhood_stats` חוזר null במדגם קטן.
@@ -5269,6 +5323,24 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     market_feature_matched: coverage.market_feature_matched,
     market_band_reason: coverage.market_band_reason,
     market_guidance: MARKET_GUIDANCE[String(coverage.market_band_reason)] || undefined,
+    // ---- ההיצע בלוחות. מודעות ציבוריות ביד2/מדלן, מחירים מבוקשים, ברמת עיר ----
+    board_listings_count: hasBoard || board.status === "too_few" ? board.sample : undefined,
+    board_median_asking_price: hasBoard ? board.median_price : undefined,
+    board_p25_asking_price: hasBoard ? board.p25_price : undefined,
+    board_p75_asking_price: hasBoard ? board.p75_price : undefined,
+    board_subject_percentile: hasBoard ? board.subject_percentile : undefined,
+    board_price_drop_share_pct: hasBoard ? boardDrops.share_pct : undefined,
+    board_price_drop_median_pct: hasBoard ? boardDrops.median_drop_pct : undefined,
+    board_price_drop_window_days: hasBoard ? boardDrops.window_days : undefined,
+    // אילו לוחות באמת מכסים את העיר (yad2 / madlan). לא לטעון ללוח שאינו ברשימה.
+    board_sources: hasBoard || board.status === "too_few" ? board.boards : undefined,
+    board_guidance: hasBoard
+      ? "מודעות פעילות בלוחות שב-board_sources בלבד, באותה עיר, אותו סוג נכס ומספר חדרים דומה. " +
+        "מחירים מבוקשים ולא עסקאות, ברמת העיר בלי שכונה, שטח או מאפיינים. " +
+        "לומר בנפרד מהממוצע, ולא כאומדן שווי. board_subject_percentile הוא אחוז המודעות שזולות מהנכס."
+      : board.status === "too_few"
+        ? "בלוחות יש מעט מדי מודעות דומות, ואין טווח מחירים. לא לנחש אותו."
+        : undefined,
     rooms_band: hasStats ? coverage.rooms_band : undefined,
     rooms_band_reason: hasStats ? coverage.rooms_band_reason : undefined,
     // ‏'rooms' לנכס מגורים, 'floor' לנכס מסחרי - ואז rooms_band_reason הוא floor_*
@@ -5391,7 +5463,8 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   // הרישום - ו-property_text_key אינה מכווצת יו"ד כפולה, כלומר העסקאות
   // שרשומות בכתיב של רשות המיסים היו נעלמות.
   const city = String(input.city || "עפולה").trim();
-  const street = String(input.street || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const houseNumber = String(input.house_number || "").trim();
   const neighborhood = String(input.neighborhood || "").trim();
 
@@ -5576,9 +5649,10 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.last_property_id = propertyId;
 
   if (property.street && property.house_number && property.city) {
+    const street = (await resolveStreetAlias(ctx.supabase, property.city, property.street)).display || property.street;
     return await planningButton(
-      ctx, { city: property.city, street: property.street, house_number: String(property.house_number) },
-      `${property.street} ${property.house_number}, ${property.city}`);
+      ctx, { city: property.city, street, house_number: String(property.house_number) },
+      `${street} ${property.house_number}, ${property.city}`);
   }
   // נכס בלי כתובת מלאה: הגוש והחלקה שהסוכן/ת הזין/ה בטופס
   const { data: pi } = await ctx.supabase.from("property_planning_info")
@@ -5606,7 +5680,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const clean = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
   const gush = digits(input.gush);
   const helka = digits(input.helka);
-  const street = clean(input.street);
+  let street = clean(input.street);
   const houseNumber = clean(input.house_number);
   const byParcel = Boolean(gush && helka);
 
@@ -5623,6 +5697,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   // השם ברישום: GovMap רושם "תל אביב -יפו", והאימות בדף הבדיקה משווה את
   // היישוב שחזר למה שנשלח. "תל אביב" לבדה אינה שווה לו.
   const city = (await canonicalCityName(ctx.supabase, clean(input.city))) || await listingCityWhenOmitted(ctx);
+  // clean הופך גרש ASCII לרווח ("קק"ל" → "קק ל") לפני התרגום. הכינוי
+  // נפתר מהטקסט המקורי, והשם הרשמי כבר בלי גרשיים.
+  if (!byParcel && street) street = clean((await resolveStreetAlias(ctx.supabase, city, String(input.street ?? ""))).display);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -10309,7 +10386,8 @@ const SYSTEM_STATIC: string = (() => {
       "דירות 3 חדרים עם דירות 5 ונשמע כמו ממצא. " +
       "**ו-market_* הם שכבה אחרת לגמרי: נכסים שמוצעים בשוק עכשיו, כלומר מחירים " +
       "מבוקשים ולא מחירי עסקה.** הם עונים על \"מול מי אנחנו מתחרים\" ולא על \"כמה שווה\", " +
-      "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו.",
+      "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו. " +
+      "**ו-board_* הם ההיצע בלוחות (יד 2, מדלן, לפי board_sources) באותה עיר**: גם הם מחירים מבוקשים, ונאמרים במשפט נפרד לפי board_guidance.",
     "- **דוח CMA לכתובת** (\"תכין דוח CMA לרוטשילד 1 בראשון\", \"כמה שווה דירת 4 חדרים בהרצל 20\"): " +
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +

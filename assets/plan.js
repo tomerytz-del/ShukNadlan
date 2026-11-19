@@ -57,11 +57,35 @@
 
   /* הסיכום כאן מגיע או מהדפדפן (‏addressRecord) או מהשרת (‏result של קישור
      שכבר נענה) - ובשני המקרים כל ערך עובר esc, וקישור יוצא רק למבא"ת. */
-  function render(link, s){
+  /* "לא נמצא" הוא שלושה מצבים שונים (‏addressRecordWhy ב-govmap.js), ולכל אחד
+     נוסח משלו: עד 18.11.2026 כולם אמרו "GovMap לא מצא את הכתובת", גם כשהכתובת
+     נמצאה והנקודה שלה נפלה בין שתי חלקות. סיבה לא מוכרת (קישור ישן) - הנוסח הכללי. */
+  const HAS_PARCEL = 'אם הגוש והחלקה ידועים, שלח/י אותם לגבריאלה בוואטסאפ והיא תבדוק לפיהם.';
+  function notFoundText(link, reason){
+    const byAddress = !!(link.street && link.house_number);
+    if (reason === 'ambiguous_parcel' && byAddress) {
+      return 'הכתובת נמצאה ב-GovMap, אבל הנקודה שלה יושבת בין שתי חלקות ולכן לא ניחשנו לאיזו מהן היא שייכת. ' + HAS_PARCEL;
+    }
+    if (reason === 'no_parcel_at_point' || reason === 'ambiguous_parcel') {
+      return byAddress
+        ? 'הכתובת נמצאה ב-GovMap, אבל בנקודה שלה אין חלקה רשומה (למשל כתובת על דרך או בשטח שאינו מוסדר). ' + HAS_PARCEL
+        : 'החלקה נמצאה בחיפוש של GovMap, אבל שכבת החלקות לא החזירה אותה בנקודה שלה. אם הכתובת ידועה, שלח/י אותה לגבריאלה בוואטסאפ והיא תבדוק לפיה.';
+    }
+    if (reason === 'no_parcel') {
+      return 'GovMap לא מצא גוש וחלקה כאלה. כדאי לבדוק את המספרים ולשלוח אותם שוב לגבריאלה בוואטסאפ.';
+    }
+    // קישור של גוש/חלקה שנענה לפני שהסיבה נשמרה: לא יודעים איזה שלב נפל, ולא טוענים
+    if (!byAddress) {
+      return 'GovMap לא החזיר מידע על הגוש והחלקה האלה. כדאי לבדוק את המספרים, או לבקש מגבריאלה קישור חדש.';
+    }
+    // 'no_address', וגם קישור של כתובת שנענה לפני שהסיבה נשמרה
+    return 'GovMap לא מצא את הכתובת בשכבת הכתובות. ' + HAS_PARCEL;
+  }
+
+  function render(link, s, reason){
     if (!s) {
       app.innerHTML = '<div class="card"><h1>' + esc(label(link)) + '</h1>' +
-        '<p class="sub">GovMap לא מצא את הכתובת בשכבת הכתובות. אם הגוש והחלקה ידועים, ' +
-        'שלח/י אותם לגבריאלה בוואטסאפ והיא תבדוק לפיהם.</p></div>';
+        '<p class="sub">' + esc(notFoundText(link, reason)) + '</p></div>';
       return;
     }
     shareState = { link, s, text: shareText(link, s) };
@@ -83,7 +107,7 @@
       '<div class="plan"><div class="plan-num">' + esc(n) + '</div><div class="plan-meta">תוכנית מפורטת</div></div>').join('');
     app.innerHTML =
       '<div class="card"><h1>' + esc(label(link)) + '</h1>' +
-      (s.pin_source === 'parcel' ? '<p class="sub">הכתובת אינה בשכבת הכתובות - המידע לפי הגוש והחלקה.</p>' : '') +
+      (s.pin_source === 'parcel' && link.street && link.house_number ? '<p class="sub">הכתובת אינה בשכבת הכתובות - המידע לפי הגוש והחלקה.</p>' : '') +
       '<div class="facts">' + facts.map(f => '<div class="fact"><b>' + esc(f[0]) + '</b><span>' + esc(f[1]) + '</span></div>').join('') +
       '<div class="fact wide"><b>' + esc(s.designation || 'לא נמצא בשכבות') + '</b><span>ייעוד קרקע</span></div></div>' +
       ((s.plans || []).some(p => p.notice)
@@ -212,22 +236,34 @@
       }
       return;
     }
-    if (link.done) { render(link, link.result || null); return; }
+    if (link.done) {
+      // "לא נמצא" נשמר בקישור עם הסיבה (‏planning-link), כדי שפתיחה חוזרת תגיד אותו דבר
+      const saved = link.result || null;
+      if (saved && saved.not_found) render(link, null, saved.reason);
+      else render(link, saved);
+      return;
+    }
     app.querySelector('p').textContent = 'בודקת את ' + label(link) + ' ב-GovMap…';
 
-    let record;
+    let record, reason = null;
     try {
       await ready;
-      record = await GovmapLookup.addressRecord(link);
+      // עותק ישן של govmap.js במטמון עדיין בלי addressRecordWhy
+      if (GovmapLookup.addressRecordWhy) {
+        const out = await GovmapLookup.addressRecordWhy(link);
+        record = out.record; reason = out.reason;
+      } else {
+        record = await GovmapLookup.addressRecord(link);
+      }
     } catch(err) {
       console.warn('GovMap:', err);
       showError('GovMap לא ענה', 'שכבות המיפוי לא ענו כרגע. נסה/י שוב בעוד רגע.', true);
       return;
     }
     const s = summarize(record);
-    render(link, s);
+    render(link, s, reason);
     try {
-      const res = await call('complete', { record });
+      const res = await call('complete', { record, reason });
       // סוג הבעלות בטאבו מגיע מהשרת (‏land_ownership_of) - הדף מוצג מחדש איתו
       if (s && res.ownership) { s.ownership = res.ownership; render(link, s); }
     } catch(err) {

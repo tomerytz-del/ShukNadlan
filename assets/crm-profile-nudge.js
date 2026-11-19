@@ -402,7 +402,7 @@
       var el = nodes[i];
       if (el.closest && el.closest('#profileNudge')) continue;
       if (el.closest && el.closest('[hidden]')) continue;
-      if (el.hidden) continue;
+      if (el.hidden || el.style.display === 'none') continue; // יציאה מונפשת: computed display נשאר flex רגע אחרי הסגירה
       var cs = root.getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       if (!el.getClientRects().length) continue;
