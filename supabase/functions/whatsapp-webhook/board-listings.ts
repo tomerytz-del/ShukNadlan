@@ -14,6 +14,13 @@ export const BOARD_CAP = 5;
 /** הכותרת לסוכן/ת. לא מערבים את השורות עם הנכסים שלו/ה. */
 export const BOARD_HEADING = "מודעות מהלוחות יד 2 / מדלן";
 
+/**
+ * הכותרת של פוסטים בפייסבוק (ביקוש פתוח) שמתאימים ללקוח/ה. מקור נפרד מהלוחות:
+ * הלחיצה על שורה כזו מסמנת "אני פונה" (demand-matches.ts). הכותרת היא גם מה
+ * שמוציא את ההודעה, כמו BOARD_HEADING.
+ */
+export const DEMAND_HEADING = "פוסטים בפייסבוק";
+
 /** נאמר רק כשהחיפוש בלוחות רץ והעיר כן במלאי, ואין התאמה. */
 export const BOARD_NONE_LINE = "בלוחות יד 2 ומדלן אין כרגע מודעות מתאימות.";
 
@@ -387,6 +394,7 @@ export function replyPresentsBoard(reply: string, lines: readonly string[]): boo
   if (!text) return false;
   if (text.includes(foldText("אין מודעות מהלוחות"))) return false;
   if (text.includes(foldText(BOARD_HEADING)) || text.includes(foldText("מודעות מהלוחות"))) return true;
+  if (text.includes(foldText(DEMAND_HEADING))) return true;
   for (const line of lines) {
     const folded = foldText(line);
     if (folded && text.includes(folded)) return true;
@@ -510,6 +518,30 @@ function rowTitle(row: BoardListingRow, label: string): string {
   const rooms = finite(row.rooms);
   const title = rooms !== null && rooms > 0 ? `${label} - ${roomsLabel(rooms)}` : label;
   return clipChars(title, 24);
+}
+
+/**
+ * שורות רשימה למודעות לוח, באותו מבנה של boardInteractiveMessage. לשימוש
+ * הרשימה המשולבת (demand-matches.ts): מודעה בלי כתובת לוח תקינה אינה שורה.
+ */
+export function boardListRows(
+  rows: readonly BoardListingRow[],
+): { id: string; title: string; description?: string }[] {
+  const out: { id: string; title: string; description?: string }[] = [];
+  for (const row of rows) {
+    const line = boardLine(row);
+    const url = safeListingUrl(row.url);
+    const label = boardButtonLabel(row.source);
+    const id = url ? boardRowId(url) : null;
+    if (!line || !url || !label || !id) continue;
+    const description = clipChars(line, 72);
+    out.push({
+      id,
+      title: rowTitle(row, sourceLabel(row.source) || label),
+      ...(description ? { description } : {}),
+    });
+  }
+  return out;
 }
 
 /**
