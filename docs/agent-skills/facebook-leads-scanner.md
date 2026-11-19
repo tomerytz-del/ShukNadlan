@@ -1,6 +1,6 @@
 # הוראות לסוכן הסורק - לידים מקבוצות פייסבוק ומרקטפלייס
 
-עודכן: 25.10.2026. המקור המלא: `docs/scraped-leads.md`. כשמשהו כאן משתנה,
+עודכן: 19.11.2026. המקור המלא: `docs/scraped-leads.md`. כשמשהו כאן משתנה,
 מעדכנים את הקובץ הזה באותו PR.
 
 ## מה השתנה עכשיו (תקופת השקה עד 25.1.2027)
@@ -31,7 +31,8 @@ select public.scraped_lead_add('{
   "deal_type": "rent", "property_type": "דירה",
   "rooms": 4, "budget": 5500, "move_in": "מיידי",
   "summary": "זוג עם שני כלבים, טווח ארוך",
-  "consent_requested": true
+  "consent_requested": true,
+  "size_sqm": 90, "floor": 2
 }'::jsonb);
 
 select public.scraped_lead_set_consent('<id>', 'requested');  -- שלחת בקשת הסכמה
@@ -42,7 +43,8 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה (נ
 select public.scraped_lead_enrich('<id>', '{
   "summary": "...", "budget": 1245000, "rooms": 4, "move_in": "...",
   "property_type": "דירה", "deal_type": "sale",
-  "source_detail": "השם האמיתי של הקבוצה", "neighborhood": "גבעת המורה"
+  "source_detail": "השם האמיתי של הקבוצה", "neighborhood": "גבעת המורה",
+  "size_sqm": 90, "floor": 2
 }'::jsonb);
 ```
 
@@ -62,6 +64,30 @@ select public.scraped_lead_enrich('<id>', '{
 | `deal_type` | `sale` או `rent` בלבד |
 | `city` | שם עיר כפי שהוא במערכת. תשובה עם `city_known: false` - **לא לשלוח שוב** (שליחה חוזרת נחסמת כ-`duplicate:'post'` והשורה נשארת בלי עיר). להעביר את השם לסוכן בדיקת הקוד/לתומר כדי שיתווסף כינוי |
 | `no_broker` | לא חובה. אפשר לשלוח `true` כשברור מהפוסט שלא רוצים מתווכים; המסד מזהה "ללא תיווך" גם לבד, בטקסט ובשם הקבוצה |
+| `size_sqm` | לא חובה. שטח במ"ר, רק אם הוא כתוב בפוסט. מתחת ל-5 או מעל 100,000 נזרק |
+| `floor` | לא חובה. מספר שלם. קומת קרקע היא `0`, מרתף שלילי. בלי "מתוך" |
+| `price` | לבעלים בלבד, רק אם אין `budget`. אותו מספר: המחיר המבוקש |
+| `neighborhood` | שם שכונה בלבד, עד 60 תווים. לא רחוב, לא מספר בית, לא טלפון. "הרצל 12" ו"רחוב הנשיא" נזרקים ולא נשמרים |
+| `property_details` | אם זה JSON (`{"neighborhood","rooms","budget","size_sqm","floor","deal_type","property_type"}`), שדה עליון חסר מושלם ממנו. טקסט חופשי, כולל כתובת, לא נכנס למלאי |
+
+## בעלים נכנסים למלאי, בלי קריאה שנייה
+
+אותה קריאה ל-`scraped_lead_add` עם `lead_type = owner_inbound` ו-`source = facebook_group` כותבת גם שורה ב-`listing_inventory` עם `source = facebook`. אין RPC נוסף ואין POST ל-`listing-inventory-intake`.
+
+- `external_ref` במלאי הוא `group_id:post_id` כשבקישור יש מזהה קבוצה ומזהה פוסט של 5 ספרות לפחות (`groups/555/posts/123456789012345` הופך ל-`555:123456789012345`). אחרת נשמר המזהה הקנוני של הפוסט.
+- `url` הוא הקישור ששלחת. במלאי אין טלפון, אין שם ואין רחוב.
+- שליחה חוזרת של אותו פוסט מחזירה `duplicate: post`, מרעננת את `last_seen_at` ואת המחיר אם השתנה, ולא פותחת ליד שני ולא התראה שנייה.
+- פוסט פייסבוק אינו צילום של עיר. אסור לשלוח אותו ל-`listing_inventory_sync`. צילום יד2 או מדלן לא מוחק שורות פייסבוק.
+- מחיקת הפוסט (סירוב, או 30 יום) מוחקת גם את שורת המלאי.
+- שורות שכבר היו במסד לפני המיגרציה מולאו בשקט, בלי לידים ובלי התראות. אין מה לשלוח עליהן שוב.
+
+## מחפשים מותאמים למלאי הקיים
+
+`seeker_inbound` נשאר ב-`scraped_leads` ולא נכתב למלאי. העיר, סוג העסקה, החדרים, התקציב והשכונה (מהשדה או מ-JSON ב-`property_details`) מותאמים לנכסים פעילים ב-`properties` ולמודעות חיות ב-`listing_inventory` (כל המקורות, `removed_at` ריק). שכונה שונה פוסלת מודעה רק כששני הצדדים ציינו שכונה. שדה חסר לא פוסל.
+
+ההתאמה מוצגת לסוכנים בעיר באותה התראת ביקוש פתוח, בשורה "יש התאמה במלאי הפעיל. בלי לפנות לבעלים.", רק כש-`scraped_lead_matching_enabled` הוא 1. הדגל הזה כבר דלוק בפרודקשן. אין פניה אוטומטית לפונה.
+
+מחפש/ת שכתב/ה "ללא תיווך" נקלט/ת למסלול ההסכמה ולא נספר/ת כהתאמה ולא מוצג/ת כביקוש פתוח.
 
 ## "ללא תיווך"
 
@@ -74,8 +100,9 @@ select public.scraped_lead_enrich('<id>', '{
 
 - `{success, id, status, city_known, no_broker, open_demand}`. ‏`no_broker` הוא
   `post`, `group` או `null`. ‏`open_demand: true` - הפוסט מוצג עכשיו לסוכנים.
-- `{duplicate: 'post' | 'declined' | 'phone' | 'lead'}` - לא לשלוח שוב ולא לבקש
-  הסכמה שוב.
+- `{duplicate: 'post' | 'declined' | 'phone' | 'lead'}` - לא לבקש הסכמה שוב.
+  `post` על בעלים מרענן את שורת המלאי (מחיר, שטח, קומה, שכונה) בלי ליד שני.
+  `declined`, `phone` ו-`lead` לא שולחים שוב.
 - `{error}`: `invalid_lead_type`, `invalid_source`, `missing_post_url`,
   `missing_city`, `missing_phone` (פייסבוק בלבד; יד2 ומדלן רשאים בלי טלפון), `missing_posted_at`, `post_too_old`,
   `invalid_deal_type`.

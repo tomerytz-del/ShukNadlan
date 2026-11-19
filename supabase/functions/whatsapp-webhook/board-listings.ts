@@ -63,7 +63,7 @@ export type BoardOp =
   | { op: "is"; column: "removed_at"; value: null }
   | { op: "eq"; column: string; value: string }
   | { op: "gte" | "lte"; column: string; value: number }
-  | { op: "in"; column: "city_id" | "city"; value: string[] }
+  | { op: "in"; column: "city_id" | "city" | "source"; value: string[] }
   | { op: "or"; value: string }
   | { op: "order"; column: "last_seen_at"; ascending: false }
   | { op: "limit"; value: number };
@@ -89,7 +89,7 @@ export type BoardPresentation = {
   message: BoardInteractive | null;
   lines: string[];
   /** המודעות שנכנסו להודעה, באותו סדר. בלי כתובת. */
-  logged: { id: string; source: "yad2" | "madlan" }[];
+  logged: { id: string; source: "yad2" | "madlan" | "facebook" }[];
   note: string;
   heading: string;
   total: number;
@@ -101,7 +101,7 @@ export type BoardPresentationLog = {
   agent_id: string;
   tool: "search_properties" | "client_matches";
   listing_ids: string[];
-  sources: ("yad2" | "madlan")[];
+  sources: ("yad2" | "madlan" | "facebook")[];
 };
 
 function finite(value: unknown): number | null {
@@ -190,13 +190,27 @@ export function boardCriteria(input: {
   };
 }
 
-/** סדר הפעולות על listing_inventory. בלי טווח גיאוגרפי - null, בלי שאילתה. */
-export function boardQueryOps(criteria: BoardCriteria | null): BoardOp[] | null {
+/** כמה פוסטים מפייסבוק מצטרפים אחרי חמש המודעות מיד2 וממדלן. */
+export const BOARD_FACEBOOK_CAP = 2;
+
+const BOARD_SOURCES = ["yad2", "madlan", "facebook"] as const;
+
+/**
+ * סדר הפעולות על listing_inventory. בלי טווח גיאוגרפי - null, בלי שאילתה.
+ * ברירת המחדל היא יד2 ומדלן, כדי שפוסט פייסבוק טרי לא יתפוס את חמשת המקומות.
+ */
+export function boardQueryOps(
+  criteria: BoardCriteria | null,
+  sources: readonly string[] = ["yad2", "madlan"],
+): BoardOp[] | null {
   if (!criteria) return null;
+  const sourceList = sources.filter((s) => (BOARD_SOURCES as readonly string[]).includes(s));
+  if (!sourceList.length) return null;
   const ops: BoardOp[] = [{ op: "is", column: "removed_at", value: null }];
   if (criteria.cityIds.length) ops.push({ op: "in", column: "city_id", value: criteria.cityIds });
   else if (criteria.cityNames.length) ops.push({ op: "in", column: "city", value: criteria.cityNames });
   else return null;
+  ops.push({ op: "in", column: "source", value: sourceList });
   if (criteria.dealType) ops.push({ op: "eq", column: "deal_type", value: criteria.dealType });
   if (criteria.minRooms !== null) ops.push({ op: "gte", column: "rooms", value: criteria.minRooms });
   if (criteria.maxRooms !== null) ops.push({ op: "lte", column: "rooms", value: criteria.maxRooms });
@@ -211,23 +225,26 @@ export function boardQueryOps(criteria: BoardCriteria | null): BoardOp[] | null 
   return ops;
 }
 
-export function sourceLabel(source: unknown): "יד2" | "מדלן" | null {
+export function sourceLabel(source: unknown): "יד2" | "מדלן" | "פייסבוק" | null {
   if (source === "yad2") return "יד2";
   if (source === "madlan") return "מדלן";
+  if (source === "facebook") return "פייסבוק";
   return null;
 }
 
 export function boardButtonLabel(source: unknown): string | null {
   if (source === "yad2") return "פתיחה ביד2";
   if (source === "madlan") return "פתיחה במדלן";
+  if (source === "facebook") return "לפוסט";
   return null;
 }
 
-function boardHost(url: string): "yad2" | "madlan" | null {
+function boardHost(url: string): "yad2" | "madlan" | "facebook" | null {
   try {
     const host = new URL(url).hostname.toLowerCase();
     if (host === "yad2.co.il" || host.endsWith(".yad2.co.il")) return "yad2";
     if (host === "madlan.co.il" || host.endsWith(".madlan.co.il")) return "madlan";
+    if (host === "facebook.com" || host.endsWith(".facebook.com")) return "facebook";
   } catch {
     return null;
   }
@@ -242,7 +259,7 @@ export function boardRowId(url: string): string | null {
   return id.length <= BOARD_ROW_ID_MAX ? id : null;
 }
 
-/** הכתובת מלחיצה על שורת הרשימה. רק יד2 ומדלן. */
+/** הכתובת מלחיצה על שורת הרשימה. רק יד2, מדלן או פוסט פייסבוק. */
 export function boardUrlFromRowId(id: string): string | null {
   if (!id.startsWith(BOARD_ROW_PREFIX)) return null;
   const url = safeListingUrl(id.slice(BOARD_ROW_PREFIX.length));
@@ -371,10 +388,12 @@ export function boardPresentationLog(input: {
   const agentId = listingUuid(input.agentId);
   if (!tool || !agentId) return null;
   const listingIds: string[] = [];
-  const sources: ("yad2" | "madlan")[] = [];
+  const sources: ("yad2" | "madlan" | "facebook")[] = [];
   for (const row of input.logged) {
     const id = listingUuid(row.id);
-    const source = row.source === "yad2" || row.source === "madlan" ? row.source : null;
+    const source = row.source === "yad2" || row.source === "madlan" || row.source === "facebook"
+      ? row.source
+      : null;
     if (!id || !source) continue;
     listingIds.push(id);
     sources.push(source);
@@ -464,20 +483,23 @@ export function boardInteractiveMessage(
     return id ? [{ ...item, id }] : [];
   });
   if (!openable.length) return null;
+  const head = openable.some((item) => item.row.source !== "facebook")
+    ? BOARD_HEADING
+    : "מודעות מקבוצות פייסבוק";
   if (openable.length === 1) {
     const one = openable[0];
     return {
       kind: "cta",
-      body: `${BOARD_HEADING}\n${one.line}`,
+      body: `${head}\n${one.line}`,
       label: one.label,
       url: one.url,
     };
   }
   return {
     kind: "list",
-    body: BOARD_HEADING,
+    body: head,
     button: "למודעות",
-    section: "יד2 / מדלן",
+    section: boardSectionTitle(openable),
     rows: openable.map((item) => {
       const description = clipChars(item.line, 72);
       const title = rowTitle(item.row, sourceLabel(item.row.source) || item.label);
@@ -494,20 +516,34 @@ export function boardInteractiveMessage(
  * שורות להצגה. הודעת הלוחות היא אחת, ונשלחת רק אם התשובה מציגה אותן.
  * בלי כפתורים (תור מייל) ה-url נשאר בתוצאה. בטקסט אין כתובת.
  */
+function boardSectionTitle(
+  picked: readonly { row: BoardListingRow }[],
+): string {
+  const hasFacebook = picked.some((item) => item.row.source === "facebook");
+  const hasBoard = picked.some((item) => item.row.source !== "facebook");
+  if (hasFacebook && hasBoard) return "מודעות";
+  if (hasFacebook) return "פייסבוק";
+  return "יד2 / מדלן";
+}
+
 export function presentBoardListings(
   rows: readonly BoardListingRow[],
   total: number,
   opts: { buttons: boolean },
 ): BoardPresentation | null {
-  const picked: { row: BoardListingRow; line: string; url: string; label: string }[] = [];
+  const boards: { row: BoardListingRow; line: string; url: string; label: string }[] = [];
+  const facebook: { row: BoardListingRow; line: string; url: string; label: string }[] = [];
   for (const row of rows) {
-    if (picked.length >= BOARD_CAP) break;
     const line = boardLine(row);
     const url = safeListingUrl(row.url);
     const label = boardButtonLabel(row.source);
     if (!line || !url || !label) continue;
-    picked.push({ row, line, url, label });
+    const bucket = row.source === "facebook" ? facebook : boards;
+    const cap = row.source === "facebook" ? BOARD_FACEBOOK_CAP : BOARD_CAP;
+    if (bucket.length >= cap) continue;
+    bucket.push({ row, line, url, label });
   }
+  const picked = [...boards, ...facebook];
   if (!picked.length) return null;
   const shown = picked.length;
   const counted = Number.isFinite(total) && total >= shown ? Math.floor(total) : shown;
@@ -530,15 +566,18 @@ export function presentBoardListings(
   });
   const lines = picked.map((item) => item.line);
   const message = opts.buttons ? boardInteractiveMessage(picked) : null;
-  const logged: { id: string; source: "yad2" | "madlan" }[] = [];
+  const logged: { id: string; source: "yad2" | "madlan" | "facebook" }[] = [];
   for (const item of picked) {
     if (!boardRowId(item.url)) continue;
     const id = listingUuid(item.row.id);
-    const source = item.row.source === "yad2" || item.row.source === "madlan" ? item.row.source : null;
+    const source = item.row.source === "yad2" || item.row.source === "madlan" || item.row.source === "facebook"
+      ? item.row.source
+      : null;
     if (id && source) logged.push({ id, source });
   }
+  const heading = boards.length ? BOARD_HEADING : "מודעות מקבוצות פייסבוק";
   const bits = [
-    `${BOARD_HEADING}. אלה מודעות ציבוריות, לא נכסים שלך ולא של המשרד. ` +
+    `${heading}. אלה מודעות ציבוריות, לא נכסים שלך ולא של המשרד. ` +
       "להציג אותן אחרי הנכסים שלך ושל המשרד, בכותרת הזו, בלי לערבב.",
     "אין טלפון ואין שם ואין כתובת רחוב. אין לפנות לבעלים, ואין חיוב. " +
       "אין שכונה במודעות. אם נשאלה שכונה, אל תאמרי שהמודעה בה.",
@@ -559,7 +598,7 @@ export function presentBoardListings(
     lines,
     logged,
     note: bits.join(" "),
-    heading: BOARD_HEADING,
+    heading,
     total: counted,
     shown,
     more,
@@ -594,8 +633,9 @@ type BoardQuery = any;
 export async function fetchBoardListings(
   db: { from(table: string): BoardQuery },
   criteria: BoardCriteria | null,
+  sources: readonly string[] = ["yad2", "madlan"],
 ): Promise<{ rows: BoardListingRow[]; total: number } | null> {
-  const ops = boardQueryOps(criteria);
+  const ops = boardQueryOps(criteria, sources);
   if (!ops) return null;
   try {
     let query = db.from("listing_inventory").select(BOARD_COLUMNS, { count: "exact" });

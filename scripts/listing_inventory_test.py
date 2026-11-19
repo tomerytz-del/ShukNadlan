@@ -475,6 +475,75 @@ def latest_sync_keeps_the_new_fields():
              f"להעתיק את הגוף מהגרסה האחרונה ({HISTORY.name} או מאוחרת ממנה), לא מגרסה קודמת.")
 
 
+def facebook_owner_is_inventory_not_a_second_lead(db):
+    """פוסט בעלים מפייסבוק נכנס למלאי בלי ליד שני, וצילום יד2 לא מוחק אותו."""
+    mig = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
+    notes = psql(db, sql_text="select count(*)::text from public.notifications")
+    psql(db, mig)
+    added = psql(db, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/123456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234999',
+        'raw_name', 'לא במלאי', 'deal_type', 'sale', 'property_type', 'דירה',
+        'rooms', 4, 'budget', 1000000, 'neighborhood', 'גבעת המורה',
+        'size_sqm', 90, 'floor', 2,
+        'property_details', 'הרצל 12')) ->> 'success'
+    """)
+    if added != "true":
+        fail(f"פוסט פייסבוק לא נקלט: {added}")
+    row = psql(db, sql_text="""
+      select i.external_ref || '|' || coalesce(i.neighborhood, '-')
+             || '|' || coalesce(i.size_sqm::int::text, '-')
+             || '|' || coalesce(i.floor::text, '-')
+             || '|' || coalesce(i.price::int::text, '-')
+             || '|' || i.from_seed::text
+             || '|' || (i.removed_at is null)::text
+             || '|' || (i.scraped_lead_id is not null)::text
+        from public.listing_inventory i
+       where i.source = 'facebook'
+    """)
+    if row != "555:123456789012345|גבעת המורה|90|2|1000000|true|true|true":
+        fail(f"שורת מלאי פייסבוק: {row}")
+    leaked = psql(db, sql_text="""
+      select count(*)::text from public.listing_inventory
+       where source = 'facebook'
+         and (coalesce(url, '') || ' ' || coalesce(neighborhood, '') || ' ' || coalesce(city, '')
+              || ' ' || coalesce(external_ref, '')) ~ '(0501234999|לא במלאי|הרצל)'
+    """)
+    if leaked != "0":
+        fail("טלפון, שם או רחוב נכנסו למלאי")
+    if psql(db, sql_text="select count(*)::text from public.notifications") != notes:
+        fail("קליטת פייסבוק שלחה התראה מעבר למה שכבר היה")
+    again = psql(db, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/123456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234999',
+        'deal_type', 'sale', 'budget', 1100000)) ->> 'duplicate'
+    """)
+    if again != "post":
+        fail(f"פוסט חוזר לא סומן ככפילות: {again}")
+    if psql(db, sql_text="""
+      select count(*)::text || '|' || price::int::text
+        from public.listing_inventory where source = 'facebook'
+       group by price
+    """) != "1|1100000":
+        fail("פוסט חוזר פתח שורה שנייה או לא עדכן מחיר")
+    if psql(db, sql_text="select count(*)::text from public.notifications") != notes:
+        fail("פוסט חוזר שלח התראה")
+    sync_once(db, "עפולה", [])
+    if psql(db, sql_text="""
+      select (removed_at is null)::text from public.listing_inventory
+       where source = 'facebook'
+    """) != "true":
+        fail("צילום יד2 ריק סימן פוסט פייסבוק כמוסר")
+    if psql(db, sql_text="""
+      select public.listing_inventory_sync('facebook', 'עפולה', '[]'::jsonb) ->> 'error'
+    """) != "invalid_source":
+        fail("סנכרון קיבל מקור facebook")
+
+
 def main():
     latest_sync_keeps_the_new_fields()
     board_listing_url_stays_on_the_card()
@@ -1025,6 +1094,7 @@ def main():
         fail("אחרי 30 יום לא ניסינו שוב")
 
     price_history_and_details()
+    facebook_owner_is_inventory_not_a_second_lead(DB)
 
     print("listing inventory: ok")
 
