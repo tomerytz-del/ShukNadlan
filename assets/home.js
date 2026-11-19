@@ -9768,6 +9768,14 @@ const PRO_INTENTS = [
   { type:'appraiser',          re:/שמאי|שמאית|שמאות/,                    label:'שמאי המקרקעין', one:'שמאי מקרקעין' },
   { type:'architect',          re:/אדריכל/,                               label:'האדריכלים', one:'אדריכל' },
   { type:'interior_designer',  re:/מעצב(?:ת)? פנים|עיצוב פנים/,          label:'מעצבי הפנים', one:'מעצב פנים' },
+  /* ‏19.11.2026: חמשת התחומים שנוספו אחרי. "קבלן" בלי "מ" לפניו ("דירה מקבלן" היא חיפוש נכס), ובלי
+     "פרויקט" ("פרויקטים של קבלנים"). בלי lookbehind: ב-Safari ישן הוא שובר את כל הקובץ בטעינה */
+  { type:'contractor',         re:/(?:^|\s)(?:קבלן|קבלנית|קבלני|קבלנים)(?![א-ת])/, label:'קבלני הבנייה והשיפוצים', one:'קבלן בנייה ושיפוצים', bare:true, not:/פרויקט/ },
+  { type:'planning_consultant', re:/יוע(?:ץ|צת|צי|צות)\s+תכנון/,        label:'יועצי התכנון והבנייה', one:'יועץ תכנון ובנייה' },
+  { type:'surveyor',           re:/מודד(?:ת|ים|ות)?(?:\s|$)/,            label:'המודדים המוסמכים', one:'מודד מוסמך' },
+  { type:'electrician',        re:/חשמלא(?:י|ית|ים|יות)/,                label:'החשמלאים', one:'חשמלאי' },
+  { type:'plumber',            re:/אינסטלטור|שרברב/,                      label:'האינסטלטורים', one:'אינסטלטור' },
+  { type:'cleaning',           re:/(?:חברת|חברות|שירותי)\s+ניקיון/,       label:'חברות הניקיון', one:'חברת ניקיון', bare:true },
   // משכנתא רק כשאין בטקסט נכס ("דירה עם משכנתא" נשאר חיפוש נכס)
   { type:'mortgage_advisor',   re:/יועצ(?:ת)? משכנתא|משכנתא/,            label:'יועצי המשכנתאות', one:'יועץ משכנתאות', bare:true },
 ];
@@ -9779,10 +9787,9 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
   const shukTrack = (n, p) => { if (window.shukTrack) window.shukTrack(n, p); };
   let proShown = '';
   function proOf(t){
-    const hit = PRO_INTENTS.find(x => x.re.test(t));
-    if (!hit) return null;
-    if (hit.bare && PROPERTY_WORDS.test(t.replace(hit.re, ''))) return null;
-    return hit;
+    // הכללים (not, bare) נבדקים לפני הבחירה, כדי שהצעה שנפסלה לא תחסום תחום אחר באותו טקסט
+    return PRO_INTENTS.find(x => x.re.test(t) && !(x.not && x.not.test(t))
+      && !(x.bare && PROPERTY_WORDS.test(t.replace(x.re, '')))) || null;
   }
   function show(html){ box.innerHTML = html; box.hidden = !html; }
   /* ‏P0-2: תחום בלי אף בעל/ת מקצוע פעיל/ה (היום: שמאים) - לא לדף ריק אלא לכל בעלי המקצוע.
