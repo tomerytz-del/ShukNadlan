@@ -57,7 +57,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-under{transform:scale(.96) translateY(10px);opacity:.7;pointer-events:none}
 .sw-under .sw-card{box-shadow:none}
 .sw-card{position:absolute;inset:0;overflow:hidden;border-radius:20px;background:linear-gradient(160deg,#1d3a7e,#0d1b3d);color:#fff;
-  box-shadow:0 10px 26px rgba(13,27,61,.22);touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:transform .22s ease,opacity .22s ease;outline-offset:3px}
+  box-shadow:0 10px 26px rgba(13,27,61,.22);touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:transform .22s var(--ease-out),opacity .22s var(--ease-out);outline-offset:3px}
 /* הכרטיס העליון לוקח את כל המחוות בעצמו: עם pan-y הדפדפן בטלפון תפס גרירה למעלה כגלילה
    וביטל אותה (pointercancel), ולכן "החלקה למעלה לפרטים" לא עבדה במגע. כרטיס הסוף והשאלה
    נשארים עם גלילה, כי יש בהם טופס */
@@ -166,9 +166,9 @@ html body .sw-map .leaflet-control-zoom .sw-map-x{font-size:15px}
 
 /* ---------- גיליונות ---------- */
 .sw-sheet-wrap{position:fixed;inset:0;z-index:600;display:flex;align-items:flex-end;justify-content:center}
-.sw-scrim{position:absolute;inset:0;background:rgba(13,27,61,.45)}
+.sw-scrim{position:absolute;inset:0;background:rgba(13,27,61,.45);animation:dsBackdropIn .2s var(--ease-out)}
 .sw-sheet{position:relative;width:100%;max-width:560px;max-height:92dvh;display:flex;flex-direction:column;background:#fff;color:var(--sw-title);
-  border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(13,27,61,.2);animation:swUp .22s ease-out}
+  border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(13,27,61,.2);animation:swUp .28s var(--ease-drawer)}
 @keyframes swUp{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sw-sheet{animation:none}.sw-card{transition:none}}
 @media (min-width:1024px){.sw-sheet-wrap{align-items:center}.sw-sheet{border-radius:22px;max-height:88dvh}}
@@ -292,7 +292,7 @@ html body #swCta{background:var(--sw-gold);color:var(--sw-deep)}
 
 /* ההדרכה */
 .sw-tour{position:fixed;z-index:650;overflow:hidden;border-radius:20px;pointer-events:none;color:#fff;
-  background:linear-gradient(to bottom,rgba(13,27,61,.32) 0%,rgba(13,27,61,.32) 45%,rgba(13,27,61,.86) 100%);animation:swFade .25s ease-out both}
+  background:linear-gradient(to bottom,rgba(13,27,61,.32) 0%,rgba(13,27,61,.32) 45%,rgba(13,27,61,.86) 100%);animation:swFade .25s var(--ease-out) both}
 .sw-tour.is-up{background:linear-gradient(to bottom,rgba(13,27,61,.8) 0%,rgba(13,27,61,.32) 45%,rgba(13,27,61,.32) 100%)}
 /* בזמן ההדרכה פרטי הכרטיס מוסתרים, כדי שהכיתוב של הטיפ ייקרא (כמו בדוגמה של תומר) */
 /* בטיפ הראשון המחיר נשאר (מעומעם); רק בטיפ ההחלקה למעלה הפרטים מוסתרים */
@@ -640,11 +640,11 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 /* ---------- סבב 4: הגיליון התחתון (‏#swBs) ---------- */
 .sw-bs-wrap{position:fixed;inset:0;z-index:640}
 .sw-bs-wrap[hidden]{display:none !important}
-.sw-bs-dim{position:absolute;inset:0;background:rgba(13,27,61,.24);animation:swFade .2s ease-out both}
+.sw-bs-dim{position:absolute;inset:0;background:rgba(13,27,61,.24);animation:swFade .2s var(--ease-out) both}
 .sw-bs{position:absolute;left:0;right:0;bottom:0;max-height:min(46dvh,420px);overflow:auto;overscroll-behavior:contain;
   display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 20px calc(20px + var(--sw-safe-b));
   border-radius:24px 24px 0 0;background:#fff;color:var(--sw-title);text-align:center;box-shadow:0 -12px 40px rgba(0,0,0,.18);
-  animation:swBsUp .34s cubic-bezier(.2,.8,.2,1) both;transition:transform .2s ease;touch-action:pan-y}
+  animation:swBsUp .34s var(--ease-drawer) both;transition:transform .2s var(--ease-out);touch-action:pan-y}
 .sw-bs.is-tall,.sw-bs.is-help{max-height:min(72dvh,640px)}
 /* גיליונות "אהבתי" נמוכים: הכפתורים בשורה אחת, כדי שהמחיר של הכרטיס יישאר גלוי מעל הגיליון */
 .sw-bs.is-like1,.sw-bs.is-like3,.sw-bs.is-like6{gap:6px;padding-top:10px}
