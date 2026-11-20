@@ -121,11 +121,41 @@ description: סרטון שיווק או הדרכה לפלטפורמה של שו�
 
 | מה | הבעיה | הפתרון |
 | --- | --- | --- |
-| ‏`faster-whisper` | המודל יורד מ-`huggingface.co`, חסום ברשימת הדומיינים | להוסיף `huggingface.co` וגם `cdn-lfs.hf.co`, `cas-bridge.xethub.hf.co` ב-Allowed domains (כמו `reelkit.cc`), **או** לתמלל על מחשב מקומי ולהעביר רק את `transcript.json` (כל שאר הכלים קוראים רק אותו) |
+| ‏`faster-whisper` | המודל יורד מ-`huggingface.co`, חסום ברשימת הדומיינים | להוסיף `huggingface.co` וגם `cdn-lfs.hf.co`, `cas-bridge.xethub.hf.co` ב-Allowed domains (כמו `reelkit.cc`), **או** (**מומלץ**) לתמלל על מחשב מקומי ולהעביר רק את `transcript.json`, ראו הסעיף הבא |
 | `reelkit render` | בבדיקה בענן, בלי התחברות, הוא נתקע 3.5 דקות (‏~4% CPU, בלי תהליך דפדפן) ולא הפיק קובץ; **הסיבה לא אומתה** (ההתחברות היא החשד, כי `reelkit doctor` מסמן אותה חסרה). ‏`init`, ‏`assets upload --footage`, ‏`check` ו-`preview` עובדים בלי התחברות | להתחבר קודם: `reelkit auth login --start` / `--finish` (סעיף 1). **הרינדור המלא והייצוא לא נבדקו מקצה לקצה** - ההרצה הראשונה היא הבדיקה |
 | התקנה | `opencv-python-headless` 5 מותקן אבל אינו כולל את קובץ זיהוי הפנים (‏`cv2.data.haarcascades` ריק) | `bash marketing/videos/tools/shorts/setup.sh` מצמיד `opencv-python-headless<5`. אין `torch` ואין `mediapipe` |
 
 ההתקנה **אינה** ב-`session-start.sh`: היא כבדה, ורוב הסשנים לא צריכים אותה.
+
+### תמלול על מחשב מקומי (הדרך הרגילה)
+
+התמלול רץ **על המחשב של מי שמקליט**, ורק `transcript.json` (קטן) עולה לסשן. ההקלטה עצמה לא עוזבת את המחשב.
+
+**התקנה חד-פעמית** (נבדקה רק הלוגיקה; ההתקנה על מחשב אישי לא נבדקה):
+
+1. **Python 3.10 ומעלה** מ-python.org. ב-Windows לסמן "Add python.exe to PATH" בהתקנה.
+2. **ffmpeg.** ‏Windows: `winget install Gyan.FFmpeg` ‏(ולפתוח חלון טרמינל חדש); ‏Mac: `brew install ffmpeg`.
+3. בטרמינל: `pip install faster-whisper`
+4. להוריד את הקובץ `marketing/videos/tools/shorts/transcribe.py` מהריפו (‏GitHub ← הקובץ ← Download raw file), או `git clone` של הריפו.
+
+**הרצה:**
+```sh
+python transcribe.py "C:\path\long.mp4" transcript.json --language he --prompt "שוק נדל״ן, עפולה, מתווך"
+```
+ב-Mac `python3` במקום `python`. ההרצה הראשונה מורידה את המודל (‏`large-v3`, כ-3GB, פעם אחת).
+
+**איזה מודל והתקן:**
+
+| המחשב | הפקודה להוסיף | הערה |
+| --- | --- | --- |
+| כרטיס מסך של NVIDIA (‏Windows) | `--device cuda --compute-type float16` | דורש התקנת CUDA 12 ו-cuDNN 9; בלעדיהם הוא נכשל, ואז להשתמש ב-CPU |
+| בלי כרטיס מסך, או Mac | `--device cpu --compute-type int8` | איטי: מודל `large-v3` לוקח לרוב זמן שווה או כפול מאורך ההקלטה |
+| CPU ורוצים מהר | `--model medium` ‏(או `small`) | מהיר פי כמה, פחות מדויק בעברית |
+
+**קודם בדיקה קצרה:** לחתוך שתי דקות (`ffmpeg -i long.mp4 -t 120 -c copy test.mp4`), לתמלל אותן ולקרוא את
+התוצאה. טעויות קבועות (שמות, "עפולה") מתקנים ב-`--prompt`. רק אז את ההקלטה המלאה.
+
+אחרי התמלול מעלים את `transcript.json` לשיחה, והשאר רץ בסשן.
 
 ### צינור העבודה (תיקיית עבודה ב-scratchpad, לא בריפו)
 
