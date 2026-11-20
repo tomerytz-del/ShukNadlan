@@ -101,7 +101,7 @@ llms_links = re.findall(r"\]\((https://shuknadlan\.co\.il[^)]*)\)", llms)
 llms_paths = {p for u in llms_links if (p := site_path(u))}
 
 # 1. robots.txt לא חוסם דף ציבורי
-public = {"/", "/robots.txt", "/sitemap.xml", "/llms.txt"} | sitemap_paths | llms_paths
+public = {"/", "/robots.txt", "/sitemap.xml", "/llms.txt", "/llms-full.txt"} | sitemap_paths | llms_paths
 for agents, rules in robots_groups(robots):
     for rule in rules:
         hit = sorted(p for p in public if blocked(p, rule))
@@ -115,7 +115,7 @@ for raw in headers.splitlines():
         continue
     if not raw.startswith((" ", "\t")):
         current = raw.strip()
-    elif "x-robots-tag" in raw.lower() and current in ("/*", "/llms.txt", "/robots.txt", "/sitemap.xml"):
+    elif "x-robots-tag" in raw.lower() and current in ("/*", "/llms.txt", "/llms-full.txt", "/robots.txt", "/sitemap.xml"):
         fail(f"_headers: X-Robots-Tag על {current} - מסתיר את קובצי הגילוי או את כל האתר")
 
 # 3. קישורי llms.txt מגיעים לדף שקיים
