@@ -426,7 +426,7 @@ export async function announceDeveloperSignup(
       d.contact_name ? `איש/אשת קשר: ${d.contact_name}` : null,
       d.city,
       // התאריך מהמסד (developers.free_until), לא "6 חודשים" כתוב ביד: project_free_months משתנה ב-pricing_config
-      d.free_until ? `פרסום פרויקטים בחינם עד ${new Date(d.free_until).toLocaleDateString("he-IL")}` : "פרסום פרויקטים בחינם בתקופה הראשונה",
+      d.free_until ? `פרסום פרויקטים בחינם עד ${new Date(d.free_until).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" })}` : "פרסום פרויקטים בחינם בתקופה הראשונה",
       d.slug ? `${SITE_BASE}/developer?slug=${encodeURIComponent(d.slug)}` : null,
     ]);
 
