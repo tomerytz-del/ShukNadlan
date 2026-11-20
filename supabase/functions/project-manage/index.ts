@@ -40,6 +40,13 @@ const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
 // הסכומים שהמסך מציע. סכום אחר נדחה כאן, והמסד בודק שוב טווח.
 const DEVELOPER_TOPUP_AMOUNTS = [100, 350, 500, 1000, 2000];
 
+/** האם החיוב החודשי החוזר דלוק (pricing_config.recurring_charging_enabled). כל עוד הוא כבוי שום כרטיס
+ *  לא מחויב שוב, ולכן אסור להבטיח חידוש: הרכישה היא חודש אחד והפרויקטים יורדים בסופו. */
+async function recurringEnabled(sb: any): Promise<boolean> {
+  const { data } = await sb.from("pricing_config").select("value").eq("key", "recurring_charging_enabled").maybeSingle();
+  return Number(data?.value) === 1;
+}
+
 const MAX_PROJECTS_PER_DEVELOPER = 60;
 const MAX_MEDIA_PER_PROJECT = 120;
 const MAX_UNIT_TYPES_PER_PROJECT = 40;
@@ -288,7 +295,7 @@ Deno.serve(async (req: Request) => {
           p_project_id: projectId, p_developer_id: developer.id,
         });
         if (error) return json({ error: "db_error", detail: error.message }, 500);
-        // ‏plan_required: החלון החינמי נגמר ומסלול החשבון עוד לא נגבה (20271122090000)
+        // ‏plan_required: החלון החינמי נגמר ואין תקופה ששולמה - המשתמש/ת פותח/ת מסלול (plan_start)
         return json(data, data?.error
           ? (data.error === "insufficient_balance" ? 402 : data.error === "plan_required" ? 409 : 400)
           : 200);
@@ -567,6 +574,91 @@ Deno.serve(async (req: Request) => {
       }
 
       // ---------------------------------------------------------------
+      // מסלול החשבון (199 / 278 / 397 ₪ לחודש, בכרטיס) - docs/new-projects.md, "חיוב המסלול"
+      //
+      // **הדפדפן שולח רק "תתחיל", לא מסלול ולא סכום.** המסלול נקבע במסד לפי הפרויקטים
+      // בחשבון (developer_plan_quote), והסכום כולל מע״מ. המסלול נפתח רק ב-
+      // wallet-topup-callback, אחרי אימות מול מורנינג - לא כאן. הכרטיס נשמר לחידוש
+      // החודשי (saveCard), שמאחורי recurring_charging_enabled (עדיין כבוי).
+      case "plan_start": {
+        if (!morningConfigured() || !webhookSecret) {
+          return json({ error: "morning_not_configured" }, 503);
+        }
+        // חידוש רק כשהוא אכן יגבה: סימון חידוש כשהמתג כבוי יצר מנוי שאיש לא מחייב (הדשבורד היה מבטיח חיוב שלא יבוא)
+        const autoRenew = body.auto_renew === true && await recurringEnabled(supabase);
+
+        const { data: started, error: startErr } = await supabase.rpc("start_developer_plan_order", {
+          p_developer_id: developer.id,
+        });
+        if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
+        // window_active / already_paid / no_projects / too_many_open_orders: 409, הדשבורד מסביר
+        if (started?.error) return json(started, 409);
+
+        const orderId = started.order_id as string;
+        const amount = Number(started.amount);
+        const contactEmail = userData.user.email ?? null;
+
+        await supabase.from("developer_plan_orders")
+          .update({ auto_renew: autoRenew, contact_email: contactEmail })
+          .eq("id", orderId);
+
+        const { data: dev } = await supabase
+          .from("developers").select("name").eq("id", developer.id).maybeSingle();
+
+        const form = await createPaymentForm({
+          amount,
+          description: `מסלול חשבון יזם - חודש${autoRenew ? ", מתחדש חודשית" : ""} - שוק נדל"ן`,
+          ...clientFrom(body, dev?.name ?? null),
+          clientEmail: contactEmail,
+          successUrl: `${siteBaseUrl}/developer-crm?plan=success&order_id=${orderId}`,
+          failureUrl: `${siteBaseUrl}/developer-crm?plan=failure&order_id=${orderId}`,
+          notifyUrl: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
+            `?token=${encodeURIComponent(webhookSecret)}`,
+          reference: orderId,
+          saveCard: autoRenew,
+        });
+
+        if (!form.ok) {
+          await supabase.rpc("fail_developer_plan_order", { p_order_id: orderId, p_reason: form.error });
+          console.error("project-manage: plan form creation failed", form.error);
+          return json({
+            error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+          }, 502);
+        }
+
+        await supabase.from("developer_plan_orders")
+          .update({ provider_form_id: form.formId, provider_payment_url: form.url })
+          .eq("id", orderId);
+
+        return json({
+          success: true, order_id: orderId, tier: started.tier, amount,
+          projects_count: started.projects_count, auto_renew: autoRenew, redirect_url: form.url,
+        });
+      }
+
+      // מצב ההזמנה אחרי החזרה מעמוד התשלום. הדפדפן אינו מחליט שהתשלום עבר:
+      // הוא שואל, והתשובה היא מה שהמסד אומר על ההזמנה של החברה הזו
+      case "plan_status": {
+        const orderId = typeof body.order_id === "string" ? body.order_id : "";
+        if (!orderId) return json({ error: "missing_order_id" }, 400);
+        const { data: row } = await supabase
+          .from("developer_plan_orders").select("status, amount, period_end")
+          .eq("id", orderId).eq("developer_id", developer.id).maybeSingle();
+        if (!row) return json({ error: "not_found" }, 404);
+        return json({ success: true, status: row.status, amount: row.amount, period_end: row.period_end });
+      }
+
+      // ביטול והפעלה מחדש של החידוש. ביטול אינו מחזיר כסף ואינו מוריד פרויקט
+      case "plan_auto_renew": {
+        if (typeof body.on !== "boolean") return json({ error: "missing_fields" }, 400);
+        const { data, error } = await supabase.rpc("set_developer_plan_auto_renew", {
+          p_developer_id: developer.id, p_on: body.on,
+        });
+        if (error) return json({ error: "db_error", detail: error.message }, 500);
+        return json(data, data?.error ? (data.error === "no_subscription" ? 404 : 409) : 200);
+      }
+
+      // ---------------------------------------------------------------
       // תמונת מצב אחת לדשבורד: החברה, הפרויקטים והמחירים. הדשבורד קורא
       // הכול דרך RLS חוץ מהמחירים, ולכן זה מה שחוסך לו שאילתה שנייה.
       case "bootstrap": {
@@ -584,7 +676,19 @@ Deno.serve(async (req: Request) => {
         ]);
         const pricing: Record<string, number> = {};
         (prices ?? []).forEach((r: { key: string; value: number }) => { pricing[r.key] = Number(r.value); });
-        return json({ success: true, developer: dev, projects: projects ?? [], pricing });
+        // מצב מסלול החשבון: עד מתי שולם, המנוי, וההצעה לפי הפרויקטים היום
+        const { data: plan } = await supabase.rpc("developer_plan_state", { p_developer_id: developer.id });
+        // מועד הניסיון החוזר אינו ב-developer_plan_state: הדשבורד מציג אותו אחרי חיוב שנכשל
+        const { data: subRow } = await supabase.from("billing_subscriptions").select("next_retry_at")
+          .eq("kind", "developer_plan").eq("developer_id", developer.id).maybeSingle();
+        const planOut = plan && !plan.error
+          ? {
+            ...plan,
+            recurring_enabled: await recurringEnabled(supabase),
+            subscription: plan.subscription ? { ...plan.subscription, next_retry_at: subRow?.next_retry_at ?? null } : null,
+          }
+          : plan ?? null;
+        return json({ success: true, developer: dev, projects: projects ?? [], pricing, plan: planOut });
       }
 
       default:
