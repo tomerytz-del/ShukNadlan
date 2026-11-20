@@ -99,6 +99,21 @@ const KIND_TIER: ChargeKind = {
   }),
 };
 
+const PLAN_LABELS: Record<string, string> = { tier1: "עד 10 פרויקטים", tier2: "עד 20 פרויקטים", tier3: "21 פרויקטים ומעלה" };
+
+// מסלול החשבון ליזם/קבלן/משווק (docs/new-projects.md, "חיוב המסלול"). המסלול והסכום
+// מחושבים ב-claim לפי הפרויקטים בחשבון ברגע החיוב, ולא נשמרים על המנוי.
+const KIND_DEVELOPER_PLAN: ChargeKind = {
+  claim: "claim_due_developer_plan_renewals",
+  fail: (sb, id, reason) => sb.rpc("fail_developer_plan_order", { p_order_id: id, p_reason: reason }),
+  complete: "complete_developer_plan_order",
+  completeParam: "p_order_id",
+  describe: (row) => ({
+    who: row.display_name || "חברה יזמית",
+    description: `חידוש חודשי - מסלול חשבון יזם (${PLAN_LABELS[row.tier] ?? row.tier}) - שוק נדל"ן`,
+  }),
+};
+
 async function chargeDue(supabase: any, kind: ChargeKind) {
   const stats = { claimed: 0, charged: 0, declined: 0, no_token: 0, pending: 0 };
 
@@ -188,11 +203,20 @@ async function sendNotices(supabase: any) {
 
   const { data: subs } = await supabase
     .from("billing_subscriptions")
-    .select("id, kind, placement_id, agent_id, tier, status, contact_email, notice_order_id, failed_attempts, next_retry_at, next_charge_on")
+    .select("id, kind, placement_id, agent_id, developer_id, tier, status, contact_email, notice_order_id, failed_attempts, next_retry_at, next_charge_on")
     .not("notice_order_id", "is", null)
     .limit(50);
 
   for (const sub of subs ?? []) {
+    if (sub.kind === "developer_plan") {
+      const r = await developerPlanNotice(supabase, sub);
+      if (r === "waiting") { stats.waiting++; continue; }
+      if (r === "sent") stats.sent++;
+      await supabase.from("billing_subscriptions")
+        .update({ notice_order_id: null, updated_at: new Date().toISOString() })
+        .eq("id", sub.id).eq("notice_order_id", sub.notice_order_id);
+      continue;
+    }
     if (sub.kind === "tier") {
       const r = await tierNotice(supabase, sub);
       if (r === "waiting") { stats.waiting++; continue; }
@@ -325,6 +349,59 @@ async function tierNotice(supabase: any, sub: any): Promise<"sent" | "none" | "w
   return "sent";
 }
 
+/** ההודעה ליזם/קבלן/משווק על חידוש המסלול. אותם שלושה מצבים של מסלולי הסוכנים, עם קישור
+ *  לדשבורד היזמים. "waiting" = ההזמנה עוד pending, או שהמייל נכשל: ההודעה נשארת לסבב הבא. */
+async function developerPlanNotice(supabase: any, sub: any): Promise<"sent" | "none" | "waiting"> {
+  const { data: order } = await supabase
+    .from("developer_plan_orders").select("id, status, amount, period_end, tier, projects_count")
+    .eq("id", sub.notice_order_id).maybeSingle();
+  if (order && order.status === "pending") return "waiting";
+
+  const { data: d } = await supabase
+    .from("developers").select("name, contact_name, plan_paid_until").eq("id", sub.developer_id).maybeSingle();
+  const until = fmtDate(d?.plan_paid_until ?? null);
+  const crmUrl = `${siteBaseUrl}/developer-crm`;
+
+  let subject = "";
+  let lines: string[] = [];
+  if (order?.status === "success") {
+    subject = 'מסלול החשבון שלך בשוק נדל"ן חודש לחודש נוסף';
+    lines = [
+      `חויב ${fmtMoney(order.amount)} (כולל מע״מ) עבור ${order.projects_count} פרויקטים, והפרויקטים שלך באוויר עד ${until}.`,
+      "החשבונית נשלחת בנפרד מחברת הסליקה.",
+      "המסלול נקבע לפי מספר הפרויקטים בחשבון ביום החיוב. אפשר לבטל את החידוש בכל עת בדשבורד, והפרויקטים יישארו באוויר עד סוף התקופה ששולמה.",
+    ];
+  } else if (sub.status === "failed") {
+    subject = "החידוש החודשי של מסלול החשבון הופסק";
+    lines = [
+      "ניסינו לחייב את הכרטיס שלוש פעמים ולא הצלחנו, ולכן החידוש האוטומטי הופסק.",
+      `הפרויקטים יישארו באוויר עד ${until}, ואחרי זה יורדים מהאתר. הם נשמרים בחשבון ואפשר להעלות אותם שוב.`,
+      "כדי להמשיך, אפשר לבחור מסלול בדשבורד עם כרטיס בתוקף.",
+    ];
+  } else if (sub.status === "active" && sub.next_retry_at) {
+    subject = "לא הצלחנו לחייב את הכרטיס לחידוש מסלול החשבון";
+    lines = [
+      `ננסה שוב ב-${new Date(sub.next_retry_at).toLocaleDateString("he-IL")}.`,
+      "אם הכרטיס פג או הוחלף, אפשר לבחור מסלול בדשבורד עם כרטיס אחר.",
+    ];
+  }
+  if (!subject || !sub.contact_email) return "none";
+
+  const hello = d?.contact_name ? `שלום ${d.contact_name},` : "שלום,";
+  const html =
+    `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6">` +
+    `<p>${esc(hello)}</p>` + lines.map((l) => `<p>${esc(l)}</p>`).join("") +
+    `<p><a href="${esc(crmUrl)}">לדשבורד היזמים</a></p>` +
+    `<p style="color:#666;font-size:13px">שאלות? ${esc(PLATFORM_CONTACT_EMAIL)}</p></div>`;
+  const text = [hello, ...lines, `דשבורד היזמים: ${crmUrl}`, `שאלות? ${PLATFORM_CONTACT_EMAIL}`].join("\n\n");
+  const sent = await sendPlatformEmail({ to: [sub.contact_email], subject, html, text });
+  if (!sent.sent) {
+    console.error("billing-renew: developer plan notice mail failed", sub.id, sent.error);
+    return "waiting";
+  }
+  return "sent";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -348,6 +425,7 @@ Deno.serve(async (req: Request) => {
   const charges = {
     professional: await chargeDue(supabase, KIND_PROFESSIONAL),
     tier: await chargeDue(supabase, KIND_TIER),
+    developer_plan: await chargeDue(supabase, KIND_DEVELOPER_PLAN),
   };
   // הודעות על מה שהסתיים בסבב הזה, בלי לחכות שעה.
   const late = await sendNotices(supabase);

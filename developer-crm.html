@@ -519,6 +519,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p>כל חיוב שירד מהארנק וכל טעינה שבוצעה.</p>
         </div>
       </div>
+      <div class="card" id="planCard">
+        <h3>מסלול החשבון</h3>
+        <p class="sub" id="planSub"></p>
+        <div id="planBody"></div>
+        <p class="msg" id="planMsg" role="status" aria-live="polite"></p>
+      </div>
       <div class="card" id="pricingCard">
         <h3>המחירון</h3>
         <p class="sub">המחירים נשלפים מהמערכת ומשתקפים כאן מיד עם כל עדכון.</p>
@@ -789,6 +795,7 @@ const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE
 let developer = null;
 let projects = [];
 let pricing = {};
+let plan = null;             // developer_plan_state: מה שולם, המנוי וההצעה
 let editing = null;          // הפרויקט שנערך כרגע, או null לפרויקט חדש
 let editUnits = [];
 let editMedia = [];          // {kind,url,title,file_size,downloadable}
@@ -818,7 +825,14 @@ async function api(action, payload){
 }
 
 const ERRORS = {
-  plan_required: 'התקופה החינמית הסתיימה, ובחירת מסלול ממשיך תיפתח בקרוב. נשמח לעזור - פנו אלינו בוואטסאפ.',
+  plan_required: 'התקופה החינמית הסתיימה. כדי להעלות פרויקט לאוויר יש לבחור מסלול בכרטיס "מסלול החשבון".',
+  window_active: 'אפשר לבחור מסלול ב-30 הימים האחרונים של התקופה החינמית.',
+  already_paid: 'המסלול כבר שולם לתקופה הקרובה.',
+  no_projects: 'אין פרויקטים בחשבון, ולכן אין מה לשלם עליו.',
+  too_many_open_orders: 'יש כבר כמה ניסיונות תשלום פתוחים. נסו שוב בעוד כמה דקות.',
+  needs_new_payment: 'אי אפשר להפעיל את החידוש מחדש. יש לבחור מסלול ולשלם עם כרטיס בתוקף.',
+  no_subscription: 'אין חידוש אוטומטי פעיל.',
+  morning_not_configured: 'התשלום אינו זמין כרגע. נסו שוב מאוחר יותר.',
   insufficient_balance: 'אין מספיק יתרה בארנק. אפשר לטעון אותו מהכפתור בראש העמוד.',
   already_promoted: 'הפרויקט כבר מקודם - אפשר לחדש כשהחלון הנוכחי ייגמר.',
   page_not_live: 'קידום אפשרי רק לפרויקט שדף הנחיתה שלו פעיל.',
@@ -1149,7 +1163,7 @@ function renderProjects(){
     const actions = [];
     actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="edit">עריכה</button>');
     if (st.key === 'draft' || st.key === 'expired'){
-      // בחלון החינמי הפרסום בחינם עד סוף החלון; אחריו project_activate_page מחזירה plan_required (עוד אין חיוב מסלול)
+      // בחלון החינמי הפרסום בחינם עד סוף החלון; אחריו, בתקופה ששולמה, עולה בלי חיוב נוסף, ובלעדיה plan_required
       actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="activate">' +
         (inFreeWindow() ? 'פרסום בחינם עד ' + esc(dateLabel(developer.free_until)) : 'הפעלת דף הנחיתה') + '</button>');
     } else if (st.key === 'live'){
@@ -1198,7 +1212,12 @@ async function projectAction(act, p, btn){
   else if (act === 'resume')  res = await api('set_status', { project_id: p.id, status: 'active' });
 
   btn.disabled = false; btn.textContent = label;
-  if (!res.ok){ alert(errText(res.data)); return; }
+  if (!res.ok){
+    alert(errText(res.data));
+    // plan_required: מובילים ישר לכרטיס שבו בוחרים מסלול
+    if (res.data && res.data.error === 'plan_required' && el('planCard')) el('planCard').scrollIntoView({ block:'center' });
+    return;
+  }
   await refresh();
 }
 
@@ -1787,7 +1806,7 @@ async function loadBilling(){
   el('pricingGrid').innerHTML = [
     ['פרסום פרויקטים', inFreeWindow()
       ? 'חינם עד ' + dateLabel(developer.free_until)
-      : 'בחירת מסלול - תיפתח בקרוב'],
+      : 'לפי מסלול החשבון'],
     ['מסלולים אחרי התקופה החינמית (לפני מע״מ)',
       money(pricing.project_plan_tier1_price || 199) + ' עד ' + (pricing.project_plan_tier1_max || 10) + ' פרויקטים · ' +
       money(pricing.project_plan_tier2_price || 278) + ' עד ' + (pricing.project_plan_tier2_max || 20) + ' · ' +
@@ -1797,6 +1816,120 @@ async function loadBilling(){
   ].map(([label, value]) =>
     '<div><div style="font-size:.72rem;font-weight:800;color:var(--ink-muted)">' + esc(label) + '</div>' +
     '<div style="font-size:1.05rem;font-weight:800">' + esc(value) + '</div></div>').join('');
+}
+
+/* ---------- מסלול החשבון ----------
+   199 / 278 / 397 ₪ לחודש (לפני מע״מ), בכרטיס אשראי, והמסלול נקבע בשרת לפי מספר
+   הפרויקטים בחשבון ביום החיוב. הדפדפן שולח רק "תתחיל": לא מסלול ולא סכום.
+   **אין סימון מראש** של החידוש האוטומטי ושל האישור (תקנון §25: אין חיוב בלי בחירה
+   מפורשת). בלי החידוש התשלום הוא חודש אחד, והפרויקטים יורדים בסופו. */
+function planName(tier){
+  if (tier === 'tier1') return 'עד ' + (pricing.project_plan_tier1_max || 10) + ' פרויקטים';
+  if (tier === 'tier2') return 'עד ' + (pricing.project_plan_tier2_max || 20) + ' פרויקטים';
+  return (Number(pricing.project_plan_tier2_max || 20) + 1) + ' פרויקטים ומעלה';
+}
+function renderPlan(){
+  const sub = el('planSub'), body = el('planBody');
+  if (!sub || !body) return;
+  if (!plan || plan.error){ el('planCard').hidden = true; return; }
+  el('planCard').hidden = false;
+
+  const q = plan.quote || {};
+  const s = plan.subscription;
+  const paidUntil = plan.plan_paid_until && new Date(plan.plan_paid_until) > new Date() ? plan.plan_paid_until : null;
+  const html = [];
+
+  if (plan.in_free_window){
+    sub.textContent = 'פרסום פרויקטים בחינם עד ' + dateLabel(plan.free_until) + '. אחרי כן נדרש מסלול חודשי.';
+  } else if (paidUntil){
+    sub.textContent = 'המסלול שולם, והפרויקטים באוויר עד ' + dateLabel(paidUntil) + '.';
+  } else {
+    sub.textContent = 'התקופה החינמית הסתיימה. כדי שהפרויקטים יהיו באוויר יש לבחור מסלול.';
+  }
+
+  if (s && s.status === 'active'){
+    html.push('<p style="margin:0 0 10px"><b>חידוש חודשי פעיל.</b> החיוב הבא בכרטיס ב-' + esc(dateLabel(s.next_charge_on)) +
+      ', לפי מספר הפרויקטים באותו יום.' + (s.failed_attempts ? ' החיוב האחרון נכשל ונסה שוב.' : '') + '</p>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="planCancelBtn">ביטול החידוש</button>');
+  } else if (s && s.status === 'failed'){
+    html.push('<p style="margin:0 0 10px;color:var(--danger)">החידוש הופסק אחרי שלושה כישלונות בחיוב הכרטיס. אפשר לבחור מסלול מחדש עם כרטיס בתוקף.</p>');
+  } else if (s && s.status === 'cancelled' && paidUntil){
+    html.push('<p style="margin:0 0 10px">החידוש בוטל. הפרויקטים יישארו באוויר עד ' + esc(dateLabel(paidUntil)) + '.</p>');
+  }
+
+  const canBuy = plan.can_start && !(s && s.status === 'active') && Number(q.projects_count) >= 1 &&
+    !(plan.plan_paid_until && new Date(plan.plan_paid_until) > new Date(Date.now() + 30 * 864e5));
+  if (canBuy){
+    const from = plan.in_free_window ? plan.free_until : (paidUntil || new Date().toISOString());
+    html.push('<div class="plan-offer" style="display:grid;gap:10px">' +
+      '<div><div style="font-size:.72rem;font-weight:800;color:var(--ink-muted)">המסלול שלכם היום</div>' +
+      '<div style="font-size:1.05rem;font-weight:800">' + esc(planName(q.tier)) + ' · ' + esc(money(q.amount_before_vat)) +
+      ' לחודש לפני מע״מ (' + esc(Number(q.amount).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' ₪ כולל מע״מ, כפי שיחויב)</div>' +
+      '<div style="font-size:.8rem;color:var(--ink-soft)">' + esc(String(q.projects_count)) + ' פרויקטים בחשבון. התקופה ששולמה מתחילה ב-' +
+      esc(dateLabel(from)) + (plan.in_free_window ? ', ולא נגבה על התקופה החינמית.' : '.') +
+      ' <b>הכרטיס יחויב עכשיו.</b></div></div>' +
+      '<label style="display:flex;gap:8px;align-items:flex-start;font-size:.85rem"><input type="checkbox" id="planAutoRenew">' +
+      '<span>חידוש חודשי אוטומטי עד ביטול. בלי הסימון זה תשלום חד-פעמי לחודש אחד.</span></label>' +
+      '<label style="display:flex;gap:8px;align-items:flex-start;font-size:.85rem"><input type="checkbox" id="planAck">' +
+      '<span>אני מאשר/ת את החיוב ואת <a href="/terms#t25" target="_blank" rel="noopener">תנאי השימוש והתקנון</a>.</span></label>' +
+      '<button type="button" class="btn btn-teal" id="planBuyBtn" disabled>בחירת מסלול ותשלום</button></div>');
+  } else if (!paidUntil && !plan.in_free_window && Number(q.projects_count) < 1){
+    html.push('<p style="margin:0;font-size:.85rem;color:var(--ink-soft)">אין פרויקטים בחשבון. אחרי שתוסיפו פרויקט אפשר יהיה לבחור מסלול ולהעלות אותו לאוויר.</p>');
+  } else if (!paidUntil && plan.in_free_window){
+    html.push('<p style="margin:0;font-size:.85rem;color:var(--ink-soft)">אפשר לבחור מסלול ב-30 הימים האחרונים של התקופה החינמית. המסלול נקבע לפי מספר הפרויקטים בחשבון: ' +
+      esc(money(pricing.project_plan_tier1_price || 199)) + ' עד ' + esc(String(pricing.project_plan_tier1_max || 10)) + ' פרויקטים, ' +
+      esc(money(pricing.project_plan_tier2_price || 278)) + ' עד ' + esc(String(pricing.project_plan_tier2_max || 20)) + ', ' +
+      esc(money(pricing.project_plan_tier3_price || 397)) + ' מעל (לפני מע״מ, לחודש).</p>');
+  }
+  body.innerHTML = html.join('');
+
+  const ack = el('planAck'), buy = el('planBuyBtn');
+  if (ack && buy){
+    ack.addEventListener('change', ()=>{ buy.disabled = !ack.checked; });
+    buy.addEventListener('click', async ()=>{
+      buy.disabled = true;
+      setMsg('planMsg', 'פותחים את עמוד התשלום…');
+      const res = await api('plan_start', { auto_renew: !!el('planAutoRenew').checked }).catch(()=>({ ok:false, data:{} }));
+      if (res.ok && res.data.redirect_url){ location.href = res.data.redirect_url; return; }
+      buy.disabled = !ack.checked;
+      setMsg('planMsg', (ERRORS[res.data && res.data.error]) || 'לא הצלחנו לפתוח את עמוד התשלום. נסו שוב.', 'err');
+    });
+  }
+  const cancel = el('planCancelBtn');
+  if (cancel) cancel.addEventListener('click', async ()=>{
+    cancel.disabled = true;
+    const res = await api('plan_auto_renew', { on: false }).catch(()=>({ ok:false, data:{} }));
+    if (res.ok){ await refresh(); setMsg('planMsg', 'החידוש בוטל. הפרויקטים נשארים באוויר עד סוף התקופה ששולמה.', 'ok'); return; }
+    cancel.disabled = false;
+    setMsg('planMsg', (ERRORS[res.data && res.data.error]) || 'הביטול לא הצליח. נסו שוב.', 'err');
+  });
+}
+
+/* חזרה מעמוד התשלום של המסלול. הכתובת נושאת רמז בלבד (אפשר לזייף); המצב האמיתי נשאל
+   מהשרת (plan_status), וה-webhook והדפדפן הם שני מרוצים, ולכן סבב בדיקות - כמו בטעינת ארנק. */
+async function handlePlanReturn(){
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('order_id');
+  const mode = params.get('plan');
+  if (!orderId || !mode) return;
+  params.delete('order_id'); params.delete('plan');
+  history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
+  el('planCard').scrollIntoView({ block:'center' });
+  if (mode === 'failure'){ setMsg('planMsg', 'התשלום בוטל ולא בוצע חיוב.', 'err'); return; }
+  setMsg('planMsg', 'מאמתים את התשלום מול חברת הסליקה…');
+  const started = Date.now();
+  while (Date.now() - started < 600000){
+    const res = await api('plan_status', { order_id: orderId }).catch(()=>({ ok:false, data:{} }));
+    const status = res.ok ? res.data.status : null;
+    if (status === 'success'){
+      await refresh();
+      setMsg('planMsg', 'התשלום התקבל. הפרויקטים באוויר עד ' + dateLabel(res.data.period_end) + '.', 'ok');
+      return;
+    }
+    if (status === 'failed'){ setMsg('planMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err'); return; }
+    if (Date.now() - started > 90000) setMsg('planMsg', 'האישור מחברת הסליקה מתעכב. המסלול יתעדכן כאן מעצמו ברגע שיגיע - אין צורך לשלם שוב.');
+    await new Promise(r => setTimeout(r, Date.now() - started < 90000 ? 3000 : 10000));
+  }
 }
 
 /* ---------- טעינת ארנק ----------
@@ -1949,8 +2082,10 @@ async function refresh(){
   developer = res.data.developer;
   projects = res.data.projects || [];
   pricing = res.data.pricing || {};
+  plan = res.data.plan || null;
   renderHeader();
   renderProjects();
+  renderPlan();
 }
 
 /* ---------- מסך פתיחת החברה ---------- */
@@ -2000,10 +2135,12 @@ async function boot(){
   developer = res.data.developer;
   projects = res.data.projects || [];
   pricing = res.data.pricing || {};
+  plan = res.data.plan || null;
 
   renderHeader();
   fillCompanyForm();
   renderProjects();
+  renderPlan();
   showApp();
 }
 
@@ -2057,7 +2194,7 @@ sb.auth.onAuthStateChange((event, session)=>{
   const { data: { session } } = await sb.auth.getSession();
   if (session) bootedUserId = session.user.id;
   await boot();
-  if (session) handleTopupReturn();
+  if (session){ handleTopupReturn(); handlePlanReturn(); }
 })();
 </script>
 </body>

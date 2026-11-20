@@ -64,7 +64,7 @@ const STALE_MINUTES = 10;
 const EXPIRE_MINUTES = 180;
 
 // ---------------------------------------------------------------------------
-// חמישה סוגי תשלום, מכונת מצבים אחת
+// שבעה סוגי תשלום, מכונת מצבים אחת
 //
 // טעינת ארנק, רכישת מנוי, רכישת כרטיסיית פרסום וטעינת ארנק יזם/ית הן אותו מסלול: שורת
 // pending, טופס תשלום, אימות מול מורנינג, ואז הפעולה. ההבדל היחיד הוא שם
@@ -74,8 +74,8 @@ const EXPIRE_MINUTES = 180;
 // שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
 // ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course" | "lawyer_lead";
-const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course", "lawyer_lead"];
+type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course" | "lawyer_lead" | "developer_plan";
+const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course", "lawyer_lead", "developer_plan"];
 
 const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
   topup: {
@@ -120,6 +120,14 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
     table: "lawyer_lead_orders",
     complete: "complete_lawyer_lead_order",
     fail: "fail_lawyer_lead_order",
+    idParam: "p_order_id",
+  },
+  // מסלול החשבון ליזם/קבלן/משווק (docs/new-projects.md, "חיוב המסלול"). אותה צורה
+  // של subscription_orders; הטריגר על הטבלה מעדכן את billing_subscriptions.
+  developer_plan: {
+    table: "developer_plan_orders",
+    complete: "complete_developer_plan_order",
+    fail: "fail_developer_plan_order",
     idParam: "p_order_id",
   },
 };
