@@ -5061,7 +5061,7 @@ function renderCheckboxes(container, items, selectedSet){
   items.forEach(([value, label])=>{
     const wrap = document.createElement('label');
     wrap.className = 'checkbox-item';
-    wrap.innerHTML = `<input type="checkbox" value="${value}" ${selectedSet.has(value)?'checked':''}> ${label}`;
+    wrap.innerHTML = `<input type="checkbox" value="${escAttr(value)}" ${selectedSet.has(value)?'checked':''}> ${escapeHtml(label)}`;
     wrap.querySelector('input').addEventListener('change', (e)=>{
       if (e.target.checked) selectedSet.add(value); else selectedSet.delete(value);
     });
@@ -7025,7 +7025,9 @@ function applyDeepLinkFilters(){
   priceField('maxPrice', isCommercial ? 'cPriceMax' : 'rPriceMax');
 
   const q = (params.get('q') || '').trim();
-  if (q) document.getElementById('searchFreeText').value = q.slice(0, 80);
+  // ‏השדה אינו קיים בדף הנוכחי (החיפוש הוא המשפט): בלי הבדיקה ?q= זרק שגיאה
+  const freeTextField = document.getElementById('searchFreeText');
+  if (q && freeTextField) freeTextField.value = q.slice(0, 80);
 
   // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה מה שנשלח כששולחים את
   // התוצאות לחבר/ה, וזו נקודת הכניסה היחידה למסנן מאז שהרצועה ירדה.

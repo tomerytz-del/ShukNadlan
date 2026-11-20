@@ -10,7 +10,7 @@ const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 /* אותה כתובת ש-og-tags שם ב-src וב-preload כשאין תמונה ואין פוסטר.
    מחיקת הצומת מחזירה את ה-LCP לטקסט שנכתב אחרי השאילתה. */
 const HERO_PLACEHOLDER = '/assets/property-placeholder.jpg';
-const LTV_THRESHOLDS = { single:0.75 }; // מודול 2 §5.5
+const LTV_THRESHOLDS = { single:0.75, investment:0.5 }; // מודול 2 §5.5; דירה נוספת - 50%
 
 /* ---------- ספריית אייקונים ----------
    אייקוני קו במשקל אחיד (stroke 1.9, 24×24) בסגנון Lucide, מוטמעים כדי לא
