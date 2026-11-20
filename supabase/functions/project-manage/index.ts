@@ -40,6 +40,13 @@ const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
 // הסכומים שהמסך מציע. סכום אחר נדחה כאן, והמסד בודק שוב טווח.
 const DEVELOPER_TOPUP_AMOUNTS = [100, 350, 500, 1000, 2000];
 
+/** האם החיוב החודשי החוזר דלוק (pricing_config.recurring_charging_enabled). כל עוד הוא כבוי שום כרטיס
+ *  לא מחויב שוב, ולכן אסור להבטיח חידוש: הרכישה היא חודש אחד והפרויקטים יורדים בסופו. */
+async function recurringEnabled(sb: any): Promise<boolean> {
+  const { data } = await sb.from("pricing_config").select("value").eq("key", "recurring_charging_enabled").maybeSingle();
+  return Number(data?.value) === 1;
+}
+
 const MAX_PROJECTS_PER_DEVELOPER = 60;
 const MAX_MEDIA_PER_PROJECT = 120;
 const MAX_UNIT_TYPES_PER_PROJECT = 40;
@@ -577,7 +584,8 @@ Deno.serve(async (req: Request) => {
         if (!morningConfigured() || !webhookSecret) {
           return json({ error: "morning_not_configured" }, 503);
         }
-        const autoRenew = body.auto_renew !== false;
+        // חידוש רק כשהוא אכן יגבה: סימון חידוש כשהמתג כבוי יצר מנוי שאיש לא מחייב (הדשבורד היה מבטיח חיוב שלא יבוא)
+        const autoRenew = body.auto_renew === true && await recurringEnabled(supabase);
 
         const { data: started, error: startErr } = await supabase.rpc("start_developer_plan_order", {
           p_developer_id: developer.id,
@@ -670,7 +678,10 @@ Deno.serve(async (req: Request) => {
         (prices ?? []).forEach((r: { key: string; value: number }) => { pricing[r.key] = Number(r.value); });
         // מצב מסלול החשבון: עד מתי שולם, המנוי, וההצעה לפי הפרויקטים היום
         const { data: plan } = await supabase.rpc("developer_plan_state", { p_developer_id: developer.id });
-        return json({ success: true, developer: dev, projects: projects ?? [], pricing, plan: plan ?? null });
+        return json({
+          success: true, developer: dev, projects: projects ?? [], pricing,
+          plan: plan ? { ...plan, recurring_enabled: await recurringEnabled(supabase) } : null,
+        });
       }
 
       default:
