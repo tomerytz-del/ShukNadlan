@@ -208,7 +208,7 @@
 שמאי/ת מקרקעין · עפולה · אין סליקה — ממתין/ה ליצירת קשר להשלמת התשלום · https://shuknadlan.co.il/professional.html?slug=ronit-barak
 
 חשבון חדש (יזם): אלמוג בנייה בע"מ
-איש/אשת קשר: אלי אלמוג · עפולה · פרסום פרויקטים בחינם ל-6 חודשים מרגע הפתיחה · https://shuknadlan.co.il/developer.html?slug=almog
+איש/אשת קשר: אלי אלמוג · עפולה · פרסום פרויקטים בחינם עד 20.5.2027 · https://shuknadlan.co.il/developer.html?slug=almog
 ```
 
 ### למה זה לא טריגר במסד
