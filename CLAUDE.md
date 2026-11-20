@@ -77,7 +77,16 @@
    של קלוד. מהספרייה משמשים רק `govmap-deals-sync`, ‏`chrome-browser`,
    ‏`seo-geo-aeo`, ‏`skill-creator` ו-`marketing-psychology` (נוסף 14.11.2026, כידע בלבד ובכפוף לשורה שלו בטבלה). **לא** מוסיפים את `supabase/agent-skills`,
    כי הוא מכוון להחלת DDL ישירה (הכלל למטה).
-2. **PR שנוגע באתר, ב-`supabase/` או ב-`netlify/` עובר `/code-review`
+2. **PR שנוגע בקוד (`assets/`, דפי HTML, `supabase/`, `netlify/`) עובר קודם
+   `/simplify` על ה-diff שלו, ורק אחריו `/code-review`** - כדי שהסקירה תראה את
+   הקוד הסופי. זה צעד ידני בסשן, לפני פתיחת ה-PR, **לא** workflow ב-CI שדוחף
+   קומיטים (קומיט נוסף שנוגע באתר הוא עוד דיפלוי). ‏`/simplify` לא מחפש באגים
+   ואינו מחליף את `/code-review`. **אין "מפשטים" כפילות מכוונת:** קטעי GTM,
+   בלוק PWA ותגית האימות בכל דף, כינויי `esc`/`escAttr` (תמיד `function`),
+   עותקי `_shared` שנבדקים ב-CI, הרשימות המקבילות (`PROP_FILTER_IDS`,
+   `NAV_GROUPS`, מאפייני נכס), וה-CSS המוטבע. אחרי הפישוט הבדיקות
+   (`scripts/check_*.py`) חייבות לעבור, וטענת ביצועים נמדדת (`perf-measure`).
+   **PR שנוגע באתר, ב-`supabase/` או ב-`netlify/` עובר `/code-review`
    לפני בקשת המיזוג.** אין סביבת ביניים: האתר עולה תוך שניות והמיגרציה
    רצה על המסד החי.
    **ו-PR שנוגע ב-`netlify/edge-functions/` מציין בתיאורו שהסקיל `seo-edge`
