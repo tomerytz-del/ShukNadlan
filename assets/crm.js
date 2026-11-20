@@ -7851,6 +7851,8 @@ async function loadProfessionalCardsAdmin(){
    המשרד שלו/ה. מאז שחיפה והקריות נכנסו (144 שכונות) סוכן/ת בעפולה ראה/תה
    רשימה של 158, רובה בחיפה. docs/regional-pages.md. */
 let allNeighborhoods = [];
+// ‏אותה רשימה לפי מזהה - חיפוש בודד במקום מעבר על כל השכונות בכל שורה. נכתבת רק ב-loadAllNeighborhoods.
+let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
 async function loadAllNeighborhoods(){
@@ -7859,6 +7861,7 @@ async function loadAllNeighborhoods(){
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
+  neighborhoodById = new Map(allNeighborhoods.map(n => [n.id, n]));
   if (!marketCityMap){
     marketCityMap = new Map((mc || []).map(r => [r.city_id, r.market_slug]));
   }
@@ -15914,7 +15917,7 @@ function exclusivityDaysLeft(p){
 function propertySearchBlob(p){
   const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
   // שם השכונה יושב בטבלה נפרדת; אם המטמון עוד לא נטען פשוט לא מחפשים לפיו
-  const neighborhood = allNeighborhoods.find(n => n.id === p.neighborhood_id);
+  const neighborhood = neighborhoodById.get(p.neighborhood_id);
   return [
     p.title, p.city, neighborhood?.name, p.sales_area, p.street, p.house_number,
     p.property_type, p.description, p.marketing_description,
@@ -16165,7 +16168,7 @@ function propertyFilterActive(f){
 function filterProperties(rows, f){
   // החיפוש החופשי - פעם אחת על כל התיק, כי רחוב נבדק מול המלאי (crmQueryMatches)
   const query = crmQueryMatches(rows, f.q, propertySearchBlob, p => ({ ...p,
-    neighborhood_name: allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '' }), propertyNamesBlob);
+    neighborhood_name: neighborhoodById.get(p.neighborhood_id)?.name || '' }), propertyNamesBlob);
   propQueryNote = query ? query.note : '';
   return rows.filter(p => {
     if (f.status && p.status !== f.status) return false;
@@ -20217,8 +20220,6 @@ function impSetOverride(rowNumber, field, value){
   if (!Object.keys(bag).length) delete importState.overrides[rowNumber];
 }
 
-function impMarkDuplicates(){ PIC.markDuplicates(impCoreState()); }
-
 function impRevalidate(){
   // בנייה, ייבוא חוזר (מודעה של יד2 שכבר אצלי - עדכון) וכפילויות, בסדר שגם
   // השרת מריץ. מספרי השורות מתחילים ב-2: שורה 1 היא הכותרות.
@@ -20811,7 +20812,7 @@ function expFieldValue(p, key){
     case 'storage_location':
     case 'mamad_location':  return exp.location[p[key]] || p[key] || '';
     // בקובץ נכתב שם השכונה ולא המזהה — הוא גם מה שהייבוא מחפש בחזרה
-    case 'neighborhood':    return allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '';
+    case 'neighborhood':    return neighborhoodById.get(p.neighborhood_id)?.name || '';
     case 'move_in_soon':    return expYesNo(p.move_in_soon);
     case 'move_in_date':
     case 'listing_expires_at': return expDate(p[key]);
@@ -21085,7 +21086,6 @@ document.addEventListener('keydown', (e)=>{
    והוא לא מכיר את הארכיון. */
 let archivedLeadIds = new Set();
 let allLeads = [];
-let leadsView = 'active';
 
 /* המתג יושב ב-HTML ולא נבנה מחדש בכל רינדור, ולכן המאזין נרשם פעם אחת.
    ‏currentAgent הוא מקור ה-agentId גם כאן: ‎renderLeads‎ מעביר אותו הלאה
@@ -21546,7 +21546,7 @@ function leadIsFresh(lead){ return leadAgeMinutes(lead) < 24 * 60; }
 function leadPropertyContext(lead){
   const p = lead.property_id ? myPropertyRows.find(r => r.id === lead.property_id) : null;
   const hoodId = p?.neighborhood_id || lead.neighborhood_id;
-  const hood = hoodId ? allNeighborhoods.find(n => n.id === hoodId)?.name : '';
+  const hood = hoodId ? neighborhoodById.get(hoodId)?.name : '';
   return {
     title: p?.title || '',
     rooms: p?.rooms ? (Number(p.rooms) + ' חד׳') : '',
@@ -23606,7 +23606,7 @@ function renderSharedWithMe(){
 
   // אותו מפענח של "הנכסים שלי" ושל האתר (crmQueryMatches)
   const query = crmQueryMatches(inScope, q, sharedSearchBlob, r => ({ ...r, id: r.property_id,
-    neighborhood_name: allNeighborhoods.find(n => n.id === r.neighborhood_id)?.name || '' }),
+    neighborhood_name: neighborhoodById.get(r.neighborhood_id)?.name || '' }),
     r => [r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone].filter(Boolean).join(' '));
   const unsorted = inScope.filter(r => {
     if (onlyMatch && !isMatch(r)) return false;
@@ -23945,7 +23945,7 @@ async function loadClients(opts){
 
 function clientNeighborhoodLabel(c){
   if (!c || !c.neighborhood_id) return '';
-  const row = allNeighborhoods.find(n => n.id === c.neighborhood_id);
+  const row = neighborhoodById.get(c.neighborhood_id);
   return row ? row.name : 'שכונה שמורה';
 }
 
@@ -27589,7 +27589,6 @@ async function loadNotifPrefs(agentId, opts){
    ========================================================================== */
 const AGENDA_KIND_LABELS = { meeting:'פגישה', showing:'סיור בנכס', signing:'חתימה', call:'שיחה', task:'משימה' };
 const AGENDA_KIND_ICONS  = { meeting:'🤝', showing:'🏠', signing:'✍️', call:'📞', task:'✅' };
-const AGENDA_MEETING_KINDS = ['meeting', 'showing', 'signing'];
 
 /* המשימות האוטומטיות. הסוג (‏auto_kind) הוא המפתח לכיבוי, והשמירה היא רשימת
    מושתקים - סוג חדש שייכנס במסד יגיע לכולם בלי backfill. */
@@ -33111,10 +33110,8 @@ function propertyCommission(p){
   return p.deal_type === 'rent' ? price : price * COMMISSION_SALE_RATE;
 }
 
-function shekelShort(n){
-  const v = Math.round(Number(n) || 0);
-  return '₪' + v.toLocaleString('he-IL');
-}
+// ‏זהה ל-admMoney; נשאר כשם נפרד כי 22 אתרי קריאה משתמשים בו.
+function shekelShort(n){ return admMoney(n); }
 
 /* מספר מקוצר לעמודה צרה. במדד שרוחבו שליש שורה במסך של 360px אין מקום
    ל-"₪1,240,000" — והמספר המלא שנחתך גרוע מהמספר המעוגל שנקרא. הסכום
