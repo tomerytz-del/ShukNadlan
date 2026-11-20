@@ -351,6 +351,7 @@ interface DeveloperRow {
   city: string | null;
   slug: string | null;
   kind: string | null;
+  free_until: string | null;
 }
 
 // אותם ערכים כמו DEVELOPER_KINDS ב-_shared/projects.ts ו-developers_kind_check
@@ -410,7 +411,7 @@ export async function announceDeveloperSignup(
   try {
     const { data: d, error } = await (supabase
       .from("developers")
-      .select("name, contact_name, city, slug, kind")
+      .select("name, contact_name, city, slug, kind, free_until")
       .eq("id", developerId)
       .maybeSingle() as QueryResult<DeveloperRow | null>);
 
@@ -424,7 +425,8 @@ export async function announceDeveloperSignup(
     const body = joinParts([
       d.contact_name ? `איש/אשת קשר: ${d.contact_name}` : null,
       d.city,
-      "פרסום פרויקטים בחינם ל-6 חודשים מרגע הפתיחה",
+      // התאריך מהמסד (developers.free_until), לא "6 חודשים" כתוב ביד: project_free_months משתנה ב-pricing_config
+      d.free_until ? `פרסום פרויקטים בחינם עד ${new Date(d.free_until).toLocaleDateString("he-IL")}` : "פרסום פרויקטים בחינם בתקופה הראשונה",
       d.slug ? `${SITE_BASE}/developer?slug=${encodeURIComponent(d.slug)}` : null,
     ]);
 
