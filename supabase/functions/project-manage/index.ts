@@ -188,6 +188,7 @@ Deno.serve(async (req: Request) => {
         phone_e164: core.value.phone_e164,
         address: core.value.address,
         city: core.value.city,
+        kind: core.value.kind ?? "developer",
         legal_name: text(body.legal_name, 160),
         tagline: text(body.tagline, 160),
         // הכתובת מ-Google היא ברירת המחדל, ולא ערך שהמשתמש/ת בחר/ה
@@ -287,7 +288,10 @@ Deno.serve(async (req: Request) => {
           p_project_id: projectId, p_developer_id: developer.id,
         });
         if (error) return json({ error: "db_error", detail: error.message }, 500);
-        return json(data, data?.error ? (data.error === "insufficient_balance" ? 402 : 400) : 200);
+        // ‏plan_required: החלון החינמי נגמר ומסלול החשבון עוד לא נגבה (20271122090000)
+        return json(data, data?.error
+          ? (data.error === "insufficient_balance" ? 402 : data.error === "plan_required" ? 409 : 400)
+          : 200);
       }
 
       // ---------------------------------------------------------------
@@ -443,6 +447,8 @@ Deno.serve(async (req: Request) => {
           phone_e164: core.value.phone_e164,
           address: core.value.address,
           city: core.value.city,
+          // הסוג משתנה רק כשנשלח: מסך עריכה ישן שאינו מכיר אותו לא יאפס משווק ליזם
+          ...(core.value.kind ? { kind: core.value.kind } : {}),
           legal_name: text(body.legal_name, 160),
           logo_url: safeUrl(body.logo_url),
           cover_url: safeUrl(body.cover_url),
@@ -572,6 +578,8 @@ Deno.serve(async (req: Request) => {
             "project_page_monthly_price", "project_page_period_days",
             "project_promote_weekly_price", "project_promote_duration_days",
             "project_lead_price",
+            "project_free_months", "project_plan_tier1_max", "project_plan_tier1_price",
+            "project_plan_tier2_max", "project_plan_tier2_price", "project_plan_tier3_price",
           ]),
         ]);
         const pricing: Record<string, number> = {};

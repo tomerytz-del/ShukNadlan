@@ -190,9 +190,18 @@ export const REQUIRED_DEVELOPER_FIELDS = [
   "company_name", "company_number", "contact_name", "phone", "address", "city",
 ] as const;
 
+/**
+ * סוג המפרסם (20.11.2026): יזם, קבלן, או משווק נדל״ן לפרויקטים חדשים. אותה טבלה ואותו ארנק -
+ * הסוג אינו משנה הרשאה או חיוב. אותם ערכים ב-`developers_kind_check` וב-`TYPE` של דף ההרשמה.
+ */
+export const DEVELOPER_KINDS = ["developer", "contractor", "marketer"] as const;
+export type DeveloperKind = typeof DEVELOPER_KINDS[number];
+
 export type DeveloperCore = {
   name: string; company_number: string; contact_name: string;
   phone: string; phone_e164: string; address: string; city: string;
+  /** רק כשנשלח ותקין. בעדכון, היעדרו משאיר את הסוג הקיים (ולא מאפס ל-developer). */
+  kind?: DeveloperKind;
 };
 
 /**
@@ -223,6 +232,10 @@ export function developerCore(body: Record<string, unknown>): {
   else if (!number) invalid.push("company_number");
   if (!phoneRaw) missing.push("phone");
   else if (!e164) invalid.push("phone");
+  // סוג שנשלח ואינו מוכר הוא שגיאה, לא ברירת מחדל שקטה: מי ששלח "marketer " נרשם כיזם בלי לדעת
+  const kindRaw = typeof body.kind === "string" ? body.kind.trim() : "";
+  const kind = (DEVELOPER_KINDS as readonly string[]).includes(kindRaw) ? kindRaw as DeveloperKind : undefined;
+  if (body.kind !== undefined && body.kind !== null && body.kind !== "" && !kind) invalid.push("kind");
 
   if (missing.length || invalid.length) return { ok: false, missing, invalid };
   return {
@@ -230,6 +243,7 @@ export function developerCore(body: Record<string, unknown>): {
     value: {
       name: name!, company_number: number!, contact_name: contact!,
       phone: phoneRaw!, phone_e164: e164!, address: address!, city: city!,
+      ...(kind ? { kind } : {}),
     },
   };
 }
