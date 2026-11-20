@@ -21,6 +21,8 @@ import {
   boardUrlFromRowId,
   fetchBoardListings,
   presentBoardListings,
+  boardRankNote,
+  rankedBoardRows,
   recordBoardPresentation,
   safeListingUrl,
   shouldAttachBoardListings,
@@ -79,6 +81,13 @@ check("דירה מסננת סוג", !!typeOr && typeOr.op === "or" && typeOr.val
 check("תקרה 5 לפי עדכון אחרון",
   ops?.some((op) => op.op === "limit" && op.value === BOARD_CAP) === true &&
   ops?.some((op) => op.op === "order" && op.column === "last_seen_at" && op.ascending === false) === true);
+const sourceIn = ops?.find((op) => op.op === "in" && op.column === "source");
+check("ברירת המחדל היא יד2 ומדלן, בלי פייסבוק",
+  !!sourceIn && sourceIn.op === "in" && sourceIn.value.join() === "yad2,madlan");
+const fbOps = boardQueryOps(group, ["facebook"]);
+const fbSource = fbOps?.find((op) => op.op === "in" && op.column === "source");
+check("פייסבוק נשאל לחוד ולא במקום הלוחות",
+  !!fbSource && fbSource.op === "in" && fbSource.value.join() === "facebook");
 check("השאילתה לא קוראת טלפון או שם",
   !BOARD_COLUMNS.includes("phone") && !BOARD_COLUMNS.includes("name") && !BOARD_COLUMNS.includes("address"));
 
@@ -120,10 +129,10 @@ const shown = presentBoardListings(
   12,
   { buttons: true },
 );
-check("מוצגות 5 והשאר נספרות", shown?.shown === 5 && shown.more === 7 && shown.total === 12);
+check("מוצגות 5 מהלוחות ועוד פוסט פייסבוק", shown?.shown === 6 && shown.more === 6 && shown.total === 12);
 check("כמה מודעות הן הודעת רשימה אחת, בלי כתובת",
   shown?.message?.kind === "list" &&
-  shown.message.rows.length === 5 &&
+  shown.message.rows.length === 6 &&
   !shown.message.body.includes("http") &&
   shown.message.rows.every((item) => item.id.startsWith("bu:https://") && !item.title.includes("http") && !(item.description || "").includes("http")) &&
   shown.message.button.length <= 20 &&
@@ -146,6 +155,21 @@ check("הודעה אחת רק אם התשובה מציגה את הלוחות",
 const one = presentBoardListings([row(2)], 1, { buttons: true });
 check("מודעה אחת היא כפתור קישור אחד",
   one?.message?.kind === "cta" && one.message.label === "פתיחה ביד2" && !one.message.body.includes("http"));
+const onlyFb = presentBoardListings([
+  row(1, {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3",
+    source: "facebook",
+    url: "https://www.facebook.com/groups/99/posts/123456789012345/",
+  }),
+], 1, { buttons: true });
+check("פוסט פייסבוק מוצג עם כפתור, בלי כתובת בטקסט",
+  onlyFb?.shown === 1 &&
+  onlyFb.heading === "מודעות מקבוצות פייסבוק" &&
+  onlyFb.lines[0].startsWith("פייסבוק") &&
+  onlyFb.message?.kind === "cta" &&
+  onlyFb.message.label === "לפוסט" &&
+  !onlyFb.message.body.includes("http") &&
+  onlyFb.logged[0]?.source === "facebook");
 check("חיפוש עם ממ״ד לא מצרף לוחות", shouldAttachBoardListings({ features: ["mamad"] }) === false);
 check("חיפוש עם מעלית או חניה לא מצרף",
   shouldAttachBoardListings({ features: ["elevator"] }) === false &&
@@ -246,6 +270,10 @@ check("כתובת לא תקינה לא מוצגת",
   presentBoardListings([row(1, { url: "notaurl" })], 1, { buttons: true }) === null);
 check("השורה בלי כתובת אתר", boardLine(row(2))?.includes("http") === false && boardLine(row(2))?.startsWith("יד2") === true);
 check("תוויות", boardButtonLabel("yad2") === "פתיחה ביד2" && boardButtonLabel("madlan") === "פתיחה במדלן" && safeListingUrl("http://x") === null);
+check("ללא תיווך מופיע בשורת פייסבוק",
+  boardLine(row(1, { source: "facebook", url: "https://www.facebook.com/groups/9/posts/123456789012345/", no_broker: "post" }))
+    ?.includes("ללא תיווך") === true
+  && boardLine(row(2))?.includes("ללא תיווך") === false);
 
 type Rec = { op: string; column?: string; value?: unknown };
 class FakeDb {
@@ -298,8 +326,51 @@ const searchFn = agent.slice(agent.indexOf("async function toolSearchProperties"
 const clientFn = agent.slice(agent.indexOf("async function toolClientMatches"), agent.indexOf("async function clientBoardScope"));
 check("חיפוש עם מאפיין חובה לא מצרף לוחות",
   searchFn.includes("features: feats") && searchFn.includes("boardSection"));
+// ההתאמות ללקוח/ה עוברות בדירוג של המסד (clientBoardRanked). השער על מאפיין
+// חובה יושב שם, לפני הקריאה, וגם בגיבוי הישן.
+const rankedFn = agent.slice(agent.indexOf("async function clientBoardRanked"), agent.indexOf("async function toolSearchProperties"));
 check("התאמה עם מאפיין חובה לא מצרפת לוחות",
-  clientFn.includes("shouldAttachBoardListings({ required, waived: waive })"));
+  clientFn.includes("clientBoardRanked(ctx") &&
+  rankedFn.indexOf("shouldAttachBoardListings({ required, waived: waive })") > -1 &&
+  rankedFn.indexOf("shouldAttachBoardListings({ required, waived: waive })") < rankedFn.indexOf(".rpc("));
+check("ההתאמות ללקוח/ה מדורגות במסד, עם הוויתור של הסוכן/ת",
+  rankedFn.includes('"agent_client_board_matches_for_agent"') && rankedFn.includes("p_waive_features: waive") &&
+  rankedFn.includes("p_agent_id: ctx.agent.id"));
+check("בלי עיר בכרטיס, בכשל או לפני המיגרציה חוזרים לסינון הקודם",
+  rankedFn.includes('r.status === "no_city" || r.status === "unsupported"') && (rankedFn.match(/await legacy\(\)/g) || []).length >= 3);
+
+// שורות מדורגות: הסדר של המסד נשמר, והשדות של המודעה והציון עוברים הלאה.
+const rankedResult = {
+  status: "ok", total: 268, top_score: 100, top_count: 203,
+  items: [
+    { id: "00000000-0000-0000-0000-00000000000a", source: "yad2", city: "עפולה", property_type: "דירה",
+      rooms: 4, price: 1290000, size_sqm: 105, floor: 0, neighborhood: "גבעת המורה", score: 100,
+      price_was: 1350000, url: "https://www.yad2.co.il/realestate/item/a" },
+    { id: "00000000-0000-0000-0000-00000000000b", source: "madlan", city: "עפולה", property_type: "דירה",
+      rooms: 4, price: 1100000, score: 90, url: "https://www.madlan.co.il/listings/b" },
+    null,
+  ],
+};
+const rankedRows = rankedBoardRows(rankedResult, "sale");
+check("שורות מדורגות נשארות בסדר של המסד",
+  rankedRows.length === 2 && rankedRows[0].price === 1290000 && rankedRows[0].deal_type === "sale");
+check("תשובה בלי items היא אפס שורות", rankedBoardRows({ status: "none" }, "sale").length === 0 &&
+  rankedBoardRows(null, "sale").length === 0);
+const rankedShown = presentBoardListings(rankedRows, 268, { buttons: true, ranked: true });
+const firstRanked = (rankedShown?.listings[0] || {}) as Record<string, unknown>;
+check("המודעה המדורגת נושאת שטח, קומת קרקע, שכונה, ציון ומחיר קודם",
+  firstRanked.size_sqm === 105 && firstRanked.floor === 0 && firstRanked.neighborhood === "גבעת המורה" &&
+  firstRanked.score === 100 && firstRanked.price_was === 1350000);
+check("השורה מציגה שטח ושכונה",
+  String(firstRanked.line).includes("105 מ״ר") && String(firstRanked.line).includes("גבעת המורה"));
+check("ההנחיה למדורגות אינה אומרת שאין שכונה",
+  !!rankedShown && !rankedShown.note.includes("אין שכונה במודעות") && rankedShown.note.includes("אל תמייני מחדש"));
+check("ההנחיה הרגילה לא השתנתה",
+  (presentBoardListings([row(1)], 1, { buttons: true })?.note || "").includes("אין שכונה במודעות"));
+check("כשהרבה מודעות באותו ציון, נאמר כמה ולפי מה נבחרו",
+  (boardRankNote(rankedResult, 2) || "").includes("203") && (boardRankNote(rankedResult, 2) || "").includes("100%"));
+check("כשכל מודעות הציון הגבוה מוצגות אין הערה",
+  boardRankNote({ top_score: 100, top_count: 2 }, 2) === null && boardRankNote({}, 2) === null);
 check("היומן נכתב רק אחרי שהתשובה מציגה",
   agent.includes("boardPresentationLog") && agent.includes("recordBoardPresentation"));
 

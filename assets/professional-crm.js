@@ -34,7 +34,7 @@
   const el = (id) => document.getElementById(id);
   const KIND_LABELS = {
     real_estate_lawyer: 'עו״ד מקרקעין', mortgage_advisor: 'יועץ/ת משכנתאות', appraiser: 'שמאי/ת מקרקעין',
-    architect: 'אדריכל/ית', interior_designer: 'מעצב/ת פנים', cleaning: 'חברת ניקיון', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', general: 'בעל/ת מקצוע',
+    architect: 'אדריכל/ית', interior_designer: 'מעצב/ת פנים', cleaning: 'חברת ניקיון', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', electrician:'חשמלאי/ת', plumber:'אינסטלטור/ית', general: 'בעל/ת מקצוע',
   };
   const nis = (n) => '₪' + Math.round(Number(n) || 0).toLocaleString('he-IL');
   const hebDate = (d) => (d ? new Date(d).toLocaleDateString('he-IL') : '');

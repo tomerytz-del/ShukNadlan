@@ -32,7 +32,11 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 אם הוא לא מתחיל ב-`facebook_` - אחרת הוא נספר `other` בבקרת הלידים.
 `madlan` ו-`yad2` כבר ברשימות האלה (מודעות בעלים פרטיים, `docs/scraped-leads.md`,
 `docs/listing-inventory.md`). מקור חדש אחריהם נכנס לאותן רשימות, וגם ל-
-`listing_inventory_sync` אם הוא מלאי ולא פוסט.
+`listing_inventory_sync` אם הוא מלאי ולא פוסט. בעל/ת מ-`facebook_group`
+נכתב/ת ל-`listing_inventory` עם `source = facebook` מטריגר, לא מהסנכרון:
+הפוסט אינו צילום עיר, וצילום יד2 לא מוחק אותו. מחפש/ת לא נכתב/ת למלאי.
+ההתאמה שלו/ה למלאי ולנכסים פעילים יוצאת בשורת הביקוש הפתוח רק כש-
+`scraped_lead_matching_enabled` דלוק. אין קריאה שנייה של הסוכן הסורק.
 
 ## 2. ביקוש פתוח: בלי פרטים מזהים, וזה נאכף במסד
 
@@ -57,6 +61,17 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 `whatsapp_template_cap_on()` כבויה. "אני פונה" על הודעה פרטית בלי פוסט
 קורא ל-`social_buyer_handover`. תור `seeker_handoffs` נכתב רק כש-
 `social_buyer_handoff_enabled` הוא 1, והוא נשאר 0. אין שליחה לפונה.
+
+## 2א. פוסט פתוח כהתאמה ללקוח/ה: הלחיצה היא "אני פונה"
+
+`client_demand_matches` מצליבה לקוח/ה מול פוסטים פתוחים של בעלי נכס, באותו
+`client_property_match`. מה שחוזר אנונימי: **אין קישור, טלפון או
+`property_details`**, והקישור נחשף רק אחרי התפיסה. פוסט "ללא תיווך" **נכנס**,
+עם תגית וההנחיה של `OPEN_DEMAND_NO_BROKER` (הצעת שיווק, לא "יש לי קונה"). הלחיצה (CRM: `claimOpenDemand`; גבריאלה: כפתור שפותח
+`/demand?k=`) היא `open_demand_claim_core`: אותה תקרה יומית ובלעדיות שאינה
+משתחררת. **התפיסה ב-POST מ-JS, לא ב-GET**, כדי שתצוגה מקדימה לא תתפוס, ובחירה
+בשורת רשימה אינה תפיסה. אל תהפכו את הדף ל-GET שתופס, ואל תוסיפו קישור לפוסט
+לתשובה של `client_demand_matches`. `docs/scraped-leads.md`.
 
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 
@@ -116,6 +131,15 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 תופסת את הביקוש ולא נספרת בתקרה. `board_listing_url` לא נכתב להתראה,
 לוואטסאפ או למייל. דחיות `missing_phone` ישנות נכנסו עם `push_site_only`,
 בלי דחיפה. אין חסימת סירוב לצמיתות: אחרי 30 יום מותר לקלוט שוב.
+
+שכבה רביעית היא **סימון ולא חסימה**. `board_cross_source_match` מסמנת
+`is_duplicate` כשמודעת יד2 ומודעת מדלן חולקות עיר, `deal_type`, `rooms`
+ומחיר בתוך הרצועה (2% מהמחיר הגבוה, ורצפה של 10000 במכירה או 100
+בשכירות). השורה נכנסת, תשובת ה-RPC לא משתנה, ו-`scraped_lead_notify_demand`
+עדיין נקראת. מי שמחליף את `scraped_lead_add` או את `listing_inventory_sync`
+מעתיק את הקריאה לסימון. הסימון סימטרי (שני הצדדים), והצרכנים מסתירים רק את הצד החדש דרך `board_dup_hidden`, לא לפי `is_duplicate` לבדו. פייסבוק ומודעה מאותו לוח לא נספרים.
+מועמד מ-`scraped_leads` רק ב-`pending_consent`, `consented` או `open_demand`.
+`docs/listing-inventory.md`.
 
 ## 6. תקופת ההשקה - בהגדרה, לא בקוד
 

@@ -20,6 +20,7 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_rpc_sample_test.py"
       - "scripts/ops_search_rules_test.py"
       - "scripts/ops_area_names_test.py"
       - "scripts/ops_search_words_test.py"
@@ -43,6 +44,7 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_rpc_sample_test.py"
       - "scripts/ops_search_rules_test.py"
       - "scripts/ops_area_names_test.py"
       - "scripts/ops_search_words_test.py"
@@ -111,6 +113,11 @@ jobs:
       # ונושא עברי אינו מאבד את המפתח. על שני הממצאים של 28.9.2026.
       - name: ‏כל ממצא נסגר, ולכל ממצא מפתח משלו
         run: python3 scripts/ops_probe_codes_test.py
+
+      # ‏ממצא "שאילתה איטית" על RPC אומר איזו פונקציה לבדוק, ולא רק עטיפה
+      # של PostgREST. על notification_push_claim ב-20.11.2026.
+      - name: ‏שאילתה איטית נושאת את שם הפונקציה
+        run: python3 scripts/ops_rpc_sample_test.py
 
       # ‏פונקציות פומביות מוצהרות (PUBLIC_RPC): משתיקות רק קריאה, וכל שם קיים.
       - name: ‏anon_secdef מדווחת בדיוק מתי שצריך

@@ -18,8 +18,9 @@ import { announceDeveloperSignup } from "../_shared/platform-signup-alert.ts";
 // חשבון שהוא חצי סוכן וחצי יזם, ולא ברור לאיזה מסך הוא נכנס.
 //
 // אין כאן "פתיחת פרויקט": חברה נפתחת ריקה, והפרויקט הראשון נוצר מהדשבורד
-// דרך project-manage — שם גם ממתין החיוב של 350 ₪ לחודש. פתיחת החברה
-// עצמה חינם, וזו החלטה: יזם צריך לראות את המסך לפני שהוא משלם עליו.
+// דרך project-manage. פתיחת החברה חינם, והפרסום בחינם ל-6 חודשים מרגע
+// הפתיחה (developers.free_until, טריגר במסד; ‏20271122090000). הסוג
+// (יזם / קבלן / משווק) נשמר ב-`kind` ואינו משנה הרשאה או חיוב.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -126,6 +127,7 @@ Deno.serve(async (req: Request) => {
         phone_e164: core.value.phone_e164,
         address: core.value.address,
         city: core.value.city,
+        kind: core.value.kind ?? "developer",
         legal_name: text(body.legal_name, 160),
         tagline: text(body.tagline, 160),
         description: text(body.description, 4000),

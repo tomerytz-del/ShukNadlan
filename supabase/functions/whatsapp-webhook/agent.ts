@@ -90,20 +90,32 @@ import {
   shouldLogSearchMiss,
 } from "./property-search.ts";
 import {
+  BOARD_CAP,
   boardCityStockCriteria,
   boardCriteria,
   boardInteractiveForReply,
   boardPresentationLog,
+  boardRankNote,
   boardSearchStatus,
   boardStatusFields,
   boardToolFields,
   fetchBoardListings,
   presentBoardListings,
+  rankedBoardRows,
   recordBoardPresentation,
   shouldAttachBoardListings,
   type BoardInteractive,
   type BoardScope,
+  DEMAND_HEADING,
 } from "./board-listings.ts";
+import {
+  combinedMatchMessage,
+  DEMAND_NOTE,
+  demandItems,
+  demandLine,
+  demandListings,
+  mergeByScore,
+} from "./demand-matches.ts";
 import {
   capCities,
   CLIENT_CITY_CAP,
@@ -1418,7 +1430,9 @@ const TOOLS: Anthropic.Tool[] = [
       "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
       "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). ואחריהם, בנפרד, " +
       "board_listings: מודעות ציבוריות מיד2 וממדלן לפי אותן דרישות (עיר, עסקה, " +
-      "סוג, חדרים, מחיר). אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
+      "סוג, חדרים, מחיר). ואחריהן, בנפרד, demand_posts: פוסטים של בעלי נכס בפייסבוק " +
+      "שעוד אין להם סוכן, באותו דירוג. הלחיצה על הפוסט בהודעה מסמנת \"אני פונה\". " +
+      "אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
       "כותבים את board_say בתוך התשובה. skipped_feature (מאפיין חובה): כותבים את " +
       "board_say ולא אומרים שאין מודעות. unavailable: לא מזכירים את הלוחות. " +
       "מאפייני החובה של הלקוח/ה " +
@@ -2131,7 +2145,7 @@ interface ToolContext {
     lines: string[];
     message: BoardInteractive;
     tool: "search_properties" | "client_matches";
-    logged: { id: string; source: "yad2" | "madlan" }[];
+    logged: { id: string; source: "yad2" | "madlan" | "facebook" }[];
   } | null;
 }
 
@@ -3756,16 +3770,22 @@ async function boardSection(
     maxRooms: filters.maxRooms,
   });
   if (!criteria) return boardStatusFields("unavailable");
-  const fetched = await fetchBoardListings(ctx.supabase, criteria);
-  if (!fetched) return boardStatusFields("unavailable");
-  if (!fetched.total) {
-    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria));
+  // יד2 ומדלן נשארים חמשת המקומות. פייסבוק נשאל בנפרד ומצטרף אחריהם.
+  const [boards, facebook] = await Promise.all([
+    fetchBoardListings(ctx.supabase, criteria, ["yad2", "madlan"]),
+    fetchBoardListings(ctx.supabase, criteria, ["facebook"]),
+  ]);
+  if (!boards && !facebook) return boardStatusFields("unavailable");
+  const rows = [...(boards?.rows || []), ...(facebook?.rows || [])];
+  const total = (boards?.total || 0) + (facebook?.total || 0);
+  if (!rows.length) {
+    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria), ["yad2", "madlan"]);
     return boardStatusFields(boardSearchStatus({
       filtered: 0,
       cityStock: stock ? stock.total : null,
     }));
   }
-  const presented = presentBoardListings(fetched.rows, fetched.total, {
+  const presented = presentBoardListings(rows, total, {
     buttons: !!ctx.outbox,
   });
   if (!presented) return boardStatusFields("unavailable");
@@ -3773,6 +3793,141 @@ async function boardSection(
     ctx.pendingBoard = { lines: presented.lines, message: presented.message, tool, logged: presented.logged };
   }
   return { ...boardToolFields(presented), ...boardStatusFields("matches") };
+}
+
+/**
+ * מודעות הלוחות ללקוח/ה, **מדורגות באותו מנוע של הנכסים** (20271120130000):
+ * agent_client_board_matches_for_agent מריצה כל מודעה ב-client_property_match,
+ * ולכן הבוט וה-CRM מציגים את אותן מודעות באותו סדר. הסינון של boardSection
+ * (חמש האחרונות שנראו) נשאר רק כגיבוי: לפני שהמיגרציה רצה, בכשל, וכשבכרטיס
+ * אין עיר - שם ממשיכים לערי השוק של המשרד, כמו קודם.
+ */
+/**
+ * הבסיס של קישור /demand. אותה ברירת מחדל של index.ts (שורת הרשימה שנבחרת שם
+ * נבנית ממנו): בלי env הפוסטים לא נעלמים בשקט מ-client_matches.
+ */
+const DEMAND_SITE_BASE = (SITE_BASE_URL || "https://shuknadlan.co.il").replace(/\/$/, "");
+
+async function clientBoardRanked(
+  ctx: ToolContext,
+  client: Record<string, unknown>,
+  clientId: string,
+  required: string[],
+  waive: string[],
+): Promise<Record<string, unknown>> {
+  if (!shouldAttachBoardListings({ required, waived: waive })) return boardStatusFields("skipped_feature");
+  const legacy = async () =>
+    boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
+      dealType: client.deal_type,
+      propertyTypes: client.property_types,
+      minPrice: client.min_price,
+      maxPrice: client.max_price,
+      minRooms: client.min_rooms,
+      maxRooms: client.max_rooms,
+      required,
+      waived: waive,
+    });
+  try {
+    // שני המקורות במקביל: מודעות הלוחות, ופוסטים פתוחים בפייסבוק (עם טוקן ללחיצה).
+    // כשל בפוסטים (המיגרציה עוד לא רצה, אין SITE_BASE_URL) משאיר רק את הלוחות.
+    const [boardsCall, demandCall] = await Promise.all([
+      ctx.supabase.rpc("agent_client_board_matches_for_agent", {
+        p_agent_id: ctx.agent.id,
+        p_client_id: clientId,
+        p_limit: BOARD_CAP,
+        p_waive_features: waive,
+      }),
+      DEMAND_SITE_BASE
+        ? ctx.supabase.rpc("agent_client_demand_matches_for_agent", {
+          p_agent_id: ctx.agent.id,
+          p_client_id: clientId,
+          p_limit: BOARD_CAP,
+          p_waive_features: waive,
+        }).then((res: unknown) => res, () => ({ data: null, error: { message: "failed" } }))
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    const { data, error } = boardsCall;
+    const r = (data && typeof data === "object" && !Array.isArray(data) ? data : null) as
+      | Record<string, unknown>
+      | null;
+    if (error || !r || typeof r.status !== "string") {
+      if (error) console.warn("ranked board matches skipped", error.message);
+      return await legacy();
+    }
+    // no_city: ממשיכים לערי השוק של המשרד. unsupported: לקוח/ה מסחרי/ת, שהדירוג
+    // אינו מכסה - הסינון הקודם כן מחפש לפי סוג הנכס.
+    if (r.status === "no_city" || r.status === "unsupported") return await legacy();
+    if (r.status === "skipped_feature") return boardStatusFields("skipped_feature");
+    const demandError = (demandCall as { error?: { message?: string } | null }).error;
+    if (demandError) console.warn("demand matches skipped", demandError.message || "error");
+    const demandAll = demandItems((demandCall as { data?: unknown }).data);
+    const demandTotal = Number(((demandCall as { data?: { total?: unknown } | null }).data || {}).total);
+
+    const boardRowsAll = r.status === "ok" ? rankedBoardRows(r, client.deal_type) : [];
+    if (!boardRowsAll.length && !demandAll.length) {
+      if (r.status === "none") return boardStatusFields("none");
+      return boardStatusFields("unavailable");
+    }
+    // חמש שורות בסך הכול, לפי ציון: ראשונות השורות עם הציון הגבוה, ובשוויון הלוח.
+    const merged = mergeByScore(boardRowsAll, demandAll, BOARD_CAP);
+    const boardTotal = Number(r.total);
+    const presented = merged.boards.length
+      ? presentBoardListings(merged.boards, Number.isFinite(boardTotal) ? boardTotal : boardRowsAll.length, {
+        buttons: !!ctx.outbox,
+        ranked: true,
+      })
+      : null;
+    if (!merged.demand.length) {
+      if (!presented) return boardStatusFields("unavailable");
+      if (ctx.outbox && presented.message) {
+        ctx.pendingBoard = {
+          lines: presented.lines,
+          message: presented.message,
+          tool: "client_matches",
+          logged: presented.logged,
+        };
+      }
+      const rankNote = boardRankNote(r, presented.shown);
+      return {
+        ...boardToolFields(presented),
+        ...boardStatusFields("matches"),
+        ...(rankNote ? { board_rank_note: rankNote } : {}),
+      };
+    }
+
+    // יש פוסטים: הודעה אחת ברשימה משולבת. ביומן ההצגה נכנסות רק מודעות הלוחות.
+    const lines = [...(presented ? presented.lines : []), ...merged.demand.map(demandLine)];
+    if (ctx.outbox) {
+      const message = combinedMatchMessage(merged.boards, merged.demand, DEMAND_SITE_BASE);
+      if (message) {
+        ctx.pendingBoard = {
+          lines,
+          message,
+          tool: "client_matches",
+          logged: presented ? presented.logged : [],
+        };
+      }
+    }
+    const demandMore = Number.isFinite(demandTotal) && demandTotal > merged.demand.length
+      ? demandTotal - merged.demand.length
+      : 0;
+    return {
+      ...(presented ? boardToolFields(presented) : {}),
+      ...(presented ? boardStatusFields("matches") : boardStatusFields(r.status === "none" ? "none" : "unavailable")),
+      ...(presented ? (() => {
+        const rankNote = boardRankNote(r, presented.shown);
+        return rankNote ? { board_rank_note: rankNote } : {};
+      })() : {}),
+      demand_heading: DEMAND_HEADING,
+      demand_posts: demandListings(merged.demand),
+      demand_shown: merged.demand.length,
+      demand_more: demandMore,
+      demand_note: DEMAND_NOTE,
+    };
+  } catch (err) {
+    console.warn("ranked board matches skipped", err instanceof Error ? err.message : "error");
+    return await legacy();
+  }
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
@@ -6151,6 +6306,23 @@ async function findClientDuplicates(
   return hits;
 }
 
+const MATCHES_NOW_NOTE =
+  "matches_now הוא מה ש-client_matches מחזיר עכשיו, מכל המקורות. אם יש בו נכסים, board_listings " +
+  "או demand_posts - אחרי אישור השמירה, באותה הודעה, הציגי איזה נכס או מודעה או פוסט מתאימים " +
+  "ללקוח/ה הזה/זו, לפי הכללים של client_matches (כותרות נפרדות, בלי כתובת אתר). " +
+  "אם אין התאמות - משפט אחד, בלי להמציא.";
+
+/** client_matches עם השמירה. כשל לא מפיל את יצירת הכרטיס: הכרטיס כבר נשמר. */
+async function autoClientMatches(ctx: ToolContext, clientId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await toolClientMatches(ctx, { client_id: clientId });
+    return res && (res as { ok?: unknown }).ok === true ? res as Record<string, unknown> : null;
+  } catch (err) {
+    console.warn("auto client matches skipped", err instanceof Error ? err.message : "error");
+    return null;
+  }
+}
+
 async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>) {
   const fullName = String(input.full_name || "").trim();
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
@@ -6276,11 +6448,18 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
 
   ctx.conv.last_client_id = saved.id;
   if (!neighborhoodDeferred) await fillNeighborhoodNames(ctx, [saved]);
+  // ההתאמות מכל המאגרים מיד עם השמירה: נכסים שלך ושל המשרד, מה ששותף, מודעות
+  // הלוחות (יד2/מדלן) ופוסטים פתוחים בפייסבוק, באותו דירוג. רק לקונה/שוכר/ת עם
+  // עסקה ועיר: כרטיס בלי עיר "מתאים לכל נכס", והכלי שואל קודם (planned.ask).
+  const matchesNow = !ownerWrite && payload.deal_type && Array.isArray(payload.cities) && payload.cities.length > 0
+    ? await autoClientMatches(ctx, saved.id)
+    : null;
   return {
     ok: true,
     client_id: saved.id,
     full_name: saved.full_name,
     ...savedCard(saved),
+    ...(matchesNow ? { matches_now: matchesNow, matches_now_note: MATCHES_NOW_NOTE } : {}),
     ask: ownerWrite ? [ownerWrite.ask] : planned.ask,
     suggested_features: planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
@@ -6763,18 +6942,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       : required.length && !(data || []).length && !marketMatches.length
       ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
-    ...(shouldAttachBoardListings({ required, waived: waive })
-      ? await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
-        dealType: client.deal_type,
-        propertyTypes: client.property_types,
-        minPrice: client.min_price,
-        maxPrice: client.max_price,
-        minRooms: client.min_rooms,
-        maxRooms: client.max_rooms,
-        required,
-        waived: waive,
-      })
-      : boardStatusFields("skipped_feature")),
+    ...(await clientBoardRanked(ctx, client as Record<string, unknown>, clientId, required, waive)),
   };
 }
 
@@ -10326,6 +10494,11 @@ const SYSTEM_STATIC: string = (() => {
       "ולא כאילו הן מודעות שלך. אין בהן טלפון ואין לפנות לבעלים, ואין חיוב. " +
       "כשמציגים אותן כותבים את הכותרת, בלי כתובת אתר: הודעה אחת יוצאת אחרייך. " +
       "בלי הכותרת אין הודעה. אם board_more גדול מאפס - אמרי כמה מוצגות וכמה עוד יש. " +
+      "**demand_posts הם פוסטים של בעלי נכס בפייסבוק, מקור שלישי**: אחרי הלוחות, בכותרת " +
+      "demand_heading (\"פוסטים בפייסבוק\"). כתבי שורה אחת לפוסט (כמו ב-line), וכתבי במשפט אחד " +
+      "שהלחיצה על הפוסט בהודעה מסמנת \"אני פונה\" - הוא נתפס לסוכן/ת הזה/ו, לא נשאר פתוח " +
+      "לאחרים ונספר בתקרה היומית. אל תבטיחי שהפוסט עוד פנוי. אין טלפון, אין כתובת אתר, אין לפנות " +
+      "לבעל הנכס. הכותרת היא מה שמוציא את ההודעה. demand_more גדול מאפס - אמרי כמה עוד יש. " +
       "אם properties ריק ויש board_listings - יש מודעות בלוחות, לא אפס. " +
       "board_status none: כתבי את board_say כמו שהוא בתוך התשובה, בלי הודעה נוספת. " +
       "skipped_feature: כתבי את board_say, ואל תאמרי שאין מודעות בלוחות. " +
@@ -10468,6 +10641,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר board_listings - אחרי הנכסים שלך ושל המשרד, בכותרת נפרדת \"מודעות מהלוחות יד 2 / מדלן\". " +
       "אלה מודעות ציבוריות, לא נכסים שלך, בלי טלפון ובלי פנייה לבעלים, ובלי כתובת בטקסט. " +
       "הכותרת הזו היא מה שמוציא הודעה אחת אחרי התשובה. בלי הכותרת אין הודעה. " +
+      "ואם חזר demand_posts - אחרי הלוחות, בכותרת \"פוסטים בפייסבוק\": שורה לפוסט, ובמשפט אחד " +
+      "שהלחיצה על הפוסט בהודעה מסמנת \"אני פונה\" ופותחת אותו. " +
       "board_status none: כתבי את board_say כמו שהוא בתוך התשובה. " +
       "skipped_feature: כתבי את board_say, לא שאין מודעות. unavailable: אל תזכירי את הלוחות. " +
       "\"למי מתאים הנכס הזה\" = property_matches. " +

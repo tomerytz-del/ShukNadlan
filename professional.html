@@ -455,18 +455,18 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
    תוויות של professionals.html, כדי שתחום ייקרא אותו דבר בשני הדפים. */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עו״ד מקרקעין',
-  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', general:'בעל מקצוע',
+  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', electrician:'חשמלאי', plumber:'אינסטלטור', general:'בעל מקצוע',
 };
 const TYPE_PLURAL = {
   mortgage_advisor:'יועצי משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עורכי דין מקרקעין',
-  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', contractor:'קבלני בנייה ושיפוצים', planning_consultant:'יועצי תכנון ובנייה', surveyor:'מודדים מוסמכים', general:'בעלי מקצוע',
+  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', contractor:'קבלני בנייה ושיפוצים', planning_consultant:'יועצי תכנון ובנייה', surveyor:'מודדים מוסמכים', electrician:'חשמלאים', plumber:'אינסטלטורים', general:'בעלי מקצוע',
 };
 /* שם התחום עצמו, לכרטיס "התחום פנוי" ב"עוד בעלי מקצוע" */
 const TYPE_FIELD = {
   mortgage_advisor:'ייעוץ משכנתאות', appraiser:'שמאות מקרקעין', real_estate_lawyer:'עריכת דין מקרקעין',
-  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון', contractor:'בנייה ושיפוצים', planning_consultant:'ייעוץ תכנון ובנייה', surveyor:'מדידות מוסמכות',
+  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון', contractor:'בנייה ושיפוצים', planning_consultant:'ייעוץ תכנון ובנייה', surveyor:'מדידות מוסמכות', electrician:'עבודות חשמל', plumber:'אינסטלציה',
 };
-const TILE_TYPES = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','contractor','planning_consultant','surveyor'];
+const TILE_TYPES = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','contractor','planning_consultant','surveyor','electrician','plumber'];
 
 const el = id => document.getElementById(id);
 
@@ -493,6 +493,8 @@ const PATHS = {
   contractor:'<path d="M3 18h18"/><path d="M5 18v-3a7 7 0 0 1 14 0v3"/><path d="M10 8V5h4v3"/>',
   planning_consultant:'<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 14l2 2 4-4"/>',
   surveyor:'<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5V21M12 13l-5 8M12 13l5 8"/>',
+  electrician:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  plumber:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>',
   wa:'<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.2c.2 2.9 2.7 5.4 5.8 5.8l1-1.6-2-.9-.9.8a4 4 0 0 1-1.9-1.9l.8-.9-.9-2z"/>',
   tel:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
   share:'<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',

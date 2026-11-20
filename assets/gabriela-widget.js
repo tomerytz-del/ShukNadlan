@@ -57,7 +57,9 @@
   var FREE_DEFAULT = 'היי גבריאלה, אשמח לעזרה';
   // ‏P1-P: התחומים לפי professionals.html (‏TYPE_PLURAL); "כל בעלי המקצוע" - בלי type
   var GW_PROS = [['mortgage_advisor', 'יועצי משכנתאות'], ['appraiser', 'שמאי מקרקעין'], ['real_estate_lawyer', 'עורכי דין מקרקעין'],
-    ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['', 'כל בעלי המקצוע']];
+    ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['contractor', 'קבלני בנייה ושיפוצים'],
+    ['planning_consultant', 'יועצי תכנון ובנייה'], ['surveyor', 'מודדים מוסמכים'], ['electrician', 'חשמלאים'],
+    ['plumber', 'אינסטלטורים'], ['cleaning', 'חברות ניקיון'], ['', 'כל בעלי המקצוע']];
   /* תחום בלי אף בעל/ת מקצוע פעיל/ה לא מוצג, כדי שלא ינחתו על דף ריק. אותו מקור כמו
      professionals.html (‏professional_cards_public). כשל - רק "כל בעלי המקצוע" */
   /* ‏P2-6: מקור אחד לכתובת ולמפתח הציבורי - window.SHUK_SB (‏home.js), ובדף שאינו מגדיר אותו

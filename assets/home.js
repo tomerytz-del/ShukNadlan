@@ -45,12 +45,7 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 // ‏P2-6: מקור אחד לווידג'ט של גבריאלה (‏assets/gabriela-widget.js, ‏sbConf)
 window.SHUK_SB = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
-const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
-/* הנכסים שיש להם הדמיית AI מפורסמת — נטענים בשאילתה אחת אחרי שהנכסים
-   עצמם עלו, ומזינים את תגית "הדמיית AI" שעל האריח. ‏Set ריק עד אז, ולכן
-   האריחים נבנים בלי להמתין לה. */
-let visualizedProps = new Set();
 
 const FALLBACK_PROPERTIES = [
   {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', category:'residential', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
@@ -1877,7 +1872,7 @@ function safeExternalUrl(u){
 /* יחיד ובלי לוכסן - אותן תוויות של professionals.html ו-professional.html */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', architect:'אדריכל',
-  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', general:'בעל מקצוע',
+  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', electrician:'חשמלאי', plumber:'אינסטלטור', general:'בעל מקצוע',
 };
 
 /* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
@@ -1999,7 +1994,6 @@ renderExpertBanner();
    יחזיק את הראש קבוע. רק בעלי מקצוע אמיתיים: בלי אף אחד הרצועה hidden
    (ההזמנה להצטרף כבר יושבת מתחת לבאנר). docs/professional-cards.md.
    ============================================================ */
-const PRO_PHONE_RE = /^\d{9,15}$/;
 function proInitials(name){
   return String(name || '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
 }
@@ -2018,7 +2012,7 @@ function proStripCard(p){
   const sub = services.length
     ? services.join(', ') + (region ? ' · ' + region : '')
     : (name && name !== title ? name : region);
-  const phone = PRO_PHONE_RE.test(String(p.phone_e164 || '')) ? p.phone_e164 : '';
+  const phone = DM_PHONE_RE.test(String(p.phone_e164 || '')) ? p.phone_e164 : '';
   const waText = ['היי' + (name ? ' ' + name : '') + ',',
     'הגעתי דרך שוק הנדל״ן של עפולה והסביבה ואשמח לשמוע פרטים.',
     location.origin + href].join('\n');
@@ -2430,7 +2424,6 @@ function bindRowScroller(row){
      בטלפון בלבד. */
   const dmMqGrid = window.matchMedia('(min-width:760px)');
   const dmMqWide = window.matchMedia('(min-width:1100px)');
-  const dmLimit = ()=> Infinity;
 
   /* שתי שורות מ-760px, בעמודים של (טורים × 2) — השורה העליונה מתמלאת
      לפני התחתונה בכל עמוד. בטלפון (שורה אחת) הסגנון המוטבע מנוקה. */
@@ -2527,10 +2520,10 @@ function bindRowScroller(row){
       row.appendChild(empty);
       if (dmF.active()) row.appendChild(dmF.emptyActions());
     } else {
-      list.slice(0, dmLimit()).forEach(it => row.appendChild(card(it)));
+      list.forEach(it => row.appendChild(card(it)));
       dmPlace();
     }
-    buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
+    buildDots(list.length);
     dmF.after(list);
 
     // ‏R8 (v10): החיפוש מוצא גם התמחות ושכונה (‏_dmWords)
@@ -4198,8 +4191,7 @@ function gabrielaMiniLink(cls, title, sub, entry){
   b.innerHTML = gabrielaMiniHtml(cls, title, sub);
   b.addEventListener('click', ()=>{
     if (mapViewIsOpen()) closeMapViewNow();
-    document.getElementById('mobileMenu')?.classList.remove('open');
-    document.getElementById('menuToggle')?.setAttribute('aria-expanded', 'false');
+    closeMobileMenu();
     openGabrielaAgent();
   });
   return b;
@@ -4976,7 +4968,6 @@ try {
       // גם קבוצה ריקה: ‎?ai=1‎ בלי אף נכס עם הדמיה הוא אפס תוצאות, לא "הכול"
       if (sentence && !ids.size) sentence.setAiIds(ids);
       if (!ids.size) return;
-      visualizedProps = ids;
       // התגית שב-hero סופרת את אותה קבוצה בדיוק — נכסים *פעילים* עם הדמיה
       // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
       heroStatsState.ai = ids.size;
@@ -5070,7 +5061,7 @@ function renderCheckboxes(container, items, selectedSet){
   items.forEach(([value, label])=>{
     const wrap = document.createElement('label');
     wrap.className = 'checkbox-item';
-    wrap.innerHTML = `<input type="checkbox" value="${value}" ${selectedSet.has(value)?'checked':''}> ${label}`;
+    wrap.innerHTML = `<input type="checkbox" value="${escAttr(value)}" ${selectedSet.has(value)?'checked':''}> ${escapeHtml(label)}`;
     wrap.querySelector('input').addEventListener('change', (e)=>{
       if (e.target.checked) selectedSet.add(value); else selectedSet.delete(value);
     });
@@ -5173,7 +5164,7 @@ function advMoreBox(modalId){
   body.appendChild(box);
   return box;
 }
-const advDeal = () => searchState.activeTab === 'commercial' ? 'commercial' : searchState.activeTab;
+const advDeal = () => searchState.activeTab;
 function advV10Layout(){
   if (!v10On()) return;
   const commercial = searchState.activeTab === 'commercial';
@@ -7034,7 +7025,9 @@ function applyDeepLinkFilters(){
   priceField('maxPrice', isCommercial ? 'cPriceMax' : 'rPriceMax');
 
   const q = (params.get('q') || '').trim();
-  if (q) document.getElementById('searchFreeText').value = q.slice(0, 80);
+  // ‏השדה אינו קיים בדף הנוכחי (החיפוש הוא המשפט): בלי הבדיקה ?q= זרק שגיאה
+  const freeTextField = document.getElementById('searchFreeText');
+  if (q && freeTextField) freeTextField.value = q.slice(0, 80);
 
   // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה מה שנשלח כששולחים את
   // התוצאות לחבר/ה, וזו נקודת הכניסה היחידה למסנן מאז שהרצועה ירדה.
@@ -7590,7 +7583,7 @@ function openHomeFilterSheet(trigger){
     { key: 'text', title: 'חיפוש חופשי', kind: 'text', more: true, wide: true, placeholder: 'מילות חיפוש נוספות',
       get: () => X().freeText || '', set: (_, v) => { X().freeText = v; } },
   ]);
-  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab === 'commercial' ? 'commercial' : d.tab, surface: 'home_modal' });
+  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab, surface: 'home_modal' });
   FilterSheet.open({
     // ‏A4 (גבריאלה 20:30): "סינון נכסים" / "סינון נדל״ן מסחרי"
     title: dd => dd.tab === 'commercial' ? 'סינון נדל״ן מסחרי' : 'סינון נכסים',
@@ -7599,7 +7592,7 @@ function openHomeFilterSheet(trigger){
     count: dd => fsCount(dd),
     onReset: dd => {
       dd.r = FS_BLANK.r(); dd.c = FS_BLANK.c(); dd.ai = false;
-      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab === 'commercial' ? 'commercial' : dd.tab, surface: 'home_modal' });
+      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab, surface: 'home_modal' });
     },
     onApply: dd => {
       const title = document.getElementById('searchResultsTitle');
@@ -8586,7 +8579,6 @@ document.querySelector('.v10-tabs')?.addEventListener('keydown', e => {
 /* ---------- v10 (חלק 4 §2-§3): כפתורי התצוגה וכרטיס ההזמנה להחלקה ----------
    כתובת אחת ל-/swipe מהמשפט: עסקה, יישוב, חדרים ותקציב (אינדקס ב-BUDGETS של swipe.js),
    בלי ערכי ברירת מחדל. ‏swipe.js קורא אותם (‏readUrl). */
-const V10_BUDGETS = { sale: [0, 1500000, 2500000, 3500000], rent: [0, 4000, 6000, 8000], commercial: [0, 5000, 15000, 2000000] };
 function v10Deal(st){
   if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
   // בלי עסקה ("כל הנכסים") - ‏/swipe במצב המעורבב (‏deal=all, ברירת המחדל שלו)
@@ -8628,15 +8620,13 @@ function v10SwipeHref(src){
 let v10InviteSeen = false;
 /* ‏C7 (1) (תומר 22:32): "גלישה בהחלקה · N" שליד כותרת התוצאות יורד כשהכפתור המונפש שבסרגל
    על המסך - שתי כניסות להחלקה זו לצד זו. ‏visibility ולא hidden, כדי שהשורה לא תזוז */
-let v10MiniOnScreen = false;
 (function(){
   if (!v10On() || !('IntersectionObserver' in window)) return;
   const watch = () => {
     const mini = document.querySelector('#allProps .pp-view-btn');
     if (!mini) return false;
     new IntersectionObserver(es => es.forEach(en => {
-      v10MiniOnScreen = en.isIntersecting;
-      document.getElementById('srSwipe')?.classList.toggle('is-dup', v10MiniOnScreen);
+      document.getElementById('srSwipe')?.classList.toggle('is-dup', en.isIntersecting);
     })).observe(mini);
     return true;
   };
@@ -9768,6 +9758,15 @@ const PRO_INTENTS = [
   { type:'appraiser',          re:/שמאי|שמאית|שמאות/,                    label:'שמאי המקרקעין', one:'שמאי מקרקעין' },
   { type:'architect',          re:/אדריכל/,                               label:'האדריכלים', one:'אדריכל' },
   { type:'interior_designer',  re:/מעצב(?:ת)? פנים|עיצוב פנים/,          label:'מעצבי הפנים', one:'מעצב פנים' },
+  /* ‏19.11.2026: חמשת התחומים שנוספו אחרי. "הנדימן" הוא אותו תחום כמו קבלן שיפוצים (אין תחום נפרד במסד).
+     "קבלן" רק כ"קבלן שיפוצים" (תומר): "קבלן" לבדו הוא גם היזם
+     ש"דירה מקבלן" מגיעה ממנו. "מ" לפניו ("מקבלן שיפוצים") ו"פרויקט" פוסלים. בלי lookbehind: ב-Safari ישן הוא שובר את כל הקובץ בטעינה */
+  { type:'contractor',         re:/(?:(?:^|\s)(?:קבלן|קבלנית|קבלני|קבלנים)\s+(?:שיפוצים|שיפוץ)|הנדי\s?מן)(?![א-ת])/, label:'קבלני השיפוצים', one:'קבלן שיפוצים', not:/פרויקט/ },
+  { type:'planning_consultant', re:/יוע(?:ץ|צת|צי|צות)\s+תכנון/,        label:'יועצי התכנון והבנייה', one:'יועץ תכנון ובנייה' },
+  { type:'surveyor',           re:/מודד(?:ת|ים|ות)?(?:\s|$)/,            label:'המודדים המוסמכים', one:'מודד מוסמך' },
+  { type:'electrician',        re:/חשמלא(?:י|ית|ים|יות)/,                label:'החשמלאים', one:'חשמלאי' },
+  { type:'plumber',            re:/אינסטלטור|שרברב/,                      label:'האינסטלטורים', one:'אינסטלטור' },
+  { type:'cleaning',           re:/(?:חברת|חברות|שירותי)\s+ני?קיון/,       label:'חברות הניקיון', one:'חברת ניקיון', bare:true },
   // משכנתא רק כשאין בטקסט נכס ("דירה עם משכנתא" נשאר חיפוש נכס)
   { type:'mortgage_advisor',   re:/יועצ(?:ת)? משכנתא|משכנתא/,            label:'יועצי המשכנתאות', one:'יועץ משכנתאות', bare:true },
 ];
@@ -9779,10 +9778,9 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
   const shukTrack = (n, p) => { if (window.shukTrack) window.shukTrack(n, p); };
   let proShown = '';
   function proOf(t){
-    const hit = PRO_INTENTS.find(x => x.re.test(t));
-    if (!hit) return null;
-    if (hit.bare && PROPERTY_WORDS.test(t.replace(hit.re, ''))) return null;
-    return hit;
+    // הכללים (not, bare) נבדקים לפני הבחירה, כדי שהצעה שנפסלה לא תחסום תחום אחר באותו טקסט
+    return PRO_INTENTS.find(x => x.re.test(t) && !(x.not && x.not.test(t))
+      && !(x.bare && PROPERTY_WORDS.test(t.replace(x.re, '')))) || null;
   }
   function show(html){ box.innerHTML = html; box.hidden = !html; }
   /* ‏P0-2: תחום בלי אף בעל/ת מקצוע פעיל/ה (היום: שמאים) - לא לדף ריק אלא לכל בעלי המקצוע.
