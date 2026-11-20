@@ -350,7 +350,15 @@ interface DeveloperRow {
   contact_name: string | null;
   city: string | null;
   slug: string | null;
+  kind: string | null;
 }
+
+// אותם ערכים כמו DEVELOPER_KINDS ב-_shared/projects.ts ו-developers_kind_check
+const DEVELOPER_KIND_LABELS: Record<string, string> = {
+  developer: "יזם",
+  contractor: "קבלן",
+  marketer: "משווק נדל״ן לפרויקטים חדשים",
+};
 
 /**
  * בעל/ת מקצוע פתח/ה חשבון כניסה וארנק (professional-account). ההודעה אומרת מה ממתין:
@@ -388,11 +396,12 @@ export async function announceProfessionalAccount(
 }
 
 /**
- * חברה יזמית שנפתחה.
+ * חשבון יזם, קבלן או משווק פרויקטים שנפתח.
  *
- * "המסלול" כאן הוא שאין מסלול: פתיחת החברה חינם, והחיוב הוא לפי פרויקט
- * (‏`project-manage`). ההודעה אומרת את זה במפורש — אחרת "חברה יזמית חדשה"
- * נקראת כמו הכנסה, ואין כאן עדיין שקל.
+ * "המסלול" כאן הוא שאין מסלול: פתיחת החשבון חינם, והפרסום חינם ל-6 חודשים
+ * מרגע הפתיחה (‏`developers.free_until`). ההודעה אומרת את זה במפורש — אחרת
+ * "חשבון חדש" נקרא כמו הכנסה, ואין כאן עדיין שקל. הסוג (יזם / קבלן / משווק)
+ * בכותרת, כדי שמנהל/ת הפלטפורמה יידע/תדע מי נרשם/ה בלי לפתוח את הדף.
  */
 export async function announceDeveloperSignup(
   supabase: Client,
@@ -401,7 +410,7 @@ export async function announceDeveloperSignup(
   try {
     const { data: d, error } = await (supabase
       .from("developers")
-      .select("name, contact_name, city, slug")
+      .select("name, contact_name, city, slug, kind")
       .eq("id", developerId)
       .maybeSingle() as QueryResult<DeveloperRow | null>);
 
@@ -410,11 +419,12 @@ export async function announceDeveloperSignup(
       return;
     }
 
-    const title = `חברה יזמית חדשה: ${d.name || "ללא שם"}`;
+    const kindLabel = DEVELOPER_KIND_LABELS[d.kind ?? "developer"] ?? DEVELOPER_KIND_LABELS.developer;
+    const title = `חשבון חדש (${kindLabel}): ${d.name || "ללא שם"}`;
     const body = joinParts([
       d.contact_name ? `איש/אשת קשר: ${d.contact_name}` : null,
       d.city,
-      "פתיחת החברה ללא תשלום · החיוב הוא לפי פרויקט",
+      "פרסום פרויקטים בחינם ל-6 חודשים מרגע הפתיחה",
       d.slug ? `${SITE_BASE}/developer?slug=${encodeURIComponent(d.slug)}` : null,
     ]);
 

@@ -54,6 +54,15 @@ PRICES = {
     # להבדיל מ-"₪N לליד" של המסלולים בתשלום.
     'ppl_price_owner_free':              69,
     'free_lead_quota_monthly':           10,
+    # יזמים, קבלנים ומשווקי פרויקטים (20271122090000): 6 חודשי פרסום חינם לכל חשבון, ואחריהם מסלול
+    # ברמת החשבון לפי מספר הפרויקטים. לפני מע"מ. **החיוב בפועל של המסלולים עוד לא נבנה**
+    # (project_activate_page מחזירה plan_required); הדף מציג אותם, ולכן הם כאן. docs/new-projects.md
+    'project_free_months':               6,
+    'project_plan_tier1_max':            10,
+    'project_plan_tier1_price':          199,
+    'project_plan_tier2_max':            20,
+    'project_plan_tier2_price':          278,
+    'project_plan_tier3_price':          397,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
     # קורס ההכנה למבחן המתווכים (20271116110000): מחיר לצרכן/ית, **כולל** מע"מ,
