@@ -14604,7 +14604,7 @@ async function populateNeighborhoodSelect(selectedId){
   let list = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : marketNeighborhoods();
   const none = cityKey && !list.length;
   if (selectedId && !list.some(n => n.id === selectedId)){
-    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    const kept = neighborhoodById.get(selectedId);
     if (kept) list = [kept, ...list];
   }
   // "לא צוין" אינו "אין שכונה": בשמירה המסד משייך לפי הפין, כשהוא נופל
@@ -23960,7 +23960,7 @@ async function populateClientNeighborhoodSelect(selectedId){
     ? allNeighborhoods.filter(n => cityKeys.has(hoodCityKey(n.city)))
     : marketNeighborhoods();
   if (selectedId && !list.some(n => n.id === selectedId)){
-    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    const kept = neighborhoodById.get(selectedId);
     const belongs = kept && (!cityKeys.size || cityKeys.has(hoodCityKey(kept.city)));
     if (belongs) list = [kept, ...list];
     else if (!allNeighborhoods.length) list = [{ id: selectedId, name: 'שכונה שמורה', city: '' }, ...list];

@@ -124,13 +124,12 @@ function vatSuffix(p){
    למ״ר לחודש. ריק = לפי סוג העסקה, כמו שהיה: השכרה לחודש, מכירה סה״כ.
    אותו כלל ב-property-card.js, property.js, home.js, crm.js, open-house.html,
    instagram.html, showcase.js, og-tags.ts ו-marketing-copy.ts. */
+function priceUnitOf(p){
+  return p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+}
 // ‏מחיר למ״ר כפי שהוא מוצג בגלולות: המחיר עצמו כשהוא כבר למ״ר, אחרת price_per_sqm.
 function ppsqmOf(p){
   return p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
-}
-
-function priceUnitOf(p){
-  return p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
 }
 function priceLabel(p){
   const unit = priceUnitOf(p);
