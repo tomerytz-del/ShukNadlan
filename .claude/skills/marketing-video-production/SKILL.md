@@ -1,6 +1,6 @@
 ---
 name: marketing-video-production
-description: סרטון שיווק או הדרכה לפלטפורמה של שוק נדל״ן (לא סרטון לנכס) - Reelkit בסשן ענן (reelkit.cc, NODE_USE_ENV_PROXY=1), תסריט לאישור, קול אמיתי, 9:16 ו-1:1, וספריית הסרטונים עם A/B. המקור ב-marketing/videos. Use when asked to make or re-cut a promo, recruitment or tutorial video for the platform, a new A/B version, when the user sends a voice recording for a video, or when reelkit says "Cannot reach the Reelkit API" or 403. For a property video use property-video.
+description: סרטון שיווק או הדרכה לפלטפורמה של שוק נדל״ן (לא סרטון לנכס) - Reelkit בסשן ענן (reelkit.cc, NODE_USE_ENV_PROXY=1), תסריט לאישור, קול אמיתי, 9:16 ו-1:1, וספריית הסרטונים עם A/B. המקור ב-marketing/videos. Use when asked to make or re-cut a promo, recruitment or tutorial video for the platform, to cut shorts/reels/clips (קליפים קצרים) out of a LONG recording (webinar, lecture, CRM demo, interview), a new A/B version, when the user sends a voice recording for a video, or when reelkit says "Cannot reach the Reelkit API" or 403. For a property video use property-video.
 ---
 
 # הפקת סרטון שיווק
@@ -96,3 +96,91 @@ description: סרטון שיווק או הדרכה לפלטפורמה של שו�
    לסשן אין גישה לאחסון) עם **רעיון** משותף לכל הגרסאות ו**גרסה** משלו.
 4. ניסוי A/B: שינוי **אחד** בין גרסאות, ושתיהן באותו קמפיין עם אותו נוסח
    (‏`docs/marketing-videos.md`, "איך מריצים ניסוי A/B").
+
+## ‏7. קליפים קצרים מהקלטה ארוכה (Shorts / Reels / TikTok)
+
+סרטון ארוך שכבר קיים (וובינר, הדרכה, הדגמת CRM, ראיון) נחתך ל-8 עד 12 קטעים אנכיים
+בכתוביות עבריות. **זה לא "הפקה"** - אין תסריט, הקול הוא של הדובר/ת, ו-Reelkit רק
+מניח עליו כותרת-הוק וכתוביות (`mode: "footage"`). הכלים ב-`marketing/videos/tools/shorts/`,
+והתבנית ב-`marketing/videos/shorts/Video.tsx`. הרעיון לקוח מ-`AgriciDaniel/claude-shorts`
+(‏MIT) אבל נכתב מחדש: שם אין עברית (גופנים לטיניים, בלי RTL, בלי טיפול בשפה).
+
+### לפני הכול: מה מותר לחתוך
+
+- **הקלטות שיחה עם לקוחות, מכירה או שיחות מעקב - אסור.** יש בהן שמות, כתובות ומספרים
+  של אנשים שלא הסכימו (ראו `call-tracking`). רק הקלטה שהדובר/ת (תומר, סוכן/ת, אורח/ת)
+  הקליט/ה **לשם פרסום**, וכשאדם אחר מופיע בה, בהסכמתו.
+- **לפני ששולחים את האודיו או הווידאו החוצה - לשאול.** התמלול רץ **מקומית**. אל תשתמשו
+  ב-`reelkit ref analyze` או `--cutout` על הקלטה כזו (הם שולחים אודיו/וידאו לשרת של Reelkit).
+- **עסקאות מתווכים אחרים ושמות משרדים** שנאמרו בהקלטה - לבדוק שלא נחתכו לקליפ.
+  **הבטחות** ("תמכרו ב-30 יום") נחתכות החוצה, אלא אם הן אמת שאפשר להצביע עליה.
+- ההפצה: קלוד אינו מפרסם ברשתות (`social-publish`). הפלט הוא קבצים שנשלחים למשתמש/ת
+  (או לספרייה, סעיף 6) והם מפרסמים.
+
+### מה לא עובד בענן, ומה עושים
+
+| מה | הבעיה | הפתרון |
+| --- | --- | --- |
+| ‏`faster-whisper` | המודל יורד מ-`huggingface.co`, חסום ברשימת הדומיינים | להוסיף `huggingface.co` וגם `cdn-lfs.hf.co`, `cas-bridge.xethub.hf.co` ב-Allowed domains (כמו `reelkit.cc`), **או** לתמלל על מחשב מקומי ולהעביר רק את `transcript.json` (כל שאר הכלים קוראים רק אותו) |
+| `reelkit render` | בבדיקה בענן, בלי התחברות, הוא נתקע 3.5 דקות (‏~4% CPU, בלי תהליך דפדפן) ולא הפיק קובץ; **הסיבה לא אומתה** (ההתחברות היא החשד, כי `reelkit doctor` מסמן אותה חסרה). ‏`init`, ‏`assets upload --footage`, ‏`check` ו-`preview` עובדים בלי התחברות | להתחבר קודם: `reelkit auth login --start` / `--finish` (סעיף 1). **הרינדור המלא והייצוא לא נבדקו מקצה לקצה** - ההרצה הראשונה היא הבדיקה |
+| התקנה | `opencv-python-headless` 5 מותקן אבל אינו כולל את קובץ זיהוי הפנים (‏`cv2.data.haarcascades` ריק) | `bash marketing/videos/tools/shorts/setup.sh` מצמיד `opencv-python-headless<5`. אין `torch` ואין `mediapipe` |
+
+ההתקנה **אינה** ב-`session-start.sh`: היא כבדה, ורוב הסשנים לא צריכים אותה.
+
+### צינור העבודה (תיקיית עבודה ב-scratchpad, לא בריפו)
+
+```sh
+T=marketing/videos/tools/shorts; W=<scratchpad>/shorts-<slug>
+python3 -I $T/transcribe.py long.mp4 $W/transcript.json --language he --prompt "שוק נדל״ן, עפולה, מתווך"
+```
+
+1. **ניתוח (קלוד קורא את `transcript.json`).** 8 עד 12 מועמדים של 15 עד 55 שניות, ציון
+   0-100: **הוק 30%** (טענה נועזת, פער סקרנות, הבטחה לערך שאפשר לעמוד בה), **עצמאות 25%**
+   (מובן בלי שאר ההקלטה, בלי "כמו שאמרתי קודם"), **עוצמה רגשית 20%**, **צפיפות ערך 15%**
+   (מספר, צעד, דוגמה לשנייה), **סיום 10%** (סיפור שנסגר או קריאה לפעולה). לכל מועמד: זמני
+   התחלה וסיום, שורת הוק אחת או שתיים (**עד כ-28 תווים לשורה, מהדובר/ת עצמו/ה**, לא מומצאות,
+   בלי מקף ארוך), ומשפט של נימוק. **ההוק לא מבטיח יותר ממה שהקטע נותן.**
+2. **הצגה ואישור.** טבלה (מספר, זמנים, אורך, ציון, הוק, למה) ושאלה: אילו קטעים. **אין רינדור בלי אישור.**
+   שמרו את הבחירה ב-`$W/segments.json`: `{"segments":[{"id":1,"start":262.0,"end":301.0,"hook1":"...","hook2":"...","score":87}]}`.
+3. **יישור לגבולות:**
+   `python3 -I $T/snap_boundaries.py $W/transcript.json $W/segments.json $W/snapped.json --video long.mp4`
+   מצמיד להתחלת מילה, מסיים בסוף משפט אם הוא בטווח 3 שניות, וזז להפסקה אמיתית.
+   מדפיס את ההפרש בכל קטע; קטע בלי דיבור נזרק (הודעה ב-stderr).
+4. **חיתוך ו-9:16 לכל קטע:**
+   `python3 -I $T/reframe.py long.mp4 <start> <end> $W/clip-01.mp4 --mode face --meta $W/clip-01.json`
+   ‏`face` למי שמדבר/ת למצלמה (חלון שעוקב אחרי הפנים, זז רק כשהפנים יוצאות מאמצע, ומרגיע),
+   ‏`center` כשאין פנים, ‏`screen` להקלטת מסך (התמונה כולה על רקע מטושטש). אם `faceCoverage`
+   נמוך מ-0.3 הכלי עובר לבד ל-`center` ואומר - לומר את זה למשתמש/ת. **חיתוך דורש קידוד מחדש** (אין `-c copy`).
+5. **פרויקט Reelkit לכל קליפ:**
+   ```sh
+   export NODE_USE_ENV_PROXY=1 NODE_NO_WARNINGS=1
+   reelkit init short-01 --aspect 9:16 --private && cd short-01
+   python3 -I ../$T/make_project.py ../transcript.json ../snapped.json 1 . [--drop-fillers]
+   reelkit assets upload ../clip-01.mp4 --footage --describe "<מה רואים>"
+   ```
+   ‏`make_project.py` כותב `plan.json`, את `src/Video.tsx` ואת `src/Words.tsx` (המילים בזמנים
+   יחסיים לקליפ + שורות ההוק).
+6. **תיקון כתוביות:** לקרוא את `Words.tsx` **כמשפט שלם** ולתקן מילים שזוהו לא נכון (שמות,
+   מספרים, "עפולה", מונחי תיווך). **משנים `word` ולא זמן, ולא מנסחים מחדש.** הכתוביות אומרות
+   מה שנאמר. מילות מילוי ("אה", "אמ") אפשר להוריד עם `--drop-fillers`; מה שיותר מזה - לא.
+7. **בדיקה ו-`reelkit preview`:** לעבור על הפריימים: ההוק לא מכסה את הפנים, הכתוביות מעל
+   מרחק של כ-20% מהתחתית, שום אות לא נחתכת. ‏`reelkit check` יתלונן על "אין מוזיקה" ו"אין
+   אפקטי קול": **זה בכוונה** - הקול הוא הדובר/ת, ומוזיקה מכסה אותו.
+8. **רינדור** (אחרי התחברות): `reelkit render --no-share`, ואז
+   `python3 -I $T/export.py $W/out all short-01/out/video.mp4 ...`. הייצוא מקודד ליוטיוב, טיקטוק
+   ואינסטגרם (רק קצב הסיביות שונה) ובודק כל קובץ: 1080x1920, יש שמע ואינו שקט, אורך 3 עד 90 שניות.
+   הוא מסיים בקוד שגיאה אם משהו נכשל.
+9. **מסירה:** `SendUserFile` על כל קובץ (בלי "שמעתי" - אין האזנה בסביבה), לצד טבלה: קובץ, ציון, הוק.
+
+### כללים שנלמדו בבנייה
+
+- **Reelkit דורש 3 עד 16 סצנות של עד 15 שניות** כשאין קול מיוצר, ולכן `make_project.py` מחלק
+  את הקליפ לחלקים שווים. הם רק פרוסות של השעון; ההוק והכתוביות נמשכים **פעם אחת** על שעון הקליפ.
+- **אין ייבוא של `.json` ב-`Video.tsx`**, ורק קובץ שמכיל `export const <Name>`. לכן `Words.tsx`
+  מייצא `Words` ו-`Hook` כקבועים.
+- סכום הסצנות קצר מהקליפ ב-0.1 שנייה, אחרת `check` נכשל ("הסצנות ארוכות מהצילום").
+- **עברית:** `font("heebo")`, ‏`rtl`, בלי `uppercase`, וההוק עולה בשלמותו (בלי חשיפה במסכה).
+- איכות הזיהוי בעברית של `large-v3` **לא נבדקה על הקלטות שלנו**. הריצה הראשונה על הקלטה אמיתית
+  היא גם הבדיקה: לקרוא את התמלול לפני שמנתחים, ולמסור למשתמש/ת כמה תיקונים נדרשו.
+- **ניסוי A/B אינו חל כאן:** כל קליפ הוא רעיון אחר. בספרייה (סעיף 6) כל קליפ מועלה כ"רעיון" משלו,
+  אלא אם יש שתי גרסאות של אותו קטע (למשל שני הוקים), ואז זה A/B לפי הכלל בסעיף 6.
