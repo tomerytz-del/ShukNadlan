@@ -18,6 +18,13 @@
 -- עד שהוא נדלק, אחרי חיוב בדיקה בסנדבוקס (docs/professional-cards.md, "להדלקה").
 -- התקופה הראשונה נגבית כבר ברכישה, ולכן הפרויקטים נשארים באוויר גם בלי החידוש.
 --
+-- **מה נספר.** פרויקטים בחשבון שאינם בארכיון ואינם בבקשת מחיקה (טיוטה, חי, מושהה):
+-- אחרת מי שהשהה/תה הכול אחרי החלון, או מעלה את הראשון, לא יכול/ה לקנות מסלול.
+--
+-- **שלב 2 (קוד):** הקריאה ל-complete/fail ב-wallet-topup-callback, החיוב וההודעות ב-billing-renew,
+-- פונקציית הרכישה, ה-bootstrap והכפתור בדשבורד. עד אז אי אפשר לפתוח הזמנה (אין מי שקורא
+-- ל-start_developer_plan_order), ולכן גם ה-reconcile שהורחב כאן לא ימצא שורה ממתינה.
+--
 -- **המסלול אינו תקרה.** פרויקט שעולה באמצע תקופה מעבר למסלול ששולם עולה באוויר
 -- עד סוף התקופה ששולמה, והמסלול הבא יחושב מחדש בחיוב הבא. אין מצב שבו פרויקט
 -- נחסם על שדרוג.
@@ -127,8 +134,12 @@ declare
   v_tier   text;
   v_before numeric;
 begin
+  -- פרויקטים בחשבון: כל מה שאינו בארכיון ואינו בבקשת מחיקה. טיוטה ופרויקט מושהה
+  -- נספרים, אחרת מי שהשהה/תה הכול (או מעלה את הראשון אחרי החלון) לא יכול/ה לקנות מסלול
   select count(*) into v_count from public.projects
-   where developer_id = p_developer_id and status = 'active';
+   where developer_id = p_developer_id
+     and status in ('draft', 'active', 'paused')
+     and delete_requested_at is null;
 
   select value into v_t1max from public.pricing_config where key = 'project_plan_tier1_max';
   select value into v_t2max from public.pricing_config where key = 'project_plan_tier2_max';
@@ -180,11 +191,17 @@ begin
     return jsonb_build_object('error', 'window_active', 'free_until', v_dev.free_until);
   end if;
 
+  -- תקופה ששולמה כבר ארוכה מחודש קדימה: אין לקנות עוד חודש מעליה (לחיצה כפולה
+  -- על "תשלום" הייתה גובה פעמיים). חידוש מוקדם מותר ב-30 הימים האחרונים שלה
+  if v_dev.plan_paid_until is not null and v_dev.plan_paid_until > now() + interval '30 days' then
+    return jsonb_build_object('error', 'already_paid', 'plan_paid_until', v_dev.plan_paid_until);
+  end if;
+
   v_quote := public.developer_plan_quote(p_developer_id);
   if v_quote ? 'error' then return v_quote; end if;
   if (v_quote->>'projects_count')::int < 1 then
-    -- מסלול הוא על פרויקטים חיים. בלי פרויקט חי אין על מה לגבות
-    return jsonb_build_object('error', 'no_live_projects');
+    -- בלי שום פרויקט בחשבון אין על מה לגבות
+    return jsonb_build_object('error', 'no_projects');
   end if;
 
   select count(*) into v_open from public.developer_plan_orders
@@ -270,13 +287,14 @@ begin
 
   update public.developers set plan_paid_until = v_to where id = v_order.developer_id;
 
-  -- הפרויקטים החיים באוויר עד סוף התקופה ששולמה. greatest: תקופה שכבר ארוכה יותר
-  -- (למשל 350 ₪ שנגבו לפני ההחלטה) אינה מתקצרת
+  -- פרויקטים באוויר או מושהים: עד סוף התקופה ששולמה (set_status בודק את התפוגה
+  -- בחידוש, ולכן גם מושהה). טיוטה עולה דרך project_activate_page.
+  -- greatest: תקופה שכבר ארוכה יותר (למשל 350 ₪ שנגבו לפני ההחלטה) אינה מתקצרת
   update public.projects
      set subscription_status = 'active',
          subscription_started_at = coalesce(subscription_started_at, now()),
          subscription_expires_at = greatest(coalesce(subscription_expires_at, v_to), v_to)
-   where developer_id = v_order.developer_id and status = 'active';
+   where developer_id = v_order.developer_id and status in ('active', 'paused');
 
   return jsonb_build_object('success', true, 'paid_from', v_from, 'paid_until', v_to,
                             'amount', v_order.amount, 'tier', v_order.tier);
@@ -469,12 +487,12 @@ begin
       continue;
     end if;
 
-    -- בלי פרויקט חי אין על מה לגבות: המנוי מתבטל במקום לחייב על שום דבר.
+    -- בלי פרויקט בחשבון אין על מה לגבות: המנוי מתבטל במקום לחייב על שום דבר.
     -- חזרה למסלול היא רכישה חדשה
     if (v_quote->>'projects_count')::int < 1 then
       update public.billing_subscriptions
          set status = 'cancelled', cancelled_at = now(), next_retry_at = null,
-             last_error = 'no_live_projects', notice_order_id = null, updated_at = now()
+             last_error = 'no_projects', notice_order_id = null, updated_at = now()
        where id = r.id;
       continue;
     end if;
@@ -581,6 +599,108 @@ begin
     'quote',           v_quote);
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 11א. סגירת חשבון: המנוי והכרטיס השמור נמחקים
+--
+-- העתק של close_developer_account מ-20271105160000 (הגרסה האחרונה שלה) בתוספת סעיף
+-- (2א): בלעדיו חשבון שנמחק משאיר אסימון כרטיס ומייל ב-billing_subscriptions.
+-- ---------------------------------------------------------------------------
+create or replace function public.close_developer_account(p_developer_id uuid, p_reason text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_dev        record;
+  v_refundable numeric := 0;
+  v_projects   int := 0;
+  v_refund_id  uuid;
+begin
+  select * into v_dev from public.developers where id = p_developer_id for update;
+  if not found then
+    return jsonb_build_object('error', 'developer_not_found');
+  end if;
+  if v_dev.closed_at is not null then
+    return jsonb_build_object('error', 'already_closed');
+  end if;
+
+  -- (1) הכסף: מה שנטען בתשלום ולא מומש. היתרה יורדת לאפס - ההחזר הוא הכסף.
+  v_refundable := public.developer_refundable_amount(p_developer_id);
+  if v_refundable > 0 then
+    insert into public.developer_refunds (developer_id, amount, note)
+    values (p_developer_id, v_refundable, 'החזר אוטומטי עם מחיקת החשבון')
+    returning id into v_refund_id;
+  end if;
+
+  -- (2) הפרויקטים יורדים מהאתר.
+  with archived as (
+    update public.projects
+       set status = 'archived', is_promoted = false, promoted_until = null, updated_at = now()
+     where developer_id = p_developer_id and status <> 'archived'
+    returning id
+  )
+  select count(*) into v_projects from archived;
+
+  if v_dev.user_id is not null then
+    delete from public.app_push_devices where user_id = v_dev.user_id;
+  end if;
+  if v_dev.email is not null and btrim(v_dev.email) <> '' then
+    delete from public.newsletter_subscribers where lower(email) = lower(btrim(v_dev.email));
+  end if;
+
+  -- (2א) החידוש בכרטיס: מבוטל, והאסימון והמייל של הכרטיס נמחקים (כמו close_agent_account)
+  update public.billing_subscriptions
+     set status = 'cancelled', cancelled_at = coalesce(cancelled_at, now()),
+         card_token = null, contact_email = null, next_retry_at = null,
+         last_error = 'account_deleted', updated_at = now()
+   where developer_id = p_developer_id;
+
+  -- (3) הפרטים האישיים. שם החברה, הח״פ והכתובת הם פרטי תאגיד ונשארים
+  --     (חיובים וחשבוניות מפנים אליהם). איש/אשת הקשר והכניסה נמחקים.
+  --     ‏developers_core_fields_filled דורש תוכן, ולכן מילה במקום ריק.
+  update public.developers
+     set contact_name = 'חשבון שנמחק',
+         phone = '-',
+         phone_e164 = null,
+         email = null,
+         user_id = null,
+         status = 'suspended',
+         credit_balance = 0,
+         closure_requested_at = coalesce(closure_requested_at, now()),
+         closure_reason = left(p_reason, 500),
+         closed_at = now(),
+         erased_at = now(),
+         updated_at = now()
+   where id = p_developer_id;
+
+  -- מנהלי הפלטפורמה מבצעים את ההחזר ידנית - הם צריכים לדעת שיש כזה.
+  if v_refund_id is not null then
+    -- ‏suppress_push=false במפורש: זו התראה בזמן ריצה, לא מילוי, והיא צריכה
+    -- להגיע לוואטסאפ של מנהלי הפלטפורמה (scripts/check_notification_backfill.py).
+    insert into public.notifications (agent_id, type, title, body, suppress_push)
+    select m.id, 'system',
+           'החזר לחברה יזמית שמחקה את החשבון',
+           v_dev.name || ' (ח״פ ' || v_dev.company_number || ') מחקה את החשבון. יש להחזיר '
+             || v_refundable::text || ' ₪ מהארנק דרך חברת הסליקה (developer_refunds).',
+           false
+      from public.agency_members m
+     where m.is_platform_admin and m.active;
+  end if;
+
+  return jsonb_build_object(
+    'success', true,
+    'developer_id', p_developer_id,
+    'user_id', v_dev.user_id,
+    'projects_archived', v_projects,
+    'refund_requested', v_refundable
+  );
+end;
+$$;
+
+revoke all on function public.close_developer_account(uuid, text) from public, anon, authenticated;
+grant execute on function public.close_developer_account(uuid, text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 12. הרשאות: הכול service_role בלבד. הדפדפן עובר דרך project-manage
