@@ -1,0 +1,36 @@
+name: האתר פתוח לסורקי AI, ו-llms.txt מעודכן
+
+# חסימה של סורק AI אינה מדווחת: הדף נטען ופשוט נעדר מתשובות ChatGPT,
+# Perplexity ו-Claude. הבדיקה קוראת קבצים בלבד (בלי רשת ובלי סודות).
+# הפרטים: docs/ai-visibility.md.
+
+on:
+  pull_request:
+    paths:
+      - "robots.txt"
+      - "sitemap.xml"
+      - "llms.txt"
+      - "_headers"
+      - "scripts/check_ai_visibility.py"
+      - ".github/workflows/ai_visibility.yml"
+  push:
+    branches: [main]
+    paths:
+      - "robots.txt"
+      - "sitemap.xml"
+      - "llms.txt"
+      - "_headers"
+      - "scripts/check_ai_visibility.py"
+      - ".github/workflows/ai_visibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת פתיחות לסורקי AI
+        run: python3 scripts/check_ai_visibility.py
