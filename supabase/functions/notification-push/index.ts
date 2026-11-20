@@ -1094,6 +1094,10 @@ Deno.serve(async (req: Request) => {
   // בודדת במסד היא לוקחת 115-170ms (20.11.2026). הפער הוא הקשר הקריאה
   // (נעילה מייעצת מול שלושת ה-cron-ים, או שורות בפועל לשליחה), ורק מדידה
   // כאן מבדילה ביניהם. מחפשים `notif_claim_ms` ביומני הפונקציה.
+  // ‏זו השהיית הקריאה כולה (PostgREST ורשת, לא רק ה-SQL): להשוות ל-
+  // ‏pg_stat_statements לפני שמאשימים נעילה. סבבים ריקים נרשמים בכוונה, כי
+  // ‏`rows: 0` עם `ms` גבוה הוא ההמתנה עצמה.
+  // ‏TODO(20.12.2026): להסיר כשנקבעה הסיבה (docs/notifications-center.md).
   const claimT0 = Date.now();
   const { data: batch, error } = await sb.rpc("notification_push_claim", { p_limit: BATCH });
   console.log("notif_claim_ms", JSON.stringify({
