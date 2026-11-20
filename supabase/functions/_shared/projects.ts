@@ -232,7 +232,8 @@ export function developerCore(body: Record<string, unknown>): {
   else if (!number) invalid.push("company_number");
   if (!phoneRaw) missing.push("phone");
   else if (!e164) invalid.push("phone");
-  // סוג שנשלח ואינו מוכר הוא שגיאה, לא ברירת מחדל שקטה: מי ששלח "marketer " נרשם כיזם בלי לדעת
+  // סוג שנשלח ואינו מוכר הוא שגיאה, לא ברירת מחדל שקטה: מי ששלח "Marketer" או "agent" נרשם כיזם בלי
+  // לדעת. רווחים בקצוות מוסרים, והערך חייב להיות אחד מ-DEVELOPER_KINDS בדיוק (אותיות קטנות).
   const kindRaw = typeof body.kind === "string" ? body.kind.trim() : "";
   const kind = (DEVELOPER_KINDS as readonly string[]).includes(kindRaw) ? kindRaw as DeveloperKind : undefined;
   if (body.kind !== undefined && body.kind !== null && body.kind !== "" && !kind) invalid.push("kind");

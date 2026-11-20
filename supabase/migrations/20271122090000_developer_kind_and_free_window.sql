@@ -101,12 +101,13 @@ begin
 
   select free_until into v_free_until from public.developers where id = p_developer_id;
 
-  -- חלון החינם: הפרויקט באוויר עד סוף החלון, בלי חיוב ובלי שורה ב-project_charges
+  -- חלון החינם: הפרויקט באוויר עד סוף החלון, בלי חיוב ובלי שורה ב-project_charges.
+  -- greatest: תקופה ששולמה כבר (350 ₪ לפני ההחלטה) שמסתיימת אחרי החלון אינה מתקצרת
   if v_free_until is not null and v_free_until > now() then
     update public.projects
        set subscription_status = 'active',
            subscription_started_at = coalesce(subscription_started_at, now()),
-           subscription_expires_at = v_free_until,
+           subscription_expires_at = greatest(coalesce(subscription_expires_at, v_free_until), v_free_until),
            status = case when status = 'draft' then 'active' else status end
      where id = p_project_id;
     return jsonb_build_object('success', true, 'price_charged', 0, 'free', true, 'expires_at', v_free_until);
