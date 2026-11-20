@@ -76,10 +76,8 @@ let res = await run("https://shuknadlan.co.il/deals/afula", 200, AFULA);
 let html = await res.text();
 const ld = ldOf(html);
 check("‏data-ssr", /<div id="dealsBody" data-ssr="1">/.test(html));
-const jeru = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", year: "numeric", month: "numeric" }).formatToParts(new Date());
-const jeruMonth = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"][Number(jeru.find((p) => p.type === "month")!.value) - 1];
-const jeruYear = jeru.find((p) => p.type === "year")!.value;
-const afulaTitle = `עסקאות נדל״ן בעפולה לפי שכונה - ${jeruMonth} ${jeruYear}`;
+/* החודש הוא חודש הנתונים (period_end), לא חודש הבקשה, ואין "לפי שכונה". */
+const afulaTitle = "עסקאות נדל״ן בעפולה - אוגוסט 2026";
 check("כותרת עם חודש ושנה", html.includes(`<title>${afulaTitle} | שוק נדל״ן</title>`));
 check("‏og:title כמו הכותרת", html.includes(`<meta property="og:title" content="${afulaTitle} | שוק נדל״ן">`));
 check("‏h1", new RegExp(`<h1 id="dealsH1">${afulaTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</h1>`).test(html));
