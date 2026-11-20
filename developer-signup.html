@@ -13,7 +13,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/friendly-error.js"></script>
 <script src="/assets/visit-attr.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>פתיחת חשבון יזם/קבלן | שוק נדל״ן</title>
+<title>יזמים, קבלנים ומשווקי פרויקטים: פרסום בחינם | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
@@ -45,86 +45,214 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
-<meta property="og:title" content="פתיחת חשבון יזם/קבלן | שוק נדל״ן">
-<meta property="og:description" content="פתיחת חשבון לחברה יזמית או קבלנית בשוק הנדל״ן של עפולה והעמק: דף חברה, דף נחיתה לכל פרויקט חדש, תמהיל דירות וחומר שיווקי במקום אחד.">
+<meta property="og:title" content="יזמים, קבלנים ומשווקי פרויקטים: פרסום בחינם | שוק נדל״ן">
+<meta property="og:description" content="פותחים חשבון ומפרסמים פרויקטים חדשים בשוק הנדל״ן של עפולה והעמק: דף נחיתה לכל פרויקט, דף חברה, גלריה, סרטון, סיור 3D, תמהיל דירות וחוברת מכר. 6 חודשים בחינם, ללא כרטיס אשראי.">
 <meta property="og:url" content="https://shuknadlan.co.il/developer-signup">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="פתיחת חשבון לחברה יזמית או קבלנית בשוק הנדל״ן של עפולה והעמק: דף חברה, דף נחיתה לכל פרויקט חדש, תמהיל דירות וחומר שיווקי במקום אחד.">
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="description" content="פותחים חשבון ומפרסמים פרויקטים חדשים בשוק הנדל״ן של עפולה והעמק: דף נחיתה לכל פרויקט, דף חברה, גלריה, סרטון, סיור 3D, תמהיל דירות וחוברת מכר. 6 חודשים בחינם, ללא כרטיס אשראי.">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* אותו כרטיס בדיוק של agency-signup.html — זו אותה פעולה בעולם אחר,
-     ואין סיבה שהיא תיראה אחרת. */
-  :root{
-    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
-    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
-    --red:#0e2a6b; --brass-tint:#f7f1e2; --brass-ink:#8a6d10;
-    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
-  }
+  /* הסגנון של הדף יושב ב-<style> שאחרי design-system.css (למטה): הגיליון
+     נטען אחרי הבלוק הזה ודורס אותו. כאן רק מה שצריך לפני הציור הראשון. */
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
-  a{color:inherit}
-  button{font-family:inherit;cursor:pointer;border:none}
-  input,textarea{font-family:inherit;font-size:1rem}
-  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:470px;width:100%;padding:32px 26px}
-  .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
-  .logo-link img{width:100%;height:auto;display:block}
-  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
-  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
-  .field{margin-bottom:12px}
-  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
-  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
-  .field textarea{resize:vertical;min-height:64px;font-size:.92rem}
-  .field input:focus,.field textarea:focus{border-color:var(--blue);outline:none}
-  .field .hint{font-size:.7rem;color:var(--ink-soft);margin-top:4px;line-height:1.45}
-  /* שלוש מצבים לחיווי הח״פ: אישור, אזהרה, ומידע ניטרלי. אזהרה אינה
-     אדומה כשהמרשם פשוט לא זמין — זו לא שגיאה של מי שממלא/ת. */
-  /* גובה שמור לרמז הח״פ.
-     הטקסט כאן מתחלף בזמן ההקלדה — "תשע ספרות" → "בודק…" → שם החברה או
-     הודעת שגיאה בת שתי שורות — וכל החלפה כזו הזיזה את כל הטופס שמתחתיה,
-     כולל תיבת אישור התנאים. מי שהושיט/ה יד לתיבה בדיוק כשהתשובה חזרה
-     החטיא/ה אותה. נתפס בבדיקת דפדפן: הלחיצה נחתה על ה-div העוטף. */
-  #cnHint{min-height:2.6em}
-  .hint.ok{color:#12704a;font-weight:700}
-  .hint.warn{color:#b3261e;font-weight:700}
-  .hint.busy{color:var(--ink-soft);font-style:italic}
-  .two{display:grid;gap:12px}
-  @media(min-width:440px){.two{grid-template-columns:1fr 1fr}}
-  .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
-  .consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
-  .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
-  .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
-  .consent a{color:var(--blue);font-weight:700}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:10px}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
-  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
-  .note{font-size:.74rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:16px}
-  /* מחירון גלוי כבר בהרשמה. פתיחת החשבון חינם, והתשלום מתחיל רק כשדף
-     נחיתה עולה לאוויר — שני המשפטים האלה צריכים להיאמר לפני ההרשמה
-     ולא אחריה. */
-  .pricing{background:var(--brass-tint);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:16px;font-size:.78rem;line-height:1.6}
-  .pricing b{color:var(--brass-ink)}
-  .pricing ul{margin:6px 0 0;padding-inline-start:18px}
-  /* כפתור Google — אותו עיצוב בדיוק של crm.html, כדי שמי שמכיר/ה את
-     כניסת הסוכנים יזהה אותו מיד. */
-  .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line);gap:10px;margin-top:0}
-  .btn-google:hover:not(:disabled){border-color:var(--blue)}
-  .or-divider{text-align:center;font-size:.75rem;color:var(--ink-soft);margin:14px 0}
-  /* כוכבית על כל שדה חובה. היא לא קישוט: הטופס הזה ארוך, ובלי סימון
-     ויזואלי ההבדל בין "שם החברה" ל"שם רשמי" מתגלה רק בשליחה. */
-  .req::after{content:" *";color:#b3261e;font-weight:800}
-  /* ‏:user-invalid ולא :invalid — שדה חובה ריק הוא :invalid כבר בטעינת
-     הדף, וצביעה אדומה של טופס שאיש עוד לא נגע בו נראית כמו שמונה
-     שגיאות. ‏:user-invalid נדלק רק אחרי שנגעו בשדה ויצאו ממנו. דפדפן
-     שאינו מכיר אותו פשוט לא צובע — וזו נפילה־לאחור נכונה. */
-  .field input:user-invalid{border-color:#b3261e}
-  #stateDone{display:none;text-align:center}
+  body{margin:0;background:#f4f7fe;color:#0d1b3d;font-family:'Heebo',sans-serif;line-height:1.6}
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
+<!-- הסגנון של דף ההרשמה. אחרי design-system.css בכוונה (הסקיל
+     professionals-pages): הגיליון מעגל ב-!important כל מחלקה שמכילה
+     -card / -btn / -chip / -badge וצובע a:hover, ולכן שמות המחלקות כאן
+     נמנעים מהתבניות האלה וכל קישור צבעוני מגדיר גם :hover. -->
+<style>
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  .ps{font-size:16px;color:#0d1b3d}
+  .ps h1,.ps h2,.ps h3,.ps p,.ps ul,.ps ol{margin:0;padding:0}
+  .ps ul,.ps ol{list-style:none}
+  .ps-wrap{max-width:1120px;margin:0 auto;padding-inline:20px}
+  .ps-narrow{max-width:820px}
+  [id="signup"]{scroll-margin-top:12px}
+
+  /* כותרת עליונה */
+  .ps-top{background:#fff;border-bottom:1px solid #e3e8f4}
+  .ps-top .ps-wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:10px}
+  .ps-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#0d1b3d;font-weight:800;font-size:1.1rem}
+  .ps-logo:hover{color:#0e2a6b}
+  .ps-logo img{width:34px;height:auto;display:block}
+  .ps-login{display:flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:8px;color:#0e2a6b;font-weight:700;font-size:.875rem;text-decoration:none;background:#fff}
+  .ps-login:hover{background:#eaf0fb;color:#0e2a6b}
+
+  /* פתיחה */
+  .ps-hero{background:#0e2a6b;color:#fff}
+  .ps-hero .ps-wrap{display:flex;flex-wrap:wrap;gap:36px;align-items:center;padding-block:36px 44px}
+  .ps-hero-text{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:18px;align-items:flex-start}
+  .ps-eyebrow{font-size:.875rem;font-weight:600;color:#d9e3f8}
+  .ps .ps-hero h1{font-size:clamp(2rem,4.6vw,3.25rem);line-height:1.15;font-weight:800;color:#fff}
+  .ps-free{display:inline-flex;align-items:center;gap:10px;background:#f3c95a;color:#0d1b3d;font-weight:800;font-size:1.375rem;padding:8px 18px;border-radius:10px}
+  .ps-lead{font-size:1.0625rem;color:#eef3fd;max-width:520px}
+  .ps-cta{display:flex;align-items:center;justify-content:center;min-height:56px;padding:0 22px;border-radius:10px;font-weight:800;font-size:1.125rem;text-decoration:none;text-align:center}
+  .ps-cta-light{align-self:stretch;max-width:420px;background:#fff;color:#0e2a6b}
+  .ps-cta-light:hover{background:#eaf0fb;color:#0e2a6b}
+  .ps-cta-gold{width:100%;max-width:420px;background:#f3c95a;color:#0d1b3d}
+  .ps-cta-gold:hover{background:#f7d77e;color:#0d1b3d}
+  .ps-ticks{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.875rem;color:#eef3fd}
+  .ps-ticks li{display:flex;align-items:center;gap:6px}
+
+  /* המחשה: עמוד מקצועי לדוגמה */
+  .ps-demo{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+  .ps-demo-tag{font-size:.8125rem;font-weight:700;color:#0d1b3d;background:#f3c95a;border-radius:999px;padding:4px 14px;text-align:center}
+  .ps-demo-frame{width:100%;max-width:360px;background:#fff;color:#0d1b3d;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(4,14,44,.45);border:6px solid #1c3a80}
+  .ps-demo-cover{height:96px;background:#dfe8f9;display:flex;align-items:center;justify-content:center;color:#4a5578;font-size:.8125rem;font-weight:600}
+  .ps-demo-body{padding:0 18px 18px;display:flex;flex-direction:column;gap:12px}
+  .ps-demo-head{display:flex;align-items:flex-end;gap:12px;margin-top:-30px}
+  .ps-demo-avatar{width:68px;height:68px;border-radius:50%;background:#0e2a6b;border:4px solid #fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .ps-demo-field{font-size:.75rem;font-weight:700;color:#0e2a6b;background:#eaf0fb;border-radius:6px;padding:3px 10px;margin-bottom:6px}
+  .ps-demo-name{display:block;font-weight:800;font-size:1.3rem;line-height:1.25}
+  .ps-demo-sub{display:block;font-size:.875rem;color:#4a5578}
+  .ps-demo-text{font-size:.875rem;color:#33405f}
+  .ps-demo-tags{display:flex;flex-wrap:wrap;gap:6px}
+  .ps-demo-tags span{font-size:.78rem;font-weight:600;background:#f4f7fe;border:1px solid #e3e8f4;border-radius:999px;padding:4px 11px}
+  .ps-demo-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .ps-demo-photos span{height:62px;border-radius:8px;background:#dfe8f9;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#4a5578}
+  .ps-demo-acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .ps-demo-acts span{min-height:44px;border-radius:8px;font-weight:700;font-size:.875rem;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid #0e2a6b;color:#0e2a6b}
+  .ps-demo-acts span:first-child{background:#0e2a6b;color:#fff}
+
+  /* מקטעים */
+  .ps-sec{padding-block:40px 8px;display:flex;flex-direction:column;gap:18px}
+  .ps .ps-h2{font-size:1.7rem;line-height:1.25;font-weight:800;color:#0d1b3d}
+  .ps-muted{color:#4a5578}
+  .ps-grid{display:flex;flex-wrap:wrap;gap:14px}
+  .ps-tile{flex:1 1 230px;min-width:0;background:#fff;border:1px solid #e3e8f4;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px}
+  .ps-tile-ico{width:44px;height:44px;border-radius:10px;background:#eaf0fb;display:flex;align-items:center;justify-content:center;color:#0e2a6b}
+  .ps .ps-tile h3{font-size:1.125rem;font-weight:800;line-height:1.3}
+  .ps-tile p{font-size:.94rem;color:#4a5578}
+  .ps-pills{display:flex;flex-wrap:wrap;gap:8px}
+  .ps-pills li{background:#fff;border:1px solid #d5ddf0;border-radius:999px;padding:8px 15px;font-size:.94rem;font-weight:600}
+  .ps-pills li.ps-pill-other{background:#eaf0fb;border:1px dashed #0e2a6b;color:#0e2a6b;font-weight:700}
+
+  /* ההצטרפות החינמית והטופס */
+  .ps-join{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;padding-block:40px 8px}
+  .ps-join-side{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:16px}
+  .ps-freebox{background:#fff;border:2px solid #0e2a6b;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px}
+  .ps-freebox-tag{align-self:flex-start;background:#f3c95a;color:#0d1b3d;font-weight:800;font-size:.875rem;border-radius:999px;padding:4px 14px}
+  .ps-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+  .ps-price strong{font-size:2.75rem;line-height:1;font-weight:800;color:#0e2a6b}
+  .ps-price span{font-size:.94rem;color:#4a5578}
+  .ps-checks{display:flex;flex-direction:column;gap:10px;font-weight:600}
+  .ps-checks li{display:flex;align-items:center;gap:10px}
+  .ps-checks svg{flex:0 0 auto;color:#0e2a6b}
+  .ps-paidbox{background:#f4f7fe;border:1.5px dashed #9aa6c4;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+  .ps-paidbox small{font-size:.8125rem;font-weight:800;color:#4a5578}
+  .ps .ps-paidbox h3{font-size:1.0625rem;font-weight:800}
+  .ps-paidbox p{font-size:.94rem;color:#4a5578}
+
+  .ps-form{flex:1 1 360px;min-width:0;background:#fff;border:1px solid #e3e8f4;border-radius:16px;padding:22px;box-shadow:0 6px 20px rgba(13,27,61,.08);display:flex;flex-direction:column;gap:16px}
+  .ps .ps-form h2{font-size:1.6rem;line-height:1.25;font-weight:800}
+  .ps-field{display:flex;flex-direction:column;gap:5px}
+  .ps-field label{font-size:.94rem;font-weight:700;color:#0d1b3d}
+  .ps-field label small{font-weight:500;font-size:inherit;color:#4a5578}
+  /* 16px לפחות: גופן קטן יותר מפעיל זום אוטומטי בשדה באייפון */
+  .ps-field input,.ps-field select{width:100%;min-height:52px;border:1.5px solid #c9d2e8;border-radius:10px;padding:0 14px;font-family:inherit;font-size:16px;color:#0d1b3d;background:#fff}
+  .ps-field input:focus,.ps-field select:focus{border-color:#0e2a6b;outline:2px solid #b9c8ec;outline-offset:1px}
+  .ps-field input.ps-ltr{direction:ltr;text-align:right}
+  .ps-hint{font-size:.8125rem;color:#4a5578}
+  .ps-submit{min-height:58px;border:none;border-radius:10px;background:#0e2a6b;color:#fff;font-family:inherit;font-weight:800;font-size:1.125rem;cursor:pointer;padding:0 18px;width:100%}
+  .ps-submit:hover{background:#08194a}
+  .ps-submit:disabled{opacity:.55;cursor:not-allowed}
+  #feedback{font-size:.94rem;text-align:center;min-height:1.2em;font-weight:600}
+  #feedback:empty{display:none}
+  .ps-fine{font-size:.84rem;color:#4a5578;text-align:center}
+  .ps-terms{font-size:.8125rem;color:#4a5578;text-align:center;background:#f7f1e2;border-radius:8px;padding:10px 12px}
+  .ps-terms a{color:#0e2a6b;font-weight:700}
+  .ps-terms a:hover{color:#08194a}
+
+  /* השלבים */
+  .ps-steps{display:flex;flex-wrap:wrap;gap:14px}
+  .ps-steps li{flex:1 1 230px;min-width:0;display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #e3e8f4;border-radius:14px;padding:16px;font-size:.97rem}
+  .ps-steps b{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:#0e2a6b;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+
+  /* שאלות נפוצות */
+  .ps-faq{display:flex;flex-direction:column;gap:12px}
+  .ps-qa{background:#fff;border:1px solid #e3e8f4;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+  .ps .ps-qa h3{font-size:1.03rem;font-weight:800;line-height:1.35}
+  .ps-qa p{font-size:.94rem;color:#4a5578}
+
+  /* סיום */
+  .ps-close{margin-top:44px;background:#0e2a6b;color:#fff}
+  .ps-close .ps-wrap{padding-block:44px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+  .ps .ps-close h2{font-size:1.7rem;line-height:1.25;font-weight:800;color:#fff}
+  .ps-close p{color:#eef3fd}
+  .ps-close small{font-size:.875rem;color:#d9e3f8}
+  .ps-home{color:#fff;font-size:.875rem}
+  .ps-home:hover{color:#f3c95a}
+
+  /* מסכי "חזרה מתשלום" ו"ההרשמה התקבלה": לוח אחד במרכז */
+  .ps-panel{max-width:460px;margin:32px auto;padding:30px 24px;background:#fff;border:1px solid #e3e8f4;border-radius:20px;box-shadow:0 2px 8px rgba(18,40,64,.1);text-align:center}
+  .ps-panel-logo{display:block;width:64px;margin:0 auto 16px;line-height:0}
+  .ps-panel-logo img{width:100%;height:auto;display:block}
+  .ps-panel h1{font-size:1.4rem;font-weight:800;margin:0 0 6px;color:#0d1b3d}
+  .ps-panel-sub{color:#4a5578;font-size:.94rem;margin:0 0 18px}
+  .ps-ghost{background:#fff;border:1.5px solid #0e2a6b;color:#0e2a6b;margin-top:10px}
+  .ps-ghost:hover{background:#eaf0fb}
+  a.ps-submit{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:16px}
+  a.ps-submit:hover{color:#fff}
+  .ps-manage{background:#eaf0fb;border-radius:12px;padding:14px;margin-top:18px}
+  .ps-manage-title{font-weight:800;font-size:.94rem;color:#0d1b3d;margin:0 0 4px}
+  .ps-manage-note{font-size:.84rem;color:#4a5578;margin:0 0 10px}
+  .ps-manage input{width:100%;min-height:44px;border:1.5px solid #c9d2e8;border-radius:8px;padding:0 10px;font-size:.84rem;background:#fff;text-align:left;direction:ltr;font-family:inherit}
+  .ps-back{display:block;text-align:center;font-size:.9rem;color:#0e2a6b;margin-top:16px}
+  .ps-back:hover{color:#08194a}
+
+
+  /* ---- יזמים, קבלנים ומשווקי פרויקטים ---- */
+  /* הכותרת כאן ארוכה מזו של בעלי המקצוע: בגודל המלא היא נשברת לחמש שורות במחשב */
+  .ps .ps-hero h1{font-size:clamp(1.7rem,3.6vw,2.5rem)}
+  .ps-demo-logo{width:60px;height:60px;border-radius:12px;background:#0e2a6b;border:4px solid #fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:#fff;font-weight:800;font-size:.7rem;text-align:center;line-height:1.1}
+  .ps-demo-table{border:1px solid #e3e8f4;border-radius:10px;overflow:hidden;font-size:.84rem}
+  .ps-demo-row{display:flex;justify-content:space-between;padding:8px 12px;border-top:1px solid #e3e8f4}
+  .ps-demo-row-head{background:#f4f7fe;font-weight:700;border-top:0}
+  .ps-demo-row span:last-child{color:#4a5578}
+  .ps-demo-row-head span:last-child{color:inherit}
+  .ps-google{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border:1.5px solid #c9d2e8;border-radius:10px;background:#fff;font-family:inherit;font-weight:700;font-size:16px;color:#0d1b3d;cursor:pointer;width:100%}
+  .ps-google:hover{background:#f4f7fe}
+  .ps-google:disabled{opacity:.6;cursor:wait}
+  .ps-or{text-align:center;color:#4a5578;font-size:.875rem}
+  .ps-kinds{border:0;margin:0;padding:0;min-width:0;display:flex;gap:8px;flex-wrap:wrap}
+  .ps-kinds legend{padding:0;margin-bottom:5px;font-size:.94rem;font-weight:700}
+  .ps-kind{flex:1 1 0;min-width:96px;position:relative;display:flex}
+  .ps-kind input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .ps-kind span{flex:1;min-height:56px;border:1.5px solid #c9d2e8;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:.94rem;padding:6px 8px;line-height:1.25}
+  .ps-kind input:checked+span{border-color:#0e2a6b;background:#eaf0fb;color:#0e2a6b;box-shadow:inset 0 0 0 1px #0e2a6b}
+  .ps-kind input:focus-visible+span{outline:2px solid #b9c8ec;outline-offset:2px}
+  .ps-kinds.is-error .ps-kind span{border-color:#b3261e}
+  .ps-row2{display:flex;gap:10px}
+  .ps-row2 .ps-field{flex:1 1 0;min-width:0}
+  .ps-row2 .ps-grow{flex:2 1 0}
+  .ps-consent{display:flex;gap:10px;align-items:flex-start;font-size:.875rem;color:#33405f;cursor:pointer}
+  .ps-consent input{flex:0 0 auto;width:22px;height:22px;margin:1px 0 0;accent-color:#0e2a6b}
+  .ps-consent a{color:#0e2a6b;font-weight:700}
+  .ps-consent a:hover{color:#08194a}
+  .ps-hint.ok{color:#116b3a;font-weight:600}
+  .ps-hint.warn{color:#8a5a00;font-weight:600}
+  .ps-hint.busy{color:#4a5578}
+  .ps-form .ps-back{margin-top:0}
+  .ps-after{display:inline-block;font-size:.8125rem;font-weight:800;color:#4a5578;background:#e9eef9;border-radius:999px;padding:3px 12px;margin-bottom:6px}
+  .ps-plan{gap:4px}
+  .ps-plan-name{font-size:.94rem;font-weight:700;color:#4a5578}
+  .ps-plan-price{font-size:2.1rem;line-height:1.1;font-weight:800;color:#0e2a6b}
+  .ps-paidbox a{color:#0e2a6b;font-weight:700}
+  .ps-paidbox a:hover{color:#08194a}
+
+  @media (max-width:520px){
+    .ps-hero .ps-wrap{padding-block:28px 36px;gap:28px}
+    .ps-cta-light{max-width:none}
+    .ps-form,.ps-freebox{padding:18px}
+    .ps .ps-h2,.ps .ps-close h2{font-size:1.5rem}
+  }
+</style>
 <script src="assets/page-bg.js" data-auto></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
@@ -138,74 +266,282 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
-<div class="card">
-  <div id="stateForm">
-    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62"></a>
-    <h1>פתיחת חשבון יזם/קבלן</h1>
-    <p class="sub">דף חברה אחד, ודף נחיתה נפרד לכל פרויקט</p>
 
-    <div class="note">
-      תחילה נפתחת החברה - היזמית או הקבלנית. אחר כך, מאזור הניהול, מעלים כל פרויקט לדף נחיתה משלו:
-      לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה.
-      כל פרויקט מוצג בדף הבית, בדף החברה שלכם ובדף שמרכז את כל הפרויקטים.
+<div class="ps">
+
+<!-- ---------- דף ההצטרפות של יזמים, קבלנים ומשווקי פרויקטים ----------
+     נוסח ומבנה מ-20.11.2026, באותה שפה של professional-signup. שלושה כללים שהדף מחזיק:
+       1. הפרסום חינם ל-6 חודשים, והוא נראה כך בכל מסך: תג בפתיחה, בלוק ליד הטופס, ושורה מתחת לכפתור.
+       2. המסלולים שאחרי התקופה החינמית הם בלוק נפרד **מחוץ לטופס**, והם אומרים שלא נחייב בלי בחירה
+          מפורשת (תקנון §15 ו-§25). המחירים כתובים כאן כמספרים ונבדקים מול pricing_config
+          (scripts/check_pricing.py), ולפני מע״מ כמו כל מחיר באתר.
+       3. כל הבטחה כאן קיימת בפועל: חלון החינם הוא developers.free_until (20271122090000), והחיוב
+          של המסלולים עוד לא נבנה - הדף מציג אותם ולא גובה. docs/new-projects.md. -->
+<div id="stateForm">
+
+  <header class="ps-top">
+    <div class="ps-wrap">
+      <a href="/" class="ps-logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"><span>שוק נדל״ן</span></a>
+      <a class="ps-login" href="/developer-crm">כבר רשומים? כניסה</a>
+    </div>
+  </header>
+
+  <section class="ps-hero">
+    <div class="ps-wrap">
+      <div class="ps-hero-text">
+        <h1><span>יזמים, קבלנים ומשווקי פרויקטים?</span>הקונים הבאים שלכם מחפשים דירה חדשה בשוק הנדל״ן</h1>
+        <span class="ps-free">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          פרסום הפרויקטים בחינם ל-<span data-free-months>6</span> חודשים
+        </span>
+        <p class="ps-lead">דף נחיתה משלכם לכל פרויקט, ודף חברה אחד, מול מי שמחפש דירה חדשה בעפולה והעמק.</p>
+        <a class="ps-cta ps-cta-light" href="#signup">פותחים חשבון ומפרסמים בחינם ←</a>
+        <ul class="ps-ticks">
+          <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא כרטיס אשראי</li>
+          <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא התחייבות</li>
+          <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>המשך אחרי התקופה החינמית רק באישורכם</li>
+        </ul>
+      </div>
+
+      <!-- המחשה של דף פרויקט. ציור ב-HTML ולא צילום: אין בו פרויקט אמיתי ואין בו נתון מומצא,
+           רק המקומות שבהם התוכן של הנרשם/ת יופיע. -->
+      <div class="ps-demo">
+        <span class="ps-demo-tag">כך הפרויקט שלכם ייראה בשוק הנדל״ן - המחשה</span>
+        <div class="ps-demo-frame" role="img" aria-label="המחשה של דף נחיתה לפרויקט: תמונת נושא, לוגו, שם הפרויקט, גלריה, תמהיל דירות, כפתור השארת פרטים וחוברת מכר">
+          <div class="ps-demo-cover">תמונת נושא של הפרויקט</div>
+          <div class="ps-demo-body">
+            <div class="ps-demo-head">
+              <span class="ps-demo-logo">לוגו</span>
+              <span class="ps-demo-field">שלב הפרויקט</span>
+            </div>
+            <div>
+              <span class="ps-demo-name">שם הפרויקט שלכם</span>
+              <span class="ps-demo-sub">שם החברה · עפולה והעמק</span>
+            </div>
+            <div class="ps-demo-photos"><span>הדמיה</span><span>תמונה</span><span>סרטון</span></div>
+            <div class="ps-demo-table">
+              <div class="ps-demo-row ps-demo-row-head"><span>תמהיל דירות</span><span>החל מ-</span></div>
+              <div class="ps-demo-row"><span>3 חדרים</span><span>מחיר</span></div>
+              <div class="ps-demo-row"><span>4 חדרים</span><span>מחיר</span></div>
+            </div>
+            <div class="ps-demo-acts"><span>השארת פרטים</span><span>חוברת מכר</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ps-wrap ps-sec">
+    <h2 class="ps-h2">למה כדאי לפרסם את הפרויקט בשוק הנדל״ן?</h2>
+    <div class="ps-grid">
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+        <h3>דף נחיתה לכל פרויקט</h3>
+        <p>כתובת משלו, עם הלוגו והצבעים שלכם, ושלב הפרויקט, המיקום והתיאור.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-7 8"/></svg></span>
+        <h3>גלריה, סרטון וסיור 3D</h3>
+        <p>מראים את הפרויקט כמו שהוא: הדמיות, תמונות, סרטון וסיור וירטואלי.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg></span>
+        <h3>תמהיל דירות וחוברת מכר</h3>
+        <p>מפרטים את סוגי הדירות, ומעלים חוברת שהקונים מורידים בלחיצה.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.5 2.4 3.5 5.2"/></svg></span>
+        <h3>פניות ישירות אליכם</h3>
+        <p>מי שמשאיר פרטים בדף של הפרויקט מגיע ישר לאזור האישי שלכם, בלי גורם באמצע.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 12h6M9 16h6"/></svg></span>
+        <h3>ודף חברה אחד</h3>
+        <p>כל הפרויקטים שלכם במקום אחד, עם פרטי החברה, שנת ההקמה ופרויקטים שנמסרו.</p>
+      </div>
+      <div class="ps-tile">
+        <span class="ps-tile-ico"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+        <h3>מול מי שמחפש דירה חדשה</h3>
+        <p>הפרויקט מוצג בדף הבית, בדף החברה ובדף שמרכז את כל הפרויקטים באזור.</p>
+      </div>
+    </div>
+    <a class="ps-cta ps-cta-dark" href="#signup">פותחים חשבון ומפרסמים בחינם ←</a>
+  </section>
+
+  <section class="ps-wrap ps-sec">
+    <h2 class="ps-h2">למי ההצטרפות מתאימה?</h2>
+    <p class="ps-muted">לכל מי שמשווק פרויקט חדש באזור, בכל אחד מהמסלולים:</p>
+    <ul class="ps-pills">
+      <li>יזמים</li>
+      <li>קבלנים וחברות בנייה</li>
+      <li>משווקי נדל״ן לפרויקטים חדשים</li>
+    </ul>
+    <p class="ps-muted ps-hint">משווקים ומשרדי שיווק מפרסמים בשם החברה שלהם, ומציינים בטופס שהם משווקים.</p>
+  </section>
+
+  <section class="ps-wrap ps-join" id="signup">
+    <div class="ps-join-side">
+      <div class="ps-freebox">
+        <span class="ps-freebox-tag">ההצטרפות החינמית</span>
+        <h2 class="ps-h2"><span data-free-months>6</span> חודשים של פרסום פרויקטים בחינם</h2>
+        <div class="ps-price"><strong>חינם</strong><span>לכל הפרויקטים שלכם, מרגע פתיחת החשבון</span></div>
+        <ul class="ps-checks">
+          <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>דף נחיתה לכל פרויקט ודף חברה</li>
+          <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא פרטי כרטיס אשראי</li>
+          <li><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא התחייבות למסלול בתשלום</li>
+        </ul>
+      </div>
+      <!-- נפרד מהטופס בכוונה: מסלול בתשלום אינו חלק מההרשמה. -->
+      <div class="ps-paidbox">
+        <small>נפרד מההרשמה</small>
+        <h3>המשך אחרי התקופה החינמית</h3>
+        <p>בסיום התקופה החינמית תוכלו לבחור מסלול לפי מספר הפרויקטים שלכם. המחירים מוצגים <a href="#plans">למטה</a>. שום דבר לא נבחר עבורכם, ולא נחייב בלי אישור מפורש.</p>
+      </div>
     </div>
 
-    <div class="pricing">
-      <b>המחירון, לפני שנתחיל:</b>
-      <ul>
-        <li>פתיחת החברה ודף החברה - <b>ללא עלות</b>.</li>
-        <li>דף נחיתה לפרויקט - <b id="pricePage">350 ₪ לחודש</b>, לכל פרויקט בנפרד.</li>
-        <li>קידום פרויקט בראש הגלריות - <b id="pricePromote">50 ₪ לשבוע</b>, לבחירתכם.</li>
-      </ul>
+    <div class="ps-form">
+      <div>
+        <h2>פותחים חשבון לחברה שלכם</h2>
+        <p class="ps-muted">את הפרויקט הראשון מעלים מיד אחרי, באזור האישי.</p>
+      </div>
+
+      <!-- Google ראשון: מי שיש לו/ה חשבון Google לא צריך/ה לקרוא תשעה שדות כדי לגלות שאפשר בלחיצה.
+           ההרשמה נגמרת אז במסך "פתיחת חברה" ב-developer-crm.html, עם אותם שדות חובה
+           (והסוג נבחר שם). הכפתור רק מנתב: חשבון Google יוצר משתמש ב-auth.users אבל לא שורת developers. -->
+      <button type="button" class="ps-google" id="googleBtn">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.66 9c0-.59.1-1.17.29-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.03l2.99-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+        <span class="gl-label">הרשמה מהירה עם Google</span>
+      </button>
+      <p class="ps-or">- או במילוי הטופס -</p>
+
+      <!-- אין סוג ברירת מחדל: סוג שנבחר מעצמו הוא סוג שגוי אצל מי שלא שם לב. הסוג לא משנה הרשאה או חיוב -->
+      <fieldset class="ps-kinds" id="kindGroup">
+        <legend>מי אתם?</legend>
+        <label class="ps-kind"><input type="radio" name="kind" value="developer"><span>יזם</span></label>
+        <label class="ps-kind"><input type="radio" name="kind" value="contractor"><span>קבלן</span></label>
+        <label class="ps-kind"><input type="radio" name="kind" value="marketer"><span>משווק נדל״ן לפרויקטים חדשים</span></label>
+      </fieldset>
+
+      <div class="ps-field">
+        <label for="companyName">שם החברה</label>
+        <input type="text" id="companyName" autocomplete="organization" required>
+        <span class="ps-hint">כך החברה תוצג באתר.</span>
+      </div>
+      <div class="ps-field">
+        <label for="companyNumber">ח״פ (מספר תאגיד)</label>
+        <input type="text" id="companyNumber" class="ps-ltr" inputmode="numeric" placeholder="512345678" required>
+        <span class="ps-hint" id="cnHint">תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.</span>
+      </div>
+      <div class="ps-field">
+        <label for="contactName">שם איש או אשת הקשר</label>
+        <input type="text" id="contactName" autocomplete="name" required>
+      </div>
+      <div class="ps-field">
+        <label for="phone">טלפון</label>
+        <input type="tel" id="phone" class="ps-ltr" inputmode="tel" autocomplete="tel" placeholder="04-6000000" required>
+      </div>
+      <div class="ps-row2">
+        <div class="ps-field">
+          <label for="city">עיר</label>
+          <input type="text" id="city" placeholder="עפולה" required>
+        </div>
+        <div class="ps-field ps-grow">
+          <label for="address">כתובת המשרד</label>
+          <input type="text" id="address" autocomplete="street-address" required>
+        </div>
+      </div>
+      <div class="ps-field">
+        <label for="contactEmail">אימייל</label>
+        <input type="email" id="contactEmail" class="ps-ltr" inputmode="email" autocomplete="username" required>
+        <span class="ps-hint">לכניסה לאזור האישי ולעדכונים על החשבון.</span>
+      </div>
+      <div class="ps-field">
+        <label for="password">סיסמה</label>
+        <input type="password" id="password" autocomplete="new-password" minlength="8" required>
+        <span class="ps-hint">8 תווים לפחות.</span>
+      </div>
+
+      <label class="ps-consent" for="termsConsent">
+        <input type="checkbox" id="termsConsent">
+        <span>קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</span>
+      </label>
+
+      <button type="button" class="ps-submit" id="submitBtn">פותחים חשבון ומפרסמים בחינם</button>
+      <div id="feedback" role="status" aria-live="polite"></div>
+      <p class="ps-fine">לא נבקש פרטי אשראי. הפרסום בחינם ל-<span data-free-months-note>6</span> חודשים מרגע פתיחת החשבון.</p>
+      <p class="ps-terms">התנאים והמחירים עשויים להשתנות בכל עת לפי שיקול דעתה של הנהלת האתר, בהתאם ל<a href="/terms#t25">תנאי השימוש</a>.</p>
+      <a href="/developer-crm" class="ps-back">כבר יש לכם חשבון? כניסה לאזור האישי</a>
     </div>
+  </section>
 
-    <!-- ‏Google ראשון, ולא אחרי הטופס: מי שיש לו/ה חשבון Google לא צריך/ה
-         לקרוא שמונה שדות כדי לגלות שאפשר בלחיצה. ההרשמה עצמה זהה — אחרי
-         החזרה מ-Google נפתח אותו מסך "פתיחת חברה" עם אותם שדות חובה,
-         בלי שדות האימייל והסיסמה. -->
-    <button type="button" class="btn btn-google" id="googleBtn">
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-      <span class="gl-label">הרשמה עם Google</span>
-    </button>
-    <p class="or-divider">- או במילוי הטופס -</p>
+  <section class="ps-wrap ps-sec">
+    <h2 class="ps-h2">מה קורה אחרי ההרשמה?</h2>
+    <ol class="ps-steps">
+      <li><b>1</b><span>פותחים חשבון לחברה ומקבלים דף חברה משלכם.</span></li>
+      <li><b>2</b><span>מעצבים את הדף: לוגו, תמונת נושא, צבעים ומשפט תדמית.</span></li>
+      <li><b>3</b><span>מעלים פרויקט: גלריה, סרטון, תמהיל דירות וחוברת מכר.</span></li>
+      <li><b>4</b><span>הפרויקט עולה לדף הנחיתה שלו, לדף החברה ולדף הפרויקטים, והפניות מגיעות לאזור האישי.</span></li>
+    </ol>
+  </section>
 
-    <div class="section-divider">פרטי החברה</div>
-    <div class="field"><label class="req">שם החברה (כפי שיוצג באתר)</label><input type="text" id="companyName" required></div>
-    <div class="two">
-      <div class="field"><label class="req">ח״פ (מספר תאגיד)</label><input type="text" id="companyNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="cnHint">תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.</div></div>
-      <div class="field"><label>שם רשמי <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="legalName" placeholder="בע״מ"></div>
+  <!-- המסלולים אחרי התקופה החינמית. המספרים כאן נבדקים מול pricing_config ב-scripts/check_pricing.py.
+       **החיוב עוד לא נבנה** (project_activate_page מחזירה plan_required אחרי החלון): הדף מציג, והמערכת לא גובה. -->
+  <section class="ps-wrap ps-sec" id="plans">
+    <div>
+      <span class="ps-after">אחרי התקופה החינמית</span>
+      <h2 class="ps-h2">מסלולים לפי מספר הפרויקטים</h2>
     </div>
-    <div class="two">
-      <div class="field"><label class="req">טלפון</label><input type="tel" id="phone" inputmode="tel" placeholder="04-6000000" required></div>
-      <div class="field"><label class="req">עיר</label><input type="text" id="city" placeholder="עפולה" required></div>
+    <p class="ps-muted">אחד לכל חשבון, לא לכל פרויקט. בוחרים רק כשרוצים להמשיך, ולא נחייב בלי אישור מפורש.</p>
+    <div class="ps-grid">
+      <div class="ps-tile ps-plan">
+        <span class="ps-plan-name">עד <span data-plan-max="tier1">10</span> פרויקטים</span>
+        <span class="ps-plan-price" data-plan="tier1">₪199</span>
+        <span class="ps-hint">לחודש, לחשבון, + מע״מ</span>
+      </div>
+      <div class="ps-tile ps-plan">
+        <span class="ps-plan-name">עד <span data-plan-max="tier2">20</span> פרויקטים</span>
+        <span class="ps-plan-price" data-plan="tier2">₪278</span>
+        <span class="ps-hint">לחודש, לחשבון, + מע״מ</span>
+      </div>
+      <div class="ps-tile ps-plan">
+        <span class="ps-plan-name"><span data-plan-min="tier3">21</span> פרויקטים ומעלה</span>
+        <span class="ps-plan-price" data-plan="tier3">₪397</span>
+        <span class="ps-hint">לחודש, לחשבון, + מע״מ</span>
+      </div>
     </div>
-    <div class="field"><label class="req">כתובת המשרד</label><input type="text" id="address" placeholder="שדרות ירושלים 40" required></div>
-    <div class="field"><label>משפט תדמית קצר <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="tagline" placeholder="בונים בעמק מאז 1998"></div>
-    <div class="field"><label>אתר החברה <span style="font-weight:400">(לא חובה)</span></label><input type="url" id="website" placeholder="https://"></div>
+  </section>
 
-    <div class="section-divider">איש/אשת הקשר בחברה</div>
-    <div class="field"><label class="req">שם מלא</label><input type="text" id="contactName" required></div>
-    <div class="field"><label class="req">אימייל</label><input type="email" id="contactEmail" required autocomplete="username"></div>
-    <div class="field"><label class="req">סיסמה (8 תווים לפחות)</label><input type="password" id="password" required minlength="8" autocomplete="new-password"></div>
-
-    <div class="section-divider">תנאים</div>
-    <div class="consent">
-      <input type="checkbox" id="termsConsent">
-      <label for="termsConsent">קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>. ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה, ואינם מהווים הצעה מחייבת.</label>
+  <section class="ps-wrap ps-narrow ps-sec">
+    <h2 class="ps-h2">שאלות נפוצות</h2>
+    <div class="ps-faq">
+      <div class="ps-qa"><h3>האם הפרסום באמת בחינם?</h3><p>כן. ל-6 החודשים הראשונים מרגע פתיחת החשבון, הפרסום של כל הפרויקטים שלכם אינו כרוך בתשלום.</p></div>
+      <div class="ps-qa"><h3>האם צריך להזין פרטי כרטיס אשראי?</h3><p>לא. אין צורך בפרטי אשראי כדי להירשם ולפרסם בתקופה החינמית.</p></div>
+      <div class="ps-qa"><h3>מה קורה אחרי 6 חודשים?</h3><p>תוכלו לבחור מסלול לפי מספר הפרויקטים שלכם: עד 10, עד 20, או 21 ומעלה. מי שלא בוחר לא מחויב, והפרויקטים יורדים מהאתר עד שיבחר מסלול.</p></div>
+      <div class="ps-qa"><h3>מי יכול להירשם?</h3><p>יזמים, קבלנים ומשווקי נדל״ן לפרויקטים חדשים, בשם חברה רשומה. מספר החברה נבדק מול רשם החברות.</p></div>
+      <div class="ps-qa"><h3>איך הפניות מגיעות אליי?</h3><p>מי שמשאיר פרטים בדף הפרויקט מופיע באזור האישי שלכם, ומשם אתם חוזרים אליו.</p></div>
     </div>
+  </section>
 
-    <button class="btn" id="submitBtn">פתיחת החשבון</button>
-    <div id="feedback"></div>
-    <a href="/developer-crm" class="back-link">כבר יש לך חשבון? כניסה</a>
-  </div>
+  <section class="ps-close">
+    <div class="ps-wrap ps-narrow">
+      <h2>הקונים הבאים שלכם מחפשים דירה חדשה בשוק הנדל״ן</h2>
+      <p>פותחים חשבון, מעלים את הפרויקט, ומפרסמים בחינם.</p>
+      <a class="ps-cta ps-cta-gold" href="#signup">פותחים חשבון ומפרסמים בחינם</a>
+      <small>ללא כרטיס אשראי · ללא התחייבות</small>
+      <a href="/" class="ps-home">חזרה לדף הבית</a>
+    </div>
+  </section>
+</div>
 
-  <div id="stateDone">
-    <h1>החשבון נפתח!</h1>
-    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
-    <p class="hint" id="doneRegistry" hidden style="text-align:center"></p>
-    <a href="/developer-crm" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
-    <a href="#" id="devPageLink" class="back-link" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
-  </div>
+<div id="stateDone" class="ps-panel" style="display:none">
+  <a href="/" class="ps-panel-logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62"></a>
+  <h1>החשבון נפתח!</h1>
+  <p class="ps-panel-sub">התקופה החינמית מתחילה עכשיו. אפשר להתחבר עם הפרטים שהזנתם, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
+  <p class="ps-hint" id="doneRegistry" hidden style="text-align:center"></p>
+  <a href="/developer-crm" class="ps-submit">מעבר לאזור הניהול ←</a>
+  <a href="#" id="devPageLink" class="ps-back" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
+</div>
+
 </div>
 
 <!-- זוכר לאן ביקשנו לחזור מ-Google, כדי שתשובה שתיפול בדף הבית תמשיך
@@ -223,22 +559,9 @@ const SIGNUP_URL = SUPABASE_URL + '/functions/v1/developer-signup';
 const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
 const el = id => document.getElementById(id);
 
-/* המחירון נקרא מ-pricing_config ולא נשאר קשיח ב-HTML: שינוי מחיר בטבלה
-   חייב להשתקף בדף שמבטיח אותו, אחרת ההרשמה מבטיחה מחיר שאינו קיים. */
-(async function loadPricing(){
-  if (!window.supabase) return;
-  try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data } = await sb.from('pricing_config').select('key, value')
-      .in('key', ['project_page_monthly_price','project_promote_weekly_price']);
-    const map = {};
-    (data || []).forEach(r => { map[r.key] = Number(r.value); });
-    if (map.project_page_monthly_price)
-      el('pricePage').textContent = map.project_page_monthly_price.toLocaleString('he-IL') + ' ₪ לחודש';
-    if (map.project_promote_weekly_price)
-      el('pricePromote').textContent = map.project_promote_weekly_price.toLocaleString('he-IL') + ' ₪ לשבוע';
-  } catch(e){ /* המחירים שב-HTML נשארים */ }
-})();
+// צבעי החיווי: אדום לשגיאה, אפור-כחול למידע (אותם של professional-signup)
+const ERR_COLOR = '#b3261e';
+const SUBMIT_LABEL = 'פותחים חשבון ומפרסמים בחינם';
 
 /* ---------- הרשמה עם Google ----------
    הכפתור רק מנתב; ההרשמה עצמה נגמרת במסך "פתיחת חברה" ב-developer-crm.html,
@@ -257,7 +580,7 @@ function crmUrl(){
 el('googleBtn').addEventListener('click', async ()=>{
   const btn = el('googleBtn'), feedback = el('feedback');
   if (!window.supabase){
-    feedback.style.color = 'var(--red)';
+    feedback.style.color = ERR_COLOR;
     feedback.textContent = 'החיבור ל-Google אינו זמין כרגע. אפשר להירשם עם אימייל וסיסמה.';
     return;
   }
@@ -276,7 +599,7 @@ el('googleBtn').addEventListener('click', async ()=>{
   if (error){
     btn.disabled = false;
     btn.querySelector('.gl-label').textContent = 'הרשמה עם Google';
-    feedback.style.color = 'var(--red)';
+    feedback.style.color = ERR_COLOR;
     feedback.textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + (window.FriendlyError ? FriendlyError.text(error) : error);
   }
 });
@@ -323,19 +646,19 @@ async function checkCompanyNumber(){
 
   if (!raw){
     registryState = null;
-    hint.className = 'hint';
+    hint.className = 'ps-hint';
     hint.textContent = 'תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.';
     return;
   }
   if (!normalized){
     registryState = null;
-    hint.className = 'hint';
+    hint.className = 'ps-hint';
     hint.textContent = 'תשע ספרות. מספר בן שמונה יושלם באפס מוביל.';
     return;
   }
 
   const seq = ++registrySeq;
-  hint.className = 'hint busy';
+  hint.className = 'ps-hint busy';
   hint.textContent = 'בודק מול רשם החברות…';
   try{
     const res = await fetch(REGISTRY_URL, {
@@ -348,13 +671,13 @@ async function checkCompanyNumber(){
     if (!res.ok || data.error) throw new Error(data.error || 'lookup_failed');
 
     registryState = data;
-    hint.className = 'hint ' + (data.status === 'verified' ? 'ok'
+    hint.className = 'ps-hint ' + (data.status === 'verified' ? 'ok'
       : data.status === 'inactive' || data.status === 'not_found' ? 'warn' : '');
     hint.textContent = data.message;
   } catch(e){
     if (seq !== registrySeq) return;
     registryState = null;
-    hint.className = 'hint';
+    hint.className = 'ps-hint';
     hint.textContent = 'לא הצלחנו לבדוק מול רשם החברות כרגע. אפשר להמשיך - נבדוק שוב בהמשך.';
   }
 }
@@ -368,7 +691,7 @@ el('companyNumber').addEventListener('blur', ()=>{ clearTimeout(cnTimer); checkC
 
 el('submitBtn').addEventListener('click', async ()=>{
   const feedback = el('feedback'), btn = el('submitBtn');
-  const fail = (msg)=>{ feedback.style.color = 'var(--red)'; feedback.textContent = msg; };
+  const fail = (msg)=>{ feedback.style.color = ERR_COLOR; feedback.textContent = msg; };
   const val = id => el(id).value.trim();
 
   const missing = REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
@@ -378,12 +701,17 @@ el('submitBtn').addEventListener('click', async ()=>{
       : 'חסרים שדות חובה: ' + missing.join(', '));
   }
 
+  const kindEl = document.querySelector('input[name="kind"]:checked');
+  el('kindGroup').classList.toggle('is-error', !kindEl);
+  if (!kindEl) return fail('נא לבחור מי אתם: יזם, קבלן או משווק נדל״ן לפרויקטים חדשים');
+  const kind = kindEl.value;
+
   const companyNumber = normalizeCompanyNumber(val('companyNumber'));
   if (!companyNumber) return fail('מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות');
   if (val('password').length < 8) return fail('הסיסמה צריכה להכיל לפחות 8 תווים');
   if (!el('termsConsent').checked) return fail('ההצטרפות מותנית באישור תנאי השימוש');
 
-  btn.disabled = true; btn.textContent = 'פותח חשבון…'; feedback.textContent = '';
+  btn.disabled = true; btn.textContent = 'פותחים את החשבון…'; feedback.textContent = '';
   try{
     const res = await fetch(SIGNUP_URL, {
       method:'POST',
@@ -395,9 +723,7 @@ el('submitBtn').addEventListener('click', async ()=>{
         phone: val('phone'),
         address: val('address'),
         city: val('city'),
-        legal_name: val('legalName') || null,
-        tagline: val('tagline') || null,
-        website: val('website') || null,
+        kind,
         contact_email: val('contactEmail'),
         password: el('password').value,
         terms_accepted: true,
@@ -408,7 +734,7 @@ el('submitBtn').addEventListener('click', async ()=>{
       const LABELS = {
         company_name:'שם החברה', company_number:'ח״פ', contact_name:'שם איש/אשת הקשר',
         phone:'טלפון', address:'כתובת המשרד', city:'עיר',
-        contact_email:'אימייל', password:'סיסמה',
+        contact_email:'אימייל', password:'סיסמה', kind:'סוג המפרסם',
       };
       const named = (list)=> (list || []).map(k => LABELS[k] || k).join(', ');
       const messages = {
@@ -422,7 +748,7 @@ el('submitBtn').addEventListener('click', async ()=>{
           : 'חסרים שדות חובה: ' + named(data.missing),
       };
       fail(messages[data.error] || (window.FriendlyError ? FriendlyError.text(data.detail || data.error) : data.detail || data.error));
-      btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+      btn.disabled = false; btn.textContent = SUBMIT_LABEL;
       return;
     }
     el('devPageLink').href = '/developer?slug=' + encodeURIComponent(data.developer_slug);
@@ -435,12 +761,23 @@ el('submitBtn').addEventListener('click', async ()=>{
     }
     el('stateForm').style.display = 'none';
     el('stateDone').style.display = 'block';
+    // הטופס יושב באמצע דף ארוך; בלי זה מסך ההצלחה נפתח מחוץ לתצוגה
+    window.scrollTo(0, 0);
   } catch(err){
     console.error(err);
     fail('שגיאת רשת - נסו שוב');
-    btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+    btn.disabled = false; btn.textContent = SUBMIT_LABEL;
   }
 });
+
+/* ‏?kind=marketer - קישור שמבטיח טופס נוחת עליו, עם הסוג כבר נבחר */
+(function preselectKind(){
+  const kind = new URLSearchParams(location.search).get('kind');
+  const input = kind && document.querySelector('input[name="kind"][value="' + kind.replace(/[^a-z]/g, '') + '"]');
+  if (!input) return;
+  input.checked = true;
+  el('signup').scrollIntoView();
+})();
 </script>
 </body>
 </html>

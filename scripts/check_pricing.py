@@ -193,6 +193,14 @@ DISPLAY = [
     ('for-brokers.html', r'סוכנים, ₪\d+ מ-' + N + r' סוכנים, ו-₪',          'office_price_tier2_min_agents'),
     ('for-brokers.html', r'מ-\d+ סוכנים, ו-₪' + N + r' מ-\d+ סוכנים\.',     'office_price_tier3'),
     ('for-brokers.html', r'ו-₪\d+ מ-' + N + r' סוכנים\.',                   'office_price_tier3_min_agents'),
+    # יזמים, קבלנים ומשווקי פרויקטים: חלון החינם והמסלולים בדף ההרשמה, והחלון בדף הפרויקטים
+    ('developer-signup.html', r'data-free-months>' + N + '<',               'project_free_months'),
+    ('developer-signup.html', r'data-plan="tier1">₪' + N + '<',              'project_plan_tier1_price'),
+    ('developer-signup.html', r'data-plan="tier2">₪' + N + '<',              'project_plan_tier2_price'),
+    ('developer-signup.html', r'data-plan="tier3">₪' + N + '<',              'project_plan_tier3_price'),
+    ('developer-signup.html', r'data-plan-max="tier1">' + N + '<',           'project_plan_tier1_max'),
+    ('developer-signup.html', r'data-plan-max="tier2">' + N + '<',           'project_plan_tier2_max'),
+    ('projects.html', r'data-free-months>' + N + '<',                        'project_free_months'),
     ('terms.html', r'<strong>₪' + N + r'</strong> כשיש במשרד שלושה',        'office_price_tier1'),
     ('terms.html', r'<strong>₪' + N + r'</strong> כשיש שישה',               'office_price_tier2'),
     ('terms.html', r'<strong>₪' + N + r'</strong> כשיש אחד עשר',            'office_price_tier3'),
@@ -216,6 +224,17 @@ def course_installments(problems):
         for v in found:
             if v != each:
                 problems.append(f'{path}: תשלום שווה מוצג {v} ₪, ו-course_price_gross / 3 הוא {each}.')
+
+
+def derived_projects(problems):
+    """מסלול 3 הוא "מעל תקרת מסלול 2": ‏21 כתוב בדף כמספר, והוא תקרת מסלול 2 ועוד אחד."""
+    text = open(os.path.join(ROOT, 'developer-signup.html'), encoding='utf-8').read()
+    m = re.search(r'data-plan-min="tier3">' + N + '<', text)
+    want = PRICES['project_plan_tier2_max'] + 1
+    if not m:
+        problems.append('developer-signup.html: data-plan-min="tier3" לא נמצא.')
+    elif num(m.group(1)) != want:
+        problems.append(f'developer-signup.html: מסלול 3 מתחיל ב-{num(m.group(1))}, ותקרת מסלול 2 היא {PRICES["project_plan_tier2_max"]} (צריך {want}).')
 
 
 def derived(problems):
@@ -287,6 +306,7 @@ def main():
                 problems.append(f'{path}: {key} מוצג {num(v)}, והמסד גובה {PRICES[key]}.')
 
     derived(problems)
+    derived_projects(problems)
     course_installments(problems)
 
     if problems:

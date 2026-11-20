@@ -305,11 +305,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div class="notice">
-      פתיחת החברה ודף החברה - ללא עלות. התשלום מתחיל רק כשדף נחיתה של פרויקט
-      עולה לאוויר (<b id="crPricePage">350 ₪ לחודש</b>).
+      פתיחת החברה ודף החברה - ללא עלות. הפרסום של הפרויקטים בחינם ל-6 חודשים
+      מרגע הפתיחה, ובלי כרטיס אשראי.
     </div>
 
     <form id="createForm" novalidate>
+      <!-- אין סוג ברירת מחדל: סוג שנבחר מעצמו שגוי אצל מי שלא שם לב. הסוג לא משנה הרשאה או חיוב -->
+      <div class="field"><label class="req" for="crKind">מי אתם?</label>
+        <select id="crKind" required>
+          <option value="">בחרו</option>
+          <option value="developer">יזם</option>
+          <option value="contractor">קבלן</option>
+          <option value="marketer">משווק נדל״ן לפרויקטים חדשים</option>
+        </select></div>
       <div class="field"><label class="req" for="crName">שם החברה</label><input type="text" id="crName" required></div>
       <div class="grid2">
         <div class="field"><label class="req" for="crNumber">ח״פ (מספר תאגיד)</label><input type="text" id="crNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="crNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
@@ -404,6 +412,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h3>זהות</h3>
           <p class="sub">מה שרואים בראש דף החברה ובכרטיס היזם שבכל פרויקט.</p>
           <div class="grid2">
+            <div class="field"><label for="coKind">מי אתם?</label>
+              <select id="coKind">
+                <option value="developer">יזם</option>
+                <option value="contractor">קבלן</option>
+                <option value="marketer">משווק נדל״ן לפרויקטים חדשים</option>
+              </select></div>
             <div class="field"><label class="req" for="coName">שם החברה</label><input type="text" id="coName" required></div>
             <div class="field"><label for="coLegal">שם רשמי</label><input type="text" id="coLegal"></div>
             <div class="field"><label class="req" for="coNumber">ח״פ (מספר תאגיד)</label><input type="text" id="coNumber" inputmode="numeric" required><div class="hint" id="coNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
@@ -780,6 +794,7 @@ let editUnits = [];
 let editMedia = [];          // {kind,url,title,file_size,downloadable}
 let deleteTarget = null;
 
+const inFreeWindow = () => !!(developer && developer.free_until && new Date(developer.free_until) > new Date());
 const money = n => Number(n || 0).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + ' ₪';
 const dateLabel = iso => iso ? new Date(iso).toLocaleDateString('he-IL', { day:'numeric', month:'short', year:'numeric' }) : '';
 
@@ -803,6 +818,7 @@ async function api(action, payload){
 }
 
 const ERRORS = {
+  plan_required: 'התקופה החינמית הסתיימה, ובחירת מסלול ממשיך תיפתח בקרוב. נשמח לעזור - פנו אלינו בוואטסאפ.',
   insufficient_balance: 'אין מספיק יתרה בארנק. אפשר לטעון אותו מהכפתור בראש העמוד.',
   already_promoted: 'הפרויקט כבר מקודם - אפשר לחדש כשהחלון הנוכחי ייגמר.',
   page_not_live: 'קידום אפשרי רק לפרויקט שדף הנחיתה שלו פעיל.',
@@ -982,6 +998,7 @@ el('googleBtn').addEventListener('click', async ()=>{
    שורת developers. הבקשה יוצאת ל-create_developer — הפעולה היחידה
    ב-project-manage שמותרת לפני שיש חברה. */
 const CREATE_REQUIRED = [
+  ['crKind',    'מי אתם (יזם, קבלן או משווק)'],
   ['crName',    'שם החברה'],
   ['crNumber',  'ח״פ'],
   ['crContact', 'שם איש/אשת הקשר'],
@@ -1006,6 +1023,7 @@ el('createForm').addEventListener('submit', async (e)=>{
 
   btn.disabled = true; btn.textContent = 'פותח חברה…'; setMsg('crMsg', '');
   const res = await api('create_developer', {
+    kind: val('crKind'),
     company_name: val('crName'),
     company_number: companyNumber,
     contact_name: val('crContact'),
@@ -1131,8 +1149,9 @@ function renderProjects(){
     const actions = [];
     actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="edit">עריכה</button>');
     if (st.key === 'draft' || st.key === 'expired'){
-      actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="activate">הפעלת דף הנחיתה · ' +
-        esc(money(pricing.project_page_monthly_price || 350)) + '</button>');
+      // בחלון החינמי הפרסום בחינם עד סוף החלון; אחריו project_activate_page מחזירה plan_required (עוד אין חיוב מסלול)
+      actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="activate">' +
+        (inFreeWindow() ? 'פרסום בחינם עד ' + esc(dateLabel(developer.free_until)) : 'הפעלת דף הנחיתה') + '</button>');
     } else if (st.key === 'live'){
       if (!promoted){
         actions.push('<button type="button" class="btn btn-promote btn-sm" data-act="promote">קידום לשבוע · ' +
@@ -1141,8 +1160,8 @@ function renderProjects(){
       actions.push('<a class="btn btn-ghost btn-sm" href="/project?slug=' + esc(p.slug || '') +
         '" target="_blank" rel="noopener">צפייה בדף</a>');
       actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="pause">השהיה</button>');
-      actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="renew">חידוש חודש · ' +
-        esc(money(pricing.project_page_monthly_price || 350)) + '</button>');
+      // בחלון החינמי אין מה לחדש: הפרויקט באוויר עד סוף החלון
+      if (!inFreeWindow()) actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="renew">חידוש הדף</button>');
     } else if (st.key === 'paused'){
       actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="resume">החזרה לאוויר</button>');
     }
@@ -1562,7 +1581,7 @@ el('delAction').addEventListener('click', async ()=>{
 function fillCompanyForm(){
   const d = developer;
   const v = (id, val)=> { el(id).value = val ?? ''; };
-  v('coName', d.name); v('coLegal', d.legal_name); v('coNumber', d.company_number);
+  v('coKind', d.kind || 'developer'); v('coName', d.name); v('coLegal', d.legal_name); v('coNumber', d.company_number);
   v('coContact', d.contact_name);
   v('coFounded', d.founded_year); v('coTagline', d.tagline); v('coDescription', d.description);
   v('coPhone', d.phone); v('coEmail', d.email); v('coWebsite', d.website);
@@ -1615,6 +1634,7 @@ el('companyForm').addEventListener('submit', async (e)=>{
 
   btn.disabled = true; btn.textContent = 'שומר…'; setMsg('coMsg','');
   const res = await api('save_developer', {
+    kind: el('coKind').value,
     name: val('coName'),
     company_number: companyNumber,
     contact_name: val('coContact'),
@@ -1765,7 +1785,13 @@ async function loadBilling(){
     : '';
 
   el('pricingGrid').innerHTML = [
-    ['דף נחיתה לפרויקט', money(pricing.project_page_monthly_price || 350) + ' לחודש'],
+    ['פרסום פרויקטים', inFreeWindow()
+      ? 'חינם עד ' + dateLabel(developer.free_until)
+      : 'בחירת מסלול - תיפתח בקרוב'],
+    ['מסלולים אחרי התקופה החינמית (לפני מע״מ)',
+      money(pricing.project_plan_tier1_price || 199) + ' עד ' + (pricing.project_plan_tier1_max || 10) + ' פרויקטים · ' +
+      money(pricing.project_plan_tier2_price || 278) + ' עד ' + (pricing.project_plan_tier2_max || 20) + ' · ' +
+      money(pricing.project_plan_tier3_price || 397) + ' מעל'],
     ['קידום פרויקט', money(pricing.project_promote_weekly_price || 50) + ' לשבוע'],
     ['ליד ממדף המחפשים', money(pricing.project_lead_price || 50)],
   ].map(([label, value]) =>
@@ -1944,12 +1970,6 @@ async function showCreateScreen(user){
       .select('id').eq('user_id', user.id).maybeSingle();
     el('crAgentNote').hidden = !agent;
   } catch(e){ el('crAgentNote').hidden = true; }
-
-  try{
-    const { data } = await sb.from('pricing_config').select('key, value')
-      .eq('key', 'project_page_monthly_price').maybeSingle();
-    if (data) el('crPricePage').textContent = money(data.value);
-  } catch(e){ /* המחיר שב-HTML נשאר */ }
 
   show('createScreen');
 }
