@@ -124,6 +124,11 @@ function vatSuffix(p){
    למ״ר לחודש. ריק = לפי סוג העסקה, כמו שהיה: השכרה לחודש, מכירה סה״כ.
    אותו כלל ב-property-card.js, property.js, home.js, crm.js, open-house.html,
    instagram.html, showcase.js, og-tags.ts ו-marketing-copy.ts. */
+// ‏מחיר למ״ר כפי שהוא מוצג בגלולות: המחיר עצמו כשהוא כבר למ״ר, אחרת price_per_sqm.
+function ppsqmOf(p){
+  return p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
+}
+
 function priceUnitOf(p){
   return p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
 }
@@ -462,6 +467,22 @@ function galleryAlt(p, index){
   return '';
 }
 
+// ‏הקשת תא ממוזער פותחת את הלייטבוקס על התמונה שלו; התא האחרון נושא את מונה "עוד N"
+// ופותח את התמונה הראשונה שמעבר לרשת.
+function bindThumbClicks(grid, thumbStart, thumbEnd){
+  let n = 0;
+  const kids = grid.children || [];
+  const restBuilt = galleryImages.length - thumbEnd;
+  for (let i = 0; i < kids.length; i++){
+    if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
+    const index = thumbStart + n;
+    const isLast = index === thumbEnd - 1;
+    const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
+    kids[i].addEventListener('click', ()=> lbOpen(opensAt));
+    n++;
+  }
+}
+
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
   heroVideoEl = null;
@@ -580,31 +601,11 @@ function renderGallery(p){
   } else if (videoSrc){
     const main = elWithClass(grid, 'bento-main');
     if (main) attachHeroVideo(main, videoSrc, poster);
-    let n = 0;
-    const kids = grid.children || [];
-    const restBuilt = galleryImages.length - thumbEnd;
-    for (let i = 0; i < kids.length; i++){
-      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
-      const index = thumbStart + n;
-      const isLast = index === thumbEnd - 1;
-      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
-      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
-      n++;
-    }
+    bindThumbClicks(grid, thumbStart, thumbEnd);
   } else {
     const main = elWithClass(grid, 'bento-main');
     if (main) main.addEventListener('click', ()=> lbOpen(0));
-    let n = 0;
-    const kids = grid.children || [];
-    const restBuilt = galleryImages.length - thumbEnd;
-    for (let i = 0; i < kids.length; i++){
-      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
-      const index = thumbStart + n;
-      const isLast = index === thumbEnd - 1;
-      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
-      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
-      n++;
-    }
+    bindThumbClicks(grid, thumbStart, thumbEnd);
   }
 
   // התגיות המרחפות עוברות לתוך התא הראשי — כך הן תמיד על התמונה הגדולה
@@ -1451,6 +1452,15 @@ function isLandProperty(p){
   return LAND_TYPE_RE.test(p?.property_type || '');
 }
 
+// ‏גלולות מפרט ומידע תכנוני: אותו מבנה, מרשימת {icon, v, k, accent, wide}.
+function pillsHtml(list){
+  return list.map(c => `
+    <div class="spec-pill${c.accent ? ' accent' : ''}${c.wide ? ' wide' : ''}">
+      <span class="ic" aria-hidden="true">${ICON[c.icon]}</span>
+      <span class="txt"><span class="v">${escapeHtml(String(c.v))}</span><span class="k">${escapeHtml(c.k)}</span></span>
+    </div>`).join('');
+}
+
 async function loadPlanningInfo(p){
   if (!window.supabase) return;
   try{
@@ -1483,11 +1493,7 @@ function renderPlanningInfo(row, isLandRow){
   // ומראה מסגרת ריקה.
   if (!facts.length && !plans.length) return;
 
-  document.getElementById('planningFacts').innerHTML = facts.map(f => `
-    <div class="spec-pill${f.accent ? ' accent' : ''}${f.wide ? ' wide' : ''}">
-      <span class="ic" aria-hidden="true">${ICON[f.icon]}</span>
-      <span class="txt"><span class="v">${escapeHtml(String(f.v))}</span><span class="k">${escapeHtml(f.k)}</span></span>
-    </div>`).join('');
+  document.getElementById('planningFacts').innerHTML = pillsHtml(facts);
 
   const plansEl = document.getElementById('planningPlans');
   if (plans.length){
@@ -2575,11 +2581,7 @@ function renderSpecPills(p){
     p.arnona          ? { icon:'shekel', v:Number(p.arnona).toLocaleString('he-IL') + (p.category === 'commercial' ? ' ₪ לחודש' : ' ₪ לחודשיים'), k:'ארנונה' } : null,
   ].filter(Boolean);
 
-  document.getElementById('specPills').innerHTML = candidates.map(c => `
-    <div class="spec-pill${c.accent ? ' accent' : ''}${c.wide ? ' wide' : ''}">
-      <span class="ic" aria-hidden="true">${ICON[c.icon]}</span>
-      <span class="txt"><span class="v">${escapeHtml(String(c.v))}</span><span class="k">${escapeHtml(c.k)}</span></span>
-    </div>`).join('');
+  document.getElementById('specPills').innerHTML = pillsHtml(candidates);
 }
 
 /* ---------- יתרונות הנכס ----------
@@ -2783,7 +2785,7 @@ function applyAgencyAccent(agency){
 
 /* ---------- תגיות הסטטוס שמעל התמונה ---------- */
 function renderTags(p){
-  const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+  const promotionActive = isPromoted(p);
   const features = p.features || [];
 
   /* הכל יושב על התמונה הראשית ולא בשורה מתחתיה. שני סוגי תגיות באותה רצועה,
@@ -3120,7 +3122,7 @@ function renderProperty(p){
   document.getElementById('heroPriceNum').innerHTML =
     escapeHtml(price.num) + (price.suffix ? `<span class="suffix">${escapeHtml(price.suffix)}</span>` : '');
   // ‏price_per_sqm מתעלמת מ-price_unit (ב-13 מסחריים יצא 0-2 ₪): כשהמחיר כבר למ״ר - הוא עצמו (P1-N, ד-9)
-  const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
+  const ppsqm = ppsqmOf(p);
   document.getElementById('heroPriceSub').textContent =
     ppsqm ? ppsqm.toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
   document.getElementById('heroPrice').hidden = false;
@@ -3150,9 +3152,10 @@ function renderProperty(p){
   const priceLabelText = perSqm ? (p.deal_type === 'rent' ? 'שכירות למ״ר לחודש' : 'מחיר למ״ר')
     : p.deal_type === 'rent' ? 'שכר דירה חודשי' : 'מחיר מבוקש';
   document.getElementById('agentPriceLabel').textContent = priceLabelText;
-  document.getElementById('agentPriceValue').textContent = priceFlat(p);
+  const flatPrice = priceFlat(p);
+  document.getElementById('agentPriceValue').textContent = flatPrice;
   document.getElementById('sbPriceLabel').textContent = perSqm ? 'למ״ר' : p.deal_type === 'rent' ? 'לחודש' : 'מחיר';
-  document.getElementById('sbPriceValue').textContent = priceFlat(p);
+  document.getElementById('sbPriceValue').textContent = flatPrice;
 
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   renderAgencyAvatar(p.agencies);
@@ -3466,7 +3469,7 @@ function renderRecentDeals(p, rows){
     const med = per.length % 2 ? per[mid] : (per[mid - 1] + per[mid]) / 2;
     chips.push(`חציון ${per.length} העסקאות: ${nis(med)} ₪ למ״ר`);
     // אותו מספר שמוצג בגלולות הנכס (price_per_sqm, או המחיר עצמו כשהוא למ"ר)
-    const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
+    const ppsqm = ppsqmOf(p);
     if (ppsqm > 0) chips.push(`הנכס הזה: ${nis(ppsqm)} ₪ למ״ר (לפי המחיר המבוקש)`);
   }
   cmp.innerHTML = chips.map(t => `<span>${escapeHtml(t)}</span>`).join('');
@@ -3656,7 +3659,7 @@ function updateCashNeeded(price, equity){
   // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
   // וגם בנכס מסחרי ובמגרש: מדרגות מס הרכישה הן של דירת מגורים בלבד (מסחרי וקרקע - 6% קבוע),
   // והצגתן הייתה מורידה מאות אלפי שקלים מהמזומן הנדרש
-  const notHome = currentProperty.category === 'commercial' || /מגרש|קרקע|נחל|משק|חקלא/.test(currentProperty.property_type || '');
+  const notHome = currentProperty.category === 'commercial' || isLandProperty(currentProperty);
   if (!window.PurchaseCosts || !(price > 0) || notHome || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
   box.hidden = false;
   // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
