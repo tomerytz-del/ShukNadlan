@@ -365,9 +365,9 @@ async function developerPlanNotice(supabase: any, sub: any): Promise<"sent" | "n
   let subject = "";
   let lines: string[] = [];
   if (order?.status === "success") {
-    subject = 'מסלול החשבון שלך בשוק נדל"ן חודש לחודש נוסף';
+    subject = "מסלול החשבון שלכם בשוק נדל״ן התחדש לחודש נוסף";
     lines = [
-      `חויב ${fmtMoney(order.amount)} (כולל מע״מ) עבור ${order.projects_count} פרויקטים, והפרויקטים שלך באוויר עד ${until}.`,
+      `חייבנו את הכרטיס ב-${Number(order.amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₪ כולל מע״מ עבור ${order.projects_count} פרויקטים, והפרויקטים שלכם באוויר עד ${until}.`,
       "החשבונית נשלחת בנפרד מחברת הסליקה.",
       "המסלול נקבע לפי מספר הפרויקטים בחשבון ביום החיוב. אפשר לבטל את החידוש בכל עת בדשבורד, והפרויקטים יישארו באוויר עד סוף התקופה ששולמה.",
     ];
@@ -375,13 +375,14 @@ async function developerPlanNotice(supabase: any, sub: any): Promise<"sent" | "n
     subject = "החידוש החודשי של מסלול החשבון הופסק";
     lines = [
       "ניסינו לחייב את הכרטיס שלוש פעמים ולא הצלחנו, ולכן החידוש האוטומטי הופסק.",
-      `הפרויקטים יישארו באוויר עד ${until}, ואחרי זה יורדים מהאתר. הם נשמרים בחשבון ואפשר להעלות אותם שוב.`,
+      `הפרויקטים יישארו באוויר עד ${until}, ואחרי התאריך הזה הם יורדים מהאתר. הם נשמרים בחשבון ואפשר להעלות אותם שוב.`,
       "כדי להמשיך, אפשר לבחור מסלול בדשבורד עם כרטיס בתוקף.",
     ];
   } else if (sub.status === "active" && sub.next_retry_at) {
     subject = "לא הצלחנו לחייב את הכרטיס לחידוש מסלול החשבון";
     lines = [
-      `ננסה שוב ב-${new Date(sub.next_retry_at).toLocaleDateString("he-IL")}.`,
+      "לא הצלחנו לחייב את הכרטיס בחידוש החודשי של מסלול החשבון.",
+      `ננסה שוב ב-${fmtDate(sub.next_retry_at)}.`,
       "אם הכרטיס פג או הוחלף, אפשר לבחור מסלול בדשבורד עם כרטיס אחר.",
     ];
   }

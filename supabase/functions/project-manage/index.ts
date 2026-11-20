@@ -678,10 +678,17 @@ Deno.serve(async (req: Request) => {
         (prices ?? []).forEach((r: { key: string; value: number }) => { pricing[r.key] = Number(r.value); });
         // מצב מסלול החשבון: עד מתי שולם, המנוי, וההצעה לפי הפרויקטים היום
         const { data: plan } = await supabase.rpc("developer_plan_state", { p_developer_id: developer.id });
-        return json({
-          success: true, developer: dev, projects: projects ?? [], pricing,
-          plan: plan ? { ...plan, recurring_enabled: await recurringEnabled(supabase) } : null,
-        });
+        // מועד הניסיון החוזר אינו ב-developer_plan_state: הדשבורד מציג אותו אחרי חיוב שנכשל
+        const { data: subRow } = await supabase.from("billing_subscriptions").select("next_retry_at")
+          .eq("kind", "developer_plan").eq("developer_id", developer.id).maybeSingle();
+        const planOut = plan && !plan.error
+          ? {
+            ...plan,
+            recurring_enabled: await recurringEnabled(supabase),
+            subscription: plan.subscription ? { ...plan.subscription, next_retry_at: subRow?.next_retry_at ?? null } : null,
+          }
+          : plan ?? null;
+        return json({ success: true, developer: dev, projects: projects ?? [], pricing, plan: planOut });
       }
 
       default:

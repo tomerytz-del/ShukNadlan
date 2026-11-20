@@ -1849,7 +1849,7 @@ function renderPlan(){
 
   if (s && s.status === 'active'){
     html.push('<p style="margin:0 0 10px"><b>חידוש חודשי פעיל.</b> החיוב הבא בכרטיס ב-' + esc(dateLabel(s.next_charge_on)) +
-      ', לפי מספר הפרויקטים באותו יום.' + (s.failed_attempts ? ' החיוב האחרון נכשל, ונחייב שוב בקרוב.' : '') + '</p>' +
+      ', לפי מספר הפרויקטים באותו יום.' + (s.failed_attempts ? ' החיוב האחרון נכשל, וננסה לחייב שוב' + (s.next_retry_at ? ' ב-' + esc(dateLabel(s.next_retry_at)) : '') + '.' : '') + '</p>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="planCancelBtn">ביטול החידוש</button>');
   } else if (s && s.status === 'failed'){
     html.push('<p style="margin:0 0 10px;color:var(--danger)">החידוש הופסק אחרי שלושה כישלונות בחיוב הכרטיס. אפשר לבחור מסלול מחדש עם כרטיס בתוקף.</p>');
@@ -1873,7 +1873,7 @@ function renderPlan(){
           '<span>חידוש חודשי אוטומטי עד ביטול. בלי הסימון זה תשלום חד-פעמי לחודש אחד.</span></label>'
         : '<p style="margin:0;font-size:.82rem;color:var(--ink-soft)">זהו תשלום חד-פעמי לחודש אחד. חידוש חודשי אוטומטי עדיין אינו פעיל, ובסוף התקופה אפשר לבחור מסלול שוב.</p>') +
       '<label style="display:flex;gap:8px;align-items:flex-start;font-size:.85rem"><input type="checkbox" id="planAck">' +
-      '<span>אני מאשר/ת את החיוב ואת <a href="/terms#t25" target="_blank" rel="noopener">תנאי השימוש והתקנון</a>.</span></label>' +
+      '<span>מאשרים את החיוב ואת <a href="/terms#t25" target="_blank" rel="noopener">תנאי השימוש והתקנון</a></span></label>' +
       '<button type="button" class="btn btn-teal" id="planBuyBtn" disabled>בחירת מסלול ותשלום</button></div>');
   } else if (!paidUntil && !plan.in_free_window && Number(q.projects_count) < 1){
     html.push('<p style="margin:0;font-size:.85rem;color:var(--ink-soft)">אין פרויקטים בחשבון. אחרי שתוסיפו פרויקט אפשר יהיה לבחור מסלול ולהעלות אותו לאוויר.</p>');
@@ -1929,7 +1929,7 @@ async function handlePlanReturn(){
       return;
     }
     if (status === 'failed'){ setMsg('planMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err'); return; }
-    if (Date.now() - started > 90000) setMsg('planMsg', 'האישור מחברת הסליקה מתעכב. המסלול יתעדכן כאן מעצמו ברגע שיגיע - אין צורך לשלם שוב.');
+    if (Date.now() - started > 90000) setMsg('planMsg', 'המסלול יתעדכן כאן כשהאישור יגיע. אין צורך לשלם שוב.');
     await new Promise(r => setTimeout(r, Date.now() - started < 90000 ? 3000 : 10000));
   }
 }
