@@ -11,7 +11,9 @@
    ברשימה; ושורה שנפתחת במירכאות היא ציטוט. ‏docs/articles.md.
 
    ‏`html` הוא מה שנכנס לדף. הטקסט מוברח. כתובת http או https בלבד הופכת
-   ל-`<a>`: כתובת של shuknadlan.co.il נפתחת באותה לשונית, והטקסט שלה הוא
+   ל-`<a>`, **וכך גם כתובת של האתר עצמו בלי סכמה** (‏`shuknadlan.co.il/prices`,
+   עם או בלי `www`): כותבים אותה כך מההרגל, והיא נשארה טקסט שאי אפשר ללחוץ עליו.
+   רק האתר שלנו, לא מארח אחר בלי סכמה. הקישור שנבנה הוא `https://`: כתובת של shuknadlan.co.il נפתחת באותה לשונית, והטקסט שלה הוא
    הנתיב המפוענח (לא הכתובת המקודדת); כתובת חיצונית נפתחת בלשונית חדשה עם
    ‏rel="noopener nofollow". סכמה אחרת נשארת טקסט. אין כאן HTML שנשמר במסד.
    ========================================================================== */
@@ -144,14 +146,17 @@
     return { text: text, title: text === full ? '' : full };
   }
 
+  /* ‏`raw` בלי סכמה הוא כתובת של האתר שלנו (linkify מוצא רק אותה): נבנה לה https. */
   function linkFor(raw) {
-    if (!/^https?:\/\//i.test(raw)) return null;
-    if (/[\u0000-\u0020\u007F]/.test(raw)) return null;
+    var bare = !/^https?:\/\//i.test(raw);
+    var full = bare ? 'https://' + raw : raw;
+    if (/[\u0000-\u0020\u007F]/.test(full)) return null;
     var url;
-    try { url = new URL(raw); }
+    try { url = new URL(full); }
     catch (e) { return null; }
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    var href = escapeHtml(raw);
+    if (bare && !isSameSite(url)) return null;
+    var href = escapeHtml(full);
     if (isSameSite(url)) {
       var label = sameSiteLabel(url);
       var title = label.title ? ' title="' + escapeHtml(label.title) + '"' : '';
@@ -162,13 +167,23 @@
 
   function linkify(text) {
     var src = String(text || '');
-    var re = /https?:\/\//gi;
+    var re = /https?:\/\/|(?:www\.)?shuknadlan\.co\.il/gi;
     var out = '';
     var last = 0;
     var m;
     while ((m = re.exec(src)) !== null) {
       var start = m.index;
       if (start > 0 && /[A-Za-z0-9]/.test(src.charAt(start - 1))) continue;
+      /* ‏כתובת בלי סכמה: לא חלק ממארח או נתיב או מייל אחר (‏a.shuknadlan.co.il,
+         ‏x@shuknadlan.co.il, ‏evil.com/shuknadlan.co.il), ולא תחילת מארח ארוך יותר. */
+      if (!/^https?:/i.test(m[0])) {
+        var prev = start > 0 ? src.charAt(start - 1) : '';
+        if (/[@./_%]/.test(prev)) continue;
+        /* ‏"ב-shuknadlan.co.il" (מקף של קידומת עברית) מותר; "my-shuknadlan.co.il" הוא מארח אחר. */
+        if (prev === '-' && start > 1 && /[A-Za-z0-9]/.test(src.charAt(start - 2))) continue;
+        var after = src.charAt(start + m[0].length);
+        if (after && !/[\/?#\s.,;:!)\]}\u2026\u00BB\u05F4\u05F3]/.test(after)) continue;
+      }
       var i = start + m[0].length;
       while (i < src.length && isUrlChar(src.charAt(i))) i++;
       var raw = trimUrlTail(src.slice(start, i));
