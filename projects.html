@@ -488,7 +488,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="section-head">
         <div>
           <h2 id="brokerHeading">דירות חדשות מקבלן, מיועצי נדל״ן</h2>
-          <p id="brokerSub">דירות חדשות שלא גרו בהן, שמוצעות על ידי יועצי נדל״ן. <b>בדירות האלה חלים דמי תיווך.</b> בפרויקטים שלמעלה הרכישה ישירות מהיזם או מהמשווק, ללא דמי תיווך.</p>
+          <p id="brokerSub">דירות חדשות שלא גרו בהן, שמוצעות על ידי יועצי נדל״ן. <b>בדירות האלה חלים דמי תיווך.</b> בפרויקטים חדשים של יזמים ומשווקים הרכישה ישירה, ללא דמי תיווך.</p>
         </div>
       </div>
       <div class="bk-grid" id="brokerGrid"></div>
@@ -1200,8 +1200,19 @@ function brokerMatches(p){
   }
   if (state.city && p.city !== state.city) return false;
   if (state.rooms && (Number(p.rooms) || 0) < Number(state.rooms)) return false;
-  if (state.maxPrice && Number(p.price) && Number(p.price) > Number(state.maxPrice)) return false;
+  if (state.maxPrice){
+    // תקציב נבדק מול המחיר הכולל: מחיר למ״ר (נכס מסחרי) אינו סכום. דירה בלי מחיר לא מוצגת מול תקציב
+    const total = brokerTotal(p);
+    if (!total || total > Number(state.maxPrice)) return false;
+  }
   return true;
+}
+function brokerTotal(p){
+  const t = Number(p.price_total);
+  if (t) return t;
+  const price = Number(p.price);
+  if (!price) return 0;
+  return p.price_unit === 'sqm' ? price * (Number(p.size_sqm) || 0) : price;
 }
 
 function renderBroker(){
@@ -1217,11 +1228,15 @@ function renderBroker(){
     a.href = '/property?id=' + encodeURIComponent(p.id);
     const first = Array.isArray(p.images) && typeof p.images[0] === 'string' ? ProjectCard.safeUrl(p.images[0]) : '';
     a.innerHTML =
-      '<span class="bk-img"' + (first ? ' style="background-image:url(\'' + ProjectCard.escapeHtml(PropertyCard.imageUrl(first, 640)) + '\')"' : '') + '>' +
-        '<span class="bk-flag">בתיווך, כפוף לדמי תיווך</span></span>' +
+      '<span class="bk-img"><span class="bk-flag">בתיווך, כפוף לדמי תיווך</span></span>' +
       '<span class="bk-body">' +
         PropertyCard.priceHtml(p) + PropertyCard.titleHtml(p) + PropertyCard.whereHtml(p) + PropertyCard.factsHtml(p) +
       '</span>';
+    // התמונה דרך ה-DOM ולא דרך מחרוזת: בריחת HTML אינה מגינה על מחרוזת CSS (גרש בכתובת סוגר את url())
+    if (first){
+      a.querySelector('.bk-img').style.backgroundImage =
+        'url("' + PropertyCard.imageUrl(first, 640).replace(/["\\\n\r()]/g, encodeURIComponent) + '")';
+    }
     grid.appendChild(a);
   });
   sec.hidden = list.length === 0;
