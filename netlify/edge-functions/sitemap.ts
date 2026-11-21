@@ -178,6 +178,9 @@ type Source = {
   key: "id" | "slug";
   field: string;
   lastmod?: string;
+  /* ‏דף הרשימה שהשורות האלה מרעננות (‏/agencies): ה-lastmod הידני שלו בקובץ
+     הסטטי מוחלף בחותמת האחרונה שלהן, רק אם היא חדשה ממנו. */
+  listPath?: string;
   query?: string;
   /* ‏POST ל-rpc. כישלון של מקור כזה, כשיש כתובות ממקור אחר, הוא 503
      ולא השמטה שקטה. מערך ריק אינו כישלון. */
@@ -204,6 +207,7 @@ const SOURCES: Source[] = [
     key: "slug",
     field: "slug",
     lastmod: "updated_at",
+    listPath: "/agencies",
     query: `agencies?slug=not.is.null&select=slug,updated_at&order=updated_at.desc&limit=${LIMIT}`,
   },
   {
@@ -220,6 +224,7 @@ const SOURCES: Source[] = [
     key: "slug",
     field: "slug",
     lastmod: "published_at",
+    listPath: "/projects",
     query: `projects_public?slug=not.is.null&select=slug,published_at&limit=${LIMIT}`,
   },
   {
@@ -236,6 +241,7 @@ const SOURCES: Source[] = [
     key: "slug",
     field: "slug",
     lastmod: "published_at",
+    listPath: "/articles",
     query: `articles_public?slug=not.is.null&select=slug,published_at&order=published_at.desc&limit=${LIMIT}`,
   },
   {
@@ -255,6 +261,7 @@ const SOURCES: Source[] = [
     key: "slug",
     field: "slug",
     lastmod: "updated_at",
+    listPath: "/deals",
     rpc: "deal_settlements_public",
     path: (v) => `/deals/${encodeURIComponent(v)}`,
   },
@@ -322,7 +329,7 @@ async function sbGet(path: string, timeout = FETCH_TIMEOUT_MS): Promise<RpcRows>
 /* ‏מודעות פעילות לפי עיר, והשוק של כל עיר. כשל כאן אינו "אפס מודעות". */
 async function loadCityMarkets(): Promise<CityMap> {
   const props = await sbGet(
-    `properties?status=eq.active&select=city,city_id,updated_at,property_type,rooms,deal_type,category&limit=${LIMIT}`,
+    `properties?status=eq.active&select=city,city_id,updated_at,property_type,rooms,deal_type,category&order=updated_at.desc&limit=${LIMIT}`,
   );
   if (!props.ok) return { ok: false, byName: new Map(), rows: [] };
   const ids = [...new Set(props.rows.map((row) => String(row.city_id || "").trim()).filter(Boolean))];
@@ -509,54 +516,33 @@ function removeLoc(body: string, loc: string): string {
   return out;
 }
 
-function upsertLastmod(body: string, loc: string, mod: string): string {
+/* ‏`replaceOlder`: lastmod קיים מוחלף רק אם החותמת האמיתית חדשה ממנו (דפי הבית
+   והרשימות, שבקובץ הסטטי נושאים תאריך כתיבה). ברירת המחדל משאירה אותו. */
+function upsertLastmod(body: string, loc: string, mod: string, replaceOlder = false): string {
   if (!mod) return body;
   const needle = `<loc>${xml(loc)}</loc>`;
   const at = body.indexOf(needle);
   if (at < 0) return body;
   const end = body.indexOf("</url>", at);
   if (end < 0) return body;
-  if (body.slice(at, end).includes("<lastmod>")) return body;
+  const existing = /<lastmod>([^<]*)<\/lastmod>/.exec(body.slice(at, end));
+  if (existing) {
+    if (!replaceOlder || existing[1] >= mod) return body;
+    return body.slice(0, at) + body.slice(at, end).replace(existing[0], `<lastmod>${mod}</lastmod>`) + body.slice(end);
+  }
   const insertAt = at + needle.length;
   return body.slice(0, insertAt) + `\n    <lastmod>${mod}</lastmod>` + body.slice(insertAt);
 }
 
-/* ‏דף רשימה (‏/agencies, ‏/articles, ‏/projects, ‏/deals) ודף הבית משתנים כשפריט
-   בהם משתנה. ה-lastmod הידני בקובץ הסטטי נשאר על תאריך הכתיבה, ולכן הוא
-   מוחלף כאן בחותמת הזמן **האמיתית** האחרונה מהשורות שכבר נמשכו, רק אם היא
-   חדשה ממנו. אין שאילתה נוספת. מקור שנכשל אינו מוסיף ערך, והתאריך הידני נשאר.
-   תאריך עתידי אינו lastmod: מתעלמים ממנו. */
-const FRESH_LISTS: Record<string, string> = {
-  agency: "/agencies",
-  article: "/articles",
-  project: "/projects",
-  deals: "/deals",
-};
-
+/* ‏החותמת האמיתית האחרונה בשורות. תאריך עתידי אינו lastmod ולכן מדולג. */
 function newestDay(rows: Record<string, unknown>[], field: string): string {
+  const today = day(new Date());
   let best = "";
   for (const row of rows) {
     const stamp = day(row[field]);
-    if (stamp > best) best = stamp;
+    if (stamp > best && stamp <= today) best = stamp;
   }
   return best;
-}
-
-function refreshLastmod(body: string, loc: string, mod: string): string {
-  if (!mod || mod > new Date().toISOString().slice(0, 10)) return body;
-  const needle = `<loc>${xml(loc)}</loc>`;
-  const at = body.indexOf(needle);
-  if (at < 0) return body;
-  const end = body.indexOf("</url>", at);
-  if (end < 0) return body;
-  const block = body.slice(at, end);
-  const existing = /<lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/.exec(block);
-  if (existing) {
-    if (existing[1] >= mod) return body;
-    return body.slice(0, at) + block.replace(existing[0], `<lastmod>${mod}</lastmod>`) + body.slice(end);
-  }
-  const insertAt = at + needle.length;
-  return body.slice(0, insertAt) + `\n    <lastmod>${mod}</lastmod>` + body.slice(insertAt);
 }
 
 type SiloPage = {
@@ -651,7 +637,6 @@ async function polish(
   cities: CityMap,
   live: Set<string> | null,
   hoods: Set<string>,
-  fresh: Map<string, string>,
 ): Promise<string> {
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
@@ -692,15 +677,9 @@ async function polish(
         out = removeLoc(out, `${SITE}${page.path}`);
         continue;
       }
-      const newest = matched.reduce((best, row) => {
-        const stamp = day(row.updated_at);
-        return stamp > best ? stamp : best;
-      }, "");
-      out = keepLanding(out, `${SITE}${page.path}`, newest);
+      out = keepLanding(out, `${SITE}${page.path}`, newestDay(matched, "updated_at"));
     }
   }
-
-  for (const [path, mod] of fresh) out = refreshLastmod(out, `${SITE}${path}`, mod);
 
   return dedupeLocs(encodeLocs(out));
 }
@@ -748,7 +727,7 @@ export default async function handler(_request: Request, context: Context) {
     const counts: string[] = [];
     let guardedFailed = false;
     let otherUrls = 0;
-    const fresh = new Map<string, string>();
+    const fresh: [string, string][] = [];
     for (let i = 0; i < SOURCES.length; i++) {
       const source = SOURCES[i];
       const got = loaded[i];
@@ -759,8 +738,7 @@ export default async function handler(_request: Request, context: Context) {
       }
       const rows = await rowsForSitemap(source, got.rows, cities, live);
       if (source.page === "neighborhood") hoodRows = rows;
-      const listPath = FRESH_LISTS[source.page];
-      if (listPath && source.lastmod) fresh.set(listPath, newestDay(rows, source.lastmod));
+      if (source.listPath && source.lastmod) fresh.push([source.listPath, newestDay(rows, source.lastmod)]);
       const urls = entries(source, rows);
       counts.push(`${source.name}: ${urls.length}`);
       blocks.push(...urls);
@@ -798,9 +776,10 @@ export default async function handler(_request: Request, context: Context) {
                   : body.slice(0, decl + 2) + "\n" + note + body.slice(decl + 2);
 
     /* ‏דף הבית מציג את המודעות הפעילות: ה-lastmod שלו הוא העדכון האחרון שלהן. */
-    if (cities.ok) fresh.set("/", newestDay(cities.rows, "updated_at"));
+    if (cities.ok) fresh.push(["/", newestDay(cities.rows, "updated_at")]);
 
-    const out = await polish(noted, cities, live, hoodNamesOf(hoodRows), fresh);
+    let out = await polish(noted, cities, live, hoodNamesOf(hoodRows));
+    for (const [path, mod] of fresh) out = upsertLastmod(out, `${SITE}${path}`, mod, true);
     const response = new Response(out, { status: 200, headers: XML_HEADERS });
     await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
     return response;
