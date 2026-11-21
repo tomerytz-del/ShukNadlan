@@ -13,7 +13,7 @@
 | `supabase/migrations/20261212093000_neighborhoods_city_id.sql` | `city_id` וקישור לרישום הערים |
 | `supabase/migrations/20261212099000_neighborhood_from_point.sql` | `is_planned`, `point_in_ring`, הדוח וההחלה |
 | `supabase/migrations/20270115092000_property_neighborhood_autofill.sql` | הטריגר שממלא שכונה חסרה בשמירה, וההשלמה למפרע |
-| `assets/home.js` → `hoodChoices()` | רשימת השכונות בסינון |
+| `assets/home.js` → `hoodChoices()` | **נמחק ב-21.11.2026** (כפתור השכונות הוסר; השכונה נבחרת במשפט, ושם נחסמת שכונה בתכנון כי `neighborhood_name` ריק לה) |
 | `assets/home.js` → `renderBuyerHoods()` | גלולות השכונה בבאנר מחפשי הנכס |
 | `neighborhood-boundary.html` | סימון ותיקון ידני של מצולע |
 
