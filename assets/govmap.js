@@ -742,24 +742,30 @@
       }
       var found = {};
       var done = 0;
-      /* קיטוע: GovMap מחזירה לכל קריאה מספר מוגבל של תכונות, בלי לומר שקצצה.
-         חדרה (21.11.2026): 7 שכונות, כולן עד האות ב', מתוך ~29 ברשות המיסים;
-         תל אביב (17.10.2026): 24 עד האות כ', מתוך 72. לכן עיגול שחזר עם DENSE
-         תכונות ומעלה נחשב חשוד ומתחלק לארבעה עיגולים קטנים (רדיוס 0.75 מהמקורי,
-         במרכזים ±r/2 - מכסים אותו), עד MIN_RADIUS. באזור דליל אין מחיר; בלב
-         עיר - עוד כמה עשרות קריאות. diag.maxFeatures אומר אחרי הריצה מה
-         הקריאה הצפופה ביותר החזירה - המספר שמלמד על התקרה האמיתית. */
-      var DENSE = 8, MIN_RADIUS = 600, MAX_CALLS = 800;
+      /* קיטוע: GovMap מחזירה לכל קריאה לכל היותר ~44 תכונות, ממוינות לפי יישוב
+         ושם, בלי לומר שקצצה. נמדד בחדרה (21.11.2026): הסריקה הראשונה החזירה
+         בדיוק 44 - אור עקיבא 17, בנימינה 20, חדרה 7 עד האות ב' - ובסריקה עם
+         פיצול הקריאה הצפופה ביותר החזירה 43. תל אביב (17.10.2026): 24 עד כ'.
+         לכן עיגול שחזר עם DENSE תכונות ומעלה נחשב חשוד ומתחלק לארבעה עיגולים
+         (רדיוס 0.75 מהמקורי, במרכזים ±r/2 - מכסים אותו), עד MIN_RADIUS.
+         DENSE יושב מתחת לתקרה שנמדדה ומעל לכל עיר אמיתית בעיגול אחד: סף 8
+         פיצל 184 עיגולים, הגיע לתקרת הקריאות, ונפל על שגיאת רשת אחת מתוך 800.
+         diag.maxFeatures אומר אחרי הריצה מה הקריאה הצפופה ביותר החזירה. */
+      var DENSE = 40, MIN_RADIUS = 600, MAX_CALLS = 800;
       var queue = points.map(function (pt) { return { pt: pt, radius: 2500 }; });
       diag.maxFeatures = 0; diag.splits = 0; diag.capped = false;
 
       function scanOne(job) {
         var xy = proj4('WGS84', ITM_DEF, [job.pt[1], job.pt[0]]);
-        return gm.getLayerFeaturesByLocation({
-          geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
-          radius: job.radius,
-          layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
-        }, GOVMAP_TOKEN).then(function (r) {
+        // ניסיון חוזר על כשל רשת: בסריקה של מאות קריאות מטלפון, ERR_NETWORK
+        // אחד הפיל את כולה (21.11.2026). שגיאה בתוך תשובה תקינה עדיין זורקת.
+        return withRetry(function () {
+          return gm.getLayerFeaturesByLocation({
+            geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
+            radius: job.radius,
+            layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
+          }, GOVMAP_TOKEN);
+        }).then(function (r) {
           assertNoLayerErrors(r);
           var feats = r.layers.neighborhoods_area || [];
           if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
