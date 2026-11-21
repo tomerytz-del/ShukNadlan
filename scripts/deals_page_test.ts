@@ -19,7 +19,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler, { secondsUntilNextJerusalemMonth } from "../netlify/edge-functions/deals-page.ts";
+import handler from "../netlify/edge-functions/deals-page.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../deals.html", import.meta.url), "utf8");
@@ -76,10 +76,8 @@ let res = await run("https://shuknadlan.co.il/deals/afula", 200, AFULA);
 let html = await res.text();
 const ld = ldOf(html);
 check("‏data-ssr", /<div id="dealsBody" data-ssr="1">/.test(html));
-const jeru = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", year: "numeric", month: "numeric" }).formatToParts(new Date());
-const jeruMonth = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"][Number(jeru.find((p) => p.type === "month")!.value) - 1];
-const jeruYear = jeru.find((p) => p.type === "year")!.value;
-const afulaTitle = `עסקאות נדל״ן בעפולה לפי שכונה - ${jeruMonth} ${jeruYear}`;
+/* החודש הוא חודש הנתונים (period_end), לא חודש הבקשה, ואין "לפי שכונה". */
+const afulaTitle = "עסקאות נדל״ן בעפולה - אוגוסט 2026";
 check("כותרת עם חודש ושנה", html.includes(`<title>${afulaTitle} | שוק נדל״ן</title>`));
 check("‏og:title כמו הכותרת", html.includes(`<meta property="og:title" content="${afulaTitle} | שוק נדל״ן">`));
 check("‏h1", new RegExp(`<h1 id="dealsH1">${afulaTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</h1>`).test(html));
@@ -96,11 +94,8 @@ check("נתוני המיון מוטמעים", /<script type="application\/json" 
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 {
-  const cap = secondsUntilNextJerusalemMonth();
-  const maxAge = Math.max(1, Math.min(3600, cap));
-  const swr = Math.max(0, Math.min(86400, cap - maxAge));
   const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
-  check("נשמר במטמון עד החודש הבא", cdn.includes(`max-age=${maxAge}`) && cdn.includes(`stale-while-revalidate=${swr}`));
+  check("נשמר במטמון שעה", cdn.includes("max-age=3600") && cdn.includes("stale-while-revalidate=86400"));
 }
 check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 

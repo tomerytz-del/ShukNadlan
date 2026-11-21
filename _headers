@@ -152,6 +152,9 @@
 /llms.txt
   Content-Type: text/plain; charset=utf-8
 
+/llms-full.txt
+  Content-Type: text/plain; charset=utf-8
+
 # אימות קישורי האפליקציה. בלי Content-Type של JSON חלק מהפלטפורמות
 # מסרבות לקרוא את הקובץ.
 /.well-known/assetlinks.json
