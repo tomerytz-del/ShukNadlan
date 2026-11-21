@@ -30928,33 +30928,44 @@ document.getElementById('acAudience')?.addEventListener('change', ()=>{
 });
 document.getElementById('acIntensity')?.addEventListener('input', adsSyncIntensity);
 
-let adsPropTimer = null;
-document.getElementById('acPropQ')?.addEventListener('input', (e)=>{
-  adsPropPicked = null;
-  clearTimeout(adsPropTimer);
-  // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
-  const q = e.target.value.replace(/[,()%*\\]/g, ' ').trim();
-  const list = document.getElementById('acPropList');
-  if (q.length < 2){ list.hidden = true; return; }
-  adsPropTimer = setTimeout(async ()=>{
-    const { data } = await sb.from('properties').select('id, title, city')
-      .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
-    list.innerHTML = '';
-    (data || []).forEach(p => {
-      const li = admEl('li');
-      const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : ''));
-      b.type = 'button';
-      b.addEventListener('click', ()=>{
-        adsPropPicked = { id: p.id, label: b.textContent };
-        e.target.value = b.textContent;
-        list.hidden = true;
+/* ‏חיפוש נכס פעיל לפי כותרת או עיר, עם רשימת בחירה: משותף לקונסולת הקמפיינים
+   ולטופס הסרטונים. ‏onInput נקראת בכל הקלדה (איפוס בחירה קודמת), ‏onPick(p, label)
+   בבחירה, ו-emptyNote מוצגת כשאין תוצאה (בלי הערה - רשימה ריקה). */
+function bindActivePropertyPicker(input, list, { onInput, onPick, emptyNote }){
+  let timer = null;
+  input.addEventListener('input', ()=>{
+    if (onInput) onInput();
+    clearTimeout(timer);
+    // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
+    const q = input.value.replace(/[,()%*\\]/g, ' ').trim();
+    if (q.length < 2){ list.hidden = true; return; }
+    timer = setTimeout(async ()=>{
+      const { data } = await sb.from('properties').select('id, title, city')
+        .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
+      list.innerHTML = '';
+      (data || []).forEach(p => {
+        const li = admEl('li');
+        const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : ''));
+        b.type = 'button';
+        b.addEventListener('click', ()=>{
+          onPick(p, b.textContent);
+          input.value = b.textContent;
+          list.hidden = true;
+        });
+        li.appendChild(b); list.appendChild(li);
       });
-      li.appendChild(b); list.appendChild(li);
-    });
-    if (!(data || []).length) list.appendChild(admEl('li', 'adm-note', 'לא נמצא נכס פעיל'));
-    list.hidden = false;
-    dashPanelsMeasure();
-  }, 250);
+      if (emptyNote && !(data || []).length) list.appendChild(admEl('li', 'adm-note', emptyNote));
+      list.hidden = false;
+      dashPanelsMeasure();
+    }, 250);
+  });
+}
+
+const acPropInput = document.getElementById('acPropQ');
+if (acPropInput) bindActivePropertyPicker(acPropInput, document.getElementById('acPropList'), {
+  onInput: () => { adsPropPicked = null; },
+  onPick: (p, label) => { adsPropPicked = { id: p.id, label }; },
+  emptyNote: 'לא נמצא נכס פעיל',
 });
 
 document.getElementById('adsCopyForm')?.addEventListener('submit', async (e)=>{
@@ -31852,23 +31863,7 @@ function leadFormRow(f){
   const propList = admEl('ul', 'ads-pick-list'); propList.hidden = true;
   propWrap.appendChild(propQ); propWrap.appendChild(propList); grid.appendChild(propWrap);
   let propId = m.property_id || null;
-  let timer = null;
-  propQ.addEventListener('input', ()=>{
-    clearTimeout(timer);
-    const q = propQ.value.replace(/[,()%*\\]/g, ' ').trim();
-    if (q.length < 2){ propList.hidden = true; return; }
-    timer = setTimeout(async ()=>{
-      const { data } = await sb.from('properties').select('id, title, city').eq('status', 'active')
-        .or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
-      propList.innerHTML = '';
-      (data || []).forEach(p => {
-        const li = admEl('li'); const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : '')); b.type = 'button';
-        b.addEventListener('click', ()=>{ propId = p.id; propQ.value = b.textContent; propList.hidden = true; });
-        li.appendChild(b); propList.appendChild(li);
-      });
-      propList.hidden = false; dashPanelsMeasure();
-    }, 250);
-  });
+  bindActivePropertyPicker(propQ, propList, { onPick: (p) => { propId = p.id; } });
   // ‏style ולא hidden: ‏.cst-f מגדיר display:flex, וזה גובר על המאפיין hidden
   const syncVisible = ()=>{ propWrap.style.display = kind.value === 'property' ? '' : 'none'; dashPanelsMeasure(); };
   kind.addEventListener('change', syncVisible); syncVisible();
