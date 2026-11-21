@@ -29,6 +29,7 @@ const wrapperSrc = {
   callCloseAccount: grab(/function callCloseAccount\(payload\)\{[^\n]*\}/, 'callCloseAccount'),
   callLicenseAppealApi: grab(/function callLicenseAppealApi\(payload\)\{[^\n]*\}/, 'callLicenseAppealApi'),
 };
+const windowSrc = grab(/function clientTabsWindow\(rows, expanded, shown, chunk\)\{[\s\S]*?\n\}/, 'clientTabsWindow');
 const persistStart = src.indexOf('  let error, savedId = editingClientId;\n  // אותה שמירה');
 const persistEnd = src.indexOf('  btn.disabled = false; btn.textContent = original;\n\n  if (error){');
 if (persistStart < 0 || persistEnd < persistStart) throw new Error('בלוק השמירה של agent_clients לא נמצא ב-crm.js');
@@ -274,4 +275,38 @@ test('בורר: תשובה מאוחרת אחרי מחיקת התיבה נזרק�
   await wait(300);
   assert.equal(list.hidden, true);
   assert.equal(list.children.length, 0);
+});
+
+/* ---------- רשימת הלקוחות במנות ---------- */
+const clientTabsWindow = new Function(windowSrc + '\nreturn clientTabsWindow;')();
+const mkRows = n => Array.from({ length: n }, (_, i) => ({ id: 'c' + i }));
+
+test('clientTabsWindow: מנה ראשונה, ולא יותר משורות הרשימה', () => {
+  assert.equal(clientTabsWindow(mkRows(500), new Set(), 0, 20), 20);
+  assert.equal(clientTabsWindow(mkRows(7), new Set(), 0, 20), 7);
+  assert.equal(clientTabsWindow([], new Set(), 0, 20), 0);
+});
+
+test('clientTabsWindow: מה שכבר הוצג נשמר גם כשאין פתוחים', () => {
+  assert.equal(clientTabsWindow(mkRows(500), new Set(), 60, 20), 60);
+  assert.equal(clientTabsWindow(mkRows(50), new Set(), 60, 20), 50);
+});
+
+test('clientTabsWindow: טאב פתוח שמחוץ למנה מרחיב עד אליו (קישור עמוק)', () => {
+  const rows = mkRows(500);
+  assert.equal(clientTabsWindow(rows, new Set(['c400']), 0, 20), 401);
+  assert.equal(clientTabsWindow(rows, new Set(['c5']), 0, 20), 20);              // בתוך המנה: בלי שינוי
+  assert.equal(clientTabsWindow(rows, new Set(['c30', 'c250', 'c90']), 0, 20), 251); // הרחוק מכולם
+  assert.equal(clientTabsWindow(rows, new Set(['not-in-list']), 0, 20), 20);     // מזהה שכבר לא ברשימה
+});
+
+test('renderClients בונה את הרשימה דרך clientTabsWindow, ושינוי סינון חוזר למנה הראשונה', () => {
+  const rc = grab(/function renderClients\(\)\{[\s\S]*?\n\}\n/, 'renderClients');
+  assert.match(rc, /clientTabsWindow\(filtered, expandedClientIds, clientTabsShown/);
+  assert.doesNotMatch(rc, /filtered\.forEach\(c => tabsWrap\.appendChild\(buildClientTab/, 'חזרה לבנייה של כל הלקוחות');
+  const top = grab(/function renderClientsFromTop\(\)\{[\s\S]*?\n\}/, 'renderClientsFromTop');
+  assert.match(top, /clientTabsShown = 0/);
+  // כל מי שמשנה את הרשימה (חיפוש, סינון, מיון, ניקוי) חוזר דרכה
+  assert.match(src, /setTimeout\(renderClientsFromTop, CLIENT_SEARCH_DEBOUNCE_MS\)/);
+  assert.match(src, /'clientSort'\]\s*\n\s*\.forEach\(id => document\.getElementById\(id\)\.addEventListener\('change', renderClientsFromTop\)\)/);
 });

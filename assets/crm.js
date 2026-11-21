@@ -24058,6 +24058,32 @@ function clientSearchBlob(c){
 /* ‏var ולא let: renderClients נקראת גם לפני שהשורה הזו רצה, ו-let בתוך ה-TDZ היה זורק.
    ביטול הטיימר בכניסה: מי שמרנדר ישר (בחירת סינון, ניקוי) לא משאיר רינדור שני בדרך. */
 var clientSearchTimer = null;
+
+/* ‏רשימת הלקוחות נבנית במנות, כמו "הנכסים שלי" (‏PROP_TABS_CHUNK): ‏renderClients
+   בנתה טאב לכל לקוח שתואם, ובהקשות הראשונות של חיפוש אלה מאות. נמדד: 500
+   לקוחות, מעבד פי 4, שבע הקשות - ‏400-860ms סינכרוני ו-5-7 משימות ארוכות.
+   ‏var ולא let: renderClients נקראת גם לפני שהשורות האלה רצות. */
+var CLIENT_TABS_CHUNK = 20;
+var clientTabsShown = 0;      // 0 = עוד לא נקבע: המנה הראשונה
+
+/* כמה טאבים להציג: לפחות מנה אחת, מה שכבר הוצג, ועד הלקוח/ה הפתוח/ה הרחוק/ה
+   ביותר - טאב פתוח שנשאר מחוץ לרשימה (קישור ‏?client=, או כרטיס שנפתח ואז
+   הרשימה נבנתה מחדש) היה נעלם. פונקציה טהורה, נבדקת ב-crm_edge_helpers_test. */
+function clientTabsWindow(rows, expanded, shown, chunk){
+  let n = Math.max(shown || 0, chunk);
+  for (let i = rows.length - 1; i >= n; i--){
+    if (expanded.has(rows[i].id)){ n = i + 1; break; }
+  }
+  return Math.min(n, rows.length);
+}
+
+/* שינוי של חיפוש, סינון או מיון חוזר למנה הראשונה; פעולה על לקוח (עריכה,
+   מחיקה, פתיחת כרטיס) קוראת ל-renderClients ושומרת על מה שכבר הוצג. */
+function renderClientsFromTop(){
+  clientTabsShown = 0;
+  renderClients();
+}
+
 function renderClients(){
   clearTimeout(clientSearchTimer);
   // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
@@ -24126,7 +24152,31 @@ function renderClients(){
   const tabsWrap = document.createElement('div');
   tabsWrap.className = 'prop-tabs client-tabs';
   listEl.appendChild(tabsWrap);
-  filtered.forEach(c => tabsWrap.appendChild(buildClientTab(c)));
+  const moreRow = document.createElement('div');
+  moreRow.className = 'ui-scope ui-more-row pr-more-row';
+  listEl.appendChild(moreRow);
+
+  const chunk = CLIENT_TABS_CHUNK || 20;
+  clientTabsShown = clientTabsWindow(filtered, expandedClientIds, clientTabsShown, chunk);
+  const drawClientTabs = () => {
+    for (let i = tabsWrap.childElementCount; i < clientTabsShown; i++){
+      tabsWrap.appendChild(buildClientTab(filtered[i]));
+    }
+    const left = filtered.length - clientTabsShown;
+    const next = Math.min(chunk, left);
+    moreRow.innerHTML = left > 0
+      ? `<button type="button" class="ui-more">עוד ${next === 1 ? 'לקוח/ה אחד/ת' : next + ' לקוחות'}${left > next ? ` (נשארו ${left})` : ''}</button>`
+      : '';
+  };
+  moreRow.addEventListener('click', e => {
+    if (!e.target.closest('.ui-more')) return;
+    const first = clientTabsShown;
+    clientTabsShown = Math.min(clientTabsShown + chunk, filtered.length);
+    drawClientTabs();
+    // המיקוד עובר ללקוח/ה הראשון/ה שנוסף/ה, ולא נשאר על כפתור שנעלם
+    tabsWrap.children[first]?.querySelector('.prop-tab-head')?.focus({ preventScroll:true });
+  });
+  drawClientTabs();
 }
 
 /* ---------- קובץ הלקוחות כרשימת טאבים ----------
@@ -26709,10 +26759,10 @@ async function handleShareParam(){
 const CLIENT_SEARCH_DEBOUNCE_MS = 150;
 document.getElementById('clientSearch').addEventListener('input', ()=>{
   clearTimeout(clientSearchTimer);
-  clientSearchTimer = setTimeout(renderClients, CLIENT_SEARCH_DEBOUNCE_MS);
+  clientSearchTimer = setTimeout(renderClientsFromTop, CLIENT_SEARCH_DEBOUNCE_MS);
 });
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
-  .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+  .forEach(id => document.getElementById(id).addEventListener('change', renderClientsFromTop));
 document.getElementById('clientFilterToggle').addEventListener('click', e => {
   const open = document.getElementById('clientToolbar').classList.toggle('is-filters-open');
   e.currentTarget.setAttribute('aria-expanded', String(open));
@@ -26721,7 +26771,7 @@ document.getElementById('clientClearFilters').addEventListener('click', ()=>{
   ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
   clearTimeout(clientSearchTimer);
-  renderClients();
+  renderClientsFromTop();
 });
 
 /* ---------- התראות התאמה ----------
