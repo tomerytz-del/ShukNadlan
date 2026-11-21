@@ -3596,13 +3596,16 @@ let hoodImportDiag = null;
    עד 21.11.2026 הבורר נשאר ריק (רק חץ) לכל מי שלא ביקר/ה קודם בפאנל שטוען
    אותה, והסריקה לא יצאה לדרך. לכן: אם הרשימה עוד לא כאן, מחכים לה
    וממלאים כשהיא מגיעה. אידמפוטנטית - בורר מלא לא מצויר שוב. */
-function hoodImportInit(){
+function hoodImportInit(retried){
   const sel = document.getElementById('hoodImportMarket');
   if (!sel || sel.options.length) return Promise.resolve();
   const list = (window.ShukMarkets && window.ShukMarkets.list) || [];
   if (!list.length){
-    if (!window.crmNeed) return Promise.resolve();
-    return crmNeed('markets').then(() => hoodImportInit(), err => console.warn('markets.js לא נטען:', err));
+    // ניסיון אחד: crmNeed שמצליח ורשימה שעדיין ריקה (קובץ שבור, מטמון ישן)
+    // היו קריאה חוזרת אינסופית. אחרי הניסיון הבורר נשאר ריק, והכפתור אומר
+    // "רשימת השווקים לא נטענה".
+    if (!window.crmNeed || retried) return Promise.resolve();
+    return crmNeed('markets').then(() => hoodImportInit(true), err => console.warn('markets.js לא נטען:', err));
   }
   sel.innerHTML = list.map(m => `<option value="${esc(m.slug)}">${esc(m.label)}</option>`).join('');
   // השוק שאינו ברירת המחדל קודם - בו יש מה לייבא
