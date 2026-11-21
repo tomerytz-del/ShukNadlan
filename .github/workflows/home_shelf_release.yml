@@ -1,0 +1,30 @@
+name: שחרור תגית ממדף הנכסים
+
+# ‏ppShelfToMap: עם החיפוש במשפט מציירים שוב את תוצאות המשפט בלי שאילתה, ובלי
+# המשפט נשארת ההתנהגות הישנה (runSearch או כל המלאי). הבדיקה קוראת את הפונקציה
+# מ-home.js ומריצה אותה על גלובלים מדומים - בלי דפדפן ובלי רשת.
+
+on:
+  pull_request:
+    paths:
+      - "assets/home.js"
+      - "scripts/home_shelf_release_test.mjs"
+      - ".github/workflows/home_shelf_release.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/home.js"
+      - "scripts/home_shelf_release_test.mjs"
+      - ".github/workflows/home_shelf_release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת שחרור התגית
+        run: node scripts/home_shelf_release_test.mjs
