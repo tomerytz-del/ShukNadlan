@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<!-- בלי assets/events.js, בכוונה: דף פרטי מקישור שנשלח בהתראה, ואין בו קישור קשר. manage-alerts ב-PRIVATE_PAGES של check_events.py -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>ניהול התראות | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js" data-no-auto></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0d1b3d;--ink-soft:#4a5578;--paper:#f4f7fe;--raised:#fff;--line:#e3e8f4;--blue:#0e2a6b;--ok:#1e7a4c;--bad:#b3261e;--radius:16px}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:24px}
+  .box{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:28px;max-width:440px;width:100%;text-align:center}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--blue);margin:0 0 10px;font-size:1.3rem}
+  p{color:var(--ink-soft);margin:0 0 18px;font-size:.95rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;border-radius:12px;font:inherit;font-weight:700;border:none;cursor:pointer;background:var(--blue);color:#fff;text-decoration:none}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .btn[hidden]{display:none}
+  .msg{margin:14px 0 0;font-size:.9rem;min-height:1.2em}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)}
+  .note{font-size:.78rem;color:var(--ink-soft);margin:16px 0 0}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<!-- ניהול התראות (חיפוש שמור ויריד הבתים הפתוחים). הדף קיים באתר ולא כעמוד של הפונקציה, כי Supabase מגישה HTML
+     מהדומיין הרגיל כ-text/plain (עם sandbox): העמוד שהפונקציות החזירו הוצג כקוד. הפונקציות מפנות לכאן (302) מהקישורים שכבר
+     נשלחו. הביצוע ב-POST בלבד, בלחיצה על הכפתור (סורקי קישורים של מייל ווואטסאפ פותחים כתובות). הטוקן ב-fragment. -->
+<main class="box" id="app">
+  <h1 id="ttl"></h1>
+  <p id="lead"></p>
+  <button type="button" class="btn" id="goBtn" hidden></button>
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  <p class="note">הפעולה מתבצעת רק בלחיצה על הכפתור. <a href="/">לאתר</a></p>
+</main>
+
+<script>
+const FN = 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/';
+// k=oh: יריד הבתים הפתוחים. k=ss: חיפוש שמור
+const q = new URLSearchParams(location.hash.replace(/^#/, ''));
+history.replaceState(null, '', location.pathname); // הטוקן נשמר במשתנים, וה-fragment יוצא מהכתובת (GTM עלול לשלוח אותה ל-GA4)
+const kind = q.get('k') || '', action = q.get('a') || '', token = q.get('t') || '';
+const SCREENS = {
+  oh: {
+    unsubscribe: { t: 'הסרה מעדכוני היריד', p: 'לא נשלח אליכם יותר עדכונים על נכסים שנכנסים ליריד הבתים הפתוחים.', b: 'הסרה מהרשימה',
+      done: ['הוסרתם מהרשימה', 'לא נשלח אליכם יותר עדכונים על יריד הבתים הפתוחים. אפשר לחזור בכל רגע מהקישור במייל.'] },
+    resubscribe: { t: 'חזרה לעדכוני היריד', p: 'נחזור לעדכן אתכם ברגע שנכס נכנס ליריד הבתים הפתוחים.', b: 'חזרה לרשימה',
+      done: ['חזרתם לרשימה', 'נעדכן אתכם ברגע שנכס נכנס ליריד הבתים הפתוחים.'] },
+  },
+  ss: {
+    unsubscribe: { t: 'הפסקת ההתראות', p: 'לא תקבלו יותר התראות על החיפוש הזה.', b: 'עצירת ההתראות',
+      done: ['ההתראות הופסקו', 'לא נשלח לכם יותר התראות על החיפוש הזה.'] },
+    pause: { t: 'השהיית ההתראות', p: 'ההתראות יושהו עד שתחדשו אותן.', b: 'השהיה', done: ['ההתראות הושהו', 'אפשר לחדש אותן בכל עת.'] },
+    resume: { t: 'חידוש ההתראות', p: 'נחזור לשלוח לכם נכסים שמתאימים לחיפוש.', b: 'חידוש', done: ['ההתראות חודשו', 'נחזור לשלוח לכם נכסים שמתאימים.'] },
+  },
+};
+const ttl = document.getElementById('ttl'), lead = document.getElementById('lead'),
+      btn = document.getElementById('goBtn'), msg = document.getElementById('msg');
+function say(text, kind){ msg.textContent = text; msg.className = 'msg ' + (kind || ''); }
+
+const screen = (SCREENS[kind] || {})[action];
+if (kind === 'ss' && action === 'gone'){
+  ttl.textContent = 'הנכס כבר לא זמין'; lead.textContent = 'ייתכן שהמודעה הוסרה.';
+} else if (!screen || !token){
+  ttl.textContent = 'קישור לא תקין'; lead.textContent = 'אפשר לכתוב לנו ונטפל בזה ידנית.';
+} else {
+  ttl.textContent = screen.t; lead.textContent = screen.p; btn.textContent = screen.b; btn.hidden = false;
+}
+
+btn.addEventListener('click', async ()=>{
+  btn.disabled = true; say('רגע…');
+  const isOh = kind === 'oh';
+  try{
+    const res = await fetch(FN + (isOh ? 'open-house-manage' : 'saved-search-manage'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isOh ? { action, token } : { action, tokens: token.split(',').filter(Boolean) }),
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (res.ok && data.success){
+      btn.hidden = true; say('');
+      if (data.status === 'already_unsubscribed'){
+        ttl.textContent = isOh ? 'כבר הוסרתם מהרשימה' : 'ההתראות כבר הופסקו';
+        lead.textContent = isOh ? 'לא נשלחים אליכם עדכוני יריד.' : 'לקבלת התראות שוב, שמרו חיפוש חדש באתר.';
+      } else {
+        ttl.textContent = screen.done[0]; lead.textContent = screen.done[1];
+      }
+      return;
+    }
+    btn.disabled = false;
+    say(res.status === 404 || data.error === 'invalid_token' ? 'הקישור אינו תקין, או שהפריט כבר נמחק.' : 'משהו השתבש. נסו שוב בעוד רגע.', 'bad');
+  } catch(e){
+    btn.disabled = false;
+    say('שגיאת רשת. נסו שוב בעוד רגע.', 'bad');
+  }
+});
+</script>
+</body>
+</html>

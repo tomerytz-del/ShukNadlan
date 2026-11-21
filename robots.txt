@@ -46,6 +46,8 @@ Disallow: /plan
 Disallow: /plan.html
 Disallow: /reminders-off
 Disallow: /reminders-off.html
+Disallow: /manage-alerts
+Disallow: /manage-alerts.html
 Disallow: /demand
 Disallow: /demand.html
 
