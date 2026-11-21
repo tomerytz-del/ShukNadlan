@@ -59,6 +59,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   legend{display:none}
   .group-title{font-weight:800;font-size:.92rem;color:var(--blue-dark);margin:0 0 3px}
   .group-note{font-size:.76rem;color:var(--ink-soft);margin:0 0 14px}
+  .onb-box{border:1px solid var(--line,#dfe6f3);border-radius:14px;padding:14px;margin:14px 0;background:#fff}
+  .onb-title{font-weight:800;margin:0 0 2px}
+  .onb-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 10px}
+  .onb-bar{height:8px;background:var(--line,#dfe6f3);border-radius:99px;overflow:hidden;margin:0 0 10px}
+  .onb-bar span{display:block;height:100%;width:0;background:var(--blue-dark,#0e2a6b);border-radius:99px;transition:width .3s}
+  .onb-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+  .onb-list li{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid var(--line,#dfe6f3);border-radius:10px}
+  .onb-list li.done{opacity:.6}
+  .onb-list li.next{border-color:var(--blue-dark,#0e2a6b)}
+  .onb-list .onb-mark{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--line,#dfe6f3);display:grid;place-items:center;font-size:.72rem;font-weight:800}
+  .onb-list li.done .onb-mark{background:var(--blue-dark,#0e2a6b);border-color:var(--blue-dark,#0e2a6b);color:#fff}
+  .onb-list .onb-text{flex:1;min-width:0;font-size:.86rem}
+  .onb-list .onb-text small{display:block;color:var(--ink-soft);font-size:.74rem}
+  .onb-list button{flex:none;font-size:.78rem;padding:6px 10px;border-radius:8px;border:1px solid var(--blue-dark,#0e2a6b);background:#fff;color:var(--blue-dark,#0e2a6b);font-weight:700;cursor:pointer}
 
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
@@ -201,6 +215,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <span class="status-badge" id="statusBadge"></span>
     <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
     <div class="extended-banner" id="extendedBanner" hidden></div>
+
+    <!-- מדריך ההתחלה: מחושב במסד מהנתונים השמורים (professional_onboarding_state), נעלם כשהחובה מלאה -->
+    <div class="onb-box" id="onbBox" hidden>
+      <p class="onb-title" id="onbTitle">להשלמת העמוד שלכם</p>
+      <p class="onb-sub" id="onbSub"></p>
+      <div class="onb-bar" aria-hidden="true"><span id="onbBarFill"></span></div>
+      <ul class="onb-list" id="onbList"></ul>
+    </div>
 
     <!-- חשבון כניסה וארנק, לכל תחום: כניסה עם אימייל וסיסמה במקום לשמור את הקישור הזה,
          ומדף לידים למי שיש לו (עו"ד, יועצי משכנתאות). ההרשאה היא האסימון שבקישור הזה;
@@ -625,6 +647,54 @@ el('galleryGrid').addEventListener('click', e => {
   renderMedia();
 });
 
+/* ---------- מדריך ההתחלה ----------
+   המצב מחושב במסד מהנתונים השמורים: אין כאן צ'קליסט ואין חישוב שני. הדף רק מציג, והכפתור גולל לשדה.
+   נבנה ב-DOM ולא במחרוזת, כי חלק מהטקסט (שמות שדות) מגיע מהשרת. */
+const ONB = {
+  photo:   { title:'תמונת פרופיל', why:'התמונה ממלאת את הכרטיסייה בדף הבית', field:'photoState' },
+  intro:   { title:'משפט פתיחה ותיאור', why:'שורה אחת מתחת לשם, ותיאור של לפחות 40 תווים', field:'advHeadline' },
+  offer:   { title:'שירותים ואזורי פעילות', why:'מה אתם מציעים, ובאילו אזורים', field:'advServices' },
+  phone:   { title:'טלפון', why:'הוא מפעיל את כפתורי הווטסאפ והחיוג', field:'advPhone' },
+  cover:   { title:'תמונת נושא', why:'הרצועה הרחבה בראש העמוד', field:'coverState' },
+  gallery: { title:'גלריה', why:'לפחות 3 תמונות', field:'galleryState' },
+  years:   { title:'שנות ניסיון', why:'מוסיף אמון', field:'advYears' },
+  website: { title:'קישור לאתר או לפרופיל', why:'לאן להמשיך אחרי העמוד', field:'advUrl' },
+  video:   { title:'סרטון', why:'קישור YouTube או Vimeo', field:'advVideo' },
+};
+function renderOnboarding(state){
+  const box = el('onbBox');
+  if (!state || state.error || !Array.isArray(state.steps) || state.complete){ box.hidden = true; return; }
+  box.hidden = false;
+  const done = Number(state.done_count) || 0, total = Number(state.total) || 4;
+  el('onbSub').textContent = 'הושלמו ' + done + ' מתוך ' + total + ' צעדים להשלמת העמוד.';
+  el('onbBarFill').style.width = Math.round(100 * done / total) + '%';
+  const list = el('onbList');
+  list.textContent = '';
+  state.steps.forEach(s=>{
+    const def = ONB[s.id]; if (!def) return;
+    const li = document.createElement('li');
+    li.className = (s.done ? 'done ' : '') + (s.id === state.next ? 'next' : '');
+    const mark = document.createElement('span'); mark.className = 'onb-mark'; mark.textContent = s.done ? '✓' : '';
+    const text = document.createElement('span'); text.className = 'onb-text';
+    text.textContent = def.title + (s.optional ? ' (רשות)' : '');
+    const small = document.createElement('small');
+    small.textContent = def.why + (!s.done && Array.isArray(s.detail) && s.detail.length ? '. חסר: ' + s.detail.join(', ') : '');
+    text.appendChild(small);
+    li.append(mark, text);
+    if (!s.done){
+      const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'להשלמה';
+      btn.addEventListener('click', ()=>{
+        // שירותים ואזורים חסרים: הולכים לשדה שחסר בפועל
+        const target = s.id === 'offer' && Array.isArray(s.detail) && !s.detail.includes('שירותים') ? 'advAreas' : def.field;
+        const node = el(target);
+        if (node){ node.scrollIntoView({ block:'center', behavior:'smooth' }); if (node.focus && /INPUT|TEXTAREA|SELECT/.test(node.tagName)) node.focus(); }
+      });
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+}
+
 /* ---------- טעינה ושמירה ---------- */
 function fillForm(card){
   el('advName').value = card.advertiser_name || '';
@@ -893,6 +963,7 @@ el('saveBtn').addEventListener('click', async ()=>{
   // הטופס מתמלא מחדש מהתשובה ולא מהקלט: ערך שנפסל בשרת (כתובת בפרוטוקול
   // לא נתמך, טלפון קצר מדי) ייעלם מהשדה ולא ייראה כאילו נשמר.
   fillForm(data.card);
+  renderOnboarding(data.onboarding);
   ['photoState','coverState','galleryState'].forEach(id => { el(id).textContent = ''; });
   feedback.style.color = 'var(--green)';
   feedback.textContent = 'השינויים נשמרו והם כבר באתר';
@@ -926,6 +997,7 @@ el('saveBtn').addEventListener('click', async ()=>{
     renewal = data.renewal || null;
     if (Array.isArray(data.extend_months) && data.extend_months.length) extendMonths = data.extend_months;
     fillForm(data.card);
+    renderOnboarding(data.onboarding);
     renderAccountBox(data);
     if (params.get('extended') === '1'){
       const ends = data.card.ends_at ? new Date(data.card.ends_at + 'T00:00:00').toLocaleDateString('he-IL') : '';
