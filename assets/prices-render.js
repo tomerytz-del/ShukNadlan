@@ -118,7 +118,7 @@
       }).join('') +
       '</tbody></table></div>' +
       '<p class="prices-note">מחיר מבוקש הוא חציון המודעות הפעילות ב' + escapeHtml(city) +
-      ' באתרי מודעות' + (asOf ? ' נכון ל-' + escapeHtml(heDate(asOf)) : '') +
+      ' מלוחות הנדל״ן המרכזיים בישראל' + (asOf ? ', נכון ל-' + escapeHtml(heDate(asOf)) : '') +
       ', ואינו מחיר עסקה. הפער הוא המבוקש ביחס לעסקאות שנסגרו.</p>';
   }
 
