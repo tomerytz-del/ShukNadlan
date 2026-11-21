@@ -3637,8 +3637,16 @@ function renderHoodImport(){
 async function scanHoodImport(){
   const slug = document.getElementById('hoodImportMarket')?.value;
   const market = window.ShukMarkets && window.ShukMarkets.bySlug(slug);
+  // הפאנל מגיע דרך crm-lazy עם 'govmap', אבל לא סומכים על הסדר: הקובץ
+  // נטען כאן לפי דרישה, כמו בשמירת נכס. בלי זה הכפתור ענה "GovMap לא
+  // נטען" למי שפתח/ה את הפאנל ישירות (21.11.2026).
+  if (!window.GovmapLookup && window.crmNeed){
+    hoodImportStatus('טוען את GovMap…');
+    try { await crmNeed('govmap'); } catch (e) { console.warn('GovMap לא נטען:', e); }
+  }
   const GL = window.GovmapLookup;
-  if (!market || !GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען.'); return; }
+  if (!market){ hoodImportStatus('השוק לא נמצא ברשימת השווקים.'); return; }
+  if (!GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען. רעננו את הדף ונסו שוב.'); return; }
   const btn = document.getElementById('hoodImportScan');
   btn.disabled = true;
   hoodImportRows = []; renderHoodImport();
