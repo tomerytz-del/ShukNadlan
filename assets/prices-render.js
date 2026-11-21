@@ -8,6 +8,10 @@
 
    הנתונים מ-`city_price_table()` (‏20270325090000) - צבירה בלבד, ותא עם
    פחות מ-5 עסקאות כבר מושתק במסד. ‏docs/city-prices.md.
+
+   ‏`opts.asking` (‏`city_asking_price_table()`, ‏20271127120000) מוסיף לכל עיר
+   טבלה קטנה "מבוקש מול נסגר": חציון מחירי המודעות לצד חציון העסקאות לאותו
+   גודל דירה. רשות: בלי הנתון הדף נראה בדיוק כמו קודם.
    ========================================================================== */
 (function (root) {
   /* ‏עותק משלו ולא escapeHtml: הקובץ רץ גם בשרת, שם אין esc.js. לכן כל
@@ -71,12 +75,62 @@
     return r ? { start: r.period_start, end: r.period_end } : null;
   }
 
+  /* ‏הפער בין מחיר מבוקש לעסקה, באחוזים, מסומן. ‏"-2%" בתוך span ב-ltr, אחרת
+     הסימן נדבק לצד הלא נכון בכיוון הכתיבה של העברית. */
+  function gap(asking, deal) {
+    var a = Number(asking);
+    var d = Number(deal);
+    if (!(a > 0) || !(d > 0)) return '-';
+    var pct = Math.round((a / d - 1) * 100);
+    return '<span dir="ltr">' + (pct > 0 ? '+' : '') + pct + '%</span>';
+  }
+
+  /* ‏מחירי מודעות לפי עיר. שורה בלי מחיר או בלי ספירת מודעות מדולגת: תשובה
+     בצורה אחרת אינה "מבוקש". */
+  function askingByCity(rows) {
+    var by = {};
+    (rows || []).forEach(function (r) {
+      if (!r || !r.city || !(Number(r.median_price) > 0) || !(Number(r.listings) > 0)) return;
+      var key = (r.market_slug || '') + '|' + r.city;
+      (by[key] = by[key] || []).push(r);
+    });
+    Object.keys(by).forEach(function (k) {
+      by[k].sort(function (a, b) { return a.rooms - b.rooms; });
+    });
+    return by;
+  }
+
+  function askingTable(city, askingRows, dealRows) {
+    var dealByRooms = {};
+    dealRows.forEach(function (r) { dealByRooms[r.rooms] = r; });
+    var asOf = askingRows.map(function (r) { return r.as_of; }).sort().pop();
+    return '<h4>מבוקש מול נסגר ב' + escapeHtml(city) + '</h4>' +
+      '<div class="prices-scroll"><table class="prices-table prices-asking">' +
+      '<thead><tr><th scope="col">גודל הדירה</th><th scope="col">מחיר מבוקש חציוני</th>' +
+      '<th scope="col">מחיר עסקה חציוני</th><th scope="col">הפער</th>' +
+      '<th scope="col">מודעות</th></tr></thead><tbody>' +
+      askingRows.map(function (r) {
+        var deal = dealByRooms[r.rooms] && dealByRooms[r.rooms].median_price;
+        return '<tr><th scope="row">' + escapeHtml(roomsLabel(r.rooms)) + '</th>' +
+          '<td>₪' + num(r.median_price) + '</td>' +
+          '<td>' + (deal ? '₪' + num(deal) : '-') + '</td>' +
+          '<td>' + gap(r.median_price, deal) + '</td>' +
+          '<td>' + num(r.listings) + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div>' +
+      '<p class="prices-note">מחיר מבוקש הוא חציון המודעות הפעילות ב' + escapeHtml(city) +
+      ' מלוחות הנדל״ן המרכזיים בישראל' + (asOf ? ', נכון ל-' + escapeHtml(heDate(asOf)) : '') +
+      ', ואינו מחיר עסקה. אותה דירה עשויה להופיע ביותר ממודעה אחת, והחציון עמיד לכך. ' +
+      'הפער הוא המבוקש ביחס לעסקאות שנסגרו.</p>';
+  }
+
   /* ‏HTML של כל הטבלאות. ‏`labelFor(slug)` מחזיר את שם השוק ("חיפה והקריות"). */
   function render(rows, opts) {
     opts = opts || {};
     var labelFor = opts.labelFor || function () { return ''; };
     var cities = groupCities(rows, opts.marketOrder);
     if (!cities.length) return '';
+    var asking = askingByCity(opts.asking);
     var out = [];
     var lastMarket = null;
     cities.forEach(function (c) {
@@ -101,6 +155,7 @@
         '</tbody></table></div>' +
         '<p class="prices-note">' + num(c.deals) + ' עסקאות דירה ב' + escapeHtml(c.city) +
         ' בשנה האחרונה במאגר.</p>' +
+        (asking[(c.market || '') + '|' + c.city] ? askingTable(c.city, asking[(c.market || '') + '|' + c.city], c.rows) : '') +
         '</section>'
       );
     });

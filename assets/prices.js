@@ -10,10 +10,9 @@
   var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
-  function run() {
-    var box = document.getElementById('pricesTables');
-    if (!box || box.dataset.ssr || !window.ShukPrices) return;
-    fetch(SUPABASE_URL + '/rest/v1/rpc/city_price_table', {
+  /* ‏תשובה שאינה מערך (שגיאה, גוף אחר) היא רשימה ריקה. */
+  function call(name) {
+    return fetch(SUPABASE_URL + '/rest/v1/rpc/' + name, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -23,7 +22,20 @@
       body: '{}'
     })
       .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (rows) {
+      .then(function (rows) { return Array.isArray(rows) ? rows : []; });
+  }
+
+  function run() {
+    var box = document.getElementById('pricesTables');
+    if (!box || box.dataset.ssr || !window.ShukPrices) return;
+    /* ‏מחירי המודעות הם תוספת: כשל בהם אינו מפיל את טבלאות העסקאות. */
+    Promise.all([
+      call('city_price_table'),
+      call('city_asking_price_table').catch(function () { return []; })
+    ])
+      .then(function (both) {
+        var rows = both[0];
+        var asking = both[1];
         var reg = window.ShukMarkets;
         var list = (reg && reg.list) || [];
         var html = window.ShukPrices.render(rows, {
@@ -31,7 +43,8 @@
             for (var i = 0; i < list.length; i++) if (list[i].slug === slug) return list[i].label;
             return '';
           },
-          marketOrder: list.map(function (m) { return m.slug; })
+          marketOrder: list.map(function (m) { return m.slug; }),
+          asking: asking
         });
         if (!html) throw new Error('empty');
         box.innerHTML = html;
