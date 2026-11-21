@@ -3690,9 +3690,14 @@ async function scanHoodImport(){
     }).sort((a, b) => a.city.localeCompare(b.city, 'he') || a.name.localeCompare(b.name, 'he'));
     hoodImportDiag = found.diag || null;
     const withB = found.filter(h => h.boundary).length;
+    // הקריאה הצפופה ביותר: GovMap מקצצת לכל קריאה בלי לומר (חדרה 21.11.2026),
+    // והסריקה מפצלת עיגול "מלא". המספר כאן הוא מה שמלמד על התקרה האמיתית.
+    const dg = found.diag || {};
+    const densest = dg.maxFeatures ? ` הקריאה הצפופה ביותר החזירה ${dg.maxFeatures} שכונות` + (dg.splits ? `, ${dg.splits} עיגולים פוצלו.` : '.') : '';
+    const capped = dg.capped ? ' הסריקה הגיעה לתקרת הקריאות - ייתכן שחסרות שכונות בלב העיר; להריץ שוב על שוק קטן יותר.' : '';
     hoodImportStatus(!hoodImportRows.length
       ? 'לא נמצאו שכונות בערי השוק. אם זה לא האתר החי - הטוקן של GovMap עובד רק ב-shuknadlan.co.il.'
-      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.`);
+      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.` + densest + capped);
     renderHoodImport();
   } catch(e){
     console.warn('hood import scan failed', e);

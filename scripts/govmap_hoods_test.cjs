@@ -31,6 +31,15 @@ function run(opts){
           return Promise.resolve({ layers: { neighborhoods_area: [
             { attributes: { fname: opts.verifyName || 'נווה שאנן', setl_name: 'חיפה' } }] } }); }
         calls.layer++;
+        if (opts.capped) {                                   // GovMap מקצצת לכל קריאה, בלי לומר
+          const m = /POINT\(([-\d.]+) ([-\d.]+)\)/.exec(p.geometry);
+          const lng = +m[1], lat = +m[2];
+          const near = opts.capped.filter(f => {
+            const dy = (f.at[0] - lat) * 111000, dx = (f.at[1] - lng) * 111000 * Math.cos(lat * Math.PI / 180);
+            return Math.sqrt(dx * dx + dy * dy) <= p.radius;
+          }).sort((a, b) => a.attributes.fname.localeCompare(b.attributes.fname, 'he')).slice(0, 10);
+          return Promise.resolve({ layers: { neighborhoods_area: near } });
+        }
         if (opts.layerFeatures) return Promise.resolve({ layers: { neighborhoods_area: opts.layerFeatures } });
         if (opts.layerError) return Promise.resolve({ layers: { neighborhoods_area: [] }, errors: { neighborhoods_area: ['boom'] } });
         return Promise.resolve({ layers: { neighborhoods_area: [
@@ -107,6 +116,21 @@ function run(opts){
   const nf = await run({ layerFeatures: [{ attributes: { fname: 'גאולה', setl_name: 'חיפה' } }],
     hits: [{ type: 'street', text: 'גאולה חיפה', centroid: P }, { type: 'neighborhood', text: 'גאולה חיפה', centroid: P }] });
   ok('שכונה קודמת לרחוב באותו שם, בלי אימות נוסף', nf.r[0].boundary && nf.calls.verify === 0);
+
+  // חדרה 21.11.2026: GovMap החזירה לכל קריאה כמה תכונות ראשונות לפי שם, וחצי
+  // עיר נעלמה בשקט. 30 שכונות בריבוע של 3x3 ק"מ, התקרה המדומה 10 לקריאה.
+  const letters = 'אבגדהוזחטיכלמנסעפצקרשת';
+  const dense = [];
+  for (let i = 0; i < 30; i++) {
+    dense.push({ attributes: { fname: letters[i % 22] + letters[Math.floor(i / 22)] + ' שכונה', setl_name: 'חיפה', nbr_code: 100 + i },
+      at: [32.80 + 0.005 * (i % 6), 35.00 + 0.006 * Math.floor(i / 6)] });
+  }
+  const cp = await run({ capped: dense, hits: [] });
+  ok('עיגול "מלא" מתחלק, וכל 30 השכונות נמצאות למרות תקרה של 10 לקריאה', cp.r.length === 30);
+  ok('diag מדווח על הקריאה הצפופה ביותר ועל הפיצולים', cp.r.diag.maxFeatures === 10 && cp.r.diag.splits > 0 && !cp.r.diag.capped);
+  ok('הפיצול מוגבל (פחות מ-200 קריאות על שוק של חיפה)', cp.calls.layer < 200);
+  const sparse = await run({ capped: dense.slice(0, 5), hits: [] });
+  ok('אזור דליל - בלי פיצול, אותן 20-40 קריאות', sparse.r.length === 5 && sparse.r.diag.splits === 0 && sparse.calls.layer <= 40);
 
   console.log(fail ? `\n✗ ${fail} נכשלו` : '\n✓ סריקת השכונות מתנהגת כמתוכנן');
   process.exit(fail ? 1 : 0);
