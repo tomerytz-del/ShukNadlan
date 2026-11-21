@@ -71,6 +71,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 const FN = 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/';
 // k=oh: יריד הבתים הפתוחים. k=ss: חיפוש שמור
 const q = new URLSearchParams(location.hash.replace(/^#/, ''));
+history.replaceState(null, '', location.pathname); // הטוקן נשמר במשתנים, וה-fragment יוצא מהכתובת (GTM עלול לשלוח אותה ל-GA4)
 const kind = q.get('k') || '', action = q.get('a') || '', token = q.get('t') || '';
 const SCREENS = {
   oh: {

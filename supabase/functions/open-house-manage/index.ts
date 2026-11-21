@@ -48,10 +48,12 @@ Deno.serve(async (req: Request) => {
   }
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  let body: { action?: unknown; token?: unknown };
-  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
-  const action = typeof body.action === "string" ? body.action : "";
-  const token = typeof body.token === "string" ? body.token : "";
+  // גוף JSON מהעמוד באתר. טופס ישן שנשאר פתוח בלשונית שולח את הפרמטרים בכתובת, ולכן הם גיבוי
+  let body: { action?: unknown; token?: unknown } = {};
+  try { body = await req.json(); } catch { /* ללא גוף: כתובת בלבד */ }
+  const q = new URL(req.url).searchParams;
+  const action = typeof body.action === "string" ? body.action : (q.get("action") || "");
+  const token = typeof body.token === "string" ? body.token : (q.get("token") || "");
   if (!token) return json({ error: "invalid_token" }, 400);
   if (!ACTIONS.includes(action)) return json({ error: "unknown_action" }, 400);
 

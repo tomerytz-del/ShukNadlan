@@ -66,10 +66,11 @@ Deno.serve(async (req: Request) => {
   }
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  let body: { action?: unknown; tokens?: unknown };
-  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
-  const action = typeof body.action === "string" ? body.action : "";
-  const tokens = cleanTokens(Array.isArray(body.tokens) ? body.tokens : []);
+  // גוף JSON מהעמוד באתר. טופס ישן שנשאר פתוח בלשונית שולח את הפרמטרים בכתובת, ולכן הם גיבוי
+  let body: { action?: unknown; tokens?: unknown } = {};
+  try { body = await req.json(); } catch { /* ללא גוף: כתובת בלבד */ }
+  const action = typeof body.action === "string" ? body.action : (url.searchParams.get("action") || "");
+  const tokens = cleanTokens(Array.isArray(body.tokens) ? body.tokens : url.searchParams.getAll("token"));
   if (!tokens.length) return json({ error: "invalid_token" }, 400);
   if (!ACTIONS.includes(action)) return json({ error: "unknown_action" }, 400);
 
@@ -92,5 +93,5 @@ Deno.serve(async (req: Request) => {
   }
   if (!ok && already && !missing) return json({ success: true, status: "already_unsubscribed" });
   if (!ok) return json({ error: "not_found" }, 404);
-  return json({ success: true, status: doneStatus, count: tokens.length, label: tokens.length === 1 ? label : "" });
+  return json({ success: true, status: doneStatus, count: ok, label: tokens.length === 1 ? label : "" });
 });
