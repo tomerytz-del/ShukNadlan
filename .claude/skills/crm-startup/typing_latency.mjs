@@ -22,7 +22,8 @@ const role = process.argv[3] || 'agent';
 const DELAY = 20;
 const NPROPS = Number(process.argv[4] || 1000);
 const NCLIENTS = Number(process.argv[5] || 500);
-if (!root) { console.error('usage: node dashboard_load.mjs <site dir> [agent|manager] [delay ms]'); process.exit(2); }
+if (!root) { console.error('usage: WHICH=props|clients CPU=4 GAP=120 EXPECT=<מספר תוצאות> node typing_latency.mjs <site dir> [agent|manager] [props] [clients]'); process.exit(2); }
+if (!process.env.EXPECT) { console.error('חסר EXPECT: מספר התוצאות הסופי של השאילתה (בלעדיו settleMs יוצא -1)'); process.exit(2); }
 
 const b = await chromium.launch();
 const pg = await b.newPage({ viewport: { width: 412, height: 900 } });
@@ -95,8 +96,8 @@ const cdp = await pg.context().newCDPSession(pg);
 await pg.goto('http://x.test/crm.html');
 await pg.evaluate(async () => { await loadDashboard({ id: 'u1', email: 'a@b.c' }); });
 await pg.waitForTimeout(1500);
-const pre = await pg.evaluate(async () => { try { await crmNeed('properties', { fresh: true }); await loadProperties('a1', { fresh: true }); } catch (e) { return { err: String(e) }; } return { props: myPropertyRows.length }; });
-if (!pre.props) { console.error('הנתונים לא נטענו (myPropertyRows ריק):', JSON.stringify(pre)); await b.close(); process.exit(1); }
+const pre = await pg.evaluate(async () => { try { await crmNeed('properties', { fresh: true }); await loadProperties('a1', { fresh: true }); } catch (e) { return { err: String(e) }; } return { props: myPropertyRows.length, clients: typeof clientRows !== 'undefined' ? clientRows.length : 0 }; });
+if (!pre.props || (process.env.WHICH === 'clients' && !pre.clients)) { console.error('הנתונים לא נטענו (myPropertyRows ריק):', JSON.stringify(pre)); await b.close(); process.exit(1); }
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU || 4) });
 await pg.evaluate(e => { window.__EXPECT = e.x; window.__GAP = e.g; }, { x: process.env.EXPECT || '', g: Number(process.env.GAP || 0) });
 const res = await pg.evaluate(async ({ which }) => {

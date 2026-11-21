@@ -24044,7 +24044,11 @@ function clientSearchBlob(c){
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
+/* ‏var ולא let: renderClients נקראת גם לפני שהשורה הזו רצה, ו-let בתוך ה-TDZ היה זורק.
+   ביטול הטיימר בכניסה: מי שמרנדר ישר (בחירת סינון, ניקוי) לא משאיר רינדור שני בדרך. */
+var clientSearchTimer = null;
 function renderClients(){
+  clearTimeout(clientSearchTimer);
   // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
   renderClientsCard();
   const listEl = document.getElementById('clientsList');
@@ -26692,7 +26696,6 @@ async function handleShareParam(){
    לרוב הקובץ) אלה מאות כרטיסים בכל הקשה. השהיה קצרה מדלגת על הרינדורים
    שביניהן; הבחירות (‏select) ממשיכות להתעדכן מיד. */
 const CLIENT_SEARCH_DEBOUNCE_MS = 150;
-let clientSearchTimer = null;
 document.getElementById('clientSearch').addEventListener('input', ()=>{
   clearTimeout(clientSearchTimer);
   clientSearchTimer = setTimeout(renderClients, CLIENT_SEARCH_DEBOUNCE_MS);
