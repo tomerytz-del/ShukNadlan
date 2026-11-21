@@ -600,9 +600,15 @@ Deno.serve(async (req: Request) => {
         const amount = Number(started.amount);
         const contactEmail = userData.user.email ?? null;
 
-        await supabase.from("developer_plan_orders")
+        // ‏**הבדיקה היא חלק מההסכמה.** ללא שגיאה כאן ההזמנה הייתה נשארת עם ברירת המחדל של העמודה,
+        // והתשלום היה פותח מנוי מתחדש שהמשתמש/ת לא ביקש/ה. כישלון = ההזמנה נסגרת ואין טופס תשלום
+        const { error: flagErr } = await supabase.from("developer_plan_orders")
           .update({ auto_renew: autoRenew, contact_email: contactEmail })
           .eq("id", orderId);
+        if (flagErr) {
+          await supabase.rpc("fail_developer_plan_order", { p_order_id: orderId, p_reason: "flag_update_failed" });
+          return json({ error: "db_error", detail: flagErr.message }, 500);
+        }
 
         const { data: dev } = await supabase
           .from("developers").select("name").eq("id", developer.id).maybeSingle();
