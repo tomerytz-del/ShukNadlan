@@ -108,6 +108,10 @@ Deno.serve(async (req: Request) => {
     const sent = await sendPlatformEmail({ to: [row.email], subject, html, text });
     if (!sent.sent) {
       console.error("developer-onboarding-reminders: mail failed", row.developer_id, sent.error);
+      // מעדכנים רק את מועד הניסיון, בלי להעלות את המונה: ינסו שוב מחר, ואינו חוסם את שאר התור
+      await supabase.rpc("mark_developer_onboarding_reminder", {
+        p_developer_id: row.developer_id, p_no: row.reminder_no - 1,
+      });
       stats.failed++;
       continue;
     }
