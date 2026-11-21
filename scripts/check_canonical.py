@@ -134,6 +134,7 @@ PRIVATE = {
     "learn",
     # ‏הסרה מתזכורות מדריך ההתחלה - קישור עם טוקן חתום מתחתית מייל (docs/new-projects.md)
     "reminders-off",
+    "manage-alerts",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
