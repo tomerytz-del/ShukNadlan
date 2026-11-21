@@ -539,7 +539,7 @@ RLS. הוא רץ בהרשאות הקורא, ה-policy של הטבלה עדיין
    `billing-renew` כשהמנוי הגיע לתאריכו. בלוג: `morning: token search`
    ו-`morning: token charge` מראים את הצורה האמיתית; לתקן את
    `findCardToken`/`chargeCardToken` לפיה.
-4. להדליק במיגרציה (לא ידנית):
+4. להדליק במיגרציה (לא ידנית; הוכנה ב-`20271124090000_enable_recurring_charging.sql`, **ממתינה לאישור אחרי שלבים 1-3**):
    `update public.pricing_config set value = 1 where key = 'recurring_charging_enabled';`
 
 ### איך זה עובד
