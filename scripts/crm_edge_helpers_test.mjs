@@ -30,6 +30,7 @@ const wrapperSrc = {
   callLicenseAppealApi: grab(/function callLicenseAppealApi\(payload\)\{[^\n]*\}/, 'callLicenseAppealApi'),
 };
 const windowSrc = grab(/function clientTabsWindow\(rows, expanded, shown, chunk\)\{[\s\S]*?\n\}/, 'clientTabsWindow');
+const kindForSrc = grab(/function clientKindFor\(c, current\)\{[\s\S]*?\n\}/, 'clientKindFor');
 const persistStart = src.indexOf('  let error, savedId = editingClientId;\n  // אותה שמירה');
 const persistEnd = src.indexOf('  btn.disabled = false; btn.textContent = original;\n\n  if (error){');
 if (persistStart < 0 || persistEnd < persistStart) throw new Error('בלוק השמירה של agent_clients לא נמצא ב-crm.js');
@@ -309,4 +310,58 @@ test('renderClients בונה את הרשימה דרך clientTabsWindow, ושינ
   // כל מי שמשנה את הרשימה (חיפוש, סינון, מיון, ניקוי) חוזר דרכה
   assert.match(src, /setTimeout\(renderClientsFromTop, CLIENT_SEARCH_DEBOUNCE_MS\)/);
   assert.match(src, /'clientSort'\]\s*\n\s*\.forEach\(id => document\.getElementById\(id\)\.addEventListener\('change', renderClientsFromTop\)\)/);
+});
+
+/* ---------- קישור עמוק ללקוח/ה: מנקה סינונים ועובר ללשונית הנכונה ---------- */
+const clientKindFor = new Function('isOwnerClient', kindForSrc + '\nreturn clientKindFor;')(c => c.client_kind === 'owner');
+
+test('clientKindFor: בעל/ת נכס ללשונית "בעלי נכסים", מחפש/ת ל"מחפשים", ו"הכול" נשארת', () => {
+  assert.equal(clientKindFor({ client_kind: 'owner' }, 'seekers'), 'owners');
+  assert.equal(clientKindFor({ client_kind: 'seeker' }, 'owners'), 'seekers');
+  assert.equal(clientKindFor({ client_kind: 'owner' }, 'owners'), 'owners');
+  assert.equal(clientKindFor({ client_kind: 'owner' }, 'all'), 'all');
+  assert.equal(clientKindFor({ client_kind: 'seeker' }, 'all'), 'all');
+});
+
+const DEEP_FILTER_IDS = ['clientSearch', 'clientStatusFilter', 'clientDealFilter', 'clientCategoryFilter', 'clientTypeFilter', 'clientCityFilter'];
+const DEEP_ID = '00000000-0000-4000-8000-000000000001';
+function runDeepLink(client, kind, id = DEEP_ID) {
+  const fnSrc = grab(/function openClientFromParam\(id, focus\)\{[\s\S]*?\n\}\n/, 'openClientFromParam');
+  const ctx = { kind, rows: client ? [client] : [], expanded: new Set(), calls: [], els: {} };
+  DEEP_FILTER_IDS.concat(['clientSort']).forEach(fid => { ctx.els[fid] = { value: 'x' }; });
+  const make = new Function('ctx', `
+    let clientsKind = ctx.kind, clientSearchTimer = 1;
+    const clientRows = ctx.rows, expandedClientIds = ctx.expanded;
+    const document = { getElementById: fid => ctx.els[fid] || null, querySelector: () => null };
+    const setTimeout = () => 0;
+    const isOwnerClient = c => c.client_kind === 'owner';
+    const renderClientsFromTop = () => ctx.calls.push([...ctx.expanded].join());
+    ${kindForSrc}
+    ${fnSrc}
+    return () => { openClientFromParam(${JSON.stringify(id)}); return clientsKind; };
+  `);
+  const kindAfter = make(ctx)();
+  return { ctx, kindAfter };
+}
+
+test('קישור עמוק ללקוח/ה: מנקה חיפוש וסינונים (לא את המיון), ובונה מההתחלה עם הכרטיס פתוח', () => {
+  const { ctx } = runDeepLink({ id: DEEP_ID, client_kind: 'seeker' }, 'seekers');
+  DEEP_FILTER_IDS.forEach(fid => assert.equal(ctx.els[fid].value, '', fid + ' לא נוקה'));
+  assert.equal(ctx.els.clientSort.value, 'x', 'המיון אינו סינון ואין לגעת בו');
+  assert.deepEqual(ctx.calls, [DEEP_ID], 'הכרטיס חייב להיות פתוח כשהרשימה נבנית מההתחלה');
+});
+
+test('קישור עמוק לבעל/ת נכס עובר ללשונית "בעלי נכסים", ול"הכול" לא נוגע', () => {
+  assert.equal(runDeepLink({ id: DEEP_ID, client_kind: 'owner' }, 'seekers').kindAfter, 'owners');
+  assert.equal(runDeepLink({ id: DEEP_ID, client_kind: 'seeker' }, 'owners').kindAfter, 'seekers');
+  assert.equal(runDeepLink({ id: DEEP_ID, client_kind: 'owner' }, 'all').kindAfter, 'all');
+});
+
+test('קישור עמוק עם מזהה לא תקין או לקוח/ה שאינו/ה בקובץ לא נוגע בסינונים', () => {
+  const bad = runDeepLink({ id: DEEP_ID, client_kind: 'owner' }, 'seekers', 'not-a-uuid');
+  assert.equal(bad.ctx.els.clientSearch.value, 'x');
+  assert.deepEqual(bad.ctx.calls, []);
+  const missing = runDeepLink(null, 'seekers');
+  assert.equal(missing.ctx.els.clientSearch.value, 'x');
+  assert.deepEqual(missing.ctx.calls, []);
 });

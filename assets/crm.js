@@ -26616,6 +26616,12 @@ async function toggleClientCalls(c, btn, el){
   (el.querySelector('.cc-bar') || el.querySelector('.lead-actions')).insertAdjacentElement('afterend', box);
 }
 
+/* הלשונית שבה הלקוח/ה נמצא/ת: "הכול" נשארת "הכול", ואחרת לפי סוג הכרטיס. */
+function clientKindFor(c, current){
+  if (current === 'all') return 'all';
+  return isOwnerClient(c) ? 'owners' : 'seekers';
+}
+
 /* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
    סיכום שיחה) פותח את הכרטיס עצמו ואת השיחות שבו, ולא רק את הקטגוריה.
    ‏focus=matches (התראת התאמה) פותח במקום השיחות את רשימת ההתאמות. */
@@ -26623,8 +26629,15 @@ function openClientFromParam(id, focus){
   if (!/^[0-9a-f-]{36}$/i.test(id || '')) return;
   const c = clientRows.find(r => r.id === id);
   if (!c) return;
+  /* הקישור ביקש את הלקוח/ה הזה/זו, לא את הסינון של אתמול (כמו openPropertyFromParam).
+     בלי זה בעל/ת נכס לא נבנה/תה כשנבחרה לשונית "מחפשים", וגם חיפוש או סינון סטטוס
+     פעילים הסתירו אותו/ה, והקישור לא עשה כלום. החלון מורחב עד הכרטיס ב-renderClients. */
+  ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  clearTimeout(clientSearchTimer);
+  if (typeof clientsKind !== 'undefined') clientsKind = clientKindFor(c, clientsKind);
   expandedClientIds.add(id);
-  renderClients();
+  renderClientsFromTop();
   setTimeout(() => {
     const el = document.querySelector(`[data-client-card="${id}"]`);
     if (!el) return;
