@@ -189,6 +189,29 @@ Leaflet מאותחל בטעינה בגודל 0, ולכן כל פתיחה קור�
 ‏`updateSplitPanel`) בודק `mapViewIsOpen()` / `mapStripOn()`. כל דבר שפותח את
 המפה נושא `data-map-open="<מקור>"` - מאזין אחד מטפל בכולם.
 
+## 3א. מדף הנכסים → המפה, ומסלול החיפוש הישן שאינו קוד מת
+
+**שחרור תגית במדף (`ppShelfToMap`, ‏21.11.2026):** עם החיפוש במשפט
+(`sentence.loaded()`) מציירים שוב את `sentence.results()` עם `resultsMode`, בלי
+שאילתה - אותו ציור של `onSentenceChange`. קודם נקראה `runSearch()`, ששאלה את ה-DB
+לפי `searchState` ועקפה את המשפט. בלי המשפט נשארה ההתנהגות הישנה. הבדיקה:
+`scripts/home_shelf_release_test.mjs` (נכשלת על הגרסה שלפני #1356).
+
+**‏`runSearch`, ‏`runSearchInner`, ‏`applyDeepLinkFilters` וענפי הגיבוי של
+`clearSearch`, ‏`applyAiFilter`, ‏`aiFilterChip` ו-`rApplyFilters` חיים, ואין למחוק
+אותם בלי למדוד.** הם משרתים גולש/ת שהסקריפט של המשפט נחסם אצלו/ה, או שהגיע/ה לדף
+נחיתה כמו `/?deal=sale&rooms=4` לפני שהמשפט נטען (`sentence.loaded()` הוא `false` עד
+שהנכסים מגיעים). **נמדד 21.11.2026:** 14 שורות `source='fallback'` ב-45 יום, האחרונה
+יום קודם. מחיקה הייתה משאירה אותם בלי סינון. ההחלטה הייתה להשאיר.
+‏`fallback` ב-`search_events` נרשם בעבר גם משחרור תגית במצב משפט, ולכן שורות לפני
+התאריך אינן כולן "נחסם" (`docs/search-analytics.md`).
+
+**מה כן נמחק (#1353):** כפתור השכונות (`hoodCounts`, ‏`hoodChoices`,
+‏`renderHoodFilter`, ‏`applyHoodSelection`) והמטפלים ל-`#dealTypeSelect`,
+‏`#searchFreeText`, ‏`#openFiltersBtn`, ‏`#searchSubmitBtn` - אף אחד מהאלמנטים אינו
+ב-`index.html`. אל תחזירו; שכונה נבחרת במשפט, ושכונה "בתכנון" נחסמת כי
+`neighborhood_name` שלה ריק כבר בטעינה (`shapeProperty`).
+
 ## 4. הערכת השווי - ההסתייגות בכל שלב
 
 > \* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.
@@ -270,6 +293,7 @@ python scripts/check_long_dash.py
 python scripts/check_events.py      # כל wa.me של גבריאלה נושא data-bot
 python scripts/check_gtm.py && python scripts/check_pwa.py && python scripts/check_canonical.py
 node scripts/sentence_search_test.cjs   # אם נגעת בחיפושים המוקלדים
+node scripts/home_shelf_release_test.mjs  # אם נגעת ב-ppShelfToMap או במדף
 ```
 
 ובדפדפן: 320, ‏390, ‏900, ‏1440 - `scrollWidth` שווה לרוחב המסך, הכפתור לגבריאלה
