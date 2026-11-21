@@ -410,6 +410,61 @@ const noComm = await (await handler(new Request("https://shuknadlan.co.il/sitema
 } as never)).text();
 check("מסחרי בלי מלאי יורד מה-sitemap", !noComm.includes("נדלן-מסחרי") && !noComm.includes("%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99"));
 
+/* ---------- lastmod של דף הבית ושל דפי הרשימה: חותמת אמיתית, רק אם חדשה ---------- */
+{
+  const loc = (p: string, mod?: string) =>
+    `  <url>\n    <loc>https://shuknadlan.co.il${p}</loc>\n${mod ? `    <lastmod>${mod}</lastmod>\n` : ""}    <changefreq>daily</changefreq>\n  </url>\n`;
+  const listStatic =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    loc("/", "2026-09-15") + loc("/deals", "2026-11-20") + loc("/agents", "2026-09-15") + loc("/projects") +
+    `</urlset>\n`;
+  const ctx = { next: async () => new Response(listStatic, { headers: { "content-type": "application/xml" } }) } as never;
+  const lm = (xml: string, p: string) =>
+    new RegExp(`shuknadlan\\.co\\.il${p}</loc>\\s*<lastmod>([^<]*)</lastmod>`).exec(xml)?.[1];
+
+  installRouted([
+    { id: "p1", updated_at: "2026-10-09T08:00:00Z", city: "עפולה", city_id: "c1", deal_type: "sale", category: "residential", property_type: "דירה", rooms: 4 },
+  ], []);
+  resetLastGood();
+  const freshXml = await (await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), ctx)).text();
+  check("דף הבית מקבל את העדכון האחרון של המודעות", lm(freshXml, "/") === "2026-10-09", String(lm(freshXml, "/")));
+  check("תאריך ידני חדש יותר מהחותמת האמיתית לא נדרס", lm(freshXml, "/deals") === "2026-11-20", String(lm(freshXml, "/deals")));
+  check("דף בלי חותמת אמיתית לא משתנה (סוכנים)", lm(freshXml, "/agents") === "2026-09-15");
+  check("דף בלי lastmod וללא מקור נשאר בלי", lm(freshXml, "/projects") === undefined);
+}
+
+/* ---------- listPath: מקורות אמיתיים מרעננים את דפי הרשימה ---------- */
+{
+  const entry = (p: string, mod: string) =>
+    `  <url>\n    <loc>https://shuknadlan.co.il${p}</loc>\n    <lastmod>${mod}</lastmod>\n  </url>\n`;
+  const st =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    entry("/agencies", "2026-09-15") + entry("/articles", "2026-09-15") + entry("/projects", "2026-11-18") +
+    `</urlset>\n`;
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes("/agencies?") && !url.includes("city_id=")) return json([{ slug: "a", updated_at: "2026-10-20T10:00:00Z" }]);
+    // כתבה עם תאריך עתידי אינה lastmod; הכתבה התקינה היא האחרונה שמותר
+    if (url.includes("articles_public")) return json([
+      { slug: "future", published_at: "2999-01-01T00:00:00Z" },
+      { slug: "ok", published_at: "2026-10-22T00:00:00Z" },
+    ]);
+    // פרויקט ישן מהתאריך הידני: לא מחליף אותו
+    if (url.includes("projects_public")) return json([{ slug: "p", published_at: "2026-10-01T00:00:00Z" }]);
+    if (url.includes("rpc/deal_settlements_public")) return json([]);
+    return json([]);
+  }) as typeof fetch;
+  resetLastGood();
+  const xml = await (await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+    next: async () => new Response(st, { headers: { "content-type": "application/xml" } }),
+  } as never)).text();
+  const lm = (p: string) => new RegExp(`shuknadlan\\.co\\.il${p}</loc>\\s*<lastmod>([^<]*)</lastmod>`).exec(xml)?.[1];
+  check("משרדים מרעננים את /agencies", lm("/agencies") === "2026-10-20", String(lm("/agencies")));
+  check("תאריך עתידי מדולג, הכתבה התקינה נבחרת", lm("/articles") === "2026-10-22", String(lm("/articles")));
+  check("פרויקט ישן לא מחליף תאריך ידני חדש יותר", lm("/projects") === "2026-11-18", String(lm("/projects")));
+}
+
 if (failed) {
   console.error(`\n✗ ${failed} בדיקות נכשלו.`);
   process.exit(1);
