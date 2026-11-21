@@ -16023,6 +16023,8 @@ function crmQueryMatches(rows, q, blobOf, asSearchRow, namesOf){
   if (!q) return null;
   if (!crmQueryReady()){ ensureCrmQuery(); return null; }
   const SC = window.SearchCore, Core = window.SentenceSearch.Core;
+  // נרמול הטקסט של כל נכס בכל הקשה הוא רוב הזמן בסינון (search-core.js, memoStr)
+  if (SC.enableMemo) SC.enableMemo();
   const plain = () => ({ rows: new Set(rows.filter(r => SC.textHas(blobOf(r), q))), note: '' });
   if (/^[#\d\s\-+()]+$/.test(q)) return plain();
   if (namesOf && rows.some(r => SC.textHas(namesOf(r), q))) return plain();
