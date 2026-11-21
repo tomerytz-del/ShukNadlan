@@ -742,8 +742,8 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 |---|---|
 | `#searchSubmitBtn` (וגם Enter בשדה) | חיפוש |
 | `#rApplyFilters` / `#cApplyFilters` — **"הצגת תוצאות"** בשני מודאלי הסינון | חיפוש (ו-`runSearch()` סוגרת בעצמה כל מודאל סינון פתוח, ולכן זו גם הסגירה) |
-| `#hoodApplyBtn` — "הצגת תוצאות" במודאל השכונות | חיפוש, דרך `applyHoodSelection()` |
-| `#dealTypeSelect` | חיפוש מיידי עם שינוי הבחירה |
+| `#hoodApplyBtn` — "הצגת תוצאות" במודאל השכונות | **הוסר (21.11.2026):** כפתור השכונות אינו ב-`index.html`, והקוד שלו (`applyHoodSelection`, `renderHoodFilter`) נמחק; הבחירה בשכונה היא במשפט |
+| `#dealTypeSelect` | **הוסר (21.11.2026):** אינו ב-`index.html`; סוג העסקה הוא במשפט |
 
 ‏**"הצגת תוצאות" בשני מודאלי הסינון היה `data-close-modal` בלבד.** הוא סגר
 את המודאל ותו לא, והמצב שנבחר בו (חדרים, סוג נכס, מחיר) נכנס לתוקף רק
@@ -887,7 +887,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 
 המונה נספר לפי **סוג העסקה שנבחר בסרגל החיפוש** ולא לפי כלל המאגר. בלי זה
 "אזור התעשייה 4" היה מבטיח ארבעה נכסים ומחזיר רשימה ריקה, כי אותם ארבעה הם
-נכסים מסחריים להשכרה בעוד הבורר עומד על "מכירה". התנאים ב-`hoodCounts()` הם
+נכסים מסחריים להשכרה בעוד הבורר עומד על "מכירה". התנאים ב-`hoodCounts()` (נמחקה ב-21.11.2026) היו
 בכוונה אותם תנאים שב-`runSearch()`.
 
 לכן שינוי סוג העסקה (הבורר בסרגל החיפוש, או מכירה/השכרה בסינוני המסחרי)
@@ -900,7 +900,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 סימון של שכונה שלישית באמצע ההתלבטות לא צריך להריץ חיפוש ולהזיז את המפה מתחת
 ליד. פתיחה חוזרת של המודאל מתחילה תמיד מהבחירה הפעילה, ולא מדף ריק.
 
-`applyHoodSelection()` מריץ חיפוש אמיתי מול ה-DB (`runSearch()`) עם
+(היסטורי - הפונקציה נמחקה ב-21.11.2026) `applyHoodSelection()` הריץ חיפוש אמיתי מול ה-DB (`runSearch()`) עם
 `in('neighborhood_id', […])` — ולא סינון מקומי. שתי סיבות:
 
 1. השכונות מצטרפות לשאר הסינונים (מחיר, חדרים, סוג נכס) במקום להתחרות בהם.
@@ -1141,7 +1141,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 
 | רכיב | איפה |
 |---|---|
-| גלולות השכונה | `renderHoodPills()`, `hoodCounts()`, `selectHood()` |
+| גלולות השכונה | `renderHoodPills()`, `selectHood()` (‏`hoodCounts()` נמחקה ב-21.11.2026) |
 | הסימון על המפה | `drawHoodShape()`, `parseBoundary()`, `computeHoodGeometry()` |
 | כלי הסימון | `neighborhood-boundary.html` |
 | סינון לפי שכונה | `runSearch()` — `eq('neighborhood_id', …)` |
