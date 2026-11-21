@@ -46,6 +46,11 @@ NOT_IN_LLMS = {
 
 # כתובות שפונקציות ה-edge מגישות מהמסד, ולכן אינן ב-sitemap הסטטי.
 DYNAMIC_PREFIXES = ("/n/", "/deals/", "/property", "/afula/", "/emek-yizrael/")
+# דפי פירוט (קובץ אחד לכל הרשומות, ?id= או ?slug=) וקובצי הגילוי עצמם.
+DETAIL_AND_DISCOVERY = {
+    "/agent", "/agency", "/article", "/project", "/developer", "/professional",
+    "/llms.txt", "/llms-full.txt", "/sitemap.xml", "/robots.txt",
+}
 
 errors: list[str] = []
 
@@ -95,6 +100,7 @@ def site_path(url: str) -> str | None:
 
 sitemap = (ROOT / "sitemap.xml").read_text(encoding="utf-8")
 llms = (ROOT / "llms.txt").read_text(encoding="utf-8")
+llms_full = (ROOT / "llms-full.txt").read_text(encoding="utf-8")
 robots = (ROOT / "robots.txt").read_text(encoding="utf-8")
 headers = (ROOT / "_headers").read_text(encoding="utf-8")
 
@@ -121,10 +127,11 @@ for raw in headers.splitlines():
     elif "x-robots-tag" in raw.lower() and current in ("/*", "/llms.txt", "/llms-full.txt", "/robots.txt", "/sitemap.xml"):
         fail(f"_headers: X-Robots-Tag על {current} - מסתיר את קובצי הגילוי או את כל האתר")
 
-# 3. קישורי llms.txt מגיעים לדף שקיים
-for u in llms_links:
+# 3. קישורי llms.txt ו-llms-full.txt מגיעים לדף שקיים
+full_links = re.findall(r"(https://shuknadlan\.co\.il[^\s)\"]*[^\s).,:;\"])", llms_full)
+for u in dict.fromkeys(llms_links + full_links):
     p = site_path(u)
-    if p is None or p == "/" or p in sitemap_paths or p.startswith(DYNAMIC_PREFIXES):
+    if p is None or p == "/" or p in sitemap_paths or p in DETAIL_AND_DISCOVERY or p.startswith(DYNAMIC_PREFIXES):
         continue
     if (ROOT / (p.lstrip("/") + ".html")).exists():
         fail(f"llms.txt: {p} קיים כדף אבל אינו ב-sitemap.xml - סורק שיגיע מכאן ימצא דף שהאתר לא הצהיר עליו")
