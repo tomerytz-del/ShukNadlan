@@ -3678,8 +3678,14 @@ async function scanHoodImport(){
     const { data: cities, error: cErr } = await sb.from('cities').select('id, name').eq('market_slug', slug);
     if (cErr) throw cErr;
     if (!cities || !cities.length){ hoodImportStatus('אין ערים משויכות לשוק הזה.'); return; }
+    // גם הכינויים של הערים (city_aliases): GovMap כותב לפעמים אחרת מאיתנו
+    // ("זיכרון יעקב"), והשכונה נשמרת בשם העיר שלנו.
+    const { data: aliases } = await sb.from('city_aliases').select('alias, city_id').in('city_id', cities.map(c => c.id));
+    const nameOf = new Map(cities.map(c => [c.id, c.name]));
+    const scanNames = cities.map(c => c.name)
+      .concat((aliases || []).filter(a => nameOf.has(a.city_id)).map(a => ({ name: a.alias, as: nameOf.get(a.city_id) })));
     hoodImportStatus('סורק את האזור…');
-    const found = await GL.neighborhoodsInArea(market.bbox, cities.map(c => c.name), (done, total, phase) => {
+    const found = await GL.neighborhoodsInArea(market.bbox, scanNames, (done, total, phase) => {
       hoodImportStatus((phase === 'scan' ? 'סורק את האזור' : 'שולף גבולות') + ' · ' + done + '/' + total);
     });
     const { data: existing, error: eErr } = await sb.from('neighborhoods')
