@@ -8,7 +8,7 @@
 // ============================================================================
 
 const SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
-const FUNCTIONS_BASE = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 export type UnsubKind = "developer" | "professional";
 const KIND_CODE: Record<UnsubKind, string> = { developer: "d", professional: "p" };
@@ -39,7 +39,8 @@ export async function unsubUrl(kind: UnsubKind, id: string): Promise<string | nu
   if (!SECRET) return null;
   const sig = await hmacHex(`${KIND_CODE[kind]}.${id}`);
   const token = `${KIND_CODE[kind]}.${id}.${sig}`;
-  return `${FUNCTIONS_BASE}/onboarding-reminders-unsubscribe?t=${encodeURIComponent(token)}`;
+  // עמוד באתר ולא בפונקציה: Supabase מגישה HTML מהדומיין הרגיל כ-text/plain (reminders-off.html)
+  return `${SITE_BASE_URL}/reminders-off?t=${encodeURIComponent(token)}`;
 }
 
 /** מאמת טוקן ומחזיר את הסוג והמזהה, או null כשהחתימה שגויה. */

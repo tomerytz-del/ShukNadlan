@@ -171,7 +171,7 @@ https://claude.ai/artifact/QcZVcELMjqdXB1VA5X1R5G. מה שחשוב לדעת:
   `developer_onboarding_reminders_due(1)`). המסד קובע מי זכאי, הפונקציה בונה את המייל ושולחת, והסימון **אחרי** השליחה.
   אותם כללים כמו אצל בעלי המקצוע (`docs/professional-cards.md`): **ימים א'-ה' בלבד** (שבת וחג נדחים ליום החול הבא, ה-cron `0-4`),
   ניסיון חוזר אחרי כישלון: יום, שבוע בין התזכורות (נמדד מהשליחה המוצלחת), חלון 30 יום, **וקישור הסרה בתחתית כל מייל**
-  (`onboarding-reminders-unsubscribe`, חתימת HMAC; בלי הסוד `ALERT_CRON_SECRET` לא שולחים).
+  (`reminders-off.html` ו-`onboarding-reminders-unsubscribe`, חתימת HMAC; בלי הסוד `ALERT_CRON_SECRET` לא שולחים).
 * **תקלה שנמצאה אחרי הפריסה:** `developer_onboarding_state` נפלה בקריאה הראשונה (`v_company || '"..."'` נקרא כמערך פגום).
   ה-CI מריץ את המיגרציה ואינו קורא לפונקציה. תוקן ב-`20271127100000` ונבדק בקריאה אמיתית. **פונקציית מסד חדשה נבדקת
   בקריאה אחת מול המסד אחרי הפריסה, לא רק ב-CI.**

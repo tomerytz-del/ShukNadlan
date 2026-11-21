@@ -44,6 +44,8 @@ Disallow: /meeting.html
 # דף הבדיקה התכנונית לסוכן/ת - קישור עם טוקן מגבריאלה (docs/govmap.md)
 Disallow: /plan
 Disallow: /plan.html
+Disallow: /reminders-off
+Disallow: /reminders-off.html
 Disallow: /demand
 Disallow: /demand.html
 

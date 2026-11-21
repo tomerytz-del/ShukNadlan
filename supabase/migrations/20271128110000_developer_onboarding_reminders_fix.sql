@@ -38,6 +38,8 @@ begin
        and d.onboarding_reminders_sent < 2
        and d.created_at <= now() - case d.onboarding_reminders_sent when 0 then interval '3 days'
                                                                     else interval '10 days' end
+       -- חלון של 30 יום מהפתיחה: כתובת שנכשלת תמיד אינה מנוסה לנצח (גם תנאי ה-cron נעצר איתה)
+       and d.created_at > now() - interval '30 days'
        -- ניסיון חוזר אחרי כישלון: יום (בשתי התזכורות). והתזכורת השנייה לפחות שבוע אחרי **השליחה** הראשונה
        and coalesce(d.onboarding_attempt_at, 'epoch'::timestamptz) <= now() - interval '1 day'
        and (d.onboarding_reminders_sent = 0

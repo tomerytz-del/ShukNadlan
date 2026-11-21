@@ -356,8 +356,8 @@ verify_jwt = false
 [functions.professional-onboarding-reminders]
 verify_jwt = false
 
-# הסרה מתזכורות מדריך ההתחלה: קישור מתחתית מייל, בלי כניסה. ההרשאה היא חתימת HMAC בטוקן
-# (‏_shared/onboarding-unsub.ts), וביצוע רק ב-POST (סורקי קישורים של מייל פותחים כתובות).
+# הסרה מתזכורות מדריך ההתחלה: נקראת מ-reminders-off.html (POST מהדפדפן) עם טוקן מקישור שבתחתית מייל, בלי כניסה.
+# ההרשאה היא חתימת hmac בטוקן (‏_shared/onboarding-unsub.ts), וביצוע רק ב-POST (סורקי קישורים פותחים כתובות).
 [functions.onboarding-reminders-unsubscribe]
 verify_jwt = false
 
