@@ -48,6 +48,7 @@ function run(opts){
           { attributes: { fname: 'בת גלים', setl_name: 'חיפה', nbr_code: 12 } },
           { attributes: { fname: 'גבעת עמל', setl_name: 'קרית ביאליק', nbr_code: 21 } },
           { attributes: { fname: 'מרכז', setl_name: 'עכו', nbr_code: 31 } },
+          { attributes: { fname: 'הגורן', setl_name: 'זיכרון יעקב', nbr_code: 41 } },   // כתיב של GovMap
         ] } }); },
       search: (p) => { calls.search.push(p.searchText + (p.layers ? ' [L]' : ''));
         if (opts.layersReject && p.layers) return Promise.reject(new Error('bad layers'));
@@ -65,7 +66,8 @@ function run(opts){
   };
   const sandbox = { window: win, document: { head: { appendChild(){} }, createElement: () => ({}) }, console: { warn(){} } };
   new Function('window', 'document', 'console', src)(win, sandbox.document, sandbox.console);
-  return win.GovmapLookup.neighborhoodsInArea([32.72, 34.94, 32.89, 35.13], ['חיפה', 'קריית ביאליק'], () => {}).then(r => ({ r, calls }), e => ({ err: e.message, calls }));
+  const cities = opts.cities || ['חיפה', 'קריית ביאליק'];
+  return win.GovmapLookup.neighborhoodsInArea([32.72, 34.94, 32.89, 35.13], cities, () => {}).then(r => ({ r, calls }), e => ({ err: e.message, calls }));
 }
 (async () => {
   let fail = 0; const ok = (n, c) => { console.log((c ? '✓ ' : '✗ ') + n); if (!c) fail++; };
@@ -73,6 +75,9 @@ function run(opts){
   ok('רשת נקודות על התיבה (20-40 קריאות)', calls.layer >= 20 && calls.layer <= 40);
   ok('שלוש שכונות, בלי כפילויות מהעיגולים החופפים', r.length === 3);
   ok('עכו (לא בשוק) לא נכנסה', !r.some(h => h.name === 'מרכז'));
+  ok('"זיכרון יעקב" של GovMap בלי כינוי - לא נכנסת', !r.some(h => h.name === 'הגורן'));
+  const al = await run({ cities: ['חיפה', 'קריית ביאליק', { name: 'זיכרון יעקב', as: 'זכרון יעקב' }], hits: [] });
+  ok('כינוי עיר { name, as }: "זיכרון יעקב" של GovMap נשמרת כ"זכרון יעקב" שלנו', al.r.some(h => h.name === 'הגורן' && h.settlement === 'זכרון יעקב'));
   ok('"קרית ביאליק" של GovMap מתאים ל"קריית ביאליק" שלנו, בשם שלנו', r.some(h => h.name === 'גבעת עמל' && h.settlement === 'קריית ביאליק'));
   const ns = r.find(h => h.name === 'נווה שאנן');
   ok('נווה שאנן: גבול [lat,lng] ומרכז', ns.boundary && ns.boundary.length >= 3 && ns.boundary[0][0] === 32.8 && ns.boundary[0][1] === 35 && ns.lat === 32.8);

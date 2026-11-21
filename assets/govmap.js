@@ -723,8 +723,15 @@
    * מצולע בירדן, ועדיף בלי גבול (SKILL.md, "סדר הצירים").
    */
   function neighborhoodsInArea(bbox, cities, onProgress) {
+    // ‏cities: שמות, או { name, as } - כתיב של GovMap (כינוי מ-city_aliases,
+    // "זיכרון יעקב") שנשמר אצלנו בשם שלנו ("זכרון יעקב"). זכרון יעקב חזרה
+    // עם 0 שכונות בייבוא של 21.11.2026 בעוד שכנותיה חזרו מלאות - כתיב שונה
+    // ביישוב הוא ההסבר הראשון לבדוק, לפני "אין בשכבה".
     var want = {};
-    (cities || []).forEach(function (c) { want[settlementKey(c)] = c; });
+    (cities || []).forEach(function (c) {
+      if (c && typeof c === 'object') want[settlementKey(c.name)] = c.as || c.name;
+      else want[settlementKey(c)] = c;
+    });
     var tick = typeof onProgress === 'function' ? onProgress : function () {};
     var diag = {};
     var M = 0.05;
