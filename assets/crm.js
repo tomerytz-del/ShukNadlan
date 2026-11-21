@@ -30932,16 +30932,20 @@ document.getElementById('acIntensity')?.addEventListener('input', adsSyncIntensi
    ולטופס הסרטונים. ‏onInput נקראת בכל הקלדה (איפוס בחירה קודמת), ‏onPick(p, label)
    בבחירה, ו-emptyNote מוצגת כשאין תוצאה (בלי הערה - רשימה ריקה). */
 function bindActivePropertyPicker(input, list, { onInput, onPick, emptyNote }){
-  let timer = null;
+  let timer = null, seq = 0;
   input.addEventListener('input', ()=>{
     if (onInput) onInput();
     clearTimeout(timer);
+    // ‏כל הקלדה מקדמת את seq: תשובה של שאילתה שכבר יצאה ולא התבטלה עם ה-timer
+    // (למשל אחרי מחיקת הטקסט) נזרקת במקום לפתוח מחדש רשימה ישנה.
+    const mySeq = ++seq;
     // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
     const q = input.value.replace(/[,()%*\\]/g, ' ').trim();
     if (q.length < 2){ list.hidden = true; return; }
     timer = setTimeout(async ()=>{
       const { data } = await sb.from('properties').select('id, title, city')
         .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
+      if (mySeq !== seq) return;
       list.innerHTML = '';
       (data || []).forEach(p => {
         const li = admEl('li');
