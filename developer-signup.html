@@ -9,6 +9,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- מדידת אירועים (‏shukTrack): משפך ההרשמה - לחיצה על הכפתור, התחלת מילוי, שגיאה והרשמה שהושלמה.
+     אין בדף קישור קשר, ולכן המאזין המואצל של contact_agent אינו סופר כאן דבר. ‏docs/analytics-events.md -->
+<script src="assets/events.js"></script>
 <!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
 <script src="assets/friendly-error.js"></script>
 <script src="/assets/visit-attr.js"></script>
@@ -298,7 +301,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           פרסום הפרויקטים בחינם ל-<span data-free-months>6</span> חודשים
         </span>
         <p class="ps-lead">דף נחיתה משלכם לכל פרויקט, ודף חברה אחד, מול מי שמחפש דירה חדשה בעפולה והעמק.</p>
-        <a class="ps-cta ps-cta-light" href="#signup">פותחים חשבון ומפרסמים בחינם ←</a>
+        <a class="ps-cta ps-cta-light" href="#signup" data-cta="hero">פותחים חשבון ומפרסמים בחינם ←</a>
         <ul class="ps-ticks">
           <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא כרטיס אשראי</li>
           <li><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3c95a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>ללא התחייבות</li>
@@ -368,7 +371,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>הפרויקט מוצג בדף הבית, בדף החברה ובדף שמרכז את כל הפרויקטים באזור.</p>
       </div>
     </div>
-    <a class="ps-cta ps-cta-dark" href="#signup">פותחים חשבון ומפרסמים בחינם ←</a>
+    <a class="ps-cta ps-cta-dark" href="#signup" data-cta="benefits">פותחים חשבון ומפרסמים בחינם ←</a>
   </section>
 
   <section class="ps-wrap ps-sec">
@@ -529,7 +532,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ps-wrap ps-narrow">
       <h2>הקונים הבאים שלכם מחפשים דירה חדשה בשוק הנדל״ן</h2>
       <p>פותחים חשבון, מעלים את הפרויקט, ומפרסמים בחינם.</p>
-      <a class="ps-cta ps-cta-gold" href="#signup">פותחים חשבון ומפרסמים בחינם</a>
+      <a class="ps-cta ps-cta-gold" href="#signup" data-cta="closing">פותחים חשבון ומפרסמים בחינם</a>
       <small>ללא כרטיס אשראי · ללא התחייבות</small>
       <a href="/" class="ps-home">חזרה לדף הבית</a>
     </div>
@@ -558,6 +561,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+/* ---------- משפך ההרשמה ----------
+   ארבעה אירועים: לחיצה על הכפתור, מגע ראשון בשדה, שגיאה והרשמה שהושלמה. **בלי תוכן השדות**: רק סוג המפרסם וסיבת
+   העצירה (אין PII ל-GA4). הטריגרים והתגיות: docs/gtm-dev-signup-import.json.
+   הקריאות כתובות כ-shukTrack('שם', ...) מפורש ולא דרך עטיפה, כדי ש-check_gtm_container.py ימצא אותן.
+   ‏events.js נחסם לפעמים (חוסם פרסומות), ואז ההרשמה חייבת להמשיך לעבוד. */
+if (!window.shukTrack) window.shukTrack = function(){ return false; };
+function trackError(reason){ shukTrack('dev_signup_error', { reason }); }
+document.querySelectorAll('a[data-cta]').forEach(a =>
+  a.addEventListener('click', ()=> shukTrack('dev_signup_cta_click', { cta: a.dataset.cta })));
+(function(){
+  const form = document.querySelector('.ps-form');
+  if (!form) return;
+  const onStart = ()=>{ form.removeEventListener('focusin', onStart); shukTrack('dev_signup_start'); };
+  form.addEventListener('focusin', onStart);
+})();
+
 const SIGNUP_URL = SUPABASE_URL + '/functions/v1/developer-signup';
 const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
 const el = id => document.getElementById(id);
@@ -694,25 +713,25 @@ el('companyNumber').addEventListener('blur', ()=>{ clearTimeout(cnTimer); checkC
 
 el('submitBtn').addEventListener('click', async ()=>{
   const feedback = el('feedback'), btn = el('submitBtn');
-  const fail = (msg)=>{ feedback.style.color = ERR_COLOR; feedback.textContent = msg; };
+  const fail = (msg, reason)=>{ feedback.style.color = ERR_COLOR; feedback.textContent = msg; if (reason) trackError(reason); };
   const val = id => el(id).value.trim();
 
   const missing = REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
   if (missing.length){
     return fail(missing.length === 1
       ? 'חסר שדה חובה: ' + missing[0]
-      : 'חסרים שדות חובה: ' + missing.join(', '));
+      : 'חסרים שדות חובה: ' + missing.join(', '), 'missing');
   }
 
   const kindEl = document.querySelector('input[name="kind"]:checked');
   el('kindGroup').classList.toggle('is-error', !kindEl);
-  if (!kindEl) return fail('נא לבחור מי אתם: יזם, קבלן או משווק נדל״ן לפרויקטים חדשים');
+  if (!kindEl) return fail('נא לבחור מי אתם: יזם, קבלן או משווק נדל״ן לפרויקטים חדשים', 'no_kind');
   const kind = kindEl.value;
 
   const companyNumber = normalizeCompanyNumber(val('companyNumber'));
-  if (!companyNumber) return fail('מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות');
-  if (val('password').length < 8) return fail('הסיסמה צריכה להכיל לפחות 8 תווים');
-  if (!el('termsConsent').checked) return fail('ההצטרפות מותנית באישור תנאי השימוש');
+  if (!companyNumber) return fail('מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות', 'number');
+  if (val('password').length < 8) return fail('הסיסמה צריכה להכיל לפחות 8 תווים', 'password');
+  if (!el('termsConsent').checked) return fail('ההצטרפות מותנית באישור תנאי השימוש', 'terms');
 
   btn.disabled = true; btn.textContent = 'פותחים את החשבון…'; feedback.textContent = '';
   try{
@@ -750,10 +769,13 @@ el('submitBtn').addEventListener('click', async ()=>{
           ? 'שדות שאינם תקינים: ' + named(data.invalid)
           : 'חסרים שדות חובה: ' + named(data.missing),
       };
-      fail(messages[data.error] || (window.FriendlyError ? FriendlyError.text(data.detail || data.error) : data.detail || data.error));
+      const REASONS = { company_number_taken:'number_taken', company_registry_rejected:'registry', auth_error:'auth', weak_password:'password', terms_not_accepted:'terms', missing_fields:'missing' };
+      fail(messages[data.error] || (window.FriendlyError ? FriendlyError.text(data.detail || data.error) : data.detail || data.error),
+           REASONS[data.error] || 'server');
       btn.disabled = false; btn.textContent = SUBMIT_LABEL;
       return;
     }
+    shukTrack('dev_signup_complete', { kind });
     el('devPageLink').href = '/developer?slug=' + encodeURIComponent(data.developer_slug);
     if (data.registry_status === 'verified' && data.registry_name){
       el('doneRegistry').textContent = 'אומת מול רשם החברות: ' + data.registry_name;
@@ -768,7 +790,7 @@ el('submitBtn').addEventListener('click', async ()=>{
     window.scrollTo(0, 0);
   } catch(err){
     console.error(err);
-    fail('שגיאת רשת - נסו שוב');
+    fail('שגיאת רשת - נסו שוב', 'network');
     btn.disabled = false; btn.textContent = SUBMIT_LABEL;
   }
 });

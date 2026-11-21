@@ -347,6 +347,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `docs/gtm-pwa-import.json` | ששת אירועי ה-PWA: 6 טריגרים, 6 תגיות, 3 משתנים |
 | `docs/gtm-open-house-import.json` | ‏`oh_calc_used` של דף היריד: טריגר ותגית, בלי משתנים חדשים (‏`page_type` ו-`src` דרך ה-`DLV` הקיימים) |
 | `docs/gtm-pro-signup-import.json` | משפך ההרשמה של בעלי המקצוע: ‏`pro_signup_cta_click`, ‏`pro_signup_start`, ‏`pro_signup_error`, ‏`pro_signup_complete` - 4 טריגרים ו-4 תגיות, בלי משתנים חדשים (‏`page_type`, ‏`cta`, ‏`reason`, ‏`type` דרך ה-`DLV` הקיימים). יובא ופורסם בגרסה 20 של המכולה (18.11.2026) |
+| `docs/gtm-dev-signup-import.json` | משפך ההרשמה של יזמים, קבלנים ומשווקים: ‏`dev_signup_cta_click`, ‏`dev_signup_start`, ‏`dev_signup_error`, ‏`dev_signup_complete` - 4 טריגרים ו-4 תגיות, בלי משתנים חדשים (‏`page_type`, ‏`cta`, ‏`reason`, ‏`kind` דרך ה-`DLV` הקיימים). יובא ופורסם בגרסה 22 של המכולה (22.11.2026) |
 
 שניהם ב-`Admin ← Import Container` במצב `Merge`. ‏`gtm/README.md`.
 
@@ -500,6 +501,10 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `pro_signup_start` | מגע ראשון בשדה של טופס ההרשמה של בעלי המקצוע, פעם אחת לטעינת דף | — |
 | `pro_signup_error` | שליחת הטופס נעצרה, בדפדפן או בתשובת השרת. **תוכן השדות לא נשלח** | `reason`: ‏`missing` \| `no_type` \| `phone` \| `email` \| `card_exists` \| `promo_used` \| `server` \| `network` |
 | `pro_signup_complete` | ההרשמה התקבלה בשרת ומסך הסיום הוצג | `type`: התחום שנבחר (‏`advertiser_type`) |
+| `dev_signup_cta_click` | לחיצה על אחד משלושת כפתורי "פותחים חשבון ומפרסמים בחינם" ב-`developer-signup.html` (22.11.2026) | `cta`: ‏`hero` \| `benefits` \| `closing` |
+| `dev_signup_start` | מגע ראשון בשדה של טופס ההרשמה של יזמים, קבלנים ומשווקים, פעם אחת לטעינת דף | — |
+| `dev_signup_error` | שליחת הטופס נעצרה, בדפדפן או בתשובת השרת. **תוכן השדות לא נשלח** | `reason`: ‏`missing` \| `no_kind` \| `number` \| `password` \| `terms` \| `number_taken` \| `registry` \| `auth` \| `server` \| `network` |
+| `dev_signup_complete` | ההרשמה התקבלה בשרת ומסך הסיום הוצג | `kind`: ‏`developer` \| `contractor` \| `marketer` |
 | `search_pro_suggest` | שורת החיפוש זיהתה בקשה לבעלי מקצוע והציגה הצעה (פעם אחת לתחום) | `type`, `surface`: ‏`home` |
 | `search_pro_click` | מעבר לדף בעלי המקצוע מההצעה, או Enter כשההצעה היא היחידה | `type`, `surface` |
 | `search_listing_number` | חיפוש לפי מספר מודעה ב-Enter. בלי המספר עצמו | `found`: ‏`1` \| `0`, `surface`: ‏`home` |
