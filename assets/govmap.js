@@ -742,35 +742,61 @@
       }
       var found = {};
       var done = 0;
+      /* קיטוע: GovMap מחזירה לכל קריאה מספר מוגבל של תכונות, בלי לומר שקצצה.
+         חדרה (21.11.2026): 7 שכונות, כולן עד האות ב', מתוך ~29 ברשות המיסים;
+         תל אביב (17.10.2026): 24 עד האות כ', מתוך 72. לכן עיגול שחזר עם DENSE
+         תכונות ומעלה נחשב חשוד ומתחלק לארבעה עיגולים קטנים (רדיוס 0.75 מהמקורי,
+         במרכזים ±r/2 - מכסים אותו), עד MIN_RADIUS. באזור דליל אין מחיר; בלב
+         עיר - עוד כמה עשרות קריאות. diag.maxFeatures אומר אחרי הריצה מה
+         הקריאה הצפופה ביותר החזירה - המספר שמלמד על התקרה האמיתית. */
+      var DENSE = 8, MIN_RADIUS = 600, MAX_CALLS = 800;
+      var queue = points.map(function (pt) { return { pt: pt, radius: 2500 }; });
+      diag.maxFeatures = 0; diag.splits = 0; diag.capped = false;
 
-      return points.reduce(function (chain, pt) {
-        return chain.then(function () {
-          var xy = proj4('WGS84', ITM_DEF, [pt[1], pt[0]]);
-          return gm.getLayerFeaturesByLocation({
-            geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
-            radius: 2500,
-            layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
-          }, GOVMAP_TOKEN).then(function (r) {
-            assertNoLayerErrors(r);
-            var feats = r.layers.neighborhoods_area || [];
-            if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
-            feats.forEach(function (f) {
-              var a = f.attributes || {};
-              var city = want[settlementKey(a.setl_name)];
-              var name = String(a.fname || '').trim();
-              if (!city || !name) return;
-              var key = settlementKey(city) + '|' + textKey(name);
-              if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null, boundary: null };
-              if (!found[key].boundary) {
-                var polys = findPolys(f);
-                var ring = polys ? outerRingLatLng(proj4, polys) : null;
-                if (ring && inArea(ringCenter(ring))) found[key].boundary = ring;
-              }
-            });
-            tick(++done, points.length, 'scan');
+      function scanOne(job) {
+        var xy = proj4('WGS84', ITM_DEF, [job.pt[1], job.pt[0]]);
+        return gm.getLayerFeaturesByLocation({
+          geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
+          radius: job.radius,
+          layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
+        }, GOVMAP_TOKEN).then(function (r) {
+          assertNoLayerErrors(r);
+          var feats = r.layers.neighborhoods_area || [];
+          if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
+          if (feats.length > diag.maxFeatures) diag.maxFeatures = feats.length;
+          feats.forEach(function (f) {
+            var a = f.attributes || {};
+            var city = want[settlementKey(a.setl_name)];
+            var name = String(a.fname || '').trim();
+            if (!city || !name) return;
+            var key = settlementKey(city) + '|' + textKey(name);
+            if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null, boundary: null };
+            if (!found[key].boundary) {
+              var polys = findPolys(f);
+              var ring = polys ? outerRingLatLng(proj4, polys) : null;
+              if (ring && inArea(ringCenter(ring))) found[key].boundary = ring;
+            }
           });
+          if (feats.length >= DENSE && job.radius > MIN_RADIUS) {
+            if (queue.length + 4 > MAX_CALLS) diag.capped = true;
+            else {
+              diag.splits++;
+              var r2 = job.radius * 0.75, d = job.radius / 2;
+              var dLat = d / 111000, dLng = d / (111000 * Math.cos(job.pt[0] * Math.PI / 180));
+              [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(function (sgn) {
+                queue.push({ pt: [job.pt[0] + sgn[0] * dLat, job.pt[1] + sgn[1] * dLng], radius: r2 });
+              });
+            }
+          }
+          tick(++done, queue.length, 'scan');
         });
-      }, Promise.resolve()).then(function () {
+      }
+      function drain() {
+        if (done >= queue.length) return Promise.resolve();
+        return scanOne(queue[done]).then(drain);
+      }
+
+      return drain().then(function () {
         var list = Object.keys(found).map(function (k) { return found[k]; });
         var n = 0;
         return list.reduce(function (chain, h) {
