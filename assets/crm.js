@@ -3585,14 +3585,24 @@ let hoodImportRows = [];
    לפני הריצה הראשונה, ובלעדיהן כל תיקון הוא ניחוש. */
 let hoodImportDiag = null;
 
+/* ממלאת את בורר השוק של הייבוא. רשימת השווקים מגיעה מ-assets/markets.js,
+   שנטען עצל (הקבוצה 'markets'), ופאנל הניהול נפתח מהתפריט בלי לחכות לה:
+   עד 21.11.2026 הבורר נשאר ריק (רק חץ) לכל מי שלא ביקר/ה קודם בפאנל שטוען
+   אותה, והסריקה לא יצאה לדרך. לכן: אם הרשימה עוד לא כאן, מחכים לה
+   וממלאים כשהיא מגיעה. אידמפוטנטית - בורר מלא לא מצויר שוב. */
 function hoodImportInit(){
   const sel = document.getElementById('hoodImportMarket');
-  if (!sel || sel.options.length) return;
+  if (!sel || sel.options.length) return Promise.resolve();
   const list = (window.ShukMarkets && window.ShukMarkets.list) || [];
+  if (!list.length){
+    if (!window.crmNeed) return Promise.resolve();
+    return crmNeed('markets').then(() => hoodImportInit(), err => console.warn('markets.js לא נטען:', err));
+  }
   sel.innerHTML = list.map(m => `<option value="${esc(m.slug)}">${esc(m.label)}</option>`).join('');
   // השוק שאינו ברירת המחדל קודם - בו יש מה לייבא
   const other = list.find(m => !m.isDefault);
   if (other) sel.value = other.slug;
+  return Promise.resolve();
 }
 
 function hoodImportStatus(text){
@@ -3635,8 +3645,17 @@ function renderHoodImport(){
 }
 
 async function scanHoodImport(){
+  // הבורר ריק כשהרשימה הגיעה אחרי שהפאנל צויר - ממלאים לפי דרישה.
+  if (!document.getElementById('hoodImportMarket')?.options.length){
+    hoodImportStatus('טוען את רשימת השווקים…');
+    await hoodImportInit();
+  }
   const slug = document.getElementById('hoodImportMarket')?.value;
   const market = window.ShukMarkets && window.ShukMarkets.bySlug(slug);
+  if (!market){
+    hoodImportStatus(slug ? 'השוק לא נמצא ברשימת השווקים.' : 'רשימת השווקים לא נטענה. רעננו את הדף ונסו שוב.');
+    return;
+  }
   // הפאנל מגיע דרך crm-lazy עם 'govmap', אבל לא סומכים על הסדר: הקובץ
   // נטען כאן לפי דרישה, כמו בשמירת נכס. בלי זה הכפתור ענה "GovMap לא
   // נטען" למי שפתח/ה את הפאנל ישירות (21.11.2026).
@@ -3645,7 +3664,6 @@ async function scanHoodImport(){
     try { await crmNeed('govmap'); } catch (e) { console.warn('GovMap לא נטען:', e); }
   }
   const GL = window.GovmapLookup;
-  if (!market){ hoodImportStatus('השוק לא נמצא ברשימת השווקים.'); return; }
   if (!GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען. רעננו את הדף ונסו שוב.'); return; }
   const btn = document.getElementById('hoodImportScan');
   btn.disabled = true;
