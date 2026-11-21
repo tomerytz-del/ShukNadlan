@@ -91,7 +91,8 @@
     var by = {};
     (rows || []).forEach(function (r) {
       if (!r || !r.city || !(Number(r.median_price) > 0) || !(Number(r.listings) > 0)) return;
-      (by[r.city] = by[r.city] || []).push(r);
+      var key = (r.market_slug || '') + '|' + r.city;
+      (by[key] = by[key] || []).push(r);
     });
     Object.keys(by).forEach(function (k) {
       by[k].sort(function (a, b) { return a.rooms - b.rooms; });
@@ -154,7 +155,7 @@
         '</tbody></table></div>' +
         '<p class="prices-note">' + num(c.deals) + ' עסקאות דירה ב' + escapeHtml(c.city) +
         ' בשנה האחרונה במאגר.</p>' +
-        (asking[c.city] ? askingTable(c.city, asking[c.city], c.rows) : '') +
+        (asking[(c.market || '') + '|' + c.city] ? askingTable(c.city, asking[(c.market || '') + '|' + c.city], c.rows) : '') +
         '</section>'
       );
     });

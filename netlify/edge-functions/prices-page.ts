@@ -75,7 +75,13 @@ type RowsResult<T> = { ok: true; rows: T[] } | { ok: false };
    להחזיק את כל הדף (ואת המטמון) עד הגבול של העסקאות. */
 const ASKING_TIMEOUT_MS = 1500;
 
-async function rpc<T>(name: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<RowsResult<T>> {
+/* ‏`missingIsEmpty`: פונקציה שעוד אינה במסד (404) היא "אין נתון", לא כשל. האתר עולה בשניות
+   והמיגרציה דקות אחריו (deploy-path), ובלי זה הדף היה יוצא חלקי ובלי מטמון עד שהמיגרציה רצה. */
+async function rpc<T>(
+  name: string,
+  timeoutMs = FETCH_TIMEOUT_MS,
+  missingIsEmpty = false,
+): Promise<RowsResult<T>> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -89,6 +95,7 @@ async function rpc<T>(name: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<RowsR
       body: "{}",
       signal: ctrl.signal,
     });
+    if (missingIsEmpty && res.status === 404) return { ok: true, rows: [] };
     if (!res.ok) return { ok: false };
     const rows = await res.json();
     if (!Array.isArray(rows)) return { ok: false };
@@ -147,7 +154,7 @@ export default async function handler(_request: Request, context: Context) {
 
   const [got, askingGot] = await Promise.all([
     rpc<PriceRow>("city_price_table"),
-    rpc<AskingRow>("city_asking_price_table", ASKING_TIMEOUT_MS),
+    rpc<AskingRow>("city_asking_price_table", ASKING_TIMEOUT_MS, true),
   ]);
   if (!got.ok) {
     const prev = await recall(lastGoodKey(_request.url));
@@ -156,12 +163,6 @@ export default async function handler(_request: Request, context: Context) {
   }
   /* ‏המסד ענה ואין שורות: הדף נשאר 200, וה-JS ממלא. */
   if (!got.rows.length) return res;
-  /* ‏מחירי המודעות נכשלו ויש עותק של דף שלם (עסקאות ומחירי מודעות): הוא מוגש,
-     כמו בכשל עסקאות. בלי עותק הדף יוצא חלקי, וראו הכותרות למטה. */
-  if (!askingGot.ok) {
-    const prev = await recall(lastGoodKey(_request.url));
-    if (prev) return prev;
-  }
   /* ‏הגוף נקרא פעם אחת - ובכל חריגה בהזרקה יוצא כמו שנקרא. */
   const html = await res.text();
   let out = html;
@@ -172,14 +173,15 @@ export default async function handler(_request: Request, context: Context) {
   }
   const headers = new Headers(res.headers);
   headers.delete("content-length");
-  /* ‏הנתונים מתעדכנים לכל היותר פעם ביום (‏deals_scraper). דף שלא מולא, או
-     שמולא בלי מחירי המודעות, אינו נשמר במטמון ואינו נשמר כעותק אחרון: כשל רגעי
-     לא יוגש שעה שלמה. */
+  /* ‏הנתונים מתעדכנים לכל היותר פעם ביום (‏deals_scraper). דף שלא מולא אינו נשמר
+     במטמון. דף שמולא בלי מחירי המודעות (כשל, לא היעדר) נשמר דקה בלבד ואינו נשמר
+     כעותק אחרון: כשל רגעי לא יוגש שעה שלמה, ובלי מטמון כל בקשה הייתה משלמת את
+     ה-timeout. העסקאות בו טריות, ולכן הוא עדיף על עותק ישן. */
   const filled = out !== html;
   if (filled) {
     const complete = askingGot.ok;
-    headers.set("Netlify-CDN-Cache-Control", complete ? "public, max-age=3600, stale-while-revalidate=86400" : "no-store");
-    headers.set("Cache-Control", complete ? "public, max-age=0, must-revalidate" : "no-store");
+    headers.set("Netlify-CDN-Cache-Control", complete ? "public, max-age=3600, stale-while-revalidate=86400" : "public, max-age=60");
+    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
   const response = new Response(out, { status: res.status, headers });
   if (filled && askingGot.ok) await remember(lastGoodKey(_request.url), response, waitUntilOf(context));

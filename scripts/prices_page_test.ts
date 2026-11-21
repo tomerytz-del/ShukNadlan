@@ -121,19 +121,45 @@ for (const [name, reply] of [
   const text = await res.text();
   check(`מחירי מודעות - ${name}: 200 עם העסקאות, בלי טבלת מבוקש`,
     res.status === 200 && text.includes("₪1,438,000") && !text.includes("מבוקש מול נסגר ב"));
-  check(`מחירי מודעות - ${name}: no-store בשתי הכותרות`, res.headers.get("Cache-Control") === "no-store"
-    && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+  check(`מחירי מודעות - ${name}: מטמון של דקה בלבד`, (res.headers.get("Netlify-CDN-Cache-Control") || "") === "public, max-age=60");
   const next = await run(500, {});
   check(`מחירי מודעות - ${name}: דף חלקי אינו נשמר כעותק אחרון`, next.status === 503);
 }
 
-/* ‏יש עותק של דף שלם, ומחירי המודעות נכשלים: העותק מוגש, לא דף חלקי. */
+/* ‏יש עותק של דף שלם, ומחירי המודעות נכשלים: הדף הטרי עם העסקאות מוגש, לא העותק הישן. */
 resetLastGood();
 await (await run(200, ROWS, ASKING)).text();
-const fromCopy = await run(200, ROWS, { status: 500, body: {} });
-const copyHtml = await fromCopy.text();
-check("מחירי מודעות נכשלו אחרי דף שלם: מוגש העותק עם טבלת המבוקש", fromCopy.status === 200
-  && copyHtml.includes("<h4>מבוקש מול נסגר בעפולה</h4>"));
+const freshDeals = [{ ...ROWS[1], median_price: 1500000 }, ...ROWS.slice(2)];
+const fresh = await run(200, freshDeals, { status: 500, body: {} });
+const freshHtml = await fresh.text();
+check("מחירי מודעות נכשלו אחרי דף שלם: העסקאות הטריות מוגשות, לא העותק", fresh.status === 200
+  && freshHtml.includes("₪1,500,000") && !freshHtml.includes("מבוקש מול נסגר ב"));
+
+/* ‏הפונקציה עוד אינה במסד (404): "אין נתון", הדף שלם ונשמר כרגיל. */
+resetLastGood();
+const missing = await run(200, ROWS, { status: 404, body: { code: "PGRST202" } });
+const missingHtml = await missing.text();
+check("מחירי מודעות 404: הדף עם העסקאות, בלי טבלת מבוקש", missing.status === 200
+  && missingHtml.includes("₪1,438,000") && !missingHtml.includes("מבוקש מול נסגר ב"));
+check("מחירי מודעות 404: נשמר במטמון שעה, כדף שלם", (missing.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+const afterMissing = await run(500, {});
+check("מחירי מודעות 404: הדף נשמר כעותק אחרון", afterMissing.status === 200);
+
+/* ‏אותו שם עיר בשני שווקים: מחירי המודעות נצמדים לשוק של העיר, ולא למי שנושאת את השם. */
+const twin = await run(
+  200,
+  [ROWS[1], { ...ROWS[1], market_slug: "haifa", city: "עפולה" }],
+  {
+    status: 200,
+    body: [
+      { market_slug: "afula-emek", city: "עפולה", rooms: 4, listings: 7, median_price: 1450000, as_of: "2026-11-21" },
+      { market_slug: "haifa", city: "עפולה", rooms: 4, listings: 7, median_price: 999000, as_of: "2026-11-21" },
+    ],
+  },
+);
+const twinHtml = await twin.text();
+check("מחירי מודעות לפי שוק ועיר: אין ערבוב בין שווקים",
+  (twinHtml.match(/מבוקש מול נסגר ב/g) || []).length === 1 && twinHtml.includes("₪1,450,000") && !twinHtml.includes("₪999,000"));
 
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
