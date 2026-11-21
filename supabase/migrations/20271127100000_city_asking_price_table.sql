@@ -14,7 +14,9 @@
 --     (במדלן הוא אינו נשמר).
 --   * אותה חלוקה לחדרים כמו city_price_table: עד 2.5, 3, 4, 5, 5.5 ומעלה.
 --   * תא מתחת ל-5 מודעות מושתק כאן, במסד, כמו בעסקאות.
---   * רק ערים ששייכות לשוק (cities.market_slug), כמו בעסקאות.
+--   * רק ערים ששייכות לשוק (cities.market_slug), כמו בעסקאות. ההצטרפות לפי
+--     city_id (אינדקס, ושם העיר הקנוני של cities.name גם כשהמודעה כתובה בכינוי), ולא
+--     לפי השם, שאינו ייחודי ב-cities.
 -- אין ניכוי כפילויות: אותו נכס שמופיע ביד2 ובמדלן, או פעמיים ביד2, נספר פעמיים.
 -- הסימון is_duplicate נבנה לסקירה ומתאים גם דירות שונות באותו מחיר (46% מהדירות
 -- מסומנות), ולכן ניכוי לפיו היה מוחק דירות אמיתיות. החציון עמיד לכפילות כזו.
@@ -32,7 +34,7 @@ set search_path = ''
 as $$
   with l as (
     select c.market_slug,
-           i.city,
+           c.name as city,
            case when i.rooms < 2.5 then 2
                 when i.rooms < 3.5 then 3
                 when i.rooms < 4.5 then 4
@@ -41,7 +43,7 @@ as $$
            i.price,
            i.last_seen_at
       from public.listing_inventory i
-      join public.cities c on c.name = i.city
+      join public.cities c on c.id = i.city_id
      where c.market_slug is not null
        and i.source in ('yad2', 'madlan')
        and i.deal_type = 'sale'

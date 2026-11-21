@@ -111,18 +111,29 @@ check("תאריך הנתון בהערה", askHtml.includes("נכון ל-21.11.20
 check("עיר בלי עסקאות לא מקבלת טבלה", !askHtml.includes("עיר ללא עסקאות"));
 check("מחירי מודעות תקינים: דף נשמר במטמון", (askRes.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 
-resetLastGood();
-const half = await run(200, ROWS, { status: 500, body: {} });
-const halfHtml = await half.text();
-check("מחירי מודעות נכשלו: הדף יוצא 200 עם העסקאות", half.status === 200 && halfHtml.includes("₪1,438,000") && !halfHtml.includes("מבוקש מול נסגר ב"));
-check("מחירי מודעות נכשלו: no-store בשתי הכותרות", half.headers.get("Cache-Control") === "no-store"
-  && half.headers.get("Netlify-CDN-Cache-Control") === "no-store");
-const afterHalf = await run(500, {});
-check("דף חלקי אינו נשמר כעותק אחרון (כשל עסקאות: 503)", afterHalf.status === 503);
+/* ‏מחירי המודעות נכשלו (שגיאה, או גוף שאינו מערך), בלי עותק קודם: דף עסקאות ב-200, בלי מטמון. */
+for (const [name, reply] of [
+  ["שגיאה 500", { status: 500, body: {} }],
+  ["גוף שאינו מערך", { status: 200, body: { message: "x" } }],
+] as [string, Reply][]) {
+  resetLastGood();
+  const res = await run(200, ROWS, reply);
+  const text = await res.text();
+  check(`מחירי מודעות - ${name}: 200 עם העסקאות, בלי טבלת מבוקש`,
+    res.status === 200 && text.includes("₪1,438,000") && !text.includes("מבוקש מול נסגר ב"));
+  check(`מחירי מודעות - ${name}: no-store בשתי הכותרות`, res.headers.get("Cache-Control") === "no-store"
+    && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+  const next = await run(500, {});
+  check(`מחירי מודעות - ${name}: דף חלקי אינו נשמר כעותק אחרון`, next.status === 503);
+}
 
-const oddAsk = await run(200, ROWS, { status: 200, body: { message: "x" } });
-const oddHtml = await oddAsk.text();
-check("מחירי מודעות בגוף שאינו מערך: הדף עם העסקאות בלבד", oddAsk.status === 200 && oddHtml.includes("₪1,438,000") && !oddHtml.includes("מבוקש מול נסגר ב"));
+/* ‏יש עותק של דף שלם, ומחירי המודעות נכשלים: העותק מוגש, לא דף חלקי. */
+resetLastGood();
+await (await run(200, ROWS, ASKING)).text();
+const fromCopy = await run(200, ROWS, { status: 500, body: {} });
+const copyHtml = await fromCopy.text();
+check("מחירי מודעות נכשלו אחרי דף שלם: מוגש העותק עם טבלת המבוקש", fromCopy.status === 200
+  && copyHtml.includes("<h4>מבוקש מול נסגר בעפולה</h4>"));
 
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);

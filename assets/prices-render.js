@@ -102,24 +102,25 @@
   function askingTable(city, askingRows, dealRows) {
     var dealByRooms = {};
     dealRows.forEach(function (r) { dealByRooms[r.rooms] = r; });
-    var asOf = askingRows.reduce(function (best, r) { return r.as_of > best ? r.as_of : best; }, '');
+    var asOf = askingRows.map(function (r) { return r.as_of; }).sort().pop();
     return '<h4>מבוקש מול נסגר ב' + escapeHtml(city) + '</h4>' +
       '<div class="prices-scroll"><table class="prices-table prices-asking">' +
       '<thead><tr><th scope="col">גודל הדירה</th><th scope="col">מחיר מבוקש חציוני</th>' +
       '<th scope="col">מחיר עסקה חציוני</th><th scope="col">הפער</th>' +
       '<th scope="col">מודעות</th></tr></thead><tbody>' +
       askingRows.map(function (r) {
-        var d = dealByRooms[r.rooms];
+        var deal = dealByRooms[r.rooms] && dealByRooms[r.rooms].median_price;
         return '<tr><th scope="row">' + escapeHtml(roomsLabel(r.rooms)) + '</th>' +
           '<td>₪' + num(r.median_price) + '</td>' +
-          '<td>' + (d ? '₪' + num(d.median_price) : '-') + '</td>' +
-          '<td>' + (d ? gap(r.median_price, d.median_price) : '-') + '</td>' +
+          '<td>' + (deal ? '₪' + num(deal) : '-') + '</td>' +
+          '<td>' + gap(r.median_price, deal) + '</td>' +
           '<td>' + num(r.listings) + '</td></tr>';
       }).join('') +
       '</tbody></table></div>' +
       '<p class="prices-note">מחיר מבוקש הוא חציון המודעות הפעילות ב' + escapeHtml(city) +
       ' מלוחות הנדל״ן המרכזיים בישראל' + (asOf ? ', נכון ל-' + escapeHtml(heDate(asOf)) : '') +
-      ', ואינו מחיר עסקה. הפער הוא המבוקש ביחס לעסקאות שנסגרו.</p>';
+      ', ואינו מחיר עסקה. אותה דירה עשויה להופיע ביותר ממודעה אחת, והחציון עמיד לכך. ' +
+      'הפער הוא המבוקש ביחס לעסקאות שנסגרו.</p>';
   }
 
   /* ‏HTML של כל הטבלאות. ‏`labelFor(slug)` מחזיר את שם השוק ("חיפה והקריות"). */
