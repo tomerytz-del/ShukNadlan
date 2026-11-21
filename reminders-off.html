@@ -71,6 +71,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 const FUNCTION_URL = 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/onboarding-reminders-unsubscribe';
 // הטוקן ב-fragment ולא ב-query: GA4 רושם את כתובת הדף עם ה-query, ולא עם ה-fragment (ואין לטוקן תפוגה)
 const token = new URLSearchParams(location.hash.replace(/^#/, '')).get('t') || '';
+history.replaceState(null, '', location.pathname); // הטוקן נשמר במשתנה, וה-fragment יוצא מהכתובת (GTM עלול לשלוח את הכתובת המלאה ל-GA4)
 const btn = document.getElementById('stopBtn'), msg = document.getElementById('msg');
 
 function say(text, kind){ msg.textContent = text; msg.className = 'msg ' + (kind || ''); }
