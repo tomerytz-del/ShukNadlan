@@ -9,6 +9,8 @@
      ‏· המסד נכשל אחרי דף שמולא → 200 עם אותו HTML.
      ‏· המסד ענה מערך ריק → 200 והדף כמו שהוא.
      ‏· שם עיר עם ‎</script>‎ אינו סוגר תגית ואינו נכנס לטבלה כ-HTML.
+     ‏· מחירי מודעות (‏city_asking_price_table): טבלת "מבוקש מול נסגר" והפער;
+       כשלון בהם משאיר דף עסקאות ב-200 אבל בלי מטמון ובלי עותק אחרון.
 
    הרצה:
 
@@ -35,10 +37,15 @@ const ROWS = [
   { market_slug: "afula-emek", city: "כפר</script>תבור", rooms: 6, deals: 8, median_price: 3815000, median_ppsqm: 20800, period_start: "2025-08-14", period_end: "2026-08-13" },
 ];
 
-async function run(status: number, body: unknown): Promise<Response> {
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
-  ) as typeof fetch;
+type Reply = { status: number; body: unknown };
+const NO_ASKING: Reply = { status: 200, body: [] };
+
+async function run(status: number, body: unknown, asking: Reply = NO_ASKING): Promise<Response> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input instanceof Request ? input.url : input);
+    const reply = url.includes("city_asking_price_table") ? asking : { status, body };
+    return new Response(JSON.stringify(reply.body), { status: reply.status, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
   return await handler(new Request("https://shuknadlan.co.il/prices"), context());
 }
 
@@ -84,6 +91,38 @@ const stale = await run(500, {});
 check("אחרי הצלחה, כשל מגיש את אותו דף", stale.status === 200 && (await stale.text()) === againHtml && againHtml === html);
 check("העותק בלי Retry-After", !stale.headers.get("Retry-After")
   && (stale.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+
+/* ---------- מחירי מודעות: מבוקש מול נסגר ---------- */
+const ASKING = {
+  status: 200,
+  body: [
+    { market_slug: "afula-emek", city: "עפולה", rooms: 4, listings: 297, median_price: 1450000, as_of: "2026-11-21" },
+    { market_slug: "afula-emek", city: "עפולה", rooms: 3, listings: 90, median_price: 800000, as_of: "2026-11-21" },
+    { market_slug: "afula-emek", city: "עיר ללא עסקאות", rooms: 4, listings: 9, median_price: 1000000, as_of: "2026-11-19" },
+  ],
+};
+resetLastGood();
+const askRes = await run(200, ROWS, ASKING);
+const askHtml = await askRes.text();
+check("מחירי מודעות: הטבלה בדף", askHtml.includes("<h4>מבוקש מול נסגר בעפולה</h4>") && askHtml.includes("₪1,450,000"));
+check("הפער: 1,450,000 מול 1,438,000 הוא +1%", askHtml.includes('<span dir="ltr">+1%</span>'));
+check("הפער שלילי: 800,000 מול 920,000 הוא -13%", askHtml.includes('<span dir="ltr">-13%</span>'));
+check("תאריך הנתון בהערה", askHtml.includes("נכון ל-21.11.2026"));
+check("עיר בלי עסקאות לא מקבלת טבלה", !askHtml.includes("עיר ללא עסקאות"));
+check("מחירי מודעות תקינים: דף נשמר במטמון", (askRes.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+
+resetLastGood();
+const half = await run(200, ROWS, { status: 500, body: {} });
+const halfHtml = await half.text();
+check("מחירי מודעות נכשלו: הדף יוצא 200 עם העסקאות", half.status === 200 && halfHtml.includes("₪1,438,000") && !halfHtml.includes("מבוקש מול נסגר ב"));
+check("מחירי מודעות נכשלו: no-store בשתי הכותרות", half.headers.get("Cache-Control") === "no-store"
+  && half.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+const afterHalf = await run(500, {});
+check("דף חלקי אינו נשמר כעותק אחרון (כשל עסקאות: 503)", afterHalf.status === 503);
+
+const oddAsk = await run(200, ROWS, { status: 200, body: { message: "x" } });
+const oddHtml = await oddAsk.text();
+check("מחירי מודעות בגוף שאינו מערך: הדף עם העסקאות בלבד", oddAsk.status === 200 && oddHtml.includes("₪1,438,000") && !oddHtml.includes("מבוקש מול נסגר ב"));
 
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
