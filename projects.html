@@ -139,6 +139,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
   .section-head h2{font-size:1.35rem}
   .section-head p{margin:5px 0 0;font-size:.84rem;color:var(--ink-soft)}
+  .bk-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:560px){.bk-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.bk-grid{grid-template-columns:repeat(3,1fr)}}
+  .bk-tile{display:flex;flex-direction:column;background:var(--surface,#fff);border:1px solid var(--line,#dfe6f3);border-radius:14px;overflow:hidden;text-decoration:none;color:inherit}
+  .bk-tile .bk-img{position:relative;aspect-ratio:4/3;background:var(--teal-tint,#eaf0fb) center/cover no-repeat}
+  .bk-tile .bk-flag{position:absolute;inset-block-start:10px;inset-inline-start:10px;background:#fff;color:#0e2a6b;font-size:.74rem;font-weight:800;padding:4px 9px;border-radius:999px}
+  .bk-tile .bk-body{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+  .bk-tile .bk-by{font-size:.78rem;color:var(--ink-soft,#4a5878)}
   .grid{display:grid;grid-template-columns:1fr;gap:14px}
   @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr)}}
   @media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}
@@ -470,6 +478,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <h2>לא נמצאו פרויקטים</h2>
         <p>אף פרויקט לא עונה על הסינון הזה. אפשר לנקות את הסינונים או להשאיר פרטים, ונחפש בשבילכם.</p>
       </div>
+    </section>
+
+    <!-- ====== דירות חדשות מקבלן של יועצי נדל״ן ======
+         **רצועה נפרדת ולא מעורבת עם הפרויקטים**: בפרויקט קונים ישירות מהיזם או מהמשווק, בלי דמי תיווך;
+         בדירה של יועץ נדל״ן חלים דמי תיווך. כרטיסים מעורבים היו נותנים לגולש/ת להבין שגם הדירה הזו בלי
+         תיווך. מצב "חדש מקבלן" בלבד (מוזן על ידי היועץ/ת). נבנית ב-JS ונשארת סגורה כשאין מה להציג. -->
+    <section class="section" id="brokerSec" aria-labelledby="brokerHeading" hidden>
+      <div class="section-head">
+        <div>
+          <h2 id="brokerHeading">דירות חדשות מקבלן, מיועצי נדל״ן</h2>
+          <p id="brokerSub">דירות חדשות שלא גרו בהן, שמוצעות על ידי יועצי נדל״ן. <b>בדירות האלה חלים דמי תיווך.</b> בפרויקטים חדשים של יזמים ומשווקים הרכישה ישירה, ללא דמי תיווך.</p>
+        </div>
+      </div>
+      <div class="bk-grid" id="brokerGrid"></div>
     </section>
 
     <section class="section projects-guide" id="projectsGuide">
@@ -982,6 +1004,7 @@ function sortList(list){
 }
 
 function render(){
+  renderBroker();
   const filtered = all.filter(matches);
   const list = sortList(filtered);
 
@@ -1137,6 +1160,88 @@ function renderDevelopers(devs){
 }
 
 /* ---------- קישור עמוק ---------- */
+
+/* ---------- דירות חדשות מקבלן של יועצי נדל״ן ----------
+   רצועה **נפרדת** מהפרויקטים (בפרויקט אין דמי תיווך, בדירה של יועץ/ת יש). רק מצב "חדש מקבלן",
+   למכירה, ופעילות. המצב מוזן על ידי היועץ/ת ולכן הניסוח בכרטיס הוא "דירה חדשה מקבלן" ולא הבטחה על
+   אי-מגורים. טעינה עצלה של property-card.js: דף בלי דירות כאלה לא משלם עליו. כישלון משאיר את הרצועה סגורה. */
+const BROKER_SELECT = 'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, street, address, ' +
+  'property_type, deal_type, category, price_includes_vat, mamad_location, created_at, images, features, condition';
+const BROKER_MAX = 12;
+let brokerAll = [];
+
+function loadScriptOnce(src, ready){
+  return new Promise((resolve, reject)=>{
+    if (ready()) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.onload = ()=> resolve(); s.onerror = ()=> reject(new Error('load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadBrokerNew(){
+  try{
+    const { data, error } = await sb.from('properties').select(BROKER_SELECT)
+      .eq('status', 'active').eq('condition', 'new_from_contractor').eq('deal_type', 'sale')
+      .order('created_at', { ascending:false }).limit(60);
+    if (error || !Array.isArray(data) || !data.length) return;
+    await loadScriptOnce('assets/property-card.js', ()=> !!window.PropertyCard);
+    brokerAll = data;
+    renderBroker();
+  } catch(e){
+    console.warn('טעינת דירות היועצים נכשלה:', e);
+  }
+}
+
+function brokerMatches(p){
+  if (state.q){
+    const hay = [p.title, p.city, p.street, p.address].filter(Boolean).join(' ').toLowerCase();
+    if (!hay.includes(state.q.toLowerCase())) return false;
+  }
+  if (state.city && p.city !== state.city) return false;
+  if (state.rooms && (Number(p.rooms) || 0) < Number(state.rooms)) return false;
+  if (state.maxPrice){
+    // תקציב נבדק מול המחיר הכולל: מחיר למ״ר (נכס מסחרי) אינו סכום. דירה בלי מחיר לא מוצגת מול תקציב
+    const total = brokerTotal(p);
+    if (!total || total > Number(state.maxPrice)) return false;
+  }
+  return true;
+}
+function brokerTotal(p){
+  const t = Number(p.price_total);
+  if (t) return t;
+  const price = Number(p.price);
+  if (!price) return 0;
+  return p.price_unit === 'sqm' ? price * (Number(p.size_sqm) || 0) : price;
+}
+
+function renderBroker(){
+  const sec = el('brokerSec');
+  if (!sec || !brokerAll.length || !window.PropertyCard) return;
+  // סינון לפי שלב בנייה אינו חל על דירה בודדת: מסתירים במקום להציג דירות שלא ביקשו
+  const list = state.stage ? [] : brokerAll.filter(brokerMatches).slice(0, BROKER_MAX);
+  const grid = el('brokerGrid');
+  grid.textContent = '';
+  list.forEach(p=>{
+    const a = document.createElement('a');
+    a.className = 'bk-tile';
+    a.href = '/property?id=' + encodeURIComponent(p.id);
+    const first = Array.isArray(p.images) && typeof p.images[0] === 'string' ? ProjectCard.safeUrl(p.images[0]) : '';
+    a.innerHTML =
+      '<span class="bk-img"><span class="bk-flag">בתיווך, כפוף לדמי תיווך</span></span>' +
+      '<span class="bk-body">' +
+        PropertyCard.priceHtml(p) + PropertyCard.titleHtml(p) + PropertyCard.whereHtml(p) + PropertyCard.factsHtml(p) +
+      '</span>';
+    // התמונה דרך ה-DOM ולא דרך מחרוזת: בריחת HTML אינה מגינה על מחרוזת CSS (גרש בכתובת סוגר את url())
+    if (first){
+      a.querySelector('.bk-img').style.backgroundImage =
+        'url("' + PropertyCard.imageUrl(first, 640).replace(/["\\\n\r()]/g, encodeURIComponent) + '")';
+    }
+    grid.appendChild(a);
+  });
+  sec.hidden = list.length === 0;
+}
+
 function applyDeepLink(){
   const params = new URLSearchParams(location.search);
   const q = params.get('q');
@@ -1166,6 +1271,7 @@ function applyDeepLink(){
     if (!all.length){
       el('emptyState').hidden = false;
       el('allSec').hidden = true;
+      loadBrokerNew();   // דירות היועצים אינן תלויות בפרויקטים
       return;
     }
 
@@ -1178,6 +1284,7 @@ function applyDeepLink(){
     renderQuickChips();
     renderDevelopers(devs);
     render();
+    loadBrokerNew();
   } catch(e){
     console.warn('טעינת הפרויקטים נכשלה:', e);
     el('loadingState').hidden = true;

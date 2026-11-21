@@ -351,6 +351,16 @@ verify_jwt = false
 [functions.developer-onboarding-reminders]
 verify_jwt = false
 
+# תזכורות מדריך ההתחלה לבעלי מקצוע (מייל, אחת ביום). נקרא מ-pg_cron בלבד, עם x-alert-cron-secret
+# (‏_shared/cron-auth.ts) — אין JWT של משתמש/ת לאמת.
+[functions.professional-onboarding-reminders]
+verify_jwt = false
+
+# הסרה מתזכורות מדריך ההתחלה: נקראת מ-reminders-off.html (POST מהדפדפן) עם טוקן מקישור שבתחתית מייל, בלי כניסה.
+# ההרשאה היא חתימת hmac בטוקן (‏_shared/onboarding-unsub.ts), וביצוע רק ב-POST (סורקי קישורים פותחים כתובות).
+[functions.onboarding-reminders-unsubscribe]
+verify_jwt = false
+
 [functions.google-calendar-connect]
 verify_jwt = true           # חיבור/ניתוק יומן Google מה-CRM - הזהות נקבעת מה-JWT של הסוכן/ת
 
