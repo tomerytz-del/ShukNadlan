@@ -48,14 +48,21 @@
   /* ‏norm, areaKey ו-wordForms הן פונקציות טהורות על מחרוזת, והן רצות על אותו
      טקסט של כל נכס בכל הקשה (‏textHas בכל שורה, ‏compileQuery על כל התיק).
      פרופיל CPU של חיפוש הנכסים ב-CRM (1,000 נכסים, מעבד איטי פי 4) הראה
-     ‏norm ו-areaKey ו-wordForms כ-80% מ-filterProperties. מטמון קטן לפי הקלט
-     מוריד את זה בלי לשנות ערך מוחזר; הוא נמחק כשהוא מתמלא, כדי שלא יגדל בלי
-     גבול (בבוט, בתהליך ארוך). ‏wordForms מחזירה מערך משותף: מי שקורא לא משנה אותו. */
+     ‏norm ו-areaKey ו-wordForms כ-80% מ-filterProperties.
+
+     **המטמון כבוי כברירת מחדל ונדלק ב-enableMemo()** - ה-CRM קורא לה, והבוטים
+     (שמריצים את אותו עותק בתהליך ארוך ועל טקסט של בעלים וטלפונים) לא. כך אין
+     שם זיכרון שגדל ואין טקסט של משתמש שנשאר בין בקשות. כשהוא דלוק הוא מוגבל
+     ב-MEMO_MAX ערכים לכל פונקציה ונמחק כשהוא מתמלא. ‏wordForms מחזירה מערך
+     משותף ומוקפא: מי שינסה לשנות אותו יקבל שגיאה במקום להרעיל את המטמון. */
   var MEMO_MAX = 20000;
+  var memoOn = false;
+  function enableMemo() { memoOn = true; }
   function memoStr(compute) {
     var cache = new Map();
     return function (s) {
       var k = String(s || '');
+      if (!memoOn) return compute(k);
       var hit = cache.get(k);
       if (hit !== undefined) return hit;
       var v = compute(k);
@@ -520,13 +527,13 @@
      מילה: "עליה" ← "עלי", ו"עלי" כתחילת מילה היה תופס את "עלית" (עפולה
      עלית) - מילה אחרת ולא כתיב אחר של אותה מילה. */
   function wordFormsRaw(s) {
-    return areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
+    return Object.freeze(areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
       .map(function (w) {
         if (w.length > 3) w = w.replace(/^ה/, '');
         w = w.replace(/יי+/g, 'י').replace(/וו+/g, 'ו');
         var cut = w.length > 3 && /ה$/.test(w);
-        return { w: cut ? w.slice(0, -1) : w, cut: cut };
-      });
+        return Object.freeze({ w: cut ? w.slice(0, -1) : w, cut: cut });
+      }));
   }
   var wordFormsMemo = null;
   function wordForms(s) { return (wordFormsMemo || (wordFormsMemo = memoStr(wordFormsRaw)))(s); }
@@ -639,6 +646,7 @@
   }
 
   var SearchCore = {
+    enableMemo: enableMemo, _raw: { norm: normRaw, areaKey: areaKeyRaw, wordForms: wordFormsRaw },
     norm: norm, textMatches: textMatches, textHas: textHas, textWords: textWords, streetNameKey: streetNameKey,
     areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,

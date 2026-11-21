@@ -191,27 +191,63 @@ test('אומן לבד בליבה הוא רק אומן', () => {
   assert.strictEqual(got.n, 1);
 });
 
-/* ‏norm, areaKey ו-wordForms ממוטמנות (חיפוש הנכסים ב-CRM רץ עליהן על כל התיק בכל
-   הקשה). המטמון לא משנה ערך: מופע שהתחמם ועבר את תקרת המטמון חייב להחזיר בדיוק
-   מה שמחזיר מופע חדש, ואותה קריאה פעמיים חייבת להחזיר אותו דבר. */
-test('מטמון הנרמול אינו משנה תוצאה, גם אחרי שעברו את התקרה', () => {
+/* ‏norm, areaKey ו-wordForms ממוטמנות כשה-CRM מדליק את המטמון (enableMemo; הבוטים לא).
+   הבדיקה משווה מול הגרסאות שמחוץ למטמון (‏_raw) ולא למופע אחר של אותה פונקציה
+   ממוטמנת: באג מפתח (התנגשות, מטמון משותף) היה עובר בהשוואה כזו. ‏25,000 מפתחות
+   שונים עוברים את תקרת המטמון בכל פונקציה, כולל wordForms דרך textHas. */
+function freshCore() {
   const file = require.resolve(path.join(__dirname, '..', 'assets', 'search-core.js'));
-  const fresh = () => { delete require.cache[file]; return require(file); };
-  const warm = fresh();
-  for (let i = 0; i < 25000; i++) { warm.norm('נכס ' + i + ' רחוב'); warm.areaKey('שד ' + i + ' א'); }
-  const cold = fresh();
-  const corpus = ['', ' ', null, undefined, 0, 12, 'סי 1', 'בסי 1', 'C1', 'עילית', 'נצרת עילית',
-    '1,600,000', '2.8', 'העליה', 'עלייה', 'רום יעל', 'יעל רום', "שד' ירושלים", 'מגרש 45/א',
-    'דירה 4 חדרים, רחוב הרצל 12', 'HaMaayan 3', 'בלי מעלית', '  מרכז   העיר  '];
-  corpus.forEach(s => {
-    for (const f of ['norm', 'areaKey', 'compactKey']) {
-      if (!warm[f]) continue;
-      assert.strictEqual(warm[f](s), cold[f](s), f + ' ' + JSON.stringify(s));
-      assert.strictEqual(warm[f](s), warm[f](s), f + ' (קריאה שנייה) ' + JSON.stringify(s));
-    }
-    corpus.forEach(q => assert.strictEqual(warm.textHas(s, q), cold.textHas(s, q),
-      'textHas ' + JSON.stringify(s) + ' / ' + JSON.stringify(q)));
+  delete require.cache[file];
+  return require(file);
+}
+// מחולל דטרמיניסטי, כדי שכישלון יהיה ניתן לשחזור
+function lcg(seed) { let x = seed >>> 0; return () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296; }
+const MEMO_WORDS = ['רחוב', 'הרצל', 'ויצמן', 'העצמאות', 'גבעת', 'המורה', 'עפולה', 'עלית', 'עילית', 'שכונת',
+  'סי 1', 'בי2', 'C1', 'בסי 1', 'דירה', '4 חדרים', '1,600,000', '2.8', 'עלייה', 'העליה', 'הנרקיס',
+  'רום יעל', 'יעל רום', 'מרכז העיר', "שד' ירושלים", 'בלי מעלית', 'לא צריך חניה', 'ממ"ד', 'HaMaayan',
+  'מגרש 45/א', '-', ' ', '', null, undefined, 0, 12];
+
+test('המטמון כבוי כברירת מחדל, ואז הכול זהה לגרסה הלא ממוטמנת', () => {
+  const C = freshCore();
+  const rnd = lcg(7);
+  for (let i = 0; i < 400; i++) {
+    const s = [0, 1, 2].map(() => MEMO_WORDS[Math.floor(rnd() * MEMO_WORDS.length)]).join(' ');
+    assert.strictEqual(C.norm(s), C._raw.norm(s));
+    assert.strictEqual(C.areaKey(s), C._raw.areaKey(s));
+  }
+});
+
+test('עם מטמון דלוק: זהה לגרסה הלא ממוטמנת, גם אחרי שעוברים את התקרה', () => {
+  const C = freshCore(), plain = freshCore();     // plain נשאר בלי enableMemo
+  C.enableMemo();
+  const rnd = lcg(11);
+  const pick = () => MEMO_WORDS[Math.floor(rnd() * MEMO_WORDS.length)];
+  const strs = [];
+  for (let i = 0; i < 6000; i++) strs.push(Array.from({ length: 1 + Math.floor(rnd() * 5) }, pick).join(rnd() < 0.5 ? ' ' : ', '));
+  MEMO_WORDS.forEach(w => strs.push(w));
+  // 25,000 מפתחות שונים: חוצים את התקרה (20,000) ב-norm, ב-areaKey וב-wordForms
+  for (let i = 0; i < 25000; i++) strs.push('נכס ' + i + ' רחוב ' + (i % 97) + ' הרצל');
+  strs.forEach(s => {
+    assert.strictEqual(C.norm(s), C._raw.norm(s), 'norm ' + JSON.stringify(s));
+    assert.strictEqual(C.areaKey(s), C._raw.areaKey(s), 'areaKey ' + JSON.stringify(s));
+    assert.deepStrictEqual(C.textWords(s), C._raw.wordForms(s).map(f => f.w), 'wordForms ' + JSON.stringify(s));
   });
+  // חזרה על אותם קלטים אחרי ההצפה (חלקם במטמון, חלקם נמחקו) - אותן תוצאות
+  strs.slice(0, 3000).forEach(s => assert.strictEqual(C.areaKey(s), plain.areaKey(s), 'שנייה ' + JSON.stringify(s)));
+  // textHas מקצה לקצה מול מופע בלי מטמון
+  for (let i = 0; i < 4000; i++) {
+    const h = strs[Math.floor(rnd() * strs.length)], q = strs[Math.floor(rnd() * strs.length)];
+    assert.strictEqual(C.textHas(h, q), plain.textHas(h, q), 'textHas ' + JSON.stringify(h) + ' / ' + JSON.stringify(q));
+  }
+});
+
+test('wordForms מחזירה מערך מוקפא: שינוי לא מרעיל את המטמון', () => {
+  const C = freshCore();
+  C.enableMemo();
+  const f = C._raw.wordForms('רום יעל');
+  assert.ok(Object.isFrozen(f) && f.every(Object.isFrozen));
+  assert.throws(() => { f.push({ w: 'x', cut: false }); }, TypeError);
+  assert.throws(() => { 'use strict'; f[0].w = 'x'; }, TypeError);
 });
 
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));
