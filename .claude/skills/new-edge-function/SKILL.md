@@ -58,7 +58,10 @@ supabase/functions/_shared/…            ← קוד משותף, לא נפרס �
 ## מה להעתיק מפונקציה קיימת
 
 - **נקודת קליטה ציבורית מטופס** → `owner-lead-intake`
-- **קריאה מה-CRM עם JWT של סוכן/ת** → `professional-manage`
+- **קריאה מה-CRM עם JWT של סוכן/ת** → `professional-manage`. **מהצד של `crm.js`:**
+  `edgeHeaders(session)` לכותרות ו-`edgeCall(url, payload)` לקריאה שלמה (בלי סשן -
+  `{ ok:false, data:{ error:'no_session' } }`, גוף ריק לא זורק, `ok` = `res.ok` וגם בלי
+  `data.error`). לא כותבים את שלוש הכותרות ביד. הבדיקה: `scripts/crm_edge_helpers_test.mjs`.
 - **משימת cron** → `promo-lifecycle` (כולל בדיקת `x-alert-cron-secret`)
 - **וובהוק מספק חיצוני** → `whatsapp-webhook`
 
