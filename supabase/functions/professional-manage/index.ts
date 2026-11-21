@@ -183,9 +183,11 @@ Deno.serve(async (req: Request) => {
     if (!card) return json({ error: "not_found" }, 404);
 
     // מדריך ההתחלה (professional_onboarding_state). כישלון כאן אינו מפיל את המסך: הכרטיס פשוט לא מוצג
+    // ‏placementId מחוץ לפונקציה: ההצרה של access (לא null) אינה נשמרת בתוך פונקציה מוצהרת (TS18047)
+    const placementId = access.placement_id;
     async function onboardingState() {
       const { data, error } = await supabase.rpc("professional_onboarding_state", {
-        p_placement_id: access.placement_id,
+        p_placement_id: placementId,
       });
       if (error) console.error("professional-manage: onboarding state failed", error.message);
       return error || data?.error ? null : data ?? null;
