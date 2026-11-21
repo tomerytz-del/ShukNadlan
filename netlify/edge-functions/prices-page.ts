@@ -14,6 +14,14 @@
    מהדפדפן וגוגל תחזור. בלי מטמון על ה-503. מערך ריק הוא תשובה מהמסד:
    200 בלי מילוי, וה-JS ממלא. הדף אחד, לא "רשומה חסרה", ולכן ריק אינו 404.
 
+   ## מחירי מודעות: תוספת, לא תנאי
+
+   ‏`city_asking_price_table()` (‏20271127120000) נשלפת במקביל ומוסיפה לכל
+   עיר טבלת "מבוקש מול נסגר". כשלה (timeout, סטטוס שאינו 200, גוף שאינו
+   מערך) הדף עדיין יוצא עם העסקאות ב-200, אבל **לא נשמר במטמון** ולא נשמר
+   כעותק אחרון: כמו בכשל השכונות ב-`deals-page.ts`, דף חלקי אינו אמור להיות
+   מוגש שעה שלמה. מערך ריק (אין עיר עם 5 מודעות) הוא תשובה תקינה.
+
    התיעוד: ‎docs/city-prices.md‎.
    ========================================================================== */
 
@@ -38,8 +46,20 @@ export type PriceRow = {
   period_end: string;
 };
 
+export type AskingRow = {
+  market_slug: string;
+  city: string;
+  rooms: number;
+  listings: number;
+  median_price: number;
+  as_of: string;
+};
+
 type Prices = {
-  render: (rows: PriceRow[], opts: { labelFor: (s: string) => string; marketOrder: string[] }) => string;
+  render: (
+    rows: PriceRow[],
+    opts: { labelFor: (s: string) => string; marketOrder: string[]; asking?: AskingRow[] },
+  ) => string;
   jsonLd: (rows: PriceRow[], site: string) => string;
   period: (rows: PriceRow[]) => { start: string; end: string } | null;
   heDate: (iso: string) => string;
@@ -49,13 +69,23 @@ function prices(): Prices {
   return (globalThis as unknown as { ShukPrices: Prices }).ShukPrices;
 }
 
-type RowsResult = { ok: true; rows: PriceRow[] } | { ok: false };
+type RowsResult<T> = { ok: true; rows: T[] } | { ok: false };
 
-async function fetchRows(): Promise<RowsResult> {
+/* ‏מחירי המודעות הם תוספת, ולכן timeout קצר יותר: איטיות שלהם אינה אמורה
+   להחזיק את כל הדף (ואת המטמון) עד הגבול של העסקאות. */
+const ASKING_TIMEOUT_MS = 1500;
+
+/* ‏`missingIsEmpty`: פונקציה שעוד אינה במסד (404) היא "אין נתון", לא כשל. האתר עולה בשניות
+   והמיגרציה דקות אחריו (deploy-path), ובלי זה הדף היה יוצא חלקי ובלי מטמון עד שהמיגרציה רצה. */
+async function rpc<T>(
+  name: string,
+  timeoutMs = FETCH_TIMEOUT_MS,
+  missingIsEmpty = false,
+): Promise<RowsResult<T>> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/city_price_table`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
       method: "POST",
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -65,10 +95,11 @@ async function fetchRows(): Promise<RowsResult> {
       body: "{}",
       signal: ctrl.signal,
     });
+    if (missingIsEmpty && res.status === 404) return { ok: true, rows: [] };
     if (!res.ok) return { ok: false };
     const rows = await res.json();
     if (!Array.isArray(rows)) return { ok: false };
-    return { ok: true, rows: rows as PriceRow[] };
+    return { ok: true, rows: rows as T[] };
   } catch {
     return { ok: false };
   } finally {
@@ -87,7 +118,7 @@ function failureHeaders(base: Headers): Headers {
 }
 
 /* ‏ממלא את הדף. מחזיר את ה-HTML כמו שהוא אם הסמנים חסרים. */
-export function inject(html: string, rows: PriceRow[]): string {
+export function inject(html: string, rows: PriceRow[], asking: AskingRow[] = []): string {
   const P = prices();
   const reg = registry();
   const list = reg ? reg.list : [];
@@ -95,6 +126,7 @@ export function inject(html: string, rows: PriceRow[]): string {
   const body = P.render(rows, {
     labelFor: (s) => label.get(s) || "",
     marketOrder: list.map((m) => m.slug),
+    asking,
   });
   const start = /<div id="pricesTables"[^>]*>[\s\S]*?<!--\/prices-->/;
   if (!body || !start.test(html)) return html;
@@ -120,7 +152,10 @@ export default async function handler(_request: Request, context: Context) {
   const type = res.headers.get("content-type") || "";
   if (!type.includes("text/html")) return res;
 
-  const got = await fetchRows();
+  const [got, askingGot] = await Promise.all([
+    rpc<PriceRow>("city_price_table"),
+    rpc<AskingRow>("city_asking_price_table", ASKING_TIMEOUT_MS, true),
+  ]);
   if (!got.ok) {
     const prev = await recall(lastGoodKey(_request.url));
     if (prev) return prev;
@@ -132,20 +167,24 @@ export default async function handler(_request: Request, context: Context) {
   const html = await res.text();
   let out = html;
   try {
-    out = inject(html, got.rows);
+    out = inject(html, got.rows, askingGot.ok ? askingGot.rows : []);
   } catch {
     out = html;
   }
   const headers = new Headers(res.headers);
   headers.delete("content-length");
-  /* ‏הנתונים מתעדכנים לכל היותר פעם ביום (‏deals_scraper). דף שלא מולא
-     אינו נשמר במטמון, כדי שכשל רגעי לא יוגש שעה שלמה. */
-  if (out !== html) {
-    headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  /* ‏הנתונים מתעדכנים לכל היותר פעם ביום (‏deals_scraper). דף שלא מולא אינו נשמר
+     במטמון. דף שמולא בלי מחירי המודעות (כשל, לא היעדר) נשמר דקה בלבד ואינו נשמר
+     כעותק אחרון: כשל רגעי לא יוגש שעה שלמה, ובלי מטמון כל בקשה הייתה משלמת את
+     ה-timeout. העסקאות בו טריות, ולכן הוא עדיף על עותק ישן. */
+  const filled = out !== html;
+  if (filled) {
+    const complete = askingGot.ok;
+    headers.set("Netlify-CDN-Cache-Control", complete ? "public, max-age=3600, stale-while-revalidate=86400" : "public, max-age=60");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
   const response = new Response(out, { status: res.status, headers });
-  if (out !== html) await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
+  if (filled && askingGot.ok) await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
   return response;
 }
 

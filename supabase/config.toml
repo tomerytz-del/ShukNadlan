@@ -346,6 +346,11 @@ verify_jwt = false
 [functions.billing-renew]
 verify_jwt = false
 
+# תזכורות מדריך ההתחלה ליזמים (מייל, אחת ביום). נקרא מ-pg_cron בלבד, עם x-alert-cron-secret
+# (‏_shared/cron-auth.ts) — אין JWT של משתמש/ת לאמת.
+[functions.developer-onboarding-reminders]
+verify_jwt = false
+
 [functions.google-calendar-connect]
 verify_jwt = true           # חיבור/ניתוק יומן Google מה-CRM - הזהות נקבעת מה-JWT של הסוכן/ת
 

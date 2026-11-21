@@ -696,7 +696,15 @@ Deno.serve(async (req: Request) => {
             subscription: plan.subscription ? { ...plan.subscription, next_retry_at: subRow?.next_retry_at ?? null } : null,
           }
           : plan ?? null;
-        return json({ success: true, developer: dev, projects: projects ?? [], pricing, plan: planOut });
+        // מדריך ההתחלה (developer_onboarding_state). כישלון כאן אינו מפיל את הדשבורד: הכרטיס פשוט לא מוצג
+        const { data: onboarding, error: onbErr } = await supabase.rpc("developer_onboarding_state", {
+          p_developer_id: developer.id,
+        });
+        if (onbErr) console.error("project-manage: onboarding state failed", onbErr.message);
+        return json({
+          success: true, developer: dev, projects: projects ?? [], pricing, plan: planOut,
+          onboarding: onbErr || onboarding?.error ? null : onboarding ?? null,
+        });
       }
 
       default:
