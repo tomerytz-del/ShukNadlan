@@ -4801,14 +4801,13 @@ function parseBoundary(raw){
 
 try {
   (async function initPropertyUI(){
-    // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המונים והמרכזים,
+    // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המרכזים,
     // והטבלה מספקת את השמות והסימון הידני
     const [properties, hoods] = await Promise.all([loadProperties(), loadNeighborhoods()]);
     hoodState.rows = hoods;
     hoodState.byId = new Map(hoods.map(h => [h.id, h]));
-    // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: המונה שעל
-    // שברשימת הבחירה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש
-    // הוא היה מפסיק לענות על השאלה שבגללה מסתכלים עליו
+    // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: היא מזינה את
+    // המרכזים, את החיפוש במשפט ואת נתוני ה-hero, וכולם מדברים על כל המלאי
     allActiveProperties = properties;
     if (typeof dmPropsHook === 'function') dmPropsHook(properties);
     heroStatsState.props = properties.length;
@@ -5342,7 +5341,7 @@ let searchRunning = false;
    "הצגת תוצאות") היא פעולה בלי שום משוב עד שהתוצאות חוזרות — וברשת איטית
    זה נקרא "כלום לא קרה". */
 function setSearchBusy(on){
-  document.querySelectorAll('#searchSubmitBtn, #rApplyFilters, #cApplyFilters').forEach(btn=>{
+  document.querySelectorAll('#rApplyFilters, #cApplyFilters').forEach(btn=>{
     btn.classList.toggle('is-busy', !!on);
     btn.setAttribute('aria-busy', String(!!on));
     btn.disabled = !!on;
@@ -6805,8 +6804,6 @@ function applyDeepLinkFilters(){
   const isCommercial = deal === 'commercial';
   if (deal === 'sale' || deal === 'rent' || deal === 'commercial'){
     searchState.activeTab = deal;
-    const select = document.getElementById('dealTypeSelect');
-    if (select){ select.value = deal; select.dataset.mode = deal; }
   }
   const s = isCommercial ? searchState.c : searchState.r;
 

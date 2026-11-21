@@ -887,7 +887,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 
 המונה נספר לפי **סוג העסקה שנבחר בסרגל החיפוש** ולא לפי כלל המאגר. בלי זה
 "אזור התעשייה 4" היה מבטיח ארבעה נכסים ומחזיר רשימה ריקה, כי אותם ארבעה הם
-נכסים מסחריים להשכרה בעוד הבורר עומד על "מכירה". התנאים ב-`hoodCounts()` הם
+נכסים מסחריים להשכרה בעוד הבורר עומד על "מכירה". התנאים ב-`hoodCounts()` (נמחקה ב-21.11.2026) היו
 בכוונה אותם תנאים שב-`runSearch()`.
 
 לכן שינוי סוג העסקה (הבורר בסרגל החיפוש, או מכירה/השכרה בסינוני המסחרי)
@@ -1141,7 +1141,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 
 | רכיב | איפה |
 |---|---|
-| גלולות השכונה | `renderHoodPills()`, `hoodCounts()`, `selectHood()` |
+| גלולות השכונה | `renderHoodPills()`, `selectHood()` (‏`hoodCounts()` נמחקה ב-21.11.2026) |
 | הסימון על המפה | `drawHoodShape()`, `parseBoundary()`, `computeHoodGeometry()` |
 | כלי הסימון | `neighborhood-boundary.html` |
 | סינון לפי שכונה | `runSearch()` — `eq('neighborhood_id', …)` |
