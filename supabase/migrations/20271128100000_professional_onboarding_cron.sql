@@ -2,7 +2,7 @@
 -- התזמון של תזכורות מדריך ההתחלה לבעלי מקצוע (20271128090000)
 --
 -- נרשם יחד עם הפונקציה `professional-onboarding-reminders` ולא לפניה: תזמון בלי פונקציה היה קורא כל
--- יום לכתובת שאין בה כלום. פעם ביום, 07:47 UTC. התנאי הוא `professional_onboarding_reminders_due(1)`: מי שהשלים
+-- יום לכתובת שאין בה כלום. ימים א'-ה' בלבד, 07:47 UTC (הפונקציה דוחה גם חגים). התנאי הוא `professional_onboarding_reminders_due(1)`: מי שהשלים
 -- את המדריך מסומן בתוכה ואינו מפעיל את הפונקציה כל יום לנצח. `timeout` של 30 שניות: עד 20 מיילים בריצה.
 --
 -- אידמפוטנטית.
@@ -18,7 +18,7 @@ begin
 
   perform cron.unschedule('professional-onboarding-reminders')
     where exists (select 1 from cron.job where jobname = 'professional-onboarding-reminders');
-  perform cron.schedule('professional-onboarding-reminders', '47 7 * * *', format($cron$
+  perform cron.schedule('professional-onboarding-reminders', '47 7 * * 0-4', format($cron$
     select net.http_post(
       url := %L,
       headers := jsonb_strip_nulls(jsonb_build_object(

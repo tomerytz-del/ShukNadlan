@@ -3,6 +3,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { corsHeaders, json } from "../_shared/morning.ts";
 import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { isIsraelWorkday } from "../_shared/il-workday.ts";
+import { unsubConfigured, unsubUrl } from "../_shared/onboarding-unsub.ts";
 
 // ============================================================================
 // תזכורות מדריך ההתחלה ליזמים, לקבלנים ולמשווקים (docs/new-projects.md, "מדריך ההתחלה")
@@ -14,6 +16,10 @@ import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "../_shared/platform-m
 // **סימון אחרי שליחה, לא לפניה.** מייל שנכשל נשאר זכאי לריצה הבאה; סימון לפני השליחה היה מאבד אותו.
 // הסימון הוא "קדימה בלבד" (mark_developer_onboarding_reminder), ולכן ריצה כפולה אינה שולחת פעמיים
 // לאותה תזכורת בפועל: אחרי הסימון החשבון כבר אינו זכאי.
+//
+// **שבת וחג נדחים ליום החול הבא** (‏_shared/il-workday.ts): הזכאות נקבעת לפי זמן שעבר, והריצה הבאה תופסת אותה.
+// **כל מייל נושא קישור הסרה** (‏_shared/onboarding-unsub.ts) שמסמן את שתי התזכורות כנשלחו; בלי סוד החתימה
+// **לא שולחים**. כל סימון נבדק (‏supabase-js אינו זורק).
 //
 // **אימייל בלבד.** בלי וואטסאפ: הודעה יזומה בתבנית עולה כסף ומחייבת אישור תבנית והסכמה.
 // ============================================================================
@@ -61,6 +67,12 @@ Deno.serve(async (req: Request) => {
   const auth = authorizeInternalCaller(req);
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
+  if (!isIsraelWorkday()) return json({ ok: true, skipped: "not_workday" });
+  if (!unsubConfigured()) {
+    console.error("developer-onboarding-reminders: ALERT_CRON_SECRET missing, no unsubscribe link, not sending");
+    return json({ error: "unsubscribe_not_configured" }, 503);
+  }
+
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data: due, error } = await supabase.rpc("developer_onboarding_reminders_due", { p_limit: 20 });
   if (error) {
@@ -70,6 +82,13 @@ Deno.serve(async (req: Request) => {
 
   const stats = { due: (due ?? []).length, sent: 0, skipped: 0, failed: 0 };
   const crmUrl = `${siteBaseUrl}/developer-crm`;
+  const mark = async (developerId: string, no: number, what: string): Promise<boolean> => {
+    const { error: markErr } = await supabase.rpc("mark_developer_onboarding_reminder", {
+      p_developer_id: developerId, p_no: no,
+    });
+    if (markErr) console.error(`developer-onboarding-reminders: mark failed (${what})`, developerId, markErr.message);
+    return !markErr;
+  };
 
   for (const row of due ?? []) {
     const { data: state, error: stErr } = await supabase.rpc("developer_onboarding_state", {
@@ -83,11 +102,13 @@ Deno.serve(async (req: Request) => {
     const lines = missingLines(state);
     if (!lines.length) {
       // השלים/ה בינתיים: מסמנים כדי שלא ייבדק שוב
-      await supabase.rpc("mark_developer_onboarding_reminder", { p_developer_id: row.developer_id, p_no: 2 });
+      if (!(await mark(row.developer_id, 2, "nothing to complete"))) { stats.failed++; continue; }
       stats.skipped++;
       continue;
     }
 
+    const stopUrl = await unsubUrl("developer", row.developer_id);
+    const stopLine = "לא רוצים לקבל את התזכורות האלה?";
     const hello = row.contact_name ? `שלום ${row.contact_name},` : "שלום,";
     const intro = row.reminder_no === 1
       ? `הצטרפתם לשוק נדל״ן${row.company_name ? ` עם ${row.company_name}` : ""}. כדי שהדף שלכם יוצג במלואו, נשארו כמה צעדים:`
@@ -101,29 +122,20 @@ Deno.serve(async (req: Request) => {
       `<p>${esc(hello)}</p><p>${esc(intro)}</p>` +
       `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +
       `<p><a href="${esc(crmUrl)}">לדשבורד היזמים</a></p>` +
-      `<p style="color:#666;font-size:13px">שאלות? ${esc(PLATFORM_CONTACT_EMAIL)}</p></div>`;
+      `<p style="color:#666;font-size:13px">שאלות? ${esc(PLATFORM_CONTACT_EMAIL)}</p>` +
+      `<p style="color:#888;font-size:12px">${esc(stopLine)} <a href="${esc(stopUrl)}">להסרה</a></p></div>`;
     const text = [hello, intro, ...lines.map((l) => `- ${l}`), `דשבורד היזמים: ${crmUrl}`,
-      `שאלות? ${PLATFORM_CONTACT_EMAIL}`].join("\n\n");
+      `שאלות? ${PLATFORM_CONTACT_EMAIL}`, `${stopLine} להסרה: ${stopUrl}`].join("\n\n");
 
     const sent = await sendPlatformEmail({ to: [row.email], subject, html, text });
     if (!sent.sent) {
       console.error("developer-onboarding-reminders: mail failed", row.developer_id, sent.error);
       // מעדכנים רק את מועד הניסיון, בלי להעלות את המונה: ינסו שוב מחר, ואינו חוסם את שאר התור
-      await supabase.rpc("mark_developer_onboarding_reminder", {
-        p_developer_id: row.developer_id, p_no: row.reminder_no - 1,
-      });
+      await mark(row.developer_id, row.reminder_no - 1, "after mail failure");
       stats.failed++;
       continue;
     }
-    // ‏supabase-js אינו זורק: מייל שיצא וסימון שנכשל היו שולחים שוב מחר, ולכן השגיאה נספרת ונרשמת
-    const { error: markErr } = await supabase.rpc("mark_developer_onboarding_reminder", {
-      p_developer_id: row.developer_id, p_no: row.reminder_no,
-    });
-    if (markErr) {
-      console.error("developer-onboarding-reminders: mark failed after send", row.developer_id, markErr.message);
-      stats.failed++;
-      continue;
-    }
+    if (!(await mark(row.developer_id, row.reminder_no, "after send"))) { stats.failed++; continue; }
     stats.sent++;
   }
 

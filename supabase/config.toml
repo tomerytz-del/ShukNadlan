@@ -356,6 +356,11 @@ verify_jwt = false
 [functions.professional-onboarding-reminders]
 verify_jwt = false
 
+# הסרה מתזכורות מדריך ההתחלה: קישור מתחתית מייל, בלי כניסה. ההרשאה היא חתימת HMAC בטוקן
+# (‏_shared/onboarding-unsub.ts), וביצוע רק ב-POST (סורקי קישורים של מייל פותחים כתובות).
+[functions.onboarding-reminders-unsubscribe]
+verify_jwt = false
+
 [functions.google-calendar-connect]
 verify_jwt = true           # חיבור/ניתוק יומן Google מה-CRM - הזהות נקבעת מה-JWT של הסוכן/ת
 

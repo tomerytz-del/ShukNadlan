@@ -22,10 +22,16 @@ begin
                     and column_name = 'onboarding_reminders_sent') then
     alter table public.ad_placements
       add column onboarding_reminders_sent smallint not null default 0,
-      add column onboarding_reminder_at    timestamptz;
+      add column onboarding_reminder_at    timestamptz,
+      add column onboarding_attempt_at     timestamptz;
     update public.ad_placements set onboarding_reminders_sent = 2;
   end if;
 end $$;
+
+comment on column public.ad_placements.onboarding_attempt_at is
+  'מועד הניסיון האחרון לשלוח תזכורת, הצליח או נכשל. ניסיון חוזר אחרי כישלון: יום. נקבע ב-mark_professional_onboarding_reminder.';
+comment on column public.ad_placements.onboarding_reminder_at is
+  'מועד השליחה המוצלחת האחרונה (המרווח של שבוע בין התזכורות נמדד ממנו).';
 
 comment on column public.ad_placements.onboarding_reminders_sent is
   'כמה תזכורות מדריך התחלה במייל נשלחו (0-2); 2 גם למי שהשלים את המדריך לפני התזכורת. נקבע רק ב-mark_professional_onboarding_reminder וב-professional_onboarding_reminders_due.';
@@ -87,7 +93,7 @@ end;
 $$;
 
 create or replace function public.professional_onboarding_reminders_due(p_limit int default 20)
-returns table (placement_id uuid, email text, advertiser_name text, manage_token uuid, reminder_no int)
+returns table (placement_id uuid, email text, advertiser_name text, manage_token uuid, card_status text, reminder_no int)
 language plpgsql
 security definer
 set search_path = ''
@@ -99,7 +105,7 @@ declare
 begin
   -- קודם הסינון הזול, ורק אחריו חישוב המצב. כרטיסייה פעילה או שממתינה לאישור, לא בדיקה, עם מייל וקישור עריכה
   for r in
-    select p.id, p.contact_email, p.advertiser_name, a.manage_token, p.onboarding_reminders_sent
+    select p.id, p.contact_email, p.advertiser_name, a.manage_token, p.status, p.onboarding_reminders_sent
       from public.ad_placements p
       join public.ad_placement_access a on a.placement_id = p.id
      where p.placement_type = 'professional_card'
@@ -111,11 +117,13 @@ begin
                                                                     else interval '10 days' end
        -- חלון של 30 יום מהפתיחה: כתובת שנכשלת תמיד אינה מנוסה לנצח (גם תנאי ה-cron נעצר איתה)
        and p.created_at > now() - interval '30 days'
-       -- התזכורת השנייה לפחות שבוע אחרי הראשונה, גם אם הראשונה התעכבה בגלל כשלי מייל; ניסיון חוזר אחרי כישלון: יום
-       and coalesce(p.onboarding_reminder_at, 'epoch'::timestamptz)
-             <= now() - case p.onboarding_reminders_sent when 0 then interval '1 day' else interval '7 days' end
+       -- ניסיון חוזר אחרי כישלון: יום (בשתי התזכורות). והתזכורת השנייה לפחות שבוע אחרי **השליחה**
+       -- הראשונה, גם אם הראשונה התעכבה בגלל כשלי מייל
+       and coalesce(p.onboarding_attempt_at, 'epoch'::timestamptz) <= now() - interval '1 day'
+       and (p.onboarding_reminders_sent = 0
+            or coalesce(p.onboarding_reminder_at, 'epoch'::timestamptz) <= now() - interval '7 days')
      -- מי שהמייל שלו נכשל יורד לסוף התור, אחרת כתובות פגומות חוסמות את כולם
-     order by coalesce(p.onboarding_reminder_at, p.created_at)
+     order by coalesce(p.onboarding_attempt_at, p.created_at)
      limit 200
   loop
     exit when v_out >= v_max;
@@ -126,6 +134,7 @@ begin
     end if;
 
     placement_id    := r.id;
+    card_status     := r.status;
     email           := r.contact_email;
     advertiser_name := r.advertiser_name;
     manage_token    := r.manage_token;
@@ -142,10 +151,13 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- רק קדימה: סימון חוזר אינו מחזיר אחורה ואינו מכפיל. p_no נמוך מהמונה מעדכן רק את מועד הניסיון
+  -- רק קדימה: סימון חוזר אינו מחזיר אחורה ואינו מכפיל. מועד השליחה (שממנו נמדד השבוע) נקבע רק כשהמונה
+  -- עולה בפועל; p_no נמוך או שווה למונה (ניסיון שנכשל) מעדכן רק את מועד הניסיון. הערכים בצד ימין הם
+  -- של לפני העדכון, ולכן ההשוואה נכונה
   update public.ad_placements
      set onboarding_reminders_sent = greatest(onboarding_reminders_sent, p_no),
-         onboarding_reminder_at = now()
+         onboarding_reminder_at = case when p_no > onboarding_reminders_sent then now() else onboarding_reminder_at end,
+         onboarding_attempt_at = now()
    where id = p_placement_id;
 $$;
 
