@@ -466,6 +466,8 @@ Deno.serve(async (req: Request) => {
           website: safeUrl(body.website),
           founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
           projects_delivered: int(body.projects_delivered, 0, 5000),
+          // מוצג בדף המשרד (agency_project_ids). נכתב רק כשנשלח: מסך ישן לא יסתיר פרויקטים
+          ...(typeof body.show_on_office_page === "boolean" ? { show_on_office_page: body.show_on_office_page } : {}),
         }).eq("id", developer.id);
         if (error) {
           if (/developers_company_number_key/.test(error.message)) {
@@ -598,9 +600,15 @@ Deno.serve(async (req: Request) => {
         const amount = Number(started.amount);
         const contactEmail = userData.user.email ?? null;
 
-        await supabase.from("developer_plan_orders")
+        // ‏**הבדיקה היא חלק מההסכמה.** ללא שגיאה כאן ההזמנה הייתה נשארת עם ברירת המחדל של העמודה,
+        // והתשלום היה פותח מנוי מתחדש שהמשתמש/ת לא ביקש/ה. כישלון = ההזמנה נסגרת ואין טופס תשלום
+        const { error: flagErr } = await supabase.from("developer_plan_orders")
           .update({ auto_renew: autoRenew, contact_email: contactEmail })
           .eq("id", orderId);
+        if (flagErr) {
+          await supabase.rpc("fail_developer_plan_order", { p_order_id: orderId, p_reason: "flag_update_failed" });
+          return json({ error: "db_error", detail: flagErr.message }, 500);
+        }
 
         const { data: dev } = await supabase
           .from("developers").select("name").eq("id", developer.id).maybeSingle();

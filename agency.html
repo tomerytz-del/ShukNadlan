@@ -606,6 +606,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שם הן מספרות סיפור ולא רק שורה בטבלה. משרד בלי נכסים פעילים לא מקבל
      כאן מקטע ריק: המקטע כולו לא נוצר. */
   .props-sec{margin-top:30px;display:none}
+  .projects-sec{margin-top:30px}
+  .projects-sec .sec-note{margin:0 0 12px;font-size:.85rem;color:var(--ink-soft,#4a5878)}
+  .office-projects{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:560px){.office-projects{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.office-projects{grid-template-columns:repeat(3,1fr)}}
   .props-sec.is-on{display:block}
 
   .prop-search{
@@ -1343,6 +1348,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מכירה והשכרה יחד — ואחריהם נכסים מסחריים. אותו מנוע של דף הבית,
            ראו assets/prop-shelf.js. -->
       <div id="activeProps"></div>
+    </section>
+
+    <!-- ---------- פרויקטים חדשים של המשרד ----------
+         החברה היזמית של מנהל/ת המשרד (agency_project_ids). נפתח רק כשיש פרויקט חי.
+         הפרויקטים נבנים ב-JS עם ProjectCard, כמו בדף החברה היזמית. -->
+    <section class="projects-sec" id="officeProjectsSec" aria-labelledby="officeProjectsHeading" hidden>
+      <div class="sec-head">
+        <h2 id="officeProjectsHeading">פרויקטים חדשים של המשרד</h2>
+        <span id="officeProjectsCount"></span>
+      </div>
+      <p class="sec-note">פרויקטים של חברת היזמות או השיווק של המשרד. הרכישה ישירות מהיזם או מהמשווק, <b>ללא דמי תיווך</b>.</p>
+      <div class="office-projects" id="officeProjects"></div>
     </section>
 
     <!-- ---------- סיפורי הצלחה ועסקאות שנסגרו ---------- -->

@@ -3596,13 +3596,16 @@ let hoodImportDiag = null;
    עד 21.11.2026 הבורר נשאר ריק (רק חץ) לכל מי שלא ביקר/ה קודם בפאנל שטוען
    אותה, והסריקה לא יצאה לדרך. לכן: אם הרשימה עוד לא כאן, מחכים לה
    וממלאים כשהיא מגיעה. אידמפוטנטית - בורר מלא לא מצויר שוב. */
-function hoodImportInit(){
+function hoodImportInit(retried){
   const sel = document.getElementById('hoodImportMarket');
   if (!sel || sel.options.length) return Promise.resolve();
   const list = (window.ShukMarkets && window.ShukMarkets.list) || [];
   if (!list.length){
-    if (!window.crmNeed) return Promise.resolve();
-    return crmNeed('markets').then(() => hoodImportInit(), err => console.warn('markets.js לא נטען:', err));
+    // ניסיון אחד: crmNeed שמצליח ורשימה שעדיין ריקה (קובץ שבור, מטמון ישן)
+    // היו קריאה חוזרת אינסופית. אחרי הניסיון הבורר נשאר ריק, והכפתור אומר
+    // "רשימת השווקים לא נטענה".
+    if (!window.crmNeed || retried) return Promise.resolve();
+    return crmNeed('markets').then(() => hoodImportInit(true), err => console.warn('markets.js לא נטען:', err));
   }
   sel.innerHTML = list.map(m => `<option value="${esc(m.slug)}">${esc(m.label)}</option>`).join('');
   // השוק שאינו ברירת המחדל קודם - בו יש מה לייבא
@@ -3678,8 +3681,14 @@ async function scanHoodImport(){
     const { data: cities, error: cErr } = await sb.from('cities').select('id, name').eq('market_slug', slug);
     if (cErr) throw cErr;
     if (!cities || !cities.length){ hoodImportStatus('אין ערים משויכות לשוק הזה.'); return; }
+    // גם הכינויים של הערים (city_aliases): GovMap כותב לפעמים אחרת מאיתנו
+    // ("זיכרון יעקב"), והשכונה נשמרת בשם העיר שלנו.
+    const { data: aliases } = await sb.from('city_aliases').select('alias, city_id').in('city_id', cities.map(c => c.id));
+    const nameOf = new Map(cities.map(c => [c.id, c.name]));
+    const scanNames = cities.map(c => c.name)
+      .concat((aliases || []).filter(a => nameOf.has(a.city_id)).map(a => ({ name: a.alias, as: nameOf.get(a.city_id) })));
     hoodImportStatus('סורק את האזור…');
-    const found = await GL.neighborhoodsInArea(market.bbox, cities.map(c => c.name), (done, total, phase) => {
+    const found = await GL.neighborhoodsInArea(market.bbox, scanNames, (done, total, phase) => {
       hoodImportStatus((phase === 'scan' ? 'סורק את האזור' : 'שולף גבולות') + ' · ' + done + '/' + total);
     });
     const { data: existing, error: eErr } = await sb.from('neighborhoods')
