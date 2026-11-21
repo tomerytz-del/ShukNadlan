@@ -191,4 +191,27 @@ test('אומן לבד בליבה הוא רק אומן', () => {
   assert.strictEqual(got.n, 1);
 });
 
+/* ‏norm, areaKey ו-wordForms ממוטמנות (חיפוש הנכסים ב-CRM רץ עליהן על כל התיק בכל
+   הקשה). המטמון לא משנה ערך: מופע שהתחמם ועבר את תקרת המטמון חייב להחזיר בדיוק
+   מה שמחזיר מופע חדש, ואותה קריאה פעמיים חייבת להחזיר אותו דבר. */
+test('מטמון הנרמול אינו משנה תוצאה, גם אחרי שעברו את התקרה', () => {
+  const file = require.resolve(path.join(__dirname, '..', 'assets', 'search-core.js'));
+  const fresh = () => { delete require.cache[file]; return require(file); };
+  const warm = fresh();
+  for (let i = 0; i < 25000; i++) { warm.norm('נכס ' + i + ' רחוב'); warm.areaKey('שד ' + i + ' א'); }
+  const cold = fresh();
+  const corpus = ['', ' ', null, undefined, 0, 12, 'סי 1', 'בסי 1', 'C1', 'עילית', 'נצרת עילית',
+    '1,600,000', '2.8', 'העליה', 'עלייה', 'רום יעל', 'יעל רום', "שד' ירושלים", 'מגרש 45/א',
+    'דירה 4 חדרים, רחוב הרצל 12', 'HaMaayan 3', 'בלי מעלית', '  מרכז   העיר  '];
+  corpus.forEach(s => {
+    for (const f of ['norm', 'areaKey', 'compactKey']) {
+      if (!warm[f]) continue;
+      assert.strictEqual(warm[f](s), cold[f](s), f + ' ' + JSON.stringify(s));
+      assert.strictEqual(warm[f](s), warm[f](s), f + ' (קריאה שנייה) ' + JSON.stringify(s));
+    }
+    corpus.forEach(q => assert.strictEqual(warm.textHas(s, q), cold.textHas(s, q),
+      'textHas ' + JSON.stringify(s) + ' / ' + JSON.stringify(q)));
+  });
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));
