@@ -182,6 +182,17 @@ Deno.serve(async (req: Request) => {
     if (readErr) return json({ error: "db_error", detail: readErr.message }, 500);
     if (!card) return json({ error: "not_found" }, 404);
 
+    // מדריך ההתחלה (professional_onboarding_state). כישלון כאן אינו מפיל את המסך: הכרטיס פשוט לא מוצג
+    // ‏placementId מחוץ לפונקציה: ההצרה של access (לא null) אינה נשמרת בתוך פונקציה מוצהרת (TS18047)
+    const placementId = access.placement_id;
+    async function onboardingState() {
+      const { data, error } = await supabase.rpc("professional_onboarding_state", {
+        p_placement_id: placementId,
+      });
+      if (error) console.error("professional-manage: onboarding state failed", error.message);
+      return error || data?.error ? null : data ?? null;
+    }
+
     if (action === "load") {
       // המחיר לחודש, לתיבת ההארכה. הסכום שנגבה בפועל נקבע שוב ב-start_ad_order.
       const { data: pricing } = await supabase.rpc("professional_card_price", { p_months: 1 });
@@ -209,6 +220,7 @@ Deno.serve(async (req: Request) => {
         pricing: pricing && !pricing.error ? pricing : null,
         extend_months: EXTEND_MONTHS,
         renewal: await loadRenewal(supabase, access.placement_id),
+        onboarding: await onboardingState(),
       });
     }
 
@@ -367,7 +379,7 @@ Deno.serve(async (req: Request) => {
 
     if (error) return json({ error: "db_error", detail: error.message }, 500);
     if (!saved) return json({ error: "not_found" }, 404);
-    return json({ success: true, card: saved });
+    return json({ success: true, card: saved, onboarding: await onboardingState() });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
   }
