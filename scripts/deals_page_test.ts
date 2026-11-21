@@ -19,7 +19,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler, { secondsUntilNextJerusalemMonth } from "../netlify/edge-functions/deals-page.ts";
+import handler from "../netlify/edge-functions/deals-page.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../deals.html", import.meta.url), "utf8");
@@ -94,11 +94,8 @@ check("נתוני המיון מוטמעים", /<script type="application\/json" 
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 {
-  const cap = secondsUntilNextJerusalemMonth();
-  const maxAge = Math.max(1, Math.min(3600, cap));
-  const swr = Math.max(0, Math.min(86400, cap - maxAge));
   const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
-  check("נשמר במטמון עד החודש הבא", cdn.includes(`max-age=${maxAge}`) && cdn.includes(`stale-while-revalidate=${swr}`));
+  check("נשמר במטמון שעה", cdn.includes("max-age=3600") && cdn.includes("stale-while-revalidate=86400"));
 }
 check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 

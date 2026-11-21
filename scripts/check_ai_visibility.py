@@ -77,11 +77,13 @@ def robots_groups(text: str) -> list[tuple[list[str], list[str]]]:
     return groups
 
 
-def blocked(path: str, rule: str) -> bool:
+def rule_regex(rule: str) -> re.Pattern:
+    """כלל Disallow כביטוי רגולרי: * הוא כל רצף ו-$ עוגן סוף. אותה סמנטיקה כמו
+    robots_blocks ב-check_canonical.py - תיקון באחד דורש תיקון בשני."""
     pattern = re.escape(rule).replace(r"\*", ".*")
     if pattern.endswith(r"\$"):
         pattern = pattern[:-2] + "$"
-    return re.match(pattern, path) is not None
+    return re.compile(pattern)
 
 
 def site_path(url: str) -> str | None:
@@ -104,7 +106,8 @@ llms_paths = {p for u in llms_links if (p := site_path(u))}
 public = {"/", "/robots.txt", "/sitemap.xml", "/llms.txt", "/llms-full.txt"} | sitemap_paths | llms_paths
 for agents, rules in robots_groups(robots):
     for rule in rules:
-        hit = sorted(p for p in public if blocked(p, rule))
+        rx = rule_regex(rule)
+        hit = sorted(p for p in public if rx.match(p))
         if hit:
             fail(f"robots.txt: Disallow: {rule} (User-agent: {', '.join(agents)}) חוסם דף ציבורי: {', '.join(hit[:3])}")
 
