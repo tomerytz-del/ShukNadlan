@@ -170,6 +170,8 @@
     var where = [p.city, p.address || p.street].filter(Boolean).join(' · ');
 
     var flags = [];
+    // ‏opts.badge: תווית קבועה מעל הכרטיס (דף המשרד: "ללא דמי תיווך"). נטענת מהקורא ולא מנוחשת כאן
+    if (opts.badge) flags.push('<span class="pj-flag">' + esc(opts.badge) + '</span>');
     if (p.is_promoted) flags.push('<span class="pj-flag promoted">מקודם</span>');
     var stage = stageLabel(p);
     if (stage) flags.push('<span class="pj-flag">' + esc(stage) + '</span>');

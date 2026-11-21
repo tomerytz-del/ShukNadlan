@@ -466,6 +466,8 @@ Deno.serve(async (req: Request) => {
           website: safeUrl(body.website),
           founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
           projects_delivered: int(body.projects_delivered, 0, 5000),
+          // מוצג בדף המשרד (agency_project_ids). נכתב רק כשנשלח: מסך ישן לא יסתיר פרויקטים
+          ...(typeof body.show_on_office_page === "boolean" ? { show_on_office_page: body.show_on_office_page } : {}),
         }).eq("id", developer.id);
         if (error) {
           if (/developers_company_number_key/.test(error.message)) {
