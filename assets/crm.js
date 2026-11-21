@@ -24077,15 +24077,30 @@ function clientTabsWindow(rows, expanded, shown, chunk){
   return Math.min(n, rows.length);
 }
 
-/* שינוי של חיפוש, סינון או מיון חוזר למנה הראשונה; פעולה על לקוח (עריכה,
-   מחיקה, פתיחת כרטיס) קוראת ל-renderClients ושומרת על מה שכבר הוצג. */
-function renderClientsFromTop(){
+/* אילו כרטיסים נשארים פתוחים כשהרשימה חוזרת למנה הראשונה: אלה שבמנה הראשונה
+   של הרשימה החדשה, ועוד ‏pin (הלקוח/ה שקישור עמוק ביקש). כרטיס פתוח רחוק היה מותח את
+   החלון (‏clientTabsWindow) בכל הקשה ובונה מחדש מאות טאבים - בדיוק מה שהחלוקה
+   למנות באה למנוע. פונקציה טהורה, נבדקת ב-crm_edge_helpers_test. */
+function clientExpandedAfterReset(filtered, expanded, chunk, pin){
+  const near = new Set(filtered.slice(0, chunk).map(c => c.id));
+  return new Set([...expanded].filter(id => id === pin || near.has(id)));
+}
+
+/* שינוי של חיפוש, סינון או מיון חוזר למנה הראשונה (וסוגר כרטיסים פתוחים שמחוץ
+   לה); פעולה על לקוח (עריכה, מחיקה, פתיחת כרטיס) קוראת ל-renderClients ושומרת על מה
+   שכבר הוצג. ‏pinId - כרטיס שנשאר פתוח גם אם הוא מחוץ למנה (קישור עמוק). */
+var clientTabsReset = null;
+function renderClientsFromTop(pinId){
   clientTabsShown = 0;
+  clientTabsReset = { pin: pinId || null };
   renderClients();
 }
 
 function renderClients(){
   clearTimeout(clientSearchTimer);
+  // נצרך בכל קריאה, גם כשהרשימה ריקה והפונקציה חוזרת מוקדם - אחרת הוא היה מחכה לרינדור הבא
+  const reset = clientTabsReset;
+  clientTabsReset = null;
   // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
   renderClientsCard();
   const listEl = document.getElementById('clientsList');
@@ -24157,6 +24172,11 @@ function renderClients(){
   listEl.appendChild(moreRow);
 
   const chunk = CLIENT_TABS_CHUNK || 20;
+  if (reset){
+    const keep = clientExpandedAfterReset(filtered, expandedClientIds, chunk, reset.pin);
+    expandedClientIds.clear();
+    keep.forEach(id => expandedClientIds.add(id));
+  }
   clientTabsShown = clientTabsWindow(filtered, expandedClientIds, clientTabsShown, chunk);
   const drawClientTabs = () => {
     for (let i = tabsWrap.childElementCount; i < clientTabsShown; i++){
@@ -26616,6 +26636,12 @@ async function toggleClientCalls(c, btn, el){
   (el.querySelector('.cc-bar') || el.querySelector('.lead-actions')).insertAdjacentElement('afterend', box);
 }
 
+/* סינון הסטטוס אחרי קישור עמוק: נשאר כמו שהוא כשהוא כבר כולל את הלקוח/ה (ברירת
+   המחדל "מחפשים" = active), ואחרת "כל הסטטוסים" (''). */
+function clientStatusFilterFor(c, current){
+  return (!current || current === c.status) ? current : '';
+}
+
 /* הלשונית שבה הלקוח/ה נמצא/ת: "הכול" נשארת "הכול", ואחרת לפי סוג הכרטיס. */
 function clientKindFor(c, current){
   if (current === 'all') return 'all';
@@ -26632,12 +26658,15 @@ function openClientFromParam(id, focus){
   /* הקישור ביקש את הלקוח/ה הזה/זו, לא את הסינון של אתמול (כמו openPropertyFromParam).
      בלי זה בעל/ת נכס לא נבנה/תה כשנבחרה לשונית "מחפשים", וגם חיפוש או סינון סטטוס
      פעילים הסתירו אותו/ה, והקישור לא עשה כלום. החלון מורחב עד הכרטיס ב-renderClients. */
-  ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
+  ['clientSearch','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  // ברירת המחדל של הסטטוס היא "מחפשים": מרחיבים אותה רק אם היא מסתירה את הלקוח/ה הזה/זו
+  const statusEl = document.getElementById('clientStatusFilter');
+  if (statusEl) statusEl.value = clientStatusFilterFor(c, statusEl.value);
   clearTimeout(clientSearchTimer);
   if (typeof clientsKind !== 'undefined') clientsKind = clientKindFor(c, clientsKind);
   expandedClientIds.add(id);
-  renderClientsFromTop();
+  renderClientsFromTop(id);
   setTimeout(() => {
     const el = document.querySelector(`[data-client-card="${id}"]`);
     if (!el) return;
