@@ -421,6 +421,8 @@ PUBLIC_RPC = {
                          "פעילה לקורס; ל-anon תמיד false; docs/exam-course.md",
     "property_map_enabled": "דף הנכס (property.js) - האם להציג מפה מדויקת",
     "property_planning_public": "דף הנכס - נתוני תכנון של נכס פעיל",
+    "agency_project_ids": "דף המשרד (assets/agency.js) - מזהי הפרויקטים החיים של חברות שמנהל/ת המשרד הוא/היא "
+                          "גם המשתמש/ת שלהן; קריאה בלבד; 20271126090000, docs/new-projects.md",
     "property_recent_deals": "דף הנכס (property.js) - עד 5 עסקאות רשמיות מאותו סוג ברדיוס "
                              "2,000 מ', רחוב בלבד, לנכס פעיל למכירה; 20271106130000, docs/cma.md",
     "property_visualizations_enabled": "דף הנכס - האם להציג הדמיות AI",

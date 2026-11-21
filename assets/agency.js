@@ -686,6 +686,41 @@ async function attachDealPhotos(sb, deals){
   }
 }
 
+/* ---------- פרויקטים חדשים של המשרד ----------
+   ‏agency_project_ids מחזירה מזהים של פרויקטים חיים של חברות שמנהל/ת המשרד הוא/היא גם
+   המשתמש/ת שלהן (20271126090000). הנתונים נשלפים מ-projects_public, כך שפרויקט שאינו חי אינו
+   מופיע. **כישלון כאן אינו מפיל את הדף**: המקטע פשוט נשאר סגור. הכרטיס (project-card.js) נטען
+   רק כשיש מה להציג, כדי שדף משרד בלי פרויקטים לא ישלם עליו. */
+function loadScriptOnce(src){
+  return new Promise((resolve, reject)=>{
+    if (window.ProjectCard) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.onload = ()=> resolve(); s.onerror = ()=> reject(new Error('load ' + src));
+    document.head.appendChild(s);
+  });
+}
+async function loadOfficeProjects(sb, agencyId){
+  try{
+    const { data: ids, error } = await sb.rpc('agency_project_ids', { p_agency_id: agencyId });
+    if (error || !Array.isArray(ids) || !ids.length) return;
+    const list = ids.map(r => (typeof r === 'string' ? r : Object.values(r || {})[0])).filter(Boolean);
+    const { data: rows, error: rowsErr } = await sb.from('projects_public').select('*').in('id', list);
+    if (rowsErr || !rows || !rows.length) return;
+    await loadScriptOnce('assets/project-card.js');
+    const grid = document.getElementById('officeProjects');
+    const sec = document.getElementById('officeProjectsSec');
+    if (!grid || !sec) return;
+    grid.textContent = '';
+    window.ProjectCard.sortForGallery(rows).forEach(p =>
+      grid.appendChild(window.ProjectCard.render(p, { hideDeveloper:true, badge:'ללא דמי תיווך' })));
+    const count = document.getElementById('officeProjectsCount');
+    if (count) count.textContent = rows.length === 1 ? 'פרויקט אחד' : rows.length + ' פרויקטים';
+    sec.hidden = false;
+  } catch(e){
+    console.warn('טעינת פרויקטי המשרד נכשלה:', e);
+  }
+}
+
 async function loadSuccessStories(sb, agencyId, gallery){
   galleryItems = (Array.isArray(gallery) ? gallery : [])
     .map(item => ({ url: safeImageUrl(item && item.url), caption: (item && item.caption) || '' }))
@@ -940,6 +975,7 @@ async function loadAgency(){
       showLeftoverWidgets();
     });
     loadSuccessStories(sb, agency.id, agency.gallery);
+    loadOfficeProjects(sb, agency.id);
     loadReviews(sb, agency.id);
   } catch(e){
     console.warn('טעינת משרד נכשלה:', e);
