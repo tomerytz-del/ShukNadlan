@@ -4612,10 +4612,8 @@ const HOOD_RADIUS_PAD_M = 220;   // שוליים סביב הנכס הרחוק ב
 const hoodState = {
   rows: [],                // כל השכונות מה-DB
   byId: new Map(),
-  counts: new Map(),       // מזהה שכונה → מספר נכסים פעילים
   centers: new Map(),      // מזהה שכונה → { center:[lat,lng], radius }
   selected: new Set(),     // מזהי השכונות שנבחרו; ריק = כל השכונות
-  draft: new Set(),        // הסימון שבתוך המודאל, לפני "הצגת תוצאות"
 };
 // הסימונים של השכונות הנבחרות: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShapes)
 let hoodShapes = [];
@@ -4801,127 +4799,6 @@ function parseBoundary(raw){
   return pts.length >= 3 ? pts : null;
 }
 
-/* מספר הנכסים בכל שכונה — לפי סוג העסקה שנבחר בסרגל החיפוש, כלומר בדיוק
-   מה שהלחיצה על הגלולה תחזיר. ספירה כוללת הייתה מבטיחה "4" ומחזירה רשימה
-   ריקה כשארבעת הנכסים האלה מסחריים והבורר עומד על "מכירה". התנאים כאן הם
-   בכוונה אותם תנאים שב-runSearch, ולכן הם מתעדכנים איתו. */
-function hoodCounts(){
-  const isCommercial = searchState.activeTab === 'commercial';
-  const category = isCommercial ? 'commercial' : 'residential';
-  const dealType = isCommercial ? searchState.c.deal : searchState.activeTab;
-  const counts = new Map();
-  allActiveProperties.forEach(p=>{
-    if (!p.neighborhood_id) return;
-    if (p.category !== category) return;
-    // dealType ריק = "הכול" במסחרי, ואז המונה סופר את שני סוגי העסקה יחד
-    if (dealType && p.deal_type !== dealType) return;
-    counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
-  });
-  return counts;
-}
-
-/* השכונות שמוצעות לבחירה: אלה שיש בהן נכסים מסוג העסקה הנוכחי, מהגדולה
-   לקטנה. שכונה שנבחרה נשארת ברשימה גם כשאין בה נכסים מסוג העסקה הנוכחי —
-   אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה. */
-function hoodChoices(){
-  // *כל* השכונות, ולא רק אלה שיש בהן נכסים. הרשימה המקוצרת נראתה כמו תקלה:
-  // מי שיודע שיש בעפולה ארבע-עשרה שכונות ורואה שתיים מסיק שהסינון שבור, ולא
-  // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
-  // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
-  //
-  // אזור בתכנון (is_planned) אינו מוצג גם כשיש בו נכס. "B1 אזור בתכנון"
-  // הוא קוד תכנוני, ופין של מרכז העיר נפל בתוכו. selected ו-draft נשארים
-  // כדי שקישור עמוק לא ישאיר בחירה שאי אפשר לבטל.
-  return hoodState.rows.slice().filter(h =>
-    !h.is_planned ||
-    hoodState.selected.has(h.id) ||
-    hoodState.draft.has(h.id)
-  ).sort((a, b)=>
-    ((hoodState.counts.get(b.id) || 0) - (hoodState.counts.get(a.id) || 0)) ||
-    String(a.name).localeCompare(String(b.name), 'he'));
-}
-
-/* הכפתור שמעל המפה: שם השכונה כשנבחרה אחת, ומונה כשנבחרו כמה. שם מלא ולא
-   "1 שכונה" — כשהבחירה יחידה היא גם הכותרת של מה שרואים על המפה. */
-function renderHoodFilter(){
-  const bar = document.getElementById('hoodBar');
-  const btn = document.getElementById('hoodFilterBtn');
-  const label = document.getElementById('hoodFilterLabel');
-  const badge = document.getElementById('hoodFilterCount');
-  if (!bar || !btn || !label || !badge) return;
-  hoodState.counts = hoodCounts();
-
-  // הכפתור מוסתר רק כשאין שכונות בכלל (טעינה שנכשלה, או מסד ריק)
-  if (!hoodState.rows.length){ bar.hidden = true; return; }
-  bar.hidden = false;
-
-  const n = hoodState.selected.size;
-  btn.dataset.active = String(n > 0);
-  badge.hidden = n < 2;
-  badge.textContent = n;
-
-  if (n === 0) label.textContent = 'סינון לפי שכונות';
-  else if (n === 1) label.textContent = hoodState.byId.get([...hoodState.selected][0])?.name || 'שכונה אחת';
-  else label.textContent = 'שכונות נבחרות';
-}
-
-/* רשימת תיבות הסימון שבמודאל. נבנית מחדש בכל פתיחה, כי המונים משתנים עם
-   סוג העסקה. הסימון נאסף ל-hoodState.draft ומוחל רק ב"הצגת תוצאות". */
-function renderHoodOptions(){
-  const wrap = document.getElementById('hoodFilterOptions');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-
-  hoodChoices().forEach(h=>{
-    const n = hoodState.counts.get(h.id) || 0;
-    // שכונה בלי נכסים מסוג העסקה הנבחר מוצגת אבל לא נבחרת: הבחירה בה הייתה
-    // מחזירה רשימה ריקה ותו לא. אם היא כבר מסומנת היא נשארת פעילה, אחרת אי
-    // אפשר היה לבטל בחירה שהמונה שלה ירד ל-0 אחרי החלפת סוג העסקה.
-    const empty = n === 0 && !hoodState.draft.has(h.id);
-
-    const row = document.createElement('label');
-    row.className = 'hood-option' + (empty ? ' hood-option--empty' : '');
-
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.value = h.id;
-    box.checked = hoodState.draft.has(h.id);
-    box.disabled = empty;
-    box.addEventListener('change', ()=>{
-      if (box.checked) hoodState.draft.add(h.id); else hoodState.draft.delete(h.id);
-    });
-    row.appendChild(box);
-
-    // textContent ולא innerHTML: שמות שכונות מוזנים ע"י משתמשי הפלטפורמה
-    // (‏neighborhoods.is_custom‎), ואסור להם להגיע ל-DOM כ-HTML
-    const name = document.createElement('span');
-    name.className = 'hood-option-name';
-    name.textContent = h.name;
-    row.appendChild(name);
-
-    const count = document.createElement('span');
-    count.className = 'hood-count';
-    count.textContent = n;
-    row.appendChild(count);
-
-    wrap.appendChild(row);
-  });
-
-  // ההסבר על העמעום מוצג רק כשיש מה להסביר
-  const note = document.getElementById('hoodEmptyNote');
-  if (note) note.hidden = !wrap.querySelector('.hood-option--empty');
-}
-
-/* החלת הבחירה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא מצטרפת
-   לשאר הסינונים (מחיר, חדרים, סוג עסקה) במקום להתחרות בהם, ומחזירה גם
-   נכסים שמעבר ל-300 הראשונים שנטענו לעמוד. קבוצה ריקה = כל השכונות. */
-function applyHoodSelection(ids){
-  hoodState.selected = new Set(ids);
-  renderHoodFilter();
-  drawHoodShapes();
-  runSearch();
-}
-
 try {
   (async function initPropertyUI(){
     // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המונים והמרכזים,
@@ -4941,7 +4818,6 @@ try {
     initHoodMapSec(properties);
     v10Fair.props = properties;
     renderV10Fair();
-    renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
 
@@ -5126,9 +5002,6 @@ function initFilterModals(){
       syncCommercialDealToggle();
       // המונים של סוגי הנכס תלויים בעסקה
       renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
-      // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
-      // שברשימת השכונות
-      renderHoodFilter();
       advV10Layout();
     });
   });
@@ -5257,42 +5130,6 @@ function advV10Layout(){
   if (picked && !box.open){ box.dataset.auto = '1'; box.open = true; }
 }
 
-// סוג העסקה נבחר מקונטיינר נפתח בתוך סרגל החיפוש (במקום שלושה טאבים).
-// data-mode על ה-select צובע אותו לפי הבחירה, בהתאמה לצבעי הפינים במפה.
-const dealTypeSelect = document.getElementById('dealTypeSelect');
-if (dealTypeSelect){
-  dealTypeSelect.addEventListener('change', ()=>{
-    /* "פרויקטים חדשים" אינו סוג עסקה בטבלת properties אלא מודול נפרד עם
-       מנוע חיפוש משלו, ולכן הבחירה בו מנווטת לדף הפרויקטים במקום לסנן
-       את המפה. הטקסט החופשי שכבר הוקלד נוסע איתו — בלעדיו המשתמש/ת
-       היה/הייתה מקליד/ה אותו פעמיים.
-
-       הבורר מוחזר לערך הקודם לפני הניווט, כדי שחזרה אחורה בדפדפן לא
-       תמצא את דף הבית עם בורר שמצביע על עמוד אחר. */
-    if (dealTypeSelect.value === 'projects'){
-      const q = mainFreeText();
-      dealTypeSelect.value = searchState.activeTab;
-      location.href = '/projects' + (q ? '?q=' + encodeURIComponent(q) : '');
-      return;
-    }
-    searchState.activeTab = dealTypeSelect.value;
-    dealTypeSelect.dataset.mode = dealTypeSelect.value;
-    // המונים שברשימת השכונות נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
-    // להיספר מחדש כאן — אחרת "אזור התעשייה 4" היה נשאר על המסך אחרי מעבר
-    // ל"מכירה" ומחזיר רשימה ריקה
-    renderHoodFilter();
-    // מריצים חיפוש מיידית עם שינוי הבחירה, כדי שהמפה (וגם הגריד) יסננו
-    // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש"
-    runSearch();
-  });
-}
-
-// אנטר בתיבת החיפוש = לחיצה על כפתור החיפוש; במסכים צרים הכפתור מוצג
-// כאייקון בלבד, ובלי זה לא היה ברור איך מריצים חיפוש מהמקלדת
-document.getElementById('searchFreeText')?.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter'){ e.preventDefault(); runSearch(); }
-});
-
 /* הטקסט החופשי של החיפוש. מאז החיפוש במשפט אין שדה "עיר, שכונה או רחוב":
    מה שהיה נכתב בו הוא היום האזור שבמשפט - שם שכונה, יישוב, או טקסט
    שהשדה החכם זיהה ככתובת. חיפוש שמור (‏ssaCapture) ו-runSearch קוראים אותו
@@ -5337,10 +5174,6 @@ document.addEventListener('keydown', (e)=>{
   if (open) open.classList.remove('open');
 });
 
-document.getElementById('openFiltersBtn')?.addEventListener('click', ()=>{
-  openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
-});
-
 /* "הצגת תוצאות" בשני מודאלי הסינון = הרצת חיפוש.
    עד כאן הכפתור היה ‎data-close-modal‎ בלבד: הוא סגר את המודאל ותו לא, והמצב
    שנבחר בו (חדרים, סוג נכס, מחיר) נכנס לתוקף רק בלחיצה *נוספת* על כפתור
@@ -5353,26 +5186,6 @@ document.getElementById('rApplyFilters')?.addEventListener('click', ()=>{
 });
 document.getElementById('cApplyFilters')?.addEventListener('click', ()=>{
   if (sentence && sentence.loaded()) applyAdvancedFilters(); else runSearch();
-});
-
-// המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
-// הסימון כפי שהיה, ולא דף ריק.
-document.getElementById('hoodFilterBtn')?.addEventListener('click', ()=>{
-  hoodState.draft = new Set(hoodState.selected);
-  renderHoodOptions();
-  openModal('hoodFilterModal');
-});
-// "כל השכונות" מנקה ומחיל מיד — זו הדרך לבטל סינון, ולא עוד שלב לפני
-// "הצגת תוצאות"
-document.getElementById('hoodClearBtn').addEventListener('click', ()=>{
-  hoodState.draft = new Set();
-  renderHoodOptions();
-  applyHoodSelection([]);
-  closeModal('hoodFilterModal');
-});
-document.getElementById('hoodApplyBtn').addEventListener('click', ()=>{
-  applyHoodSelection(hoodState.draft);
-  closeModal('hoodFilterModal');
 });
 
 document.querySelectorAll('#rClearFilters, #cClearFilters').forEach(b => b.addEventListener('click', e => {
@@ -6441,7 +6254,7 @@ function renderBuyerHoods(){
   }
 
   const list = hoodState.rows.filter(h => h.city === buyState.city
-      // אותו כלל כמו ב-hoodChoices: אזור בתכנון אינו מוצג, גם אם יש בו נכס.
+      // אזור בתכנון אינו מוצג, גם אם יש בו נכס.
       && (!h.is_planned || buyState.hoods.has(h.id)));
   if (label) label.hidden = !list.length;
   list.slice()
@@ -6861,12 +6674,8 @@ async function clearSearch(){
   if (field) field.value = '';
   setAiFilter(false);
   hoodState.selected = new Set();
-  hoodState.draft = new Set();
   drawHoodShapes();
   document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
-  // אחרי איפוס הסינונים ולא לפניו: הוא מחזיר גם את סוג העסקה המסחרי
-  // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
-  renderHoodFilter();
   const badge = document.getElementById('filterCountBadge');
   if (badge){
     badge.style.display = 'none';
@@ -6905,7 +6714,6 @@ async function clearSearch(){
 }
 
 initFilterModals();
-document.getElementById('searchSubmitBtn')?.addEventListener('click', runSearch);
 document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 
 /* ============================================================
@@ -7036,7 +6844,6 @@ function applyDeepLinkFilters(){
   // הטופס נבנה מחדש כדי שהצ׳יפים של החדרים וסוגי הנכס ייראו מסומנים כשמי
   // שהגיע/ה מהקישור יפתח/תפתח את המסננים
   initFilterModals();
-  renderHoodFilter();
   runSearch();
 }
 
