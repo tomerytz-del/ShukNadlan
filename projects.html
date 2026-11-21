@@ -191,7 +191,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-banner{border:1px solid var(--line);background:#fff;padding:20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
   .join-banner h3{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0;color:var(--teal-dark)}
   .join-banner p{margin:6px 0 0;font-size:.84rem;color:var(--ink-soft);max-width:62ch}
-  .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
+  /* רצועת המפרסמים בראש הדף. שם המחלקה בלי -card/-btn/-chip/-badge: design-system.css מעגל אותם ב-!important */
+  .dev-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 14px;padding:11px 16px;background:var(--teal-dark);color:#fff;text-decoration:none;font-size:.92rem;line-height:1.4;text-align:center}
+  .dev-strip b{color:#f3c95a}
+  .dev-strip-go{font-weight:800;text-decoration:underline;text-underline-offset:3px}
+  .dev-strip:hover{background:#08194a;color:#fff}
   .proj-tools{padding:16px 0 4px}
   .proj-tools .search-card{margin-top:0}
   /* ‏R5-3B: שלושת הרכיבים באותו גובה ובאותן פינות; בטלפון השדה בשורה מלאה, ומתחתיו הבורר והכפתור שווים */
@@ -247,6 +251,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </header>
 
 <main id="main">
+
+  <!-- ====== רצועת מפרסמים (20.11.2026): בראש הדף ולא בתחתיתו ======
+       יזם, קבלן או משווק שהגיע לכאן מחפש איפה מפרסמים. **בלי מחירים**: מחירי הפרסום אינם לגולשים
+       שמחפשים דירה, והם מוצגים בדף ההרשמה (docs/new-projects.md). -->
+  <a class="dev-strip" href="/developer-signup" data-strip="developers">
+    <span><b>יזמים, קבלנים ומשווקי פרויקטים?</b> פרסמו את הפרויקט שלכם בחינם ל-<span data-free-months>6</span> חודשים</span>
+    <span class="dev-strip-go" aria-hidden="true">פותחים חשבון ←</span>
+  </a>
 
   <!-- ====== ראש העמוד וסרגל החיפוש הייעודי ====== -->
   <section class="land-hero" id="landHero">
@@ -504,14 +516,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section class="section">
       <div class="join-banner">
         <div>
-          <h3>אתם קבלנים או יזמים?</h3>
-          <p>פתחו דף חברה, והעלו כל פרויקט לדף נחיתה משלו - לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה. הפרויקט מוצג בדף הבית, בדף החברה שלכם ובדף הזה.</p>
-          <p style="margin-top:8px">
-            <span class="price-pill" id="pricePage">דף נחיתה · 350 ₪ לחודש</span>
-            <span class="price-pill" id="pricePromote">קידום · 50 ₪ לשבוע</span>
-          </p>
+          <h3>יזמים, קבלנים ומשווקי פרויקטים?</h3>
+          <p>פתחו דף חברה, והעלו כל פרויקט לדף נחיתה משלו - לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה. הפרויקט מוצג בדף הבית, בדף החברה שלכם ובדף הזה. הפרסום בחינם ל-<span data-free-months>6</span> חודשים.</p>
         </div>
-        <a href="/developer-signup" class="btn btn-teal">פתיחת חשבון יזם</a>
+        <a href="/developer-signup" class="btn btn-teal">פתיחת חשבון ופרסום בחינם</a>
       </div>
     </section>
   </div>
@@ -1128,24 +1136,6 @@ function renderDevelopers(devs){
   el('devsSec').hidden = false;
 }
 
-/* ---------- המחירים מהטבלה, לא מהקוד ----------
-   ‏pricing_config הוא מקור האמת לכל מספר עסקי באתר. שינוי מחיר שם צריך
-   להשתקף כאן בלי לגעת ב-HTML — אחרת הבאנר ימשיך להבטיח 350 ₪ אחרי
-   שהמחיר עלה. */
-async function renderPricing(){
-  if (!sb) return;
-  try{
-    const { data } = await sb.from('pricing_config').select('key, value')
-      .in('key', ['project_page_monthly_price','project_promote_weekly_price']);
-    const map = {};
-    (data || []).forEach(r => { map[r.key] = Number(r.value); });
-    if (map.project_page_monthly_price)
-      el('pricePage').textContent = 'דף נחיתה · ' + map.project_page_monthly_price.toLocaleString('he-IL') + ' ₪ לחודש';
-    if (map.project_promote_weekly_price)
-      el('pricePromote').textContent = 'קידום · ' + map.project_promote_weekly_price.toLocaleString('he-IL') + ' ₪ לשבוע';
-  } catch(e){ /* המחירים בברירת המחדל שב-HTML נשארים */ }
-}
-
 /* ---------- קישור עמוק ---------- */
 function applyDeepLink(){
   const params = new URLSearchParams(location.search);
@@ -1163,7 +1153,6 @@ function applyDeepLink(){
     el('emptyState').hidden = false;
     return;
   }
-  renderPricing();
   try{
     const [{ data: projects, error }, { data: devs }] = await Promise.all([
       sb.from('projects_public').select('*').order('published_at', { ascending:false }),
