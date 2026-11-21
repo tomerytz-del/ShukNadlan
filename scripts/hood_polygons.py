@@ -22,6 +22,8 @@
 
 איך חושב כל מצולע (נימוקים ב-docs/market-opening-runbook.md):
   1. הפינים של העסקאות בשם הזה, בלי אלה שבתוך מצולע קיים (המפה גוברת על התיוג).
+  1ב. שם ש-50% ומעלה מהפינים שלו בתוך מצולעים קיימים נדלג (`mostly_covered`):
+     הוא כבר מכוסה במפה, ומצולע משוער היה רק הפערים בין השכונות.
   2. בלי חריגים: מעל פי 2.5 מהמרחק החציוני למרכז השכונה (ולפחות 150 מ').
   3. חלוקת Voronoi בין כל הפינים של העיר, ואיחוד התאים של כל שכונה.
   4. חיתוך לעטיפה הקעורה של הפינים ברוחב 70 מ'.
@@ -55,6 +57,7 @@ DEFAULTS = dict(
     hull_ratio=0.5, hull_buffer_m=70,
     simplify_m=8, guard_m=2, shrink_m=3, final_simplify_m=2,
     alias_share=0.95, alias_min_pins=8,
+    min_outside_share=0.5,  # פחות מזה מהפינים מחוץ למצולעים קיימים = השכונה כבר מכוסה במפה
 )
 INDUSTRIAL = re.compile(r"תעשי|פארק עסקים")
 
@@ -127,7 +130,7 @@ def compute(pins, polygons, **opt):
         guard = ex_union.buffer(o["guard_m"]) if ex_union is not None else None
 
         # כינויים: רוב מוחלט של הפינים בתוך מצולע קיים אחד
-        outside = []
+        outside, out_n = [], {}
         for hood, P in hoods.items():
             owners = {}
             for p in P:
@@ -136,6 +139,7 @@ def compute(pins, polygons, **opt):
                     owners[owner] = owners.get(owner, 0) + 1
                 else:
                     outside.append((hood, p))
+                    out_n[hood] = out_n.get(hood, 0) + 1
             if owners:
                 top, n_top = max(owners.items(), key=lambda kv: kv[1])
                 share = n_top / len(P)
@@ -155,10 +159,21 @@ def compute(pins, polygons, **opt):
         counts = {}
         for h, _ in clean:
             counts[h] = counts.get(h, 0) + 1
+        alias_hoods = {a["hood"] for a in aliases if a["city"] == city}
+        # שם שרוב הפינים שלו בתוך מצולעים קיימים אינו שכונה חסרה: זה תת-אזור סטטיסטי
+        # של רשות המיסים (רמת גן: "מרכז העיר א" 80% בתוך חשמונאים). מצולע משוער היה
+        # רק הפערים בין השכונות, ומטעה כשכונה. השיוך לפי פין כבר עובד לעסקאות שלו.
+        covered = {h for h in hoods if h not in alias_hoods and out_n.get(h, 0) / len(hoods[h]) < o["min_outside_share"]}
+        for h in sorted(covered):
+            skipped.append(dict(city=city, hood=h, pins=len(hoods[h]), reason="mostly_covered"))
+            counts.pop(h, None)
+        clean = [(h, p) for h, p in clean if h not in covered]
         for hood in hoods:
-            if hood not in {a["hood"] for a in aliases if a["city"] == city} and counts.get(hood, 0) < o["min_pins"]:
+            if hood in covered:
+                continue
+            if hood not in alias_hoods and counts.get(hood, 0) < o["min_pins"]:
                 skipped.append(dict(city=city, hood=hood, pins=len(hoods[hood]), clean=counts.get(hood, 0), reason="too_few"))
-        clean = [(h, p) for h, p in clean if counts[h] >= o["min_pins"]]
+        clean = [(h, p) for h, p in clean if counts.get(h, 0) >= o["min_pins"]]
         if len(clean) < 3:
             continue
 
@@ -300,8 +315,10 @@ def main(argv=None):
     ap.add_argument("--migration", help="נתיב לקובץ מיגרציה לכתיבה")
     ap.add_argument("--include-aliases", action="store_true", help="גם כינויים למועמדים (אחרי אישור ביד)")
     ap.add_argument("--min-pins", type=int, default=DEFAULTS["min_pins"])
+    ap.add_argument("--min-outside-share", type=float, default=DEFAULTS["min_outside_share"])
     a = ap.parse_args(argv)
-    res = compute(load_rows(a.pins), load_rows(a.polygons), min_pins=a.min_pins)
+    res = compute(load_rows(a.pins), load_rows(a.polygons), min_pins=a.min_pins,
+                  min_outside_share=a.min_outside_share)
     report(res)
     if res["violations"]:
         print("\nלא נכתבה מיגרציה: יש הפרות.", file=sys.stderr)

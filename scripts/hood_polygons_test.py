@@ -5,6 +5,7 @@
 מה נבדק, והוא בדיוק מה שנכשל בשקט:
   - שם ש-95% מהפינים שלו בתוך מצולע קיים הוא כינוי, ולא מקבל מצולע
   - שכונה עם מעט פינים נדלגת, ולא מקבלת מצולע מנחש
+  - שם שרוב הפינים שלו בתוך מצולעים קיימים נדלג (mostly_covered)
   - מצולע משוער אינו חופף מצולע קיים ואינו חופף משוער אחר (אומת על הטבעות
     שנכתבות), כי neighborhood_for_city_point מחזירה null לנקודה בשניים
   - verify() תופס חפיפה כשהיא קיימת (הבדיקה אינה מצליחה תמיד)
@@ -53,6 +54,8 @@ all_pins = (
     + pins("ג'ונגל", 25, 32.425, 32.4285, 34.920, 34.924)   # גרש בשם, מתחת ל-א
     + pins("Alias", 20, 32.4305, 32.4335, 34.9205, 34.9235)  # כולה בתוך א
     + pins("Few", 3, 32.440, 32.441, 34.930, 34.931)
+    + pins("Covered", 30, 32.4305, 32.4335, 34.9205, 34.9235)   # 75% בתוך א...
+    + pins("Covered", 10, 32.425, 32.4285, 34.9205, 34.9235)    # ...ו-25% מחוץ לכל מצולע
 )
 
 res = hp.compute(all_pins, polygons)
@@ -62,6 +65,8 @@ ok("אין הפרות (חפיפה או נגיעה)", res["violations"] == [])
 ok("Alias זוהתה ככינוי של א, ולא קיבלה מצולע",
    [(a["hood"], a["existing"]) for a in res["aliases"]] == [("Alias", "א")] and "Alias" not in names)
 ok("Few נדלגה (3 פינים)", any(s["hood"] == "Few" and s["reason"] == "too_few" for s in res["skipped"]))
+ok("Covered (75% בתוך מצולע קיים) נדלגה כ-mostly_covered ולא קיבלה מצולע",
+   any(x["hood"] == "Covered" and x["reason"] == "mostly_covered" for x in res["skipped"]) and "Covered" not in names)
 ok("כל מצולע תופס לפחות 80% מהפינים שלו",
    all(p["inside"] >= 0.8 * p["pins"] for p in res["polygons"]))
 ok("יש מרחק חיובי מכל מצולע אחר", res["min_gap_m"] is not None and res["min_gap_m"] > 0)
