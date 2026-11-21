@@ -521,6 +521,44 @@ function upsertLastmod(body: string, loc: string, mod: string): string {
   return body.slice(0, insertAt) + `\n    <lastmod>${mod}</lastmod>` + body.slice(insertAt);
 }
 
+/* ‏דף רשימה (‏/agencies, ‏/articles, ‏/projects, ‏/deals) ודף הבית משתנים כשפריט
+   בהם משתנה. ה-lastmod הידני בקובץ הסטטי נשאר על תאריך הכתיבה, ולכן הוא
+   מוחלף כאן בחותמת הזמן **האמיתית** האחרונה מהשורות שכבר נמשכו, רק אם היא
+   חדשה ממנו. אין שאילתה נוספת. מקור שנכשל אינו מוסיף ערך, והתאריך הידני נשאר.
+   תאריך עתידי אינו lastmod: מתעלמים ממנו. */
+const FRESH_LISTS: Record<string, string> = {
+  agency: "/agencies",
+  article: "/articles",
+  project: "/projects",
+  deals: "/deals",
+};
+
+function newestDay(rows: Record<string, unknown>[], field: string): string {
+  let best = "";
+  for (const row of rows) {
+    const stamp = day(row[field]);
+    if (stamp > best) best = stamp;
+  }
+  return best;
+}
+
+function refreshLastmod(body: string, loc: string, mod: string): string {
+  if (!mod || mod > new Date().toISOString().slice(0, 10)) return body;
+  const needle = `<loc>${xml(loc)}</loc>`;
+  const at = body.indexOf(needle);
+  if (at < 0) return body;
+  const end = body.indexOf("</url>", at);
+  if (end < 0) return body;
+  const block = body.slice(at, end);
+  const existing = /<lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/.exec(block);
+  if (existing) {
+    if (existing[1] >= mod) return body;
+    return body.slice(0, at) + block.replace(existing[0], `<lastmod>${mod}</lastmod>`) + body.slice(end);
+  }
+  const insertAt = at + needle.length;
+  return body.slice(0, insertAt) + `\n    <lastmod>${mod}</lastmod>` + body.slice(insertAt);
+}
+
 type SiloPage = {
   path: string;
   property_type: string | null;
@@ -613,6 +651,7 @@ async function polish(
   cities: CityMap,
   live: Set<string> | null,
   hoods: Set<string>,
+  fresh: Map<string, string>,
 ): Promise<string> {
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
@@ -661,6 +700,8 @@ async function polish(
     }
   }
 
+  for (const [path, mod] of fresh) out = refreshLastmod(out, `${SITE}${path}`, mod);
+
   return dedupeLocs(encodeLocs(out));
 }
 
@@ -707,6 +748,7 @@ export default async function handler(_request: Request, context: Context) {
     const counts: string[] = [];
     let guardedFailed = false;
     let otherUrls = 0;
+    const fresh = new Map<string, string>();
     for (let i = 0; i < SOURCES.length; i++) {
       const source = SOURCES[i];
       const got = loaded[i];
@@ -717,6 +759,8 @@ export default async function handler(_request: Request, context: Context) {
       }
       const rows = await rowsForSitemap(source, got.rows, cities, live);
       if (source.page === "neighborhood") hoodRows = rows;
+      const listPath = FRESH_LISTS[source.page];
+      if (listPath && source.lastmod) fresh.set(listPath, newestDay(rows, source.lastmod));
       const urls = entries(source, rows);
       counts.push(`${source.name}: ${urls.length}`);
       blocks.push(...urls);
@@ -753,7 +797,10 @@ export default async function handler(_request: Request, context: Context) {
       decl === -1 ? note + "\n" + body
                   : body.slice(0, decl + 2) + "\n" + note + body.slice(decl + 2);
 
-    const out = await polish(noted, cities, live, hoodNamesOf(hoodRows));
+    /* ‏דף הבית מציג את המודעות הפעילות: ה-lastmod שלו הוא העדכון האחרון שלהן. */
+    if (cities.ok) fresh.set("/", newestDay(cities.rows, "updated_at"));
+
+    const out = await polish(noted, cities, live, hoodNamesOf(hoodRows), fresh);
     const response = new Response(out, { status: 200, headers: XML_HEADERS });
     await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
     return response;
