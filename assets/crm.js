@@ -5,6 +5,23 @@ const DEV_SWITCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/dev-switch-mode';
 const GEOCODE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/geocode-address';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/* ‏כותרות הקריאה ל-Edge Function בשם המשתמש/ת המחובר/ת. ‏function ולא const:
+   כמו שאר העוזרים בקובץ, כדי שקריאה שקודמת להגדרה בסדר המסמך תעבוד. */
+function edgeHeaders(session){
+  return { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token };
+}
+/* ‏POST ל-Edge Function עם הסשן הנוכחי: בלי סשן - no_session, גוף ריק לא זורק,
+   ‏ok = ‏res.ok וגם בלי data.error. ‏callTeamInvite ו-callRelease נשארו נפרדות
+   בכוונה: אצלן חסר סשן זורק (TypeError) ולא מוחזר, וקוראיהן מסתמכים על כך. */
+async function edgeCall(url, payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(url, { method:'POST', headers: edgeHeaders(session), body: JSON.stringify(payload) });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* גוף ריק - data.error יישאר undefined ו-res.ok יכריע */ }
+  return { ok: res.ok && !data.error, data };
+}
+
 const loginScreen = document.getElementById('loginScreen');
 const dashboard = document.getElementById('dashboard');
 const createAgencyScreen = document.getElementById('createAgencyScreen');
@@ -1804,7 +1821,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
@@ -1960,18 +1977,7 @@ document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
    נקודה אחת שמפרידה בין "אין לך משרד" לבין "יש לך כרטיס, הוא פשוט לא מחובר".
    הבירור עצמו נעשה ב-join-agency, כי הוא דורש service role: השוואה מול כרטיסים
    ממתינים ואימות אסימון הזמנה אינם דברים שאפשר לחשוף ללקוח. */
-async function callJoinAgency(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callJoinAgency(payload){ return edgeCall(SUPABASE_URL + '/functions/v1/join-agency', payload); }
 
 const INVITE_INVALID_TEXT = {
   used:     'קישור ההזמנה כבר נוצל. אם כבר הצטרפת עם חשבון אחר - יש להתחבר איתו.',
@@ -3384,7 +3390,7 @@ async function devSwitch(changes, pills){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(changes),
     });
     const data = await res.json();
@@ -3429,7 +3435,7 @@ document.getElementById('devEnterDeveloper').addEventListener('click', async (e)
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action: 'ensure_developer' }),
     });
     const data = await res.json().catch(()=> ({}));
@@ -10448,7 +10454,7 @@ document.getElementById('refundBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action:'request', amount,
                              note: document.getElementById('refundNote').value || null }),
     });
@@ -10494,7 +10500,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action:'cancel', refund_id: open.id }),
     });
     const data = await res.json();
@@ -10530,18 +10536,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
 const CLOSE_PHRASE = 'מחיקת חשבון';
 let closureSummary = null;
 
-async function callCloseAccount(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(SUPABASE_URL + '/functions/v1/close-account', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callJoinAgency */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callCloseAccount(payload){ return edgeCall(SUPABASE_URL + '/functions/v1/close-account', payload); }
 
 /* המשפט על הכסף. הוא נבנה פעם אחת ומוצג בשני מקומות - במקטע ובדיאלוג -
    כי אלה בדיוק אותם נתונים, ושתי גרסאות של אותו משפט הן שתי הזדמנויות
@@ -10774,7 +10769,7 @@ async function callRefundApi(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   return { ok: res.ok, data: await res.json() };
@@ -10785,18 +10780,7 @@ async function callRefundApi(payload){
    עוברת דרך הפונקציה ולא דרך select ישיר, מסיבה אחת: ‏document_path לבדו
    חסר ערך - הדלי פרטי. הפונקציה מחזירה במקומו **קישור חתום** של עשר דקות,
    וזו הדרך היחידה לראות את הצילום. */
-async function callLicenseAppealApi(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(LICENSE_APPEAL_URL, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callLicenseAppealApi(payload){ return edgeCall(LICENSE_APPEAL_URL, payload); }
 
 /* ---------- יומן ביקורת אבטחה (מנהל/ת פלטפורמה) ----------
    ‏security_audit_log נכתב רק מטריגרים במסד (מיגרציה 20270423095000).
@@ -11561,7 +11545,7 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -12388,7 +12372,7 @@ async function callTeamInvite(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/add-team-member', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   let data = {};
@@ -12781,7 +12765,7 @@ async function loadClaimRequests(agencyId, callerId){
       const { data: { session } } = await sb.auth.getSession();
       const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         body: JSON.stringify({ action:'decide', claim_id:c.id, decision }),
       });
       const data = await res.json().catch(()=>({}));
@@ -12817,7 +12801,7 @@ async function callRelease(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/release-team-member', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   let data = {};
@@ -15332,7 +15316,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const { data: { session } } = await sb.auth.getSession();
       const geoRes = await fetch(GEOCODE_FUNCTION_URL, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         body: JSON.stringify({ street, house_number: houseNumber }),
       });
       const geoData = await geoRes.json();
@@ -15759,7 +15743,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const { data: { session } } = await sb.auth.getSession();
       const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         // ‏property_id: הפונקציה שומרת לנכס בעצמה, אחרי בדיקת בעלות ומסלול.
         // לדפדפן מותר לכתוב ל-property_planning_info גוש וחלקה בלבד
         // (מיגרציה 20270102090000), ולכן אין כאן upsert.
@@ -17563,7 +17547,7 @@ async function fetchMarketingCopy(propertyId){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(DESCRIPTION_FUNCTION_URL, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify({ property_id: propertyId, mode:'preview' }),
   });
   const data = await res.json().catch(()=> ({}));
@@ -17764,7 +17748,7 @@ async function promoteProperty(property, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/promote-property', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ property_id: propertyId }),
     });
     const data = await res.json();
@@ -17838,7 +17822,7 @@ async function produceMarketingVideo(property, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/property-video-create', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ property_id: property.id, replace_existing: hasVideo }),
     });
     const data = await res.json();
@@ -21971,7 +21955,7 @@ async function claimLead(lead, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(CLAIM_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: lead.id }),
     });
     const data = await res.json();
@@ -22480,7 +22464,7 @@ async function buyRssLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/rss-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: leadId }),
     });
     const data = await res.json();
@@ -22807,7 +22791,7 @@ async function buyMortgageLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/mortgage-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: leadId }),
     });
     const data = await res.json();
@@ -23150,7 +23134,7 @@ async function buySavedSearchLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/saved-search-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ search_id: lead.id }),
     });
     const data = await res.json();
@@ -25251,48 +25235,33 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   btn.disabled = true; btn.textContent = 'שומר ומצליב…';
   feedback.textContent = '';
   let error, savedId = editingClientId;
-  if (editingClientId){
-    ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-  } else {
+  // אותה שמירה (עדכון או הוספה), שנקראת שוב אחרי כל גיבוי סכימה שמוריד שדה מה-payload
+  const persist = async () => {
+    if (editingClientId) return (await sb.from('agent_clients').update(payload).eq('id', editingClientId)).error;
+    const { data: row, error: insertError } = await sb.from('agent_clients').insert(payload).select('id').single();
+    savedId = row?.id;
+    return insertError;
+  };
+  if (!editingClientId){
     payload.agent_id  = currentAgent.id;
     payload.agency_id = currentAgent.agency_id;
-    let row;
-    ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-    savedId = row?.id;
   }
+  error = await persist();
   if (airLivingColumnMissing(error)) {
     stripAirLiving(payload);
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   let neighborhoodDeferred = false;
   // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
   if (shareLevelSchemaMissing(error)){
     delete payload.share_level;
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   // העמודה עולה עם 20271029170000, אחרי ה-HTML. בלי זה השמירה כולה נכשלת.
   if (clientNeighborhoodColumnMissing(error)){
     neighborhoodDeferred = true;
     delete payload.neighborhood_id;
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   btn.disabled = false; btn.textContent = original;
 
@@ -26319,7 +26288,7 @@ async function linesCall(task, body){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + task, {
     method:'POST',
-    headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+    headers: edgeHeaders(session),
     body: JSON.stringify(body || {}),
   });
   const out = await res.json().catch(() => ({}));
@@ -26529,7 +26498,7 @@ async function deleteCall(c, row, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=delete', {
       method:'POST',
-      headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ call_ids: [c.id] }),
     });
     const out = await res.json().catch(() => ({}));
@@ -28268,7 +28237,7 @@ async function gcalCall(action){
   if (!session) throw new Error('צריך להתחבר מחדש');
   const res = await fetch(SUPABASE_URL + '/functions/v1/google-calendar-connect', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify({ action }),
   });
   const data = await res.json().catch(()=> ({}));
@@ -29847,7 +29816,7 @@ async function adsCall(action, payload){
   try {
     res = await fetch(ADS_FUNCTION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(Object.assign({ action }, payload || {})),
     });
   } catch (net) {
