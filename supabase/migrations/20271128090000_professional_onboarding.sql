@@ -104,12 +104,16 @@ begin
       join public.ad_placement_access a on a.placement_id = p.id
      where p.placement_type = 'professional_card'
        and p.status in ('active', 'pending_approval')
-       and not p.test_mode
+       and coalesce(p.test_mode, false) = false
        and p.contact_email is not null and btrim(p.contact_email) <> ''
        and p.onboarding_reminders_sent < 2
        and p.created_at <= now() - case p.onboarding_reminders_sent when 0 then interval '3 days'
                                                                     else interval '10 days' end
-       and (p.onboarding_reminder_at is null or p.onboarding_reminder_at <= now() - interval '1 day')
+       -- חלון של 30 יום מהפתיחה: כתובת שנכשלת תמיד אינה מנוסה לנצח (גם תנאי ה-cron נעצר איתה)
+       and p.created_at > now() - interval '30 days'
+       -- התזכורת השנייה לפחות שבוע אחרי הראשונה, גם אם הראשונה התעכבה בגלל כשלי מייל; ניסיון חוזר אחרי כישלון: יום
+       and coalesce(p.onboarding_reminder_at, 'epoch'::timestamptz)
+             <= now() - case p.onboarding_reminders_sent when 0 then interval '1 day' else interval '7 days' end
      -- מי שהמייל שלו נכשל יורד לסוף התור, אחרת כתובות פגומות חוסמות את כולם
      order by coalesce(p.onboarding_reminder_at, p.created_at)
      limit 200

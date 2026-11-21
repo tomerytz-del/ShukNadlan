@@ -685,7 +685,9 @@ function renderOnboarding(state){
       const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'להשלמה';
       btn.addEventListener('click', ()=>{
         // שירותים ואזורים חסרים: הולכים לשדה שחסר בפועל
-        const target = s.id === 'offer' && Array.isArray(s.detail) && !s.detail.includes('שירותים') ? 'advAreas' : def.field;
+        const det = Array.isArray(s.detail) ? s.detail : [];
+        const target = s.id === 'offer' && !det.includes('שירותים') ? 'advAreas'
+          : s.id === 'intro' && !det.includes('משפט פתיחה') ? 'advDescription' : def.field;
         const node = el(target);
         if (node){ node.scrollIntoView({ block:'center', behavior:'smooth' }); if (node.focus && /INPUT|TEXTAREA|SELECT/.test(node.tagName)) node.focus(); }
       });

@@ -104,9 +104,15 @@ Deno.serve(async (req: Request) => {
       stats.failed++;
       continue;
     }
-    await supabase.rpc("mark_professional_onboarding_reminder", {
+    // ‏supabase-js אינו זורק: מייל שיצא וסימון שנכשל היו שולחים שוב מחר, ולכן השגיאה נספרת ונרשמת
+    const { error: markErr } = await supabase.rpc("mark_professional_onboarding_reminder", {
       p_placement_id: row.placement_id, p_no: row.reminder_no,
     });
+    if (markErr) {
+      console.error("professional-onboarding-reminders: mark failed after send", row.placement_id, markErr.message);
+      stats.failed++;
+      continue;
+    }
     stats.sent++;
   }
 
