@@ -991,7 +991,7 @@ function renderClientsTop(){
     const b = e.target.closest('[data-clients-kind]');
     if (!b) return;
     clientsKind = b.dataset.clientsKind;
-    renderClients();
+    renderClientsFromTop();
   });
   // שיחות שמחכות להחלטה = לידי שיחה חדשים, ב"הלידים שלי" עם סינון לשיחות
   document.getElementById('clientsTiles').addEventListener('click', e => {
