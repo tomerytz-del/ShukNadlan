@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """csm_notify_run: יציאה מוקדמת בלי צוות פעיל, ואותה התנהגות עם צוות פעיל.
 
-המיגרציה 20271118090000 מוסיפה `if not exists (... csm_staff where active)`
+המיגרציה 20271123190000 מוסיפה `if not exists (... csm_staff where active)`
 בראש הפונקציה. הבדיקה מריצה את הגוף הישן (מ-20270816090000) ואת החדש על
 אותם נתונים ומשווה: בלי צוות פעיל שניהם מחזירים 0 ואינם כותבים דבר, ועם
 צוות פעיל שניהם כותבים אותן התראות בדיוק.
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OLD = ROOT / "supabase/migrations/20270816090000_csm_profile_agenda_notifications.sql"
-NEW = ROOT / "supabase/migrations/20271118090000_csm_notify_run_no_staff_exit.sql"
+NEW = ROOT / "supabase/migrations/20271123190000_csm_notify_run_no_staff_exit.sql"
 
 new_sql = NEW.read_text(encoding="utf-8")
 for required in (
