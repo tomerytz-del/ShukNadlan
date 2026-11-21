@@ -852,6 +852,20 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsSheetRise .28s var(--ease-drawer)}
   @media(min-width:640px){.filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsModalIn .2s var(--ease-out)}}
   @media(prefers-reduced-motion:reduce){.filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{animation:dsFade .15s ease}}
+  /* יציאה, בלי JS (הסקיל animate): ‏display עובר מעבר (allow-discrete), ולכן כשהמחלקה open יורדת החלון נשאר מצויר 150ms
+     ודוהה אל מצב "סגור" שהבסיס מגדיר (גיליון יורד מתחת ל-640px, מודל מ-640px). בדפדפן שלא תומך החלון נעלם מיד כמו קודם */
+  .filter-modal-overlay,.mlead-overlay{background-color:transparent;pointer-events:none;transition:background-color .15s var(--ease-out),display .15s allow-discrete}
+  .filter-modal-overlay.open,.mlead-overlay.open{background-color:rgba(14,42,107,.55);pointer-events:auto}
+  .filter-modal-overlay .filter-modal,.mlead-overlay .filter-modal{transform:translateY(100%);transition:transform .15s var(--ease-out),opacity .15s var(--ease-out)}
+  .filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{transform:none}
+  @media(min-width:640px){
+    .filter-modal-overlay .filter-modal,.mlead-overlay .filter-modal{opacity:0;transform:scale(.96)}
+    .filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{opacity:1;transform:none}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .filter-modal-overlay .filter-modal,.mlead-overlay .filter-modal{opacity:0;transform:none}
+    .filter-modal-overlay.open .filter-modal,.mlead-overlay.open .filter-modal{opacity:1}
+  }
   .filter-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
   .filter-modal-header h3{font-size:1.05rem}
   .filter-modal-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
@@ -2239,7 +2253,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 
   html.a11y-links a{text-decoration:underline !important;font-weight:700 !important}
   html.a11y-readable, html.a11y-readable *{font-family:Arial, Helvetica, sans-serif !important}
-  html.a11y-nomotion *{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+  /* html.a11y-nomotion: מקור אחד ב-assets/design-system.css */
   html.a11y-contrast body{background:#000 !important;color:#fff !important}
   html.a11y-contrast .page-bg{display:none !important}
   html.a11y-contrast .card,
@@ -3483,6 +3497,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     { "@type": "AdministrativeArea", "name": "יקנעם, רמת ישי והסביבה" },
     { "@type": "Country", "name": "ישראל" }
   ],
+  "founder": { "@type": "Person", "@id": "https://shuknadlan.co.il/about#founder", "name": "תומר יצחק", "url": "https://shuknadlan.co.il/about" },
   "sameAs": ["https://www.facebook.com/share/19LytY6L6b/", "https://www.instagram.com/shuknadlan/"]
 }
 </script>
@@ -3893,7 +3908,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hood-map-sec{display:block}
   html.beta-hero .hood-map-sec h2{margin:0;font-size:var(--sec-h);font-weight:800;line-height:1.2;color:#0d1b3d;text-wrap:balance}
   html.beta-hero .hood-map-sub{margin:6px 0 12px;color:var(--v10-body);font-size:14px;line-height:1.5}
-  html.beta-hero .hood-map-box{position:relative;border-radius:16px;overflow:hidden;border:1px solid rgba(14,42,107,.12);
+  /* ‏isolation: שכבות Leaflet (‏z-index 200-1000) נשארות בתוך התיבה. בלעדיו הן מתחרות עם
+     שכבות קבועות של הדף, והמפה כיסתה את החלון הפתוח של גבריאלה (‏z-index 206) - 19.11.2026 */
+  html.beta-hero .hood-map-box{position:relative;isolation:isolate;border-radius:16px;overflow:hidden;border:1px solid rgba(14,42,107,.12);
     box-shadow:0 4px 12px rgba(13,27,61,.07);background:#eef1f7}
   html.beta-hero .hood-map{height:230px;cursor:pointer}
   html.beta-hero .hood-map.tiles-off{background:url("/assets/map-streets-fallback-260.svg") 0 0/260px 260px,linear-gradient(160deg,#f6f1e7,#eef1f7)}

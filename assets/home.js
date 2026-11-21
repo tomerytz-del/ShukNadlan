@@ -45,12 +45,7 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 // ‏P2-6: מקור אחד לווידג'ט של גבריאלה (‏assets/gabriela-widget.js, ‏sbConf)
 window.SHUK_SB = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
-const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
-/* הנכסים שיש להם הדמיית AI מפורסמת — נטענים בשאילתה אחת אחרי שהנכסים
-   עצמם עלו, ומזינים את תגית "הדמיית AI" שעל האריח. ‏Set ריק עד אז, ולכן
-   האריחים נבנים בלי להמתין לה. */
-let visualizedProps = new Set();
 
 const FALLBACK_PROPERTIES = [
   {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', category:'residential', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
@@ -1660,9 +1655,11 @@ const propsShelf = PropShelf.create({
 /* הסינון שבמדף → המפה ושורות התוצאות שמעליו.
 
    שחרור התגיות (‏filtered=false) לא מצייר את הרשימה המלאה כ"תוצאות חיפוש":
-   הוא מחזיר את המפה למה שהיה לפניה. אם רץ חיפוש אמיתי (סרגל החיפוש או
-   המסננים) — הוא מורץ שוב, כי הוא ולא המדף הוא מה שהמפה אמורה להראות.
-   אחרת חוזרים לכל המלאי הפעיל, כלומר בדיוק מצב הטעינה של הדף.
+   הוא מחזיר את המפה למה שהיה לפניה. עם החיפוש במשפט (‏sentence.loaded())
+   מציירים שוב את ‏sentence.results() עם ‏resultsMode, בלי שאילתה - אותו ציור
+   של onSentenceChange, וכשלא רץ חיפוש זה בדיוק מצב הטעינה. בלי המשפט (הסקריפט
+   נחסם או עוד לא נטען): חיפוש אמיתי שכבר רץ מורץ שוב דרך runSearch(), ואחרת
+   חוזרים לכל המלאי הפעיל.
 
    בכוונה בלי גלילה אל המפה: התגיות יושבות בתחתית העמוד, ולחיצה שמושכת את
    המסך למעלה הייתה מרחיקה את שורת התגיות עצמה — כלומר מענישה בדיוק את מי
@@ -1677,6 +1674,16 @@ async function ppShelfToMap(items, filtered){
   }
   if (!ppShelfFiltered) return;
   ppShelfFiltered = false;
+  /* עם החיפוש במשפט הוא מקור האמת למפה: מציירים שוב את מה שהוא מחזיר, בדיוק
+     כמו ב-onSentenceChange. הקריאה הקודמת ל-runSearch() שאלה את ה-DB לפי
+     searchState, כלומר עקפה את המשפט (כינויים, אזורים וקבוצות יישובים) ויכלה
+     להחזיר רשימה אחרת ממה שהמשפט מציג. */
+  if (sentence && sentence.loaded()){
+    const results = sentence.results();
+    renderPropertyGrid(results, resultsMode);
+    renderSentenceMapTag(results, sentence.state());
+    return;
+  }
   if (searchHasRun) await runSearch();
   else renderPropertyGrid(allActiveProperties);
 }
@@ -1877,7 +1884,7 @@ function safeExternalUrl(u){
 /* יחיד ובלי לוכסן - אותן תוויות של professionals.html ו-professional.html */
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', architect:'אדריכל',
-  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל מקצוע',
+  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן בנייה ושיפוצים', planning_consultant:'יועץ תכנון ובנייה', surveyor:'מודד מוסמך', electrician:'חשמלאי', plumber:'אינסטלטור', general:'בעל מקצוע',
 };
 
 /* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
@@ -1999,7 +2006,6 @@ renderExpertBanner();
    יחזיק את הראש קבוע. רק בעלי מקצוע אמיתיים: בלי אף אחד הרצועה hidden
    (ההזמנה להצטרף כבר יושבת מתחת לבאנר). docs/professional-cards.md.
    ============================================================ */
-const PRO_PHONE_RE = /^\d{9,15}$/;
 function proInitials(name){
   return String(name || '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
 }
@@ -2018,7 +2024,7 @@ function proStripCard(p){
   const sub = services.length
     ? services.join(', ') + (region ? ' · ' + region : '')
     : (name && name !== title ? name : region);
-  const phone = PRO_PHONE_RE.test(String(p.phone_e164 || '')) ? p.phone_e164 : '';
+  const phone = DM_PHONE_RE.test(String(p.phone_e164 || '')) ? p.phone_e164 : '';
   const waText = ['היי' + (name ? ' ' + name : '') + ',',
     'הגעתי דרך שוק הנדל״ן של עפולה והסביבה ואשמח לשמוע פרטים.',
     location.origin + href].join('\n');
@@ -2430,7 +2436,6 @@ function bindRowScroller(row){
      בטלפון בלבד. */
   const dmMqGrid = window.matchMedia('(min-width:760px)');
   const dmMqWide = window.matchMedia('(min-width:1100px)');
-  const dmLimit = ()=> Infinity;
 
   /* שתי שורות מ-760px, בעמודים של (טורים × 2) — השורה העליונה מתמלאת
      לפני התחתונה בכל עמוד. בטלפון (שורה אחת) הסגנון המוטבע מנוקה. */
@@ -2527,10 +2532,10 @@ function bindRowScroller(row){
       row.appendChild(empty);
       if (dmF.active()) row.appendChild(dmF.emptyActions());
     } else {
-      list.slice(0, dmLimit()).forEach(it => row.appendChild(card(it)));
+      list.forEach(it => row.appendChild(card(it)));
       dmPlace();
     }
-    buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
+    buildDots(list.length);
     dmF.after(list);
 
     // ‏R8 (v10): החיפוש מוצא גם התמחות ושכונה (‏_dmWords)
@@ -4198,8 +4203,7 @@ function gabrielaMiniLink(cls, title, sub, entry){
   b.innerHTML = gabrielaMiniHtml(cls, title, sub);
   b.addEventListener('click', ()=>{
     if (mapViewIsOpen()) closeMapViewNow();
-    document.getElementById('mobileMenu')?.classList.remove('open');
-    document.getElementById('menuToggle')?.setAttribute('aria-expanded', 'false');
+    closeMobileMenu();
     openGabrielaAgent();
   });
   return b;
@@ -4620,10 +4624,8 @@ const HOOD_RADIUS_PAD_M = 220;   // שוליים סביב הנכס הרחוק ב
 const hoodState = {
   rows: [],                // כל השכונות מה-DB
   byId: new Map(),
-  counts: new Map(),       // מזהה שכונה → מספר נכסים פעילים
   centers: new Map(),      // מזהה שכונה → { center:[lat,lng], radius }
   selected: new Set(),     // מזהי השכונות שנבחרו; ריק = כל השכונות
-  draft: new Set(),        // הסימון שבתוך המודאל, לפני "הצגת תוצאות"
 };
 // הסימונים של השכונות הנבחרות: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShapes)
 let hoodShapes = [];
@@ -4809,137 +4811,15 @@ function parseBoundary(raw){
   return pts.length >= 3 ? pts : null;
 }
 
-/* מספר הנכסים בכל שכונה — לפי סוג העסקה שנבחר בסרגל החיפוש, כלומר בדיוק
-   מה שהלחיצה על הגלולה תחזיר. ספירה כוללת הייתה מבטיחה "4" ומחזירה רשימה
-   ריקה כשארבעת הנכסים האלה מסחריים והבורר עומד על "מכירה". התנאים כאן הם
-   בכוונה אותם תנאים שב-runSearch, ולכן הם מתעדכנים איתו. */
-function hoodCounts(){
-  const isCommercial = searchState.activeTab === 'commercial';
-  const category = isCommercial ? 'commercial' : 'residential';
-  const dealType = isCommercial ? searchState.c.deal : searchState.activeTab;
-  const counts = new Map();
-  allActiveProperties.forEach(p=>{
-    if (!p.neighborhood_id) return;
-    if (p.category !== category) return;
-    // dealType ריק = "הכול" במסחרי, ואז המונה סופר את שני סוגי העסקה יחד
-    if (dealType && p.deal_type !== dealType) return;
-    counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
-  });
-  return counts;
-}
-
-/* השכונות שמוצעות לבחירה: אלה שיש בהן נכסים מסוג העסקה הנוכחי, מהגדולה
-   לקטנה. שכונה שנבחרה נשארת ברשימה גם כשאין בה נכסים מסוג העסקה הנוכחי —
-   אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה. */
-function hoodChoices(){
-  // *כל* השכונות, ולא רק אלה שיש בהן נכסים. הרשימה המקוצרת נראתה כמו תקלה:
-  // מי שיודע שיש בעפולה ארבע-עשרה שכונות ורואה שתיים מסיק שהסינון שבור, ולא
-  // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
-  // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
-  //
-  // אזור בתכנון (is_planned) אינו מוצג גם כשיש בו נכס. "B1 אזור בתכנון"
-  // הוא קוד תכנוני, ופין של מרכז העיר נפל בתוכו. selected ו-draft נשארים
-  // כדי שקישור עמוק לא ישאיר בחירה שאי אפשר לבטל.
-  return hoodState.rows.slice().filter(h =>
-    !h.is_planned ||
-    hoodState.selected.has(h.id) ||
-    hoodState.draft.has(h.id)
-  ).sort((a, b)=>
-    ((hoodState.counts.get(b.id) || 0) - (hoodState.counts.get(a.id) || 0)) ||
-    String(a.name).localeCompare(String(b.name), 'he'));
-}
-
-/* הכפתור שמעל המפה: שם השכונה כשנבחרה אחת, ומונה כשנבחרו כמה. שם מלא ולא
-   "1 שכונה" — כשהבחירה יחידה היא גם הכותרת של מה שרואים על המפה. */
-function renderHoodFilter(){
-  const bar = document.getElementById('hoodBar');
-  const btn = document.getElementById('hoodFilterBtn');
-  const label = document.getElementById('hoodFilterLabel');
-  const badge = document.getElementById('hoodFilterCount');
-  if (!bar || !btn || !label || !badge) return;
-  hoodState.counts = hoodCounts();
-
-  // הכפתור מוסתר רק כשאין שכונות בכלל (טעינה שנכשלה, או מסד ריק)
-  if (!hoodState.rows.length){ bar.hidden = true; return; }
-  bar.hidden = false;
-
-  const n = hoodState.selected.size;
-  btn.dataset.active = String(n > 0);
-  badge.hidden = n < 2;
-  badge.textContent = n;
-
-  if (n === 0) label.textContent = 'סינון לפי שכונות';
-  else if (n === 1) label.textContent = hoodState.byId.get([...hoodState.selected][0])?.name || 'שכונה אחת';
-  else label.textContent = 'שכונות נבחרות';
-}
-
-/* רשימת תיבות הסימון שבמודאל. נבנית מחדש בכל פתיחה, כי המונים משתנים עם
-   סוג העסקה. הסימון נאסף ל-hoodState.draft ומוחל רק ב"הצגת תוצאות". */
-function renderHoodOptions(){
-  const wrap = document.getElementById('hoodFilterOptions');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-
-  hoodChoices().forEach(h=>{
-    const n = hoodState.counts.get(h.id) || 0;
-    // שכונה בלי נכסים מסוג העסקה הנבחר מוצגת אבל לא נבחרת: הבחירה בה הייתה
-    // מחזירה רשימה ריקה ותו לא. אם היא כבר מסומנת היא נשארת פעילה, אחרת אי
-    // אפשר היה לבטל בחירה שהמונה שלה ירד ל-0 אחרי החלפת סוג העסקה.
-    const empty = n === 0 && !hoodState.draft.has(h.id);
-
-    const row = document.createElement('label');
-    row.className = 'hood-option' + (empty ? ' hood-option--empty' : '');
-
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.value = h.id;
-    box.checked = hoodState.draft.has(h.id);
-    box.disabled = empty;
-    box.addEventListener('change', ()=>{
-      if (box.checked) hoodState.draft.add(h.id); else hoodState.draft.delete(h.id);
-    });
-    row.appendChild(box);
-
-    // textContent ולא innerHTML: שמות שכונות מוזנים ע"י משתמשי הפלטפורמה
-    // (‏neighborhoods.is_custom‎), ואסור להם להגיע ל-DOM כ-HTML
-    const name = document.createElement('span');
-    name.className = 'hood-option-name';
-    name.textContent = h.name;
-    row.appendChild(name);
-
-    const count = document.createElement('span');
-    count.className = 'hood-count';
-    count.textContent = n;
-    row.appendChild(count);
-
-    wrap.appendChild(row);
-  });
-
-  // ההסבר על העמעום מוצג רק כשיש מה להסביר
-  const note = document.getElementById('hoodEmptyNote');
-  if (note) note.hidden = !wrap.querySelector('.hood-option--empty');
-}
-
-/* החלת הבחירה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא מצטרפת
-   לשאר הסינונים (מחיר, חדרים, סוג עסקה) במקום להתחרות בהם, ומחזירה גם
-   נכסים שמעבר ל-300 הראשונים שנטענו לעמוד. קבוצה ריקה = כל השכונות. */
-function applyHoodSelection(ids){
-  hoodState.selected = new Set(ids);
-  renderHoodFilter();
-  drawHoodShapes();
-  runSearch();
-}
-
 try {
   (async function initPropertyUI(){
-    // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המונים והמרכזים,
+    // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המרכזים,
     // והטבלה מספקת את השמות והסימון הידני
     const [properties, hoods] = await Promise.all([loadProperties(), loadNeighborhoods()]);
     hoodState.rows = hoods;
     hoodState.byId = new Map(hoods.map(h => [h.id, h]));
-    // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: המונה שעל
-    // שברשימת הבחירה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש
-    // הוא היה מפסיק לענות על השאלה שבגללה מסתכלים עליו
+    // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: היא מזינה את
+    // המרכזים, את החיפוש במשפט ואת נתוני ה-hero, וכולם מדברים על כל המלאי
     allActiveProperties = properties;
     if (typeof dmPropsHook === 'function') dmPropsHook(properties);
     heroStatsState.props = properties.length;
@@ -4949,7 +4829,6 @@ try {
     initHoodMapSec(properties);
     v10Fair.props = properties;
     renderV10Fair();
-    renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
 
@@ -4976,7 +4855,6 @@ try {
       // גם קבוצה ריקה: ‎?ai=1‎ בלי אף נכס עם הדמיה הוא אפס תוצאות, לא "הכול"
       if (sentence && !ids.size) sentence.setAiIds(ids);
       if (!ids.size) return;
-      visualizedProps = ids;
       // התגית שב-hero סופרת את אותה קבוצה בדיוק — נכסים *פעילים* עם הדמיה
       // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
       heroStatsState.ai = ids.size;
@@ -5070,7 +4948,7 @@ function renderCheckboxes(container, items, selectedSet){
   items.forEach(([value, label])=>{
     const wrap = document.createElement('label');
     wrap.className = 'checkbox-item';
-    wrap.innerHTML = `<input type="checkbox" value="${value}" ${selectedSet.has(value)?'checked':''}> ${label}`;
+    wrap.innerHTML = `<input type="checkbox" value="${escAttr(value)}" ${selectedSet.has(value)?'checked':''}> ${escapeHtml(label)}`;
     wrap.querySelector('input').addEventListener('change', (e)=>{
       if (e.target.checked) selectedSet.add(value); else selectedSet.delete(value);
     });
@@ -5135,9 +5013,6 @@ function initFilterModals(){
       syncCommercialDealToggle();
       // המונים של סוגי הנכס תלויים בעסקה
       renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
-      // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
-      // שברשימת השכונות
-      renderHoodFilter();
       advV10Layout();
     });
   });
@@ -5173,7 +5048,7 @@ function advMoreBox(modalId){
   body.appendChild(box);
   return box;
 }
-const advDeal = () => searchState.activeTab === 'commercial' ? 'commercial' : searchState.activeTab;
+const advDeal = () => searchState.activeTab;
 function advV10Layout(){
   if (!v10On()) return;
   const commercial = searchState.activeTab === 'commercial';
@@ -5266,42 +5141,6 @@ function advV10Layout(){
   if (picked && !box.open){ box.dataset.auto = '1'; box.open = true; }
 }
 
-// סוג העסקה נבחר מקונטיינר נפתח בתוך סרגל החיפוש (במקום שלושה טאבים).
-// data-mode על ה-select צובע אותו לפי הבחירה, בהתאמה לצבעי הפינים במפה.
-const dealTypeSelect = document.getElementById('dealTypeSelect');
-if (dealTypeSelect){
-  dealTypeSelect.addEventListener('change', ()=>{
-    /* "פרויקטים חדשים" אינו סוג עסקה בטבלת properties אלא מודול נפרד עם
-       מנוע חיפוש משלו, ולכן הבחירה בו מנווטת לדף הפרויקטים במקום לסנן
-       את המפה. הטקסט החופשי שכבר הוקלד נוסע איתו — בלעדיו המשתמש/ת
-       היה/הייתה מקליד/ה אותו פעמיים.
-
-       הבורר מוחזר לערך הקודם לפני הניווט, כדי שחזרה אחורה בדפדפן לא
-       תמצא את דף הבית עם בורר שמצביע על עמוד אחר. */
-    if (dealTypeSelect.value === 'projects'){
-      const q = mainFreeText();
-      dealTypeSelect.value = searchState.activeTab;
-      location.href = '/projects' + (q ? '?q=' + encodeURIComponent(q) : '');
-      return;
-    }
-    searchState.activeTab = dealTypeSelect.value;
-    dealTypeSelect.dataset.mode = dealTypeSelect.value;
-    // המונים שברשימת השכונות נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
-    // להיספר מחדש כאן — אחרת "אזור התעשייה 4" היה נשאר על המסך אחרי מעבר
-    // ל"מכירה" ומחזיר רשימה ריקה
-    renderHoodFilter();
-    // מריצים חיפוש מיידית עם שינוי הבחירה, כדי שהמפה (וגם הגריד) יסננו
-    // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש"
-    runSearch();
-  });
-}
-
-// אנטר בתיבת החיפוש = לחיצה על כפתור החיפוש; במסכים צרים הכפתור מוצג
-// כאייקון בלבד, ובלי זה לא היה ברור איך מריצים חיפוש מהמקלדת
-document.getElementById('searchFreeText')?.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter'){ e.preventDefault(); runSearch(); }
-});
-
 /* הטקסט החופשי של החיפוש. מאז החיפוש במשפט אין שדה "עיר, שכונה או רחוב":
    מה שהיה נכתב בו הוא היום האזור שבמשפט - שם שכונה, יישוב, או טקסט
    שהשדה החכם זיהה ככתובת. חיפוש שמור (‏ssaCapture) ו-runSearch קוראים אותו
@@ -5346,10 +5185,6 @@ document.addEventListener('keydown', (e)=>{
   if (open) open.classList.remove('open');
 });
 
-document.getElementById('openFiltersBtn')?.addEventListener('click', ()=>{
-  openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
-});
-
 /* "הצגת תוצאות" בשני מודאלי הסינון = הרצת חיפוש.
    עד כאן הכפתור היה ‎data-close-modal‎ בלבד: הוא סגר את המודאל ותו לא, והמצב
    שנבחר בו (חדרים, סוג נכס, מחיר) נכנס לתוקף רק בלחיצה *נוספת* על כפתור
@@ -5362,26 +5197,6 @@ document.getElementById('rApplyFilters')?.addEventListener('click', ()=>{
 });
 document.getElementById('cApplyFilters')?.addEventListener('click', ()=>{
   if (sentence && sentence.loaded()) applyAdvancedFilters(); else runSearch();
-});
-
-// המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
-// הסימון כפי שהיה, ולא דף ריק.
-document.getElementById('hoodFilterBtn')?.addEventListener('click', ()=>{
-  hoodState.draft = new Set(hoodState.selected);
-  renderHoodOptions();
-  openModal('hoodFilterModal');
-});
-// "כל השכונות" מנקה ומחיל מיד — זו הדרך לבטל סינון, ולא עוד שלב לפני
-// "הצגת תוצאות"
-document.getElementById('hoodClearBtn').addEventListener('click', ()=>{
-  hoodState.draft = new Set();
-  renderHoodOptions();
-  applyHoodSelection([]);
-  closeModal('hoodFilterModal');
-});
-document.getElementById('hoodApplyBtn').addEventListener('click', ()=>{
-  applyHoodSelection(hoodState.draft);
-  closeModal('hoodFilterModal');
 });
 
 document.querySelectorAll('#rClearFilters, #cClearFilters').forEach(b => b.addEventListener('click', e => {
@@ -5538,7 +5353,7 @@ let searchRunning = false;
    "הצגת תוצאות") היא פעולה בלי שום משוב עד שהתוצאות חוזרות — וברשת איטית
    זה נקרא "כלום לא קרה". */
 function setSearchBusy(on){
-  document.querySelectorAll('#searchSubmitBtn, #rApplyFilters, #cApplyFilters').forEach(btn=>{
+  document.querySelectorAll('#rApplyFilters, #cApplyFilters').forEach(btn=>{
     btn.classList.toggle('is-busy', !!on);
     btn.setAttribute('aria-busy', String(!!on));
     btn.disabled = !!on;
@@ -6450,7 +6265,7 @@ function renderBuyerHoods(){
   }
 
   const list = hoodState.rows.filter(h => h.city === buyState.city
-      // אותו כלל כמו ב-hoodChoices: אזור בתכנון אינו מוצג, גם אם יש בו נכס.
+      // אזור בתכנון אינו מוצג, גם אם יש בו נכס.
       && (!h.is_planned || buyState.hoods.has(h.id)));
   if (label) label.hidden = !list.length;
   list.slice()
@@ -6870,12 +6685,8 @@ async function clearSearch(){
   if (field) field.value = '';
   setAiFilter(false);
   hoodState.selected = new Set();
-  hoodState.draft = new Set();
   drawHoodShapes();
   document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
-  // אחרי איפוס הסינונים ולא לפניו: הוא מחזיר גם את סוג העסקה המסחרי
-  // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
-  renderHoodFilter();
   const badge = document.getElementById('filterCountBadge');
   if (badge){
     badge.style.display = 'none';
@@ -6914,7 +6725,6 @@ async function clearSearch(){
 }
 
 initFilterModals();
-document.getElementById('searchSubmitBtn')?.addEventListener('click', runSearch);
 document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 
 /* ============================================================
@@ -7006,8 +6816,6 @@ function applyDeepLinkFilters(){
   const isCommercial = deal === 'commercial';
   if (deal === 'sale' || deal === 'rent' || deal === 'commercial'){
     searchState.activeTab = deal;
-    const select = document.getElementById('dealTypeSelect');
-    if (select){ select.value = deal; select.dataset.mode = deal; }
   }
   const s = isCommercial ? searchState.c : searchState.r;
 
@@ -7034,7 +6842,9 @@ function applyDeepLinkFilters(){
   priceField('maxPrice', isCommercial ? 'cPriceMax' : 'rPriceMax');
 
   const q = (params.get('q') || '').trim();
-  if (q) document.getElementById('searchFreeText').value = q.slice(0, 80);
+  // ‏השדה אינו קיים בדף הנוכחי (החיפוש הוא המשפט): בלי הבדיקה ?q= זרק שגיאה
+  const freeTextField = document.getElementById('searchFreeText');
+  if (q && freeTextField) freeTextField.value = q.slice(0, 80);
 
   // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה מה שנשלח כששולחים את
   // התוצאות לחבר/ה, וזו נקודת הכניסה היחידה למסנן מאז שהרצועה ירדה.
@@ -7043,7 +6853,6 @@ function applyDeepLinkFilters(){
   // הטופס נבנה מחדש כדי שהצ׳יפים של החדרים וסוגי הנכס ייראו מסומנים כשמי
   // שהגיע/ה מהקישור יפתח/תפתח את המסננים
   initFilterModals();
-  renderHoodFilter();
   runSearch();
 }
 
@@ -7590,7 +7399,7 @@ function openHomeFilterSheet(trigger){
     { key: 'text', title: 'חיפוש חופשי', kind: 'text', more: true, wide: true, placeholder: 'מילות חיפוש נוספות',
       get: () => X().freeText || '', set: (_, v) => { X().freeText = v; } },
   ]);
-  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab === 'commercial' ? 'commercial' : d.tab, surface: 'home_modal' });
+  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab, surface: 'home_modal' });
   FilterSheet.open({
     // ‏A4 (גבריאלה 20:30): "סינון נכסים" / "סינון נדל״ן מסחרי"
     title: dd => dd.tab === 'commercial' ? 'סינון נדל״ן מסחרי' : 'סינון נכסים',
@@ -7599,7 +7408,7 @@ function openHomeFilterSheet(trigger){
     count: dd => fsCount(dd),
     onReset: dd => {
       dd.r = FS_BLANK.r(); dd.c = FS_BLANK.c(); dd.ai = false;
-      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab === 'commercial' ? 'commercial' : dd.tab, surface: 'home_modal' });
+      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab, surface: 'home_modal' });
     },
     onApply: dd => {
       const title = document.getElementById('searchResultsTitle');
@@ -8586,7 +8395,6 @@ document.querySelector('.v10-tabs')?.addEventListener('keydown', e => {
 /* ---------- v10 (חלק 4 §2-§3): כפתורי התצוגה וכרטיס ההזמנה להחלקה ----------
    כתובת אחת ל-/swipe מהמשפט: עסקה, יישוב, חדרים ותקציב (אינדקס ב-BUDGETS של swipe.js),
    בלי ערכי ברירת מחדל. ‏swipe.js קורא אותם (‏readUrl). */
-const V10_BUDGETS = { sale: [0, 1500000, 2500000, 3500000], rent: [0, 4000, 6000, 8000], commercial: [0, 5000, 15000, 2000000] };
 function v10Deal(st){
   if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
   // בלי עסקה ("כל הנכסים") - ‏/swipe במצב המעורבב (‏deal=all, ברירת המחדל שלו)
@@ -8628,15 +8436,13 @@ function v10SwipeHref(src){
 let v10InviteSeen = false;
 /* ‏C7 (1) (תומר 22:32): "גלישה בהחלקה · N" שליד כותרת התוצאות יורד כשהכפתור המונפש שבסרגל
    על המסך - שתי כניסות להחלקה זו לצד זו. ‏visibility ולא hidden, כדי שהשורה לא תזוז */
-let v10MiniOnScreen = false;
 (function(){
   if (!v10On() || !('IntersectionObserver' in window)) return;
   const watch = () => {
     const mini = document.querySelector('#allProps .pp-view-btn');
     if (!mini) return false;
     new IntersectionObserver(es => es.forEach(en => {
-      v10MiniOnScreen = en.isIntersecting;
-      document.getElementById('srSwipe')?.classList.toggle('is-dup', v10MiniOnScreen);
+      document.getElementById('srSwipe')?.classList.toggle('is-dup', en.isIntersecting);
     })).observe(mini);
     return true;
   };
@@ -9768,6 +9574,15 @@ const PRO_INTENTS = [
   { type:'appraiser',          re:/שמאי|שמאית|שמאות/,                    label:'שמאי המקרקעין', one:'שמאי מקרקעין' },
   { type:'architect',          re:/אדריכל/,                               label:'האדריכלים', one:'אדריכל' },
   { type:'interior_designer',  re:/מעצב(?:ת)? פנים|עיצוב פנים/,          label:'מעצבי הפנים', one:'מעצב פנים' },
+  /* ‏19.11.2026: חמשת התחומים שנוספו אחרי. "הנדימן" הוא אותו תחום כמו קבלן שיפוצים (אין תחום נפרד במסד).
+     "קבלן" רק כ"קבלן שיפוצים" (תומר): "קבלן" לבדו הוא גם היזם
+     ש"דירה מקבלן" מגיעה ממנו. "מ" לפניו ("מקבלן שיפוצים") ו"פרויקט" פוסלים. בלי lookbehind: ב-Safari ישן הוא שובר את כל הקובץ בטעינה */
+  { type:'contractor',         re:/(?:(?:^|\s)(?:קבלן|קבלנית|קבלני|קבלנים)\s+(?:שיפוצים|שיפוץ)|הנדי\s?מן)(?![א-ת])/, label:'קבלני השיפוצים', one:'קבלן שיפוצים', not:/פרויקט/ },
+  { type:'planning_consultant', re:/יוע(?:ץ|צת|צי|צות)\s+תכנון/,        label:'יועצי התכנון והבנייה', one:'יועץ תכנון ובנייה' },
+  { type:'surveyor',           re:/מודד(?:ת|ים|ות)?(?:\s|$)/,            label:'המודדים המוסמכים', one:'מודד מוסמך' },
+  { type:'electrician',        re:/חשמלא(?:י|ית|ים|יות)/,                label:'החשמלאים', one:'חשמלאי' },
+  { type:'plumber',            re:/אינסטלטור|שרברב/,                      label:'האינסטלטורים', one:'אינסטלטור' },
+  { type:'cleaning',           re:/(?:חברת|חברות|שירותי)\s+ני?קיון/,       label:'חברות הניקיון', one:'חברת ניקיון', bare:true },
   // משכנתא רק כשאין בטקסט נכס ("דירה עם משכנתא" נשאר חיפוש נכס)
   { type:'mortgage_advisor',   re:/יועצ(?:ת)? משכנתא|משכנתא/,            label:'יועצי המשכנתאות', one:'יועץ משכנתאות', bare:true },
 ];
@@ -9779,10 +9594,9 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
   const shukTrack = (n, p) => { if (window.shukTrack) window.shukTrack(n, p); };
   let proShown = '';
   function proOf(t){
-    const hit = PRO_INTENTS.find(x => x.re.test(t));
-    if (!hit) return null;
-    if (hit.bare && PROPERTY_WORDS.test(t.replace(hit.re, ''))) return null;
-    return hit;
+    // הכללים (not, bare) נבדקים לפני הבחירה, כדי שהצעה שנפסלה לא תחסום תחום אחר באותו טקסט
+    return PRO_INTENTS.find(x => x.re.test(t) && !(x.not && x.not.test(t))
+      && !(x.bare && PROPERTY_WORDS.test(t.replace(x.re, '')))) || null;
   }
   function show(html){ box.innerHTML = html; box.hidden = !html; }
   /* ‏P0-2: תחום בלי אף בעל/ת מקצוע פעיל/ה (היום: שמאים) - לא לדף ריק אלא לכל בעלי המקצוע.

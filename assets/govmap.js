@@ -278,20 +278,72 @@
 
   function first(arr) { return (arr && arr.length) ? arr[0].attributes || {} : null; }
 
+  /* איזו חלקה מתוך מה שחזר בנקודה. מחזירה { feature } או { count }.
+     - רשומה בלי גוש או חלקה אינה חלקה, ורשומות כפולות של אותה חלקה (אותו גוש,
+       תת-גוש וחלקה) נספרות כאחת.
+     - בלי `want`: רק תוצאה יחידה. שתי חלקות בטווח פירושן שאיננו יודעים איזו.
+     - עם `want` (הגוש והחלקה ידועים): בין כמה חלקות נבחרת זו שביקשנו.
+     - `strict` (הנקודה עצמה באה מחיפוש הגוש/חלקה): **רק** החלקה שביקשנו. מרכז
+       של חלקה גדולה או קעורה יכול ליפול על שכנה, ואז "החלקה היחידה בנקודה"
+       היא החלקה הלא נכונה. בנקודת כתובת זה לא חל: שם הכתובת היא האמת, וגוש
+       מהעסקה משמש רק להכרעה בין שתיים.
+     תת-גוש אינו נבדק מול `want`: הבקשה אינה נושאת אותו. */
+  function pickParcel(features, want, strict) {
+    var seen = {}, uniq = [], match = null;
+    var wg = want ? String(want.gush == null ? '' : want.gush).trim() : '';
+    var wh = want ? String(want.helka == null ? '' : want.helka).trim() : '';
+    (features || []).forEach(function (f) {
+      var a = (f && f.attributes) || {};
+      if (a.gush_num == null || a.parcel == null) return;
+      var k = a.gush_num + '|' + (a.gush_suffix || 0) + '|' + a.parcel;
+      if (seen[k]) return;
+      seen[k] = true; uniq.push(f);
+      if (!match && wg && wh && String(a.gush_num) === wg && String(a.parcel) === wh) match = f;
+    });
+    if (strict) return match ? { feature: match } : { count: 0 };
+    if (uniq.length === 1) return { feature: uniq[0] };
+    return match ? { feature: match } : { count: uniq.length };
+  }
+
   /**
-   * מידע תכנוני בנקודה, בצורה של שורת property_planning_info.
-   * ‏null כשאין חלקה בנקודה (גם לא ב-10 מטר) - כתובת על כביש או בשטח לא מוסדר.
+   * מידע תכנוני בנקודה, בצורה של שורת property_planning_info, עם הסיבה כשאין:
+   * { planning, reason, offPoint }. ‏reason: 'no_parcel_at_point' (אין חלקה גם
+   * ב-10 מטר - כתובת על כביש או בשטח לא מוסדר, או שהחלקה שביקשנו אינה שם) או
+   * 'ambiguous_parcel' (שתי חלקות ויותר בטווח, ואין לנו דרך לבחור).
+   *
+   * ‏offPoint: החלקה שביקשנו (strict) נמצאה רק בטווח, כלומר הנקודה עצמה **אינה
+   * בתוכה**. המגרש, הייעוד והתוכניות שבנקודה שייכים אז לשכנה, ולכן הרשומה
+   * חוזרת עם פרטי החלקה בלבד - והקורא אינו שואל את plansAt על הנקודה הזו.
    */
-  function planningAt(point) {
+  function planningAtWhy(point, want, strict) {
     return layersAt(point, 0).then(function (layers) {
-      if (layers.PARCEL_ALL && layers.PARCEL_ALL.length === 1) return layers;
-      // נקודת כתובת שנפלה על קו חלקה או על המדרכה. רק תוצאה **יחידה**
-      // מתקבלת: שתי חלקות בטווח פירושן שאיננו יודעים איזו, ואז null.
+      var got = pickParcel(layers.PARCEL_ALL, want, strict);
+      if (got.feature) { layers.PARCEL_ALL = [got.feature]; return { layers: layers }; }
+      // נקודת כתובת שנפלה על קו חלקה או על המדרכה.
       return layersAt(point, 10).then(function (l2) {
-        return (l2.PARCEL_ALL && l2.PARCEL_ALL.length === 1) ? l2 : null;
+        var g2 = pickParcel(l2.PARCEL_ALL, want, strict);
+        if (!g2.feature) return { layers: null, reason: g2.count > 1 ? 'ambiguous_parcel' : 'no_parcel_at_point' };
+        l2.PARCEL_ALL = [g2.feature];
+        if (strict) { l2.retzefMigrashim = []; return { layers: l2, offPoint: true }; }
+        return { layers: l2 };
       });
-    }).then(function (layers) {
-      if (!layers) return null;
+    }).then(function (res) {
+      return { planning: res.layers ? planningFromLayers(res.layers) : null,
+               reason: res.layers ? null : res.reason, offPoint: !!res.offPoint };
+    });
+  }
+
+  /** החוזה הוותיק: הרשומה, או null כשאין חלקה אחת בנקודה. */
+  function planningAt(point) {
+    return planningAtWhy(point).then(function (out) { return out.planning; });
+  }
+
+  /* הגוש והחלקה שבבקשה, אם יש: להכרעה בין חלקות (pickParcel) */
+  function wantOf(q) {
+    return q && q.gush && q.helka ? { gush: q.gush, helka: q.helka } : null;
+  }
+
+  function planningFromLayers(layers) {
       var parcel = first(layers.PARCEL_ALL);
       var lot = first(layers.retzefMigrashim);
       var nbr = first(layers.neighborhoods_area);
@@ -312,7 +364,6 @@
         neighborhood: nbr ? nbr.fname || null : null,
         cbs_settlement_code: lot && lot.kodishuv ? Number(lot.kodishuv) : null,
       };
-    });
   }
 
   /* מפתח השוואה למספר תוכנית: ‏203 כותבת "תמא/ 15/ ד", העירייה "תמא/15/ד". */
@@ -426,9 +477,9 @@
       });
     }).then(function (found) {
       if (!found) return null;
-      return Promise.all([projReady(), planningAt(found.point)]).then(function (res) {
+      return Promise.all([projReady(), planningAtWhy(found.point, wantOf(q), found.pinSource === 'parcel')]).then(function (res) {
         var ll = itmToWgs84(res[0], found.point.x, found.point.y);
-        var planning = res[1];
+        var planning = res[1].planning;
         var out = { lat: ll[1], lng: ll[0], pinSource: found.pinSource, itm: found.point, planning: planning };
         if (!planning || !planning.gush || !planning.helka) return out;
         return parcelGeometryWgs84(planning.gush, planning.helka).then(function (geom) {
@@ -672,8 +723,15 @@
    * מצולע בירדן, ועדיף בלי גבול (SKILL.md, "סדר הצירים").
    */
   function neighborhoodsInArea(bbox, cities, onProgress) {
+    // ‏cities: שמות, או { name, as } - כתיב של GovMap (כינוי מ-city_aliases,
+    // "זיכרון יעקב") שנשמר אצלנו בשם שלנו ("זכרון יעקב"). זכרון יעקב חזרה
+    // עם 0 שכונות בייבוא של 21.11.2026 בעוד שכנותיה חזרו מלאות - כתיב שונה
+    // ביישוב הוא ההסבר הראשון לבדוק, לפני "אין בשכבה".
     var want = {};
-    (cities || []).forEach(function (c) { want[settlementKey(c)] = c; });
+    (cities || []).forEach(function (c) {
+      if (c && typeof c === 'object') want[settlementKey(c.name)] = c.as || c.name;
+      else want[settlementKey(c)] = c;
+    });
     var tick = typeof onProgress === 'function' ? onProgress : function () {};
     var diag = {};
     var M = 0.05;
@@ -691,35 +749,67 @@
       }
       var found = {};
       var done = 0;
+      /* קיטוע: GovMap מחזירה לכל קריאה לכל היותר ~44 תכונות, ממוינות לפי יישוב
+         ושם, בלי לומר שקצצה. נמדד בחדרה (21.11.2026): הסריקה הראשונה החזירה
+         בדיוק 44 - אור עקיבא 17, בנימינה 20, חדרה 7 עד האות ב' - ובסריקה עם
+         פיצול הקריאה הצפופה ביותר החזירה 43. תל אביב (17.10.2026): 24 עד כ'.
+         לכן עיגול שחזר עם DENSE תכונות ומעלה נחשב חשוד ומתחלק לארבעה עיגולים
+         (רדיוס 0.75 מהמקורי, במרכזים ±r/2 - מכסים אותו), עד MIN_RADIUS.
+         DENSE יושב מתחת לתקרה שנמדדה ומעל לכל עיר אמיתית בעיגול אחד: סף 8
+         פיצל 184 עיגולים, הגיע לתקרת הקריאות, ונפל על שגיאת רשת אחת מתוך 800.
+         diag.maxFeatures אומר אחרי הריצה מה הקריאה הצפופה ביותר החזירה. */
+      var DENSE = 40, MIN_RADIUS = 600, MAX_CALLS = 800;
+      var queue = points.map(function (pt) { return { pt: pt, radius: 2500 }; });
+      diag.maxFeatures = 0; diag.splits = 0; diag.capped = false;
 
-      return points.reduce(function (chain, pt) {
-        return chain.then(function () {
-          var xy = proj4('WGS84', ITM_DEF, [pt[1], pt[0]]);
+      function scanOne(job) {
+        var xy = proj4('WGS84', ITM_DEF, [job.pt[1], job.pt[0]]);
+        // ניסיון חוזר על כשל רשת: בסריקה של מאות קריאות מטלפון, ERR_NETWORK
+        // אחד הפיל את כולה (21.11.2026). שגיאה בתוך תשובה תקינה עדיין זורקת.
+        return withRetry(function () {
           return gm.getLayerFeaturesByLocation({
             geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
-            radius: 2500,
+            radius: job.radius,
             layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
-          }, GOVMAP_TOKEN).then(function (r) {
-            assertNoLayerErrors(r);
-            var feats = r.layers.neighborhoods_area || [];
-            if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
-            feats.forEach(function (f) {
-              var a = f.attributes || {};
-              var city = want[settlementKey(a.setl_name)];
-              var name = String(a.fname || '').trim();
-              if (!city || !name) return;
-              var key = settlementKey(city) + '|' + textKey(name);
-              if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null, boundary: null };
-              if (!found[key].boundary) {
-                var polys = findPolys(f);
-                var ring = polys ? outerRingLatLng(proj4, polys) : null;
-                if (ring && inArea(ringCenter(ring))) found[key].boundary = ring;
-              }
-            });
-            tick(++done, points.length, 'scan');
+          }, GOVMAP_TOKEN);
+        }).then(function (r) {
+          assertNoLayerErrors(r);
+          var feats = r.layers.neighborhoods_area || [];
+          if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
+          if (feats.length > diag.maxFeatures) diag.maxFeatures = feats.length;
+          feats.forEach(function (f) {
+            var a = f.attributes || {};
+            var city = want[settlementKey(a.setl_name)];
+            var name = String(a.fname || '').trim();
+            if (!city || !name) return;
+            var key = settlementKey(city) + '|' + textKey(name);
+            if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null, boundary: null };
+            if (!found[key].boundary) {
+              var polys = findPolys(f);
+              var ring = polys ? outerRingLatLng(proj4, polys) : null;
+              if (ring && inArea(ringCenter(ring))) found[key].boundary = ring;
+            }
           });
+          if (feats.length >= DENSE && job.radius > MIN_RADIUS) {
+            if (queue.length + 4 > MAX_CALLS) diag.capped = true;
+            else {
+              diag.splits++;
+              var r2 = job.radius * 0.75, d = job.radius / 2;
+              var dLat = d / 111000, dLng = d / (111000 * Math.cos(job.pt[0] * Math.PI / 180));
+              [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(function (sgn) {
+                queue.push({ pt: [job.pt[0] + sgn[0] * dLat, job.pt[1] + sgn[1] * dLng], radius: r2 });
+              });
+            }
+          }
+          tick(++done, queue.length, 'scan');
         });
-      }, Promise.resolve()).then(function () {
+      }
+      function drain() {
+        if (done >= queue.length) return Promise.resolve();
+        return scanOne(queue[done]).then(drain);
+      }
+
+      return drain().then(function () {
         var list = Object.keys(found).map(function (k) { return found[k]; });
         var n = 0;
         return list.reduce(function (chain, h) {
@@ -738,12 +828,21 @@
   }
 
   /* רשומת מידע תכנוני לכתובת (או לגוש/חלקה כשאין כתובת): גוש, חלקה, ייעוד,
-     התוכנית המפורטת, ושכבות 203/14. ‏null = לא נמצא. הצורה של
-     govmap_address_save / _govmap_address_store. משותפת להשלמה ב-CRM
-     (‏govmapAddressRecord) ולדף הבדיקה (‏assets/plan.js). */
-  function addressRecord(r) {
+     התוכנית המפורטת, ושכבות 203/14. הצורה של govmap_address_save /
+     _govmap_address_store. משותפת להשלמה ב-CRM (‏govmapAddressRecord) ולדף
+     הבדיקה (‏assets/plan.js).
+
+     מחזירה { record, reason }. כש-record הוא null, ‏reason אומר **באיזה שלב**:
+       no_address        - החיפוש לא החזיר כתובת שתואמת למה שביקשנו
+       no_parcel         - הגוש והחלקה שבבקשה לא נמצאו בחיפוש
+       no_parcel_at_point - נקודה נמצאה, ואין בה חלקה גם בטווח 10 מ'
+       ambiguous_parcel   - נקודת כתובת עם שתי חלקות ויותר בטווח (לא מנחשים)
+     עד 18.11.2026 שלושתם היו null אחד, ודף הבדיקה אמר על כולם "GovMap לא מצא
+     את הכתובת" - גם כשהכתובת נמצאה. */
+  function addressRecordWhy(r) {
     var pinSource = 'address';
-    var byAddress = r.street && r.house_number
+    var hasAddress = !!(r.street && r.house_number);
+    var byAddress = hasAddress
       ? lookupAddress({ street: r.street, houseNumber: r.house_number, city: r.city })
       : Promise.resolve(null);
     return byAddress.then(function (pt) {
@@ -752,20 +851,27 @@
       pinSource = 'parcel';
       return lookupParcel(r.gush, r.helka);
     }).then(function (pt) {
-      if (!pt) return null;
-      return planningAt(pt).then(function (planning) {
-        if (!planning) return null;
-        // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
+      if (!pt) return { record: null, reason: pinSource === 'parcel' ? 'no_parcel' : 'no_address' };
+      return planningAtWhy(pt, wantOf(r), pinSource === 'parcel').then(function (at) {
+        var planning = at.planning;
+        if (!planning) return { record: null, reason: at.reason };
+        // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד.
+        // offPoint: הנקודה על חלקה שכנה, והתוכניות שבה אינן של החלקה שביקשנו.
         return Promise.all([
-          plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
+          at.offPoint ? null : plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
           latLngOf(pt),
         ]).then(function (res) {
           var out = Object.assign({}, planning, { lat: res[1].lat, lng: res[1].lng, pin_source: pinSource });
           if (res[0]) out.govmap_plans = res[0];
-          return out;
+          return { record: out, reason: null };
         });
       });
     });
+  }
+
+  /* החוזה הוותיק: הרשומה, או null = לא נמצא. לולאות ההשלמה ב-CRM נשענות עליו. */
+  function addressRecord(r) {
+    return addressRecordWhy(r).then(function (out) { return out.record; });
   }
 
   window.GOVMAP_TOKEN = GOVMAP_TOKEN;
@@ -779,6 +885,8 @@
     latLngOf: latLngOf,
     lookupProperty: lookupProperty,
     addressRecord: addressRecord,
+    addressRecordWhy: addressRecordWhy,
+    _pickParcel: pickParcel,           // לבדיקות בלבד
     _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,

@@ -1,14 +1,17 @@
 name: מלאי מודעות יד2
 
 # זריעה שקטה, ליד אחד למודעה חדשה, סימון ירידה, תמונה ריקה שלא מוחקת,
-# וליד יד2 שנפתח בלי חיוב.
+# וליד יד2 שנפתח בלי חיוב. רץ על כל מיגרציה: listing_inventory_sync מוחלפת
+# כולה בכל קובץ שנוגע בה, והבדיקה תופסת העתק מגרסה ישנה.
 
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
+      - "scripts/listing_supply_test.py"
+      - "scripts/client_board_matches_test.py"
+      - "scripts/client_demand_matches_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -16,9 +19,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
-      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "supabase/migrations/**"
       - "scripts/listing_inventory_test.py"
+      - "scripts/listing_supply_test.py"
+      - "scripts/client_board_matches_test.py"
+      - "scripts/client_demand_matches_test.py"
       - "scripts/listing_inventory_body_test.ts"
       - "supabase/functions/listing-inventory-intake/body.ts"
       - "supabase/functions/listing-inventory-intake/index.ts"
@@ -53,3 +58,12 @@ jobs:
 
       - name: בדיקת מלאי מודעות
         run: python3 scripts/listing_inventory_test.py
+
+      - name: בדיקת ההיצע בלוחות
+        run: python3 scripts/listing_supply_test.py
+
+      - name: בדיקת התאמות ללקוח/ה מהלוחות
+        run: python3 scripts/client_board_matches_test.py
+
+      - name: בדיקת התאמות ללקוח/ה מפוסטים בפייסבוק, והלחיצה
+        run: python3 scripts/client_demand_matches_test.py

@@ -36,6 +36,12 @@ import {
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
+  aliasMatchFilters,
+  applyShownStreets,
+  resolveStreetAlias,
+  streetKey as streetAliasKey,
+} from "../_shared/geocode/street-alias.ts";
+import {
   addMonthsIso,
   documentHtml,
   insertPayload,
@@ -84,20 +90,32 @@ import {
   shouldLogSearchMiss,
 } from "./property-search.ts";
 import {
+  BOARD_CAP,
   boardCityStockCriteria,
   boardCriteria,
   boardInteractiveForReply,
   boardPresentationLog,
+  boardRankNote,
   boardSearchStatus,
   boardStatusFields,
   boardToolFields,
   fetchBoardListings,
   presentBoardListings,
+  rankedBoardRows,
   recordBoardPresentation,
   shouldAttachBoardListings,
   type BoardInteractive,
   type BoardScope,
+  DEMAND_HEADING,
 } from "./board-listings.ts";
+import {
+  combinedMatchMessage,
+  DEMAND_NOTE,
+  demandItems,
+  demandLine,
+  demandListings,
+  mergeByScore,
+} from "./demand-matches.ts";
 import {
   capCities,
   CLIENT_CITY_CAP,
@@ -1412,7 +1430,9 @@ const TOOLS: Anthropic.Tool[] = [
       "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
       "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). ואחריהם, בנפרד, " +
       "board_listings: מודעות ציבוריות מיד2 וממדלן לפי אותן דרישות (עיר, עסקה, " +
-      "סוג, חדרים, מחיר). אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
+      "סוג, חדרים, מחיר). ואחריהן, בנפרד, demand_posts: פוסטים של בעלי נכס בפייסבוק " +
+      "שעוד אין להם סוכן, באותו דירוג. הלחיצה על הפוסט בהודעה מסמנת \"אני פונה\". " +
+      "אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
       "כותבים את board_say בתוך התשובה. skipped_feature (מאפיין חובה): כותבים את " +
       "board_say ולא אומרים שאין מודעות. unavailable: לא מזכירים את הלוחות. " +
       "מאפייני החובה של הלקוח/ה " +
@@ -2125,7 +2145,7 @@ interface ToolContext {
     lines: string[];
     message: BoardInteractive;
     tool: "search_properties" | "client_matches";
-    logged: { id: string; source: "yad2" | "madlan" }[];
+    logged: { id: string; source: "yad2" | "madlan" | "facebook" }[];
   } | null;
 }
 
@@ -2560,9 +2580,16 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
     updated_at: string | null;
   }>;
 
-  const sameAddress = (p: Record<string, unknown>) =>
-    !!(street && house && normText(p.city) === city &&
-       normText(p.street) === street && sameHouseNumber(p.house_number, house));
+  const resolvedStreet = await resolveStreetAlias(
+    ctx.supabase, String(payload.city || ""), String(payload.street || ""),
+  );
+  const sameAddress = (p: Record<string, unknown>) => {
+    const stored = String(p.street || "");
+    const streetSame = normText(stored) === street
+      || (resolvedStreet.keys.length > 1 && resolvedStreet.keys.includes(streetAliasKey(stored)));
+    return !!(street && house && normText(p.city) === city &&
+      streetSame && sameHouseNumber(p.house_number, house));
+  };
   const sameTitlePrice = (p: Record<string, unknown>) =>
     !!(title && normText(p.title) === title && Number(p.price) === Number(payload.price));
   const sameUnit = (p: Record<string, unknown>) => {
@@ -2607,6 +2634,7 @@ async function activeAtStreet(
   street: unknown,
   house: unknown,
   excludeId: string | null,
+  aliasKeys: string[] = [],
 ): Promise<ListedUnit[] | null> {
   const cityKey = normText(city);
   const streetKey = normText(street);
@@ -2632,8 +2660,11 @@ async function activeAtStreet(
   return (second.data as unknown as Record<string, unknown>[])
     .filter((p) => {
       if (excludeId && String(p.id) === excludeId) return false;
+      const storedStreet = String(p.street || "");
+      const streetSame = normText(storedStreet) === streetKey
+        || (aliasKeys.length > 1 && aliasKeys.includes(streetAliasKey(storedStreet)));
       return normText(p.city) === cityKey
-        && normText(p.street) === streetKey
+        && streetSame
         && sameHouseNumber(p.house_number, house);
     })
     .map((p) => ({
@@ -2659,7 +2690,8 @@ async function addressShareStop(
   commercial: boolean,
   excludeId: string | null,
 ): Promise<ShareStop | null> {
-  const rows = await activeAtStreet(ctx, city, street, house, excludeId);
+  const resolvedStreet = await resolveStreetAlias(ctx.supabase, String(city || ""), String(street || ""));
+  const rows = await activeAtStreet(ctx, city, street, house, excludeId, resolvedStreet.keys);
   if (!rows) return null;
   return shareStop(
     {
@@ -2802,6 +2834,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
   const statedCity = String(payload.city ?? "").trim();
   payload.city = statedCity || await listingCityWhenOmitted(ctx);
+  if (payload.street) {
+    const resolved = await resolveStreetAlias(ctx.supabase, String(payload.city), String(payload.street));
+    payload.street = resolved.display;
+  }
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
   // ברירת המחדל: טיוטה. האתר, החיפוש, ה-sitemap, השיתוף והתראות ההתאמה
@@ -2850,6 +2886,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     if (duplicate) {
       const m = duplicate.match;
       ctx.conv.last_property_id = m.id;
+      const shownStreet = (await resolveStreetAlias(ctx.supabase, String(m.city || ""), String(m.street || ""))).display;
       return {
         ok: false,
         duplicate: true,
@@ -2857,7 +2894,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
         listing_number: m.listing_number,
         status: m.status,
         title: m.title,
-        address: [m.street, m.house_number, m.city].filter(Boolean).join(" "),
+        address: [shownStreet || m.street, m.house_number, m.city].filter(Boolean).join(" "),
         price: m.price,
         rooms: m.rooms,
         floor: m.floor,
@@ -3092,6 +3129,11 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   const payload = pickWritable(input);
   const airErr = applyAirLiving(payload, input);
   if (airErr) return { ok: false, error: airErr };
+  if (payload.street) {
+    const city = String(payload.city ?? existing.city ?? "");
+    const resolved = await resolveStreetAlias(ctx.supabase, city, String(payload.street));
+    payload.street = resolved.display;
+  }
   if (input.neighborhood) {
     const city = String(payload.city ?? existing.city ?? "");
     const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
@@ -3363,13 +3405,17 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
       // public.street_name_key שמחשב את העמודה (‏docs/street-registry.md).
       const key = String(SearchCore.streetNameKey(safe)).replace(/[,()*"\\]/g, "");
       orWithKey = key ? `${orPlain},street_key.eq."${key}"` : orPlain;
+      // כינוי רחוב בעיר שלו (street_registry_aliases): "קק״ל" בעפולה מוצא גם
+      // נכס ששמור כ"קרן קיימת לישראל", ולהפך. עיר אחרת נשארת עם הכינוי שלה.
+      const aliasOr = await aliasMatchFilters(ctx.supabase, safe);
+      if (aliasOr.length && orWithKey) orWithKey = `${orWithKey},${aliasOr.join(",")}`;
     }
   }
 
   const build = (or: string | null) => {
     let query = ctx.supabase
       .from("properties")
-      .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
+      .select("id, listing_number, title, address, city, street, price, rooms, deal_type, status, created_at")
       .eq("agent_id", ctx.agent.id)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -3430,11 +3476,18 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const variants = (scanRes?.data || [])
     .filter((p) => !seen.has(String(p.id)) &&
       fuzzyMatches(q, [p.title, p.street, p.house_number, p.address, p.city].filter(Boolean).join(" ")))
-    .map(({ street: _s, house_number: _h, ...p }) => ({ ...p, spelling_variant: true }));
+    .map((p) => ({ ...p, spelling_variant: true }));
 
   const exactTotal = typeof count === "number" ? count : data.length;
   const total = exactTotal + variants.length;
-  const rows = [...data, ...variants].slice(0, limit);
+  const shownRows = await applyShownStreets(
+    ctx.supabase,
+    [...data, ...variants].slice(0, limit) as Record<string, unknown>[],
+  );
+  const rows = shownRows.map((p) => {
+    const { street: _street, house_number: _house, ...rest } = p;
+    return rest;
+  });
   // סטטוס שה-CRM מסנן (propStatusFilter). חיפוש חופשי בעברית אינו נתיב,
   // ולכן "הכול" אינו מתיימר להיות תוצאת החיפוש.
   const propertiesCategory = status && (STATUSES as readonly string[]).includes(status)
@@ -3626,7 +3679,10 @@ async function agentPropertySearch(
   const bySource: Record<string, number> = {};
   for (const t of tagged) bySource[t.source] = (bySource[t.source] || 0) + 1;
 
-  const results = tagged.slice(0, limit).map(({ p, source }) => {
+  const page = tagged.slice(0, limit);
+  const shownPage = await applyShownStreets(ctx.supabase, page.map((t) => t.p));
+  const results = page.map(({ source }, i) => {
+    const p = shownPage[i];
     const member = one(p.agency_members);
     const hood = neighborhoodPublicName(one(p.neighborhoods)) || p.sales_area || null;
     // מספר בית - רק במה שהמשרד מחזיק או שותף איתו. נכס של משרד אחר שלא שיתף
@@ -3714,16 +3770,22 @@ async function boardSection(
     maxRooms: filters.maxRooms,
   });
   if (!criteria) return boardStatusFields("unavailable");
-  const fetched = await fetchBoardListings(ctx.supabase, criteria);
-  if (!fetched) return boardStatusFields("unavailable");
-  if (!fetched.total) {
-    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria));
+  // יד2 ומדלן נשארים חמשת המקומות. פייסבוק נשאל בנפרד ומצטרף אחריהם.
+  const [boards, facebook] = await Promise.all([
+    fetchBoardListings(ctx.supabase, criteria, ["yad2", "madlan"]),
+    fetchBoardListings(ctx.supabase, criteria, ["facebook"]),
+  ]);
+  if (!boards && !facebook) return boardStatusFields("unavailable");
+  const rows = [...(boards?.rows || []), ...(facebook?.rows || [])];
+  const total = (boards?.total || 0) + (facebook?.total || 0);
+  if (!rows.length) {
+    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria), ["yad2", "madlan"]);
     return boardStatusFields(boardSearchStatus({
       filtered: 0,
       cityStock: stock ? stock.total : null,
     }));
   }
-  const presented = presentBoardListings(fetched.rows, fetched.total, {
+  const presented = presentBoardListings(rows, total, {
     buttons: !!ctx.outbox,
   });
   if (!presented) return boardStatusFields("unavailable");
@@ -3731,6 +3793,141 @@ async function boardSection(
     ctx.pendingBoard = { lines: presented.lines, message: presented.message, tool, logged: presented.logged };
   }
   return { ...boardToolFields(presented), ...boardStatusFields("matches") };
+}
+
+/**
+ * מודעות הלוחות ללקוח/ה, **מדורגות באותו מנוע של הנכסים** (20271120130000):
+ * agent_client_board_matches_for_agent מריצה כל מודעה ב-client_property_match,
+ * ולכן הבוט וה-CRM מציגים את אותן מודעות באותו סדר. הסינון של boardSection
+ * (חמש האחרונות שנראו) נשאר רק כגיבוי: לפני שהמיגרציה רצה, בכשל, וכשבכרטיס
+ * אין עיר - שם ממשיכים לערי השוק של המשרד, כמו קודם.
+ */
+/**
+ * הבסיס של קישור /demand. אותה ברירת מחדל של index.ts (שורת הרשימה שנבחרת שם
+ * נבנית ממנו): בלי env הפוסטים לא נעלמים בשקט מ-client_matches.
+ */
+const DEMAND_SITE_BASE = (SITE_BASE_URL || "https://shuknadlan.co.il").replace(/\/$/, "");
+
+async function clientBoardRanked(
+  ctx: ToolContext,
+  client: Record<string, unknown>,
+  clientId: string,
+  required: string[],
+  waive: string[],
+): Promise<Record<string, unknown>> {
+  if (!shouldAttachBoardListings({ required, waived: waive })) return boardStatusFields("skipped_feature");
+  const legacy = async () =>
+    boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
+      dealType: client.deal_type,
+      propertyTypes: client.property_types,
+      minPrice: client.min_price,
+      maxPrice: client.max_price,
+      minRooms: client.min_rooms,
+      maxRooms: client.max_rooms,
+      required,
+      waived: waive,
+    });
+  try {
+    // שני המקורות במקביל: מודעות הלוחות, ופוסטים פתוחים בפייסבוק (עם טוקן ללחיצה).
+    // כשל בפוסטים (המיגרציה עוד לא רצה, אין SITE_BASE_URL) משאיר רק את הלוחות.
+    const [boardsCall, demandCall] = await Promise.all([
+      ctx.supabase.rpc("agent_client_board_matches_for_agent", {
+        p_agent_id: ctx.agent.id,
+        p_client_id: clientId,
+        p_limit: BOARD_CAP,
+        p_waive_features: waive,
+      }),
+      DEMAND_SITE_BASE
+        ? ctx.supabase.rpc("agent_client_demand_matches_for_agent", {
+          p_agent_id: ctx.agent.id,
+          p_client_id: clientId,
+          p_limit: BOARD_CAP,
+          p_waive_features: waive,
+        }).then((res: unknown) => res, () => ({ data: null, error: { message: "failed" } }))
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    const { data, error } = boardsCall;
+    const r = (data && typeof data === "object" && !Array.isArray(data) ? data : null) as
+      | Record<string, unknown>
+      | null;
+    if (error || !r || typeof r.status !== "string") {
+      if (error) console.warn("ranked board matches skipped", error.message);
+      return await legacy();
+    }
+    // no_city: ממשיכים לערי השוק של המשרד. unsupported: לקוח/ה מסחרי/ת, שהדירוג
+    // אינו מכסה - הסינון הקודם כן מחפש לפי סוג הנכס.
+    if (r.status === "no_city" || r.status === "unsupported") return await legacy();
+    if (r.status === "skipped_feature") return boardStatusFields("skipped_feature");
+    const demandError = (demandCall as { error?: { message?: string } | null }).error;
+    if (demandError) console.warn("demand matches skipped", demandError.message || "error");
+    const demandAll = demandItems((demandCall as { data?: unknown }).data);
+    const demandTotal = Number(((demandCall as { data?: { total?: unknown } | null }).data || {}).total);
+
+    const boardRowsAll = r.status === "ok" ? rankedBoardRows(r, client.deal_type) : [];
+    if (!boardRowsAll.length && !demandAll.length) {
+      if (r.status === "none") return boardStatusFields("none");
+      return boardStatusFields("unavailable");
+    }
+    // חמש שורות בסך הכול, לפי ציון: ראשונות השורות עם הציון הגבוה, ובשוויון הלוח.
+    const merged = mergeByScore(boardRowsAll, demandAll, BOARD_CAP);
+    const boardTotal = Number(r.total);
+    const presented = merged.boards.length
+      ? presentBoardListings(merged.boards, Number.isFinite(boardTotal) ? boardTotal : boardRowsAll.length, {
+        buttons: !!ctx.outbox,
+        ranked: true,
+      })
+      : null;
+    if (!merged.demand.length) {
+      if (!presented) return boardStatusFields("unavailable");
+      if (ctx.outbox && presented.message) {
+        ctx.pendingBoard = {
+          lines: presented.lines,
+          message: presented.message,
+          tool: "client_matches",
+          logged: presented.logged,
+        };
+      }
+      const rankNote = boardRankNote(r, presented.shown);
+      return {
+        ...boardToolFields(presented),
+        ...boardStatusFields("matches"),
+        ...(rankNote ? { board_rank_note: rankNote } : {}),
+      };
+    }
+
+    // יש פוסטים: הודעה אחת ברשימה משולבת. ביומן ההצגה נכנסות רק מודעות הלוחות.
+    const lines = [...(presented ? presented.lines : []), ...merged.demand.map(demandLine)];
+    if (ctx.outbox) {
+      const message = combinedMatchMessage(merged.boards, merged.demand, DEMAND_SITE_BASE);
+      if (message) {
+        ctx.pendingBoard = {
+          lines,
+          message,
+          tool: "client_matches",
+          logged: presented ? presented.logged : [],
+        };
+      }
+    }
+    const demandMore = Number.isFinite(demandTotal) && demandTotal > merged.demand.length
+      ? demandTotal - merged.demand.length
+      : 0;
+    return {
+      ...(presented ? boardToolFields(presented) : {}),
+      ...(presented ? boardStatusFields("matches") : boardStatusFields(r.status === "none" ? "none" : "unavailable")),
+      ...(presented ? (() => {
+        const rankNote = boardRankNote(r, presented.shown);
+        return rankNote ? { board_rank_note: rankNote } : {};
+      })() : {}),
+      demand_heading: DEMAND_HEADING,
+      demand_posts: demandListings(merged.demand),
+      demand_shown: merged.demand.length,
+      demand_more: demandMore,
+      demand_note: DEMAND_NOTE,
+    };
+  } catch (err) {
+    console.warn("ranked board matches skipped", err instanceof Error ? err.message : "error");
+    return await legacy();
+  }
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
@@ -4502,7 +4699,8 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const neighborhood = neighborhoodPublicName(
     hoodRow && typeof hoodRow === "object" ? hoodRow as { name?: string | null; is_planned?: boolean | null } : null,
   ) || String(p.sales_area || "");
-  const address = [p.street, neighborhood].filter(Boolean).join(", ");
+  const shownStreet = (await resolveStreetAlias(ctx.supabase, String(p.city || ""), String(p.street || ""))).display;
+  const address = [shownStreet || p.street, neighborhood].filter(Boolean).join(", ");
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
@@ -4678,9 +4876,12 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
  * להדפסה נשאר בדשבורד.
  */
 async function toolBuildingDeveloperLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const city = String(input.city || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const { data, error } = await ctx.supabase.rpc("building_developer_lookup", {
-    p_city: String(input.city || "").trim(),
-    p_street: String(input.street || "").trim(),
+    p_city: city,
+    p_street: street,
     p_house_number: String(input.house_number || "").trim(),
   });
   if (error) {
@@ -4799,7 +5000,8 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   // השם ברישום ולא הכינוי (ראו toolMarketDealsLookup): "תל אביב" לבדה לא
   // מצאה מיקום ולא עסקאות, כי המאגר כותב "תל אביב - יפו".
   const city = await canonicalCityName(ctx.supabase, String(input.city || "").trim()) || "";
-  const street = String(input.street || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
   const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -5070,6 +5272,13 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
       : undefined;
   };
 
+  // ההיצע בלוחות (יד2 / מדלן), מ-listing_supply_stats דרך cma_report_finish.
+  // מחירים מבוקשים ברמת העיר. המסד משתיק מתחת לסף: status 'too_few' מגיע
+  // בלי מספרים, ולכן כאן רק מעבירים מה שהגיע.
+  const board = (report.board_supply || {}) as Record<string, unknown>;
+  const hasBoard = board.status === "ok";
+  const boardDrops = (hasBoard && board.price_drops ? board.price_drops : {}) as Record<string, unknown>;
+
   // שכבת השכונה: עסקאות רשמיות **בלי פין** באותה שכונה כמו הנכס
   // (20270114091000). חציון משלה, נפרד מממוצע הרדיוס, ומושתק מתחת לסף
   // בדיוק כמוהו - `neighborhood_stats` חוזר null במדגם קטן.
@@ -5269,6 +5478,24 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     market_feature_matched: coverage.market_feature_matched,
     market_band_reason: coverage.market_band_reason,
     market_guidance: MARKET_GUIDANCE[String(coverage.market_band_reason)] || undefined,
+    // ---- ההיצע בלוחות. מודעות ציבוריות ביד2/מדלן, מחירים מבוקשים, ברמת עיר ----
+    board_listings_count: hasBoard || board.status === "too_few" ? board.sample : undefined,
+    board_median_asking_price: hasBoard ? board.median_price : undefined,
+    board_p25_asking_price: hasBoard ? board.p25_price : undefined,
+    board_p75_asking_price: hasBoard ? board.p75_price : undefined,
+    board_subject_percentile: hasBoard ? board.subject_percentile : undefined,
+    board_price_drop_share_pct: hasBoard ? boardDrops.share_pct : undefined,
+    board_price_drop_median_pct: hasBoard ? boardDrops.median_drop_pct : undefined,
+    board_price_drop_window_days: hasBoard ? boardDrops.window_days : undefined,
+    // אילו לוחות באמת מכסים את העיר (yad2 / madlan). לא לטעון ללוח שאינו ברשימה.
+    board_sources: hasBoard || board.status === "too_few" ? board.boards : undefined,
+    board_guidance: hasBoard
+      ? "מודעות פעילות בלוחות שב-board_sources בלבד, באותה עיר, אותו סוג נכס ומספר חדרים דומה. " +
+        "מחירים מבוקשים ולא עסקאות, ברמת העיר בלי שכונה, שטח או מאפיינים. " +
+        "לומר בנפרד מהממוצע, ולא כאומדן שווי. board_subject_percentile הוא אחוז המודעות שזולות מהנכס."
+      : board.status === "too_few"
+        ? "בלוחות יש מעט מדי מודעות דומות, ואין טווח מחירים. לא לנחש אותו."
+        : undefined,
     rooms_band: hasStats ? coverage.rooms_band : undefined,
     rooms_band_reason: hasStats ? coverage.rooms_band_reason : undefined,
     // ‏'rooms' לנכס מגורים, 'floor' לנכס מסחרי - ואז rooms_band_reason הוא floor_*
@@ -5391,7 +5618,8 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   // הרישום - ו-property_text_key אינה מכווצת יו"ד כפולה, כלומר העסקאות
   // שרשומות בכתיב של רשות המיסים היו נעלמות.
   const city = String(input.city || "עפולה").trim();
-  const street = String(input.street || "").trim();
+  let street = String(input.street || "").trim();
+  if (street) street = (await resolveStreetAlias(ctx.supabase, city, street)).display;
   const houseNumber = String(input.house_number || "").trim();
   const neighborhood = String(input.neighborhood || "").trim();
 
@@ -5576,9 +5804,10 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.last_property_id = propertyId;
 
   if (property.street && property.house_number && property.city) {
+    const street = (await resolveStreetAlias(ctx.supabase, property.city, property.street)).display || property.street;
     return await planningButton(
-      ctx, { city: property.city, street: property.street, house_number: String(property.house_number) },
-      `${property.street} ${property.house_number}, ${property.city}`);
+      ctx, { city: property.city, street, house_number: String(property.house_number) },
+      `${street} ${property.house_number}, ${property.city}`);
   }
   // נכס בלי כתובת מלאה: הגוש והחלקה שהסוכן/ת הזין/ה בטופס
   const { data: pi } = await ctx.supabase.from("property_planning_info")
@@ -5606,7 +5835,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const clean = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
   const gush = digits(input.gush);
   const helka = digits(input.helka);
-  const street = clean(input.street);
+  let street = clean(input.street);
   const houseNumber = clean(input.house_number);
   const byParcel = Boolean(gush && helka);
 
@@ -5623,6 +5852,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   // השם ברישום: GovMap רושם "תל אביב -יפו", והאימות בדף הבדיקה משווה את
   // היישוב שחזר למה שנשלח. "תל אביב" לבדה אינה שווה לו.
   const city = (await canonicalCityName(ctx.supabase, clean(input.city))) || await listingCityWhenOmitted(ctx);
+  // clean הופך גרש ASCII לרווח ("קק"ל" → "קק ל") לפני התרגום. הכינוי
+  // נפתר מהטקסט המקורי, והשם הרשמי כבר בלי גרשיים.
+  if (!byParcel && street) street = clean((await resolveStreetAlias(ctx.supabase, city, String(input.street ?? ""))).display);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -6074,6 +6306,23 @@ async function findClientDuplicates(
   return hits;
 }
 
+const MATCHES_NOW_NOTE =
+  "matches_now הוא מה ש-client_matches מחזיר עכשיו, מכל המקורות. אם יש בו נכסים, board_listings " +
+  "או demand_posts - אחרי אישור השמירה, באותה הודעה, הציגי איזה נכס או מודעה או פוסט מתאימים " +
+  "ללקוח/ה הזה/זו, לפי הכללים של client_matches (כותרות נפרדות, בלי כתובת אתר). " +
+  "אם אין התאמות - משפט אחד, בלי להמציא.";
+
+/** client_matches עם השמירה. כשל לא מפיל את יצירת הכרטיס: הכרטיס כבר נשמר. */
+async function autoClientMatches(ctx: ToolContext, clientId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await toolClientMatches(ctx, { client_id: clientId });
+    return res && (res as { ok?: unknown }).ok === true ? res as Record<string, unknown> : null;
+  } catch (err) {
+    console.warn("auto client matches skipped", err instanceof Error ? err.message : "error");
+    return null;
+  }
+}
+
 async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>) {
   const fullName = String(input.full_name || "").trim();
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
@@ -6199,11 +6448,18 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
 
   ctx.conv.last_client_id = saved.id;
   if (!neighborhoodDeferred) await fillNeighborhoodNames(ctx, [saved]);
+  // ההתאמות מכל המאגרים מיד עם השמירה: נכסים שלך ושל המשרד, מה ששותף, מודעות
+  // הלוחות (יד2/מדלן) ופוסטים פתוחים בפייסבוק, באותו דירוג. רק לקונה/שוכר/ת עם
+  // עסקה ועיר: כרטיס בלי עיר "מתאים לכל נכס", והכלי שואל קודם (planned.ask).
+  const matchesNow = !ownerWrite && payload.deal_type && Array.isArray(payload.cities) && payload.cities.length > 0
+    ? await autoClientMatches(ctx, saved.id)
+    : null;
   return {
     ok: true,
     client_id: saved.id,
     full_name: saved.full_name,
     ...savedCard(saved),
+    ...(matchesNow ? { matches_now: matchesNow, matches_now_note: MATCHES_NOW_NOTE } : {}),
     ask: ownerWrite ? [ownerWrite.ask] : planned.ask,
     suggested_features: planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
@@ -6686,18 +6942,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       : required.length && !(data || []).length && !marketMatches.length
       ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
-    ...(shouldAttachBoardListings({ required, waived: waive })
-      ? await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
-        dealType: client.deal_type,
-        propertyTypes: client.property_types,
-        minPrice: client.min_price,
-        maxPrice: client.max_price,
-        minRooms: client.min_rooms,
-        maxRooms: client.max_rooms,
-        required,
-        waived: waive,
-      })
-      : boardStatusFields("skipped_feature")),
+    ...(await clientBoardRanked(ctx, client as Record<string, unknown>, clientId, required, waive)),
   };
 }
 
@@ -10249,6 +10494,11 @@ const SYSTEM_STATIC: string = (() => {
       "ולא כאילו הן מודעות שלך. אין בהן טלפון ואין לפנות לבעלים, ואין חיוב. " +
       "כשמציגים אותן כותבים את הכותרת, בלי כתובת אתר: הודעה אחת יוצאת אחרייך. " +
       "בלי הכותרת אין הודעה. אם board_more גדול מאפס - אמרי כמה מוצגות וכמה עוד יש. " +
+      "**demand_posts הם פוסטים של בעלי נכס בפייסבוק, מקור שלישי**: אחרי הלוחות, בכותרת " +
+      "demand_heading (\"פוסטים בפייסבוק\"). כתבי שורה אחת לפוסט (כמו ב-line), וכתבי במשפט אחד " +
+      "שהלחיצה על הפוסט בהודעה מסמנת \"אני פונה\" - הוא נתפס לסוכן/ת הזה/ו, לא נשאר פתוח " +
+      "לאחרים ונספר בתקרה היומית. אל תבטיחי שהפוסט עוד פנוי. אין טלפון, אין כתובת אתר, אין לפנות " +
+      "לבעל הנכס. הכותרת היא מה שמוציא את ההודעה. demand_more גדול מאפס - אמרי כמה עוד יש. " +
       "אם properties ריק ויש board_listings - יש מודעות בלוחות, לא אפס. " +
       "board_status none: כתבי את board_say כמו שהוא בתוך התשובה, בלי הודעה נוספת. " +
       "skipped_feature: כתבי את board_say, ואל תאמרי שאין מודעות בלוחות. " +
@@ -10309,7 +10559,8 @@ const SYSTEM_STATIC: string = (() => {
       "דירות 3 חדרים עם דירות 5 ונשמע כמו ממצא. " +
       "**ו-market_* הם שכבה אחרת לגמרי: נכסים שמוצעים בשוק עכשיו, כלומר מחירים " +
       "מבוקשים ולא מחירי עסקה.** הם עונים על \"מול מי אנחנו מתחרים\" ולא על \"כמה שווה\", " +
-      "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו.",
+      "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו. " +
+      "**ו-board_* הם ההיצע בלוחות (יד 2, מדלן, לפי board_sources) באותה עיר**: גם הם מחירים מבוקשים, ונאמרים במשפט נפרד לפי board_guidance.",
     "- **דוח CMA לכתובת** (\"תכין דוח CMA לרוטשילד 1 בראשון\", \"כמה שווה דירת 4 חדרים בהרצל 20\"): " +
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +
@@ -10390,6 +10641,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר board_listings - אחרי הנכסים שלך ושל המשרד, בכותרת נפרדת \"מודעות מהלוחות יד 2 / מדלן\". " +
       "אלה מודעות ציבוריות, לא נכסים שלך, בלי טלפון ובלי פנייה לבעלים, ובלי כתובת בטקסט. " +
       "הכותרת הזו היא מה שמוציא הודעה אחת אחרי התשובה. בלי הכותרת אין הודעה. " +
+      "ואם חזר demand_posts - אחרי הלוחות, בכותרת \"פוסטים בפייסבוק\": שורה לפוסט, ובמשפט אחד " +
+      "שהלחיצה על הפוסט בהודעה מסמנת \"אני פונה\" ופותחת אותו. " +
       "board_status none: כתבי את board_say כמו שהוא בתוך התשובה. " +
       "skipped_feature: כתבי את board_say, לא שאין מודעות. unavailable: אל תזכירי את הלוחות. " +
       "\"למי מתאים הנכס הזה\" = property_matches. " +

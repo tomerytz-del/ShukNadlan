@@ -36,6 +36,7 @@ on:
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
+      - "scripts/street_alias_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -61,6 +62,7 @@ on:
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
+      - "scripts/street_alias_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -106,6 +108,10 @@ jobs:
 
       - name: מודעות יד2 ומדלן בחיפוש של גבריאלה
         run: node --experimental-strip-types scripts/board_listings_test.ts
+
+      # קק״ל בעפולה → קרן קיימת לישראל, בלי לדרוס כינוי של עיר אחרת.
+      - name: כינוי רחוב קק״ל בעפולה
+        run: node --experimental-strip-types scripts/street_alias_test.ts
 
       # ‏קבלות ל-+costs (‏whatsapp-webhook/cost-mail.ts): העברה של הסוכן של
       # תומר ("מקור:", הקבלה ב-HTML), ומה שאינו הוצאה (‏docs/platform-costs.md).

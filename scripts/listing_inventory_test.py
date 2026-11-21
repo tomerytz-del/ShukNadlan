@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
 PHONELESS = ROOT / "supabase/migrations/20271115130000_board_lead_without_phone.sql"
+HISTORY = ROOT / "supabase/migrations/20271119140000_listing_inventory_price_history.sql"
 REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 DB = os.environ.get("LISTING_INVENTORY_DB", "listing_inventory_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
@@ -281,7 +282,282 @@ process.stdout.write("ok");
         fail(f"שורת התבנית: {out}")
 
 
+def detailed(url, price=None, **extra):
+    parts = [f"'url', '{url}'", "'deal_type', 'sale'", "'property_type', 'דירה'", "'rooms', 4"]
+    if price is not None:
+        parts.append(f"'price', {price}")
+    for key, value in extra.items():
+        parts.append(f"'{key}', {value}")
+    return "jsonb_build_object(" + ", ".join(parts) + ")"
+
+
+def price_changes(db, city, items):
+    array = "jsonb_build_array(" + ", ".join(items) + ")"
+    return psql(db, sql_text=f"""
+      select public.listing_inventory_sync('yad2', '{city}', {array}) ->> 'price_changes'
+    """)
+
+
+def price_history_and_details():
+    """שינוי מחיר נרשם פעם אחת, ושטח, קומה ושכונה נשמרים בלי לדרוס בריק."""
+    base = "https://www.yad2.co.il/realestate/item/"
+    city = "חדרה"
+    hist = """
+      select coalesce(string_agg(old_price::int::text || '>' || new_price::int::text, ','
+                                 order by changed_at, old_price), '')
+        from public.listing_inventory_price_history where city = 'חדרה'
+    """
+    leaked = psql(DB, sql_text="""
+      select has_table_privilege('anon', 'public.listing_inventory_price_history', 'select')::text
+          || '|' ||
+             has_table_privilege('authenticated', 'public.listing_inventory_price_history', 'select')::text
+          || '|' ||
+             has_table_privilege('service_role', 'public.listing_inventory_price_history', 'insert')::text
+          || '|' ||
+             (select relrowsecurity::text from pg_class where relname = 'listing_inventory_price_history')
+    """)
+    if leaked != "false|false|true|true":
+        fail(f"הרשאת listing_inventory_price_history: {leaked}")
+    if psql(DB, sql_text="""
+      select count(*)::text from information_schema.columns
+       where table_schema = 'public' and table_name = 'listing_inventory_price_history'
+         and column_name ~ '(phone|raw_name|owner)'
+    """) != "0":
+        fail("עמודת טלפון או שם בהיסטוריית המחירים")
+
+    # מחיר ראשון אינו שינוי.
+    first = price_changes(DB, city, [
+        detailed(base + "h1", 1500000, size_sqm=100, floor=3, neighborhood="'גבעת אולגה'"),
+        detailed(base + "h2", 2000000),
+        detailed(base + "h3"),
+    ])
+    if first != "0" or psql(DB, sql_text=hist) != "":
+        fail(f"מחיר ראשון נרשם כשינוי: {first}")
+    row = psql(DB, sql_text="""
+      select size_sqm::int::text || '|' || floor::text || '|' || neighborhood
+        from public.listing_inventory where external_ref like '%/h1'
+    """)
+    if row != "100|3|גבעת אולגה":
+        fail(f"שטח, קומה ושכונה לא נשמרו: {row}")
+
+    # ירידה ב-h1. h2 בלי מחיר בתמונה: לא שינוי, והמחיר הקיים נשאר.
+    # h3 מקבל מחיר ראשון: לא שינוי. h1 בלי הפרטים: הם לא נדרסים.
+    second = price_changes(DB, city, [
+        detailed(base + "h1", 1450000),
+        detailed(base + "h2"),
+        detailed(base + "h3", 900000),
+    ])
+    if second != "1" or psql(DB, sql_text=hist) != "1500000>1450000":
+        fail(f"ירידת מחיר: {second} {psql(DB, sql_text=hist)}")
+    kept = psql(DB, sql_text="""
+      select (select price::int::text from public.listing_inventory where external_ref like '%/h2')
+             || '|' ||
+             (select size_sqm::int::text || '|' || floor::text || '|' || neighborhood
+                from public.listing_inventory where external_ref like '%/h1')
+    """)
+    if kept != "2000000|100|3|גבעת אולגה":
+        fail(f"ערך חסר דרס ערך קיים: {kept}")
+
+    # אותה תמונה שוב: אין שורה שנייה.
+    again = price_changes(DB, city, [
+        detailed(base + "h1", 1450000),
+        detailed(base + "h2", 2000000),
+        detailed(base + "h3", 900000),
+    ])
+    if again != "0" or psql(DB, sql_text=hist) != "1500000>1450000":
+        fail(f"סנכרון חוזר רשם שינוי: {again}")
+
+    # עלייה נרשמת גם היא, והיומן סופר.
+    third = price_changes(DB, city, [
+        detailed(base + "h1", 1450000),
+        detailed(base + "h2", 2100000),
+        detailed(base + "h3", 900000),
+    ])
+    if third != "1" or psql(DB, sql_text=hist) != "1500000>1450000,2000000>2100000":
+        fail(f"עליית מחיר: {third} {psql(DB, sql_text=hist)}")
+    logged = psql(DB, sql_text="""
+      select string_agg(price_changes::text, ',' order by created_at)
+        from public.listing_inventory_sync_log where city = 'חדרה'
+    """)
+    if logged != "0,1,0,1":
+        fail(f"price_changes ביומן: {logged}")
+
+    # ערכים לא סבירים נזרקים, והמודעה עצמה נשמרת. קומת קרקע היא 0.
+    price_changes(DB, city, [
+        detailed(base + "h1", 1450000),
+        detailed(base + "h2", 2100000),
+        detailed(base + "h3", 900000),
+        detailed(base + "h4", 800000, size_sqm=2, floor=3.5, neighborhood="'   '"),
+        detailed(base + "h5", 800000, size_sqm="'abc'", floor=0),
+    ])
+    odd = psql(DB, sql_text="""
+      select string_agg(coalesce(size_sqm::text, '-') || '/' || coalesce(floor::text, '-')
+                        || '/' || coalesce(neighborhood, '-'), ',' order by external_ref)
+        from public.listing_inventory where external_ref ~ '/h[45]$'
+    """)
+    if odd != "-/-/-,-/0/-":
+        fail(f"ערך לא סביר לא נזרק: {odd}")
+
+    # מודעה שירדה וחזרה במחיר אחר: שינוי אחד.
+    price_changes(DB, city, [
+        detailed(base + "h2", 2100000),
+        detailed(base + "h3", 900000),
+        detailed(base + "h4", 800000),
+        detailed(base + "h5", 800000),
+    ])
+    back = price_changes(DB, city, [
+        detailed(base + "h1", 1400000),
+        detailed(base + "h2", 2100000),
+        detailed(base + "h3", 900000),
+        detailed(base + "h4", 800000),
+        detailed(base + "h5", 800000),
+    ])
+    if back != "1":
+        fail(f"מודעה שחזרה במחיר אחר: {back}")
+
+    # הרישום הוא בטריגר: גם עדכון שאינו עובר בסנכרון נרשם, ועדכון בלי שינוי לא.
+    psql(DB, sql_text="""
+      update public.listing_inventory set price = price where external_ref like '%/h3';
+      update public.listing_inventory set price = 910000 where external_ref like '%/h3';
+    """)
+    if psql(DB, sql_text="""
+      select string_agg(old_price::int::text || '>' || new_price::int::text, ',')
+        from public.listing_inventory_price_history h
+        join public.listing_inventory i on i.id = h.listing_id
+       where i.external_ref like '%/h3'
+    """) != "900000>910000":
+        fail("הטריגר לא רשם עדכון ישיר, או רשם עדכון בלי שינוי")
+
+    # מודעה שעברה ממכירה להשכרה אינה שינוי מחיר, ומחיר שאינו מספר נזרק.
+    before = psql(DB, sql_text="select count(*)::text from public.listing_inventory_price_history")
+    flipped = psql(DB, sql_text="""
+      select public.listing_inventory_sync('yad2', 'חדרה', jsonb_build_array(
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h1',
+                           'deal_type', 'rent', 'price', 5000),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h2',
+                           'deal_type', 'sale', 'price', 'NaN'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h3',
+                           'deal_type', 'sale', 'price', 'Infinity'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h4',
+                           'deal_type', 'sale', 'price', 800000,
+                           'neighborhood', 'הרצל 12, 052-1111111'),
+        jsonb_build_object('url', 'https://www.yad2.co.il/realestate/item/h5',
+                           'deal_type', 'sale', 'price', 800000,
+                           'neighborhood', 'רחוב הנשיא')
+      )) ->> 'price_changes'
+    """)
+    after = psql(DB, sql_text="select count(*)::text from public.listing_inventory_price_history")
+    if flipped != "0" or before != after:
+        fail(f"החלפת סוג עסקה או מחיר שאינו מספר נרשמו כשינוי: {flipped} {before} {after}")
+    safe = psql(DB, sql_text="""
+      select string_agg(price::text || '/' || coalesce(neighborhood, '-'), ',' order by external_ref)
+        from public.listing_inventory where external_ref ~ '/h[2345]$'
+    """)
+    if safe != "2100000/-,910000/-,800000/-,800000/-":
+        fail(f"NaN, טלפון או רחוב נשמרו במלאי: {safe}")
+
+
+def latest_sync_keeps_the_new_fields():
+    """הפונקציה מוחלפת כולה בכל מיגרציה. העתק מגרסה ישנה מוחק את השדות בשקט."""
+    marker = "create or replace function public.listing_inventory_sync"
+    defining = sorted(
+        path for path in (ROOT / "supabase/migrations").glob("*.sql")
+        if marker in path.read_text(encoding="utf-8").lower()
+    )
+    text = defining[-1].read_text(encoding="utf-8")
+    start = text.lower().rindex(marker)
+    # רק גוף הפונקציה: הערה או פונקציה אחרת בהמשך הקובץ אינן הוכחה.
+    body = text[start:text.index("end $$;", start)]
+    missing = [word for word in ("size_sqm", "neighborhood", "v_floor", "price_changes")
+               if word not in body]
+    if missing:
+        fail(f"{defining[-1].name} מחליף את listing_inventory_sync בלי {', '.join(missing)}. "
+             f"להעתיק את הגוף מהגרסה האחרונה ({HISTORY.name} או מאוחרת ממנה), לא מגרסה קודמת.")
+
+
+def facebook_owner_is_inventory_not_a_second_lead(db):
+    """פוסט בעלים מפייסבוק נכנס למלאי בלי ליד שני, וצילום יד2 לא מוחק אותו."""
+    mig = ROOT / "supabase/migrations/20271121120000_facebook_listing_inventory.sql"
+    notes = psql(db, sql_text="select count(*)::text from public.notifications")
+    psql(db, sql_text="""
+      create table if not exists public.agent_clients (id uuid primary key);
+    """)
+    psql(db, mig)
+    added = psql(db, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/123456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234999',
+        'raw_name', 'לא במלאי', 'deal_type', 'sale', 'property_type', 'דירה',
+        'rooms', 4, 'budget', 1000000, 'neighborhood', 'גבעת המורה',
+        'size_sqm', 90, 'floor', 2,
+        'property_details', 'הרצל 12')) ->> 'success'
+    """)
+    if added != "true":
+        fail(f"פוסט פייסבוק לא נקלט: {added}")
+    if psql(db, sql_text="""
+      select count(*)::text from public.listing_inventory where source = 'facebook'
+    """) != "0":
+        fail("pending_consent נכנס למלאי")
+    psql(db, sql_text="""
+      update public.scraped_leads set status = 'open_demand'
+       where source = 'facebook_group'
+         and external_ref like '%123456789012345%';
+    """)
+    row = psql(db, sql_text="""
+      select i.external_ref || '|' || coalesce(i.neighborhood, '-')
+             || '|' || coalesce(i.size_sqm::int::text, '-')
+             || '|' || coalesce(i.floor::text, '-')
+             || '|' || coalesce(i.price::int::text, '-')
+             || '|' || i.from_seed::text
+             || '|' || (i.removed_at is null)::text
+             || '|' || (i.scraped_lead_id is not null)::text
+        from public.listing_inventory i
+       where i.source = 'facebook'
+    """)
+    if row != "555:123456789012345|גבעת המורה|90|2|1000000|true|true|true":
+        fail(f"שורת מלאי פייסבוק: {row}")
+    leaked = psql(db, sql_text="""
+      select count(*)::text from public.listing_inventory
+       where source = 'facebook'
+         and (coalesce(url, '') || ' ' || coalesce(neighborhood, '') || ' ' || coalesce(city, '')
+              || ' ' || coalesce(external_ref, '')) ~ '(0501234999|לא במלאי|הרצל)'
+    """)
+    if leaked != "0":
+        fail("טלפון, שם או רחוב נכנסו למלאי")
+    if psql(db, sql_text="select count(*)::text from public.notifications") != notes:
+        fail("קליטת פייסבוק שלחה התראה מעבר למה שכבר היה")
+    again = psql(db, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://www.facebook.com/groups/555/posts/123456789012345/',
+        'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0501234999',
+        'deal_type', 'sale', 'budget', 1100000)) ->> 'duplicate'
+    """)
+    if again != "post":
+        fail(f"פוסט חוזר לא סומן ככפילות: {again}")
+    if psql(db, sql_text="""
+      select count(*)::text || '|' || price::int::text
+        from public.listing_inventory where source = 'facebook'
+       group by price
+    """) != "1|1100000":
+        fail("פוסט חוזר פתח שורה שנייה או לא עדכן מחיר")
+    if psql(db, sql_text="select count(*)::text from public.notifications") != notes:
+        fail("פוסט חוזר שלח התראה")
+    sync_once(db, "עפולה", [])
+    if psql(db, sql_text="""
+      select (removed_at is null)::text from public.listing_inventory
+       where source = 'facebook'
+    """) != "true":
+        fail("צילום יד2 ריק סימן פוסט פייסבוק כמוסר")
+    if psql(db, sql_text="""
+      select public.listing_inventory_sync('facebook', 'עפולה', '[]'::jsonb) ->> 'error'
+    """) != "invalid_source":
+        fail("סנכרון קיבל מקור facebook")
+
+
 def main():
+    latest_sync_keeps_the_new_fields()
     board_listing_url_stays_on_the_card()
     whatsapp_template_line_has_no_board_url()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
@@ -324,6 +600,9 @@ def main():
     """) != "true":
         fail("hash של מרכזיה 083 לא אופס")
     psql(DB, PHONELESS)
+    # פעמיים: המיגרציה חייבת להיות אידמפוטנטית.
+    psql(DB, HISTORY)
+    psql(DB, HISTORY)
 
     leaked_fn = psql(DB, sql_text="""
       select has_function_privilege('anon', 'public.listing_inventory_sync(text,text,jsonb)', 'execute')::text
@@ -825,6 +1104,9 @@ def main():
        where external_ref = 'yad2.co.il/realestate/item/a-dup'
     """) != "t":
         fail("אחרי 30 יום לא ניסינו שוב")
+
+    price_history_and_details()
+    facebook_owner_is_inventory_not_a_second_lead(DB)
 
     print("listing inventory: ok")
 

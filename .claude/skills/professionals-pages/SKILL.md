@@ -22,13 +22,13 @@ description: דפי בעלי המקצוע בשוק נדל״ן - professionals.ht
 | האייקון | `PATHS` | `PATHS` |
 | הסדר | `TYPE_ORDER` (ומתוכו `TILE_TYPES`) | `TILE_TYPES` |
 
-**`TYPE_LABELS` מופיע גם ב-`assets/home.js`** (רצועת `#proStrip` בדף הבית - הסקיל `home-page`). **ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
+**ושורת החיפוש בדף הבית מזהה תחום לפי ביטוי ב-`PRO_INTENTS` ב-`assets/home.js`** (לא מספיק להוסיף תווית: בלי ביטוי הגולש/ת שכותב/ת "חשמלאי" לא מקבל/ת הצעה; `docs/home-page-sections.md`). **והתחומים שגבריאלה מציעה בחלון שבאתר יושבים ב-`GW_PROS` ב-`assets/gabriela-widget.js`** (רבים, כמו `TYPE_PLURAL`; תחום מוצג שם רק כשיש בו כרטיסייה פעילה). **`TYPE_LABELS` מופיע גם ב-`assets/home.js`** (רצועת `#proStrip` בדף הבית - הסקיל `home-page`). **ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
 (‏`professionalMeta`), שבונה בשרת את הכותרת, ה-JSON-LD ואת תוכן הפרופיל
 לסורק.
 
 **ודף ההצטרפות של התחום** (`join-*.html`) נוצר מ-`PAGES` ב-`scripts/build_join_pages.py` (ולא נערך ביד), עם שורה ב-`sitemap.xml`, ב-`_redirects` וב-`llms.txt` (`docs/join-pages.md`).
 
-ובנוסף, מחוץ לשני הדפים: ה-check במסד, `VALID_TYPES` בשתי פונקציות הקצה,
+ובנוסף, מחוץ לשני הדפים: שני ה-checks במסד (`ad_placements_advertiser_type_check` ו-`professional_accounts_kind_check`), `VALID_TYPES` בשתי פונקציות הקצה,
 וה-`<option>` ב-`professional-signup.html` - שהוא גם מה ש-`?type=` נבדק מולו
 (‏`docs/professional-cards.md`, ראש המסמך). ‏`general` ("אחר") **אינו אריח**.
 

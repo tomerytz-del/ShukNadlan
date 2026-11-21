@@ -5,6 +5,23 @@ const DEV_SWITCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/dev-switch-mode';
 const GEOCODE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/geocode-address';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/* ‏כותרות הקריאה ל-Edge Function בשם המשתמש/ת המחובר/ת. ‏function ולא const:
+   כמו שאר העוזרים בקובץ, כדי שקריאה שקודמת להגדרה בסדר המסמך תעבוד. */
+function edgeHeaders(session){
+  return { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token };
+}
+/* ‏POST ל-Edge Function עם הסשן הנוכחי: בלי סשן - no_session, גוף ריק לא זורק,
+   ‏ok = ‏res.ok וגם בלי data.error. ‏callTeamInvite ו-callRelease נשארו נפרדות
+   בכוונה: אצלן חסר סשן זורק (TypeError) ולא מוחזר, וקוראיהן מסתמכים על כך. */
+async function edgeCall(url, payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(url, { method:'POST', headers: edgeHeaders(session), body: JSON.stringify(payload) });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* גוף ריק - data.error יישאר undefined ו-res.ok יכריע */ }
+  return { ok: res.ok && !data.error, data };
+}
+
 const loginScreen = document.getElementById('loginScreen');
 const dashboard = document.getElementById('dashboard');
 const createAgencyScreen = document.getElementById('createAgencyScreen');
@@ -1367,8 +1384,84 @@ async function mfaWaStart(enable){
   };
 }
 
+/* ---------- מכשיר זכור (20271121150000) ----------
+   אחרי אימות אמיתי הדפדפן שומר אסימון. בכניסה חדשה mfa_device_claim מאמתת בו
+   את ה-session בלי הודעה: אותה שורה מאומתת שהודעת הוואטסאפ כותבת, והמנעול
+   (mfa_pre_request) לא זז. האסימון נשמר לפי משתמש/ת, כדי ששני חשבונות באותו
+   דפדפן לא יתערבבו, ובמסד נשאר רק ה-hash שלו. docs/mfa.md, "מכשיר זכור". */
+const MFA_DEVICE_KEY = 'shuknadlan.mfa_device.';
+let mfaDeviceTriedFor = null;
+
+function mfaDeviceGet(uid){
+  try { return localStorage.getItem(MFA_DEVICE_KEY + uid) || ''; } catch(_){ return ''; }
+}
+function mfaDeviceSet(uid, token){
+  try {
+    if (token) localStorage.setItem(MFA_DEVICE_KEY + uid, token);
+    else localStorage.removeItem(MFA_DEVICE_KEY + uid);
+  } catch(_){ /* גלישה פרטית: בלי זכירה, והאימות הרגיל ממשיך לעבוד */ }
+}
+
+/* true = ה-session אומת מהאסימון והניתוב מחדש יצא. פעם אחת לכל משתמש/ת
+   בטעינת דף, כדי שכשל מוזר לא יהפוך ללולאה. */
+async function mfaTryDevice(){
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid || mfaDeviceTriedFor === uid) return false;
+    mfaDeviceTriedFor = uid;
+    const token = mfaDeviceGet(uid);
+    if (!token) return false;
+    const { data, error } = await sb.rpc('mfa_device_claim', { p_token: token });
+    if (error) throw error;
+    if (data !== true){ mfaDeviceSet(uid, ''); return false; }   // פג, נמחק, או הזכירה כבויה
+    /* אנחנו בתוך ניתוב שעוד לא נסגר (showMfaChallenge נקרא מ-loadDashboard):
+       routeAfterAuth היה מצטרף אליו ולא מנתב שוב. ממתינים לסופו. */
+    const again = () => routeAfterAuth(session, { force:true });
+    if (authRouting) authRouting.finally(again); else again();
+    return true;
+  } catch(err){
+    console.warn('mfa device claim failed', err);
+    return false;
+  }
+}
+
+/* אחרי אימות אמיתי, אם התיבה מסומנת. כשל כאן לעולם לא עוצר את הכניסה. */
+let mfaRememberBusy = false;
+async function mfaRememberDevice(){
+  if (mfaRememberBusy) return;   // בדיקת ההמתנה כל 3 שניות: קריאה איטית לא מנפיקה אסימון שני
+  mfaRememberBusy = true;
+  try{
+    const box = document.getElementById('mfaRemember');
+    const row = document.getElementById('mfaRememberRow');
+    if (!box || !box.checked || !row || row.hidden) return;
+    const { data, error } = await sb.rpc('mfa_device_remember');
+    if (error) throw error;
+    const { data: { session } } = await sb.auth.getSession();
+    if (data?.token && session?.user?.id) mfaDeviceSet(session.user.id, data.token);
+  } catch(err){
+    console.warn('mfa device remember failed', err);
+  } finally {
+    mfaRememberBusy = false;
+  }
+}
+
+async function mfaShowRemember(){
+  const row = document.getElementById('mfaRememberRow');
+  try{
+    const { data } = await sb.rpc('mfa_device_trust_days');
+    const days = Number(data) || 0;
+    document.getElementById('mfaRememberDays').textContent = String(days);
+    row.hidden = !days;
+    /* החלטת תומר (19.11.2026): הזכירה חלה גם על מנהלים, שהאימות אצלם חובה */
+    const adminNote = document.getElementById('mfaAdminTrust');
+    if (adminNote) adminNote.textContent = days ? ', ומכשיר שאומת נזכר ל-' + days + ' יום' : '';
+  } catch(_){ row.hidden = true; }
+}
+
 /* ---------- מסך האימות בכניסה ---------- */
 async function showMfaChallenge(status){
+  if (await mfaTryDevice()) return;
   const link = document.getElementById('mfaWaLink');
   const st = document.getElementById('mfaWaStatus');
   link.setAttribute('aria-disabled', 'true'); link.href = '#';
@@ -1380,6 +1473,11 @@ async function showMfaChallenge(status){
   document.getElementById('mfaTotpCode').value = '';
   document.getElementById('mfaTotpFeedback').textContent = '';
   showScreen('mfaChallenge');
+  /* מסך האימות אינו "כניסה": השעון של auth מתחיל מחדש כשהאימות עובר,
+     ומי שעוזב/ת כאן נספר/ת כמסך כניסה ולא כנטישה של היעד (19.11.2026:
+     36 שניות של "טעינה" היו 32 שניות עד שנשלחה ההודעה לגבריאלה). */
+  if (window.dlMark) window.dlMark('mfa');
+  mfaShowRemember();
   try{
     const { url, tail } = await mfaWaStart(false);
     link.href = url; link.removeAttribute('aria-disabled');
@@ -1403,6 +1501,7 @@ document.getElementById('mfaWaLink').addEventListener('click', ()=>{
     if (s.pending) return false;
     // ‏pending ירד = ה-session אומת. ניתוב מחדש עם force, כי routedUserId
     // כבר נקבע לפני שעצרנו כאן.
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     routeAfterAuth(session, { force:true });
     return true;
@@ -1437,6 +1536,7 @@ document.getElementById('mfaTotpForm').addEventListener('submit', async (e)=>{
     const { error: vErr } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     if (vErr) throw vErr;
     mfaStopPolling();
+    await mfaRememberDevice();
     const { data: { session } } = await sb.auth.getSession();
     await routeAfterAuth(session, { force:true });
   } catch(err){
@@ -1532,11 +1632,13 @@ async function renderMfaSection(){
   accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
   host.innerHTML =
-      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
+      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום (חוץ ממכשיר שאומת ונזכר). בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
     + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
-    + '<div class="mfa-block" id="mfaTotpBlock"></div>';
+    + '<div class="mfa-block" id="mfaTotpBlock"></div>'
+    + '<div class="mfa-block" id="mfaDevBlock"></div>';
   renderMfaWaBlock(document.getElementById('mfaWaBlock'), s, fb);
   renderMfaTotpBlock(document.getElementById('mfaTotpBlock'), s, fb);
+  renderMfaDevicesBlock(document.getElementById('mfaDevBlock'), s, fb);
 }
 
 /* ---- וואטסאפ ---- */
@@ -1588,6 +1690,40 @@ function renderMfaWaBlock(box, s, fb){
     showToast('האימות בוואטסאפ כובה');
     renderMfaSection();
   });
+}
+
+/* ---- מכשירים זכורים ---- */
+async function renderMfaDevicesBlock(box, s, fb){
+  if (!s.required){ box.remove(); return; }
+  try{
+    const [{ data: days }, { data: n }] = await Promise.all([
+      sb.rpc('mfa_device_trust_days'), sb.rpc('mfa_devices_count')]);
+    if (!Number(days)){ box.remove(); return; }
+    const count = Number(n) || 0;
+    box.innerHTML = '<p class="mfa-block-h">🔒 מכשירים זכורים</p>'
+      + '<p class="mfa-help" style="margin:0 0 8px;text-align:right">מכשיר שאומת נזכר ' + Number(days) + ' יום, ובכניסה ממנו אין צורך בהודעה נוספת. '
+      + (count === 0 ? 'אין מכשירים זכורים כרגע.' : count === 1 ? 'כרגע מכשיר אחד זכור.' : 'כרגע ' + count + ' מכשירים זכורים.') + '</p>'
+      + (count ? '<button type="button" class="btn btn-ghost btn-block">לשכוח את כל המכשירים</button>' : '');
+    const btn = box.querySelector('button');
+    if (!btn) return;
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('לשכוח את כל המכשירים? בכניסה הבאה מכל מכשיר יידרש אימות מחדש.')) return;
+      btn.disabled = true;
+      const { error } = await sb.rpc('mfa_devices_forget');
+      if (error){
+        fb.style.color = 'var(--brick)'; fb.textContent = heErr(error);
+        btn.disabled = false;
+        return;
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user?.id) mfaDeviceSet(session.user.id, '');
+      showToast('המכשירים הזכורים נמחקו');
+      renderMfaSection();
+    });
+  } catch(err){
+    console.warn('mfa devices block failed', err);
+    box.remove();
+  }
 }
 
 /* ---- אפליקציית אימות ---- */
@@ -1685,7 +1821,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
@@ -1841,18 +1977,7 @@ document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
    נקודה אחת שמפרידה בין "אין לך משרד" לבין "יש לך כרטיס, הוא פשוט לא מחובר".
    הבירור עצמו נעשה ב-join-agency, כי הוא דורש service role: השוואה מול כרטיסים
    ממתינים ואימות אסימון הזמנה אינם דברים שאפשר לחשוף ללקוח. */
-async function callJoinAgency(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callJoinAgency(payload){ return edgeCall(SUPABASE_URL + '/functions/v1/join-agency', payload); }
 
 const INVITE_INVALID_TEXT = {
   used:     'קישור ההזמנה כבר נוצל. אם כבר הצטרפת עם חשבון אחר - יש להתחבר איתו.',
@@ -2854,7 +2979,9 @@ function handleGotoParam(){
           : raw === 'sign' ? ['agrModal']
           : raw === 'waShare' ? ['waShareModal']
           : raw === 'mentor' ? ['coachSheet']
-          : [raw];
+          /* כינוי (accSharedWithMe) אינו אלמנט: נמדד לפי הקטגוריה שהוא פותח.
+             בלי זה כל לחיצה על "נכס ששותף איתך" נרשמה כנטישה (19.11.2026). */
+          : [accAliasTarget(raw)];
         for (var i = 0; i < ids.length; i++){
           var dlEl = document.getElementById(ids[i]);
           if (dlEl && dlEl.getClientRects().length) return true;
@@ -3263,7 +3390,7 @@ async function devSwitch(changes, pills){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(changes),
     });
     const data = await res.json();
@@ -3308,7 +3435,7 @@ document.getElementById('devEnterDeveloper').addEventListener('click', async (e)
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action: 'ensure_developer' }),
     });
     const data = await res.json().catch(()=> ({}));
@@ -3464,14 +3591,27 @@ let hoodImportRows = [];
    לפני הריצה הראשונה, ובלעדיהן כל תיקון הוא ניחוש. */
 let hoodImportDiag = null;
 
-function hoodImportInit(){
+/* ממלאת את בורר השוק של הייבוא. רשימת השווקים מגיעה מ-assets/markets.js,
+   שנטען עצל (הקבוצה 'markets'), ופאנל הניהול נפתח מהתפריט בלי לחכות לה:
+   עד 21.11.2026 הבורר נשאר ריק (רק חץ) לכל מי שלא ביקר/ה קודם בפאנל שטוען
+   אותה, והסריקה לא יצאה לדרך. לכן: אם הרשימה עוד לא כאן, מחכים לה
+   וממלאים כשהיא מגיעה. אידמפוטנטית - בורר מלא לא מצויר שוב. */
+function hoodImportInit(retried){
   const sel = document.getElementById('hoodImportMarket');
-  if (!sel || sel.options.length) return;
+  if (!sel || sel.options.length) return Promise.resolve();
   const list = (window.ShukMarkets && window.ShukMarkets.list) || [];
+  if (!list.length){
+    // ניסיון אחד: crmNeed שמצליח ורשימה שעדיין ריקה (קובץ שבור, מטמון ישן)
+    // היו קריאה חוזרת אינסופית. אחרי הניסיון הבורר נשאר ריק, והכפתור אומר
+    // "רשימת השווקים לא נטענה".
+    if (!window.crmNeed || retried) return Promise.resolve();
+    return crmNeed('markets').then(() => hoodImportInit(true), err => console.warn('markets.js לא נטען:', err));
+  }
   sel.innerHTML = list.map(m => `<option value="${esc(m.slug)}">${esc(m.label)}</option>`).join('');
   // השוק שאינו ברירת המחדל קודם - בו יש מה לייבא
   const other = list.find(m => !m.isDefault);
   if (other) sel.value = other.slug;
+  return Promise.resolve();
 }
 
 function hoodImportStatus(text){
@@ -3489,7 +3629,7 @@ function renderHoodImport(){
   host.innerHTML = `
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th></th><th>שכונה</th><th>עיר</th><th>גבול</th><th>מה יקרה</th></tr></thead>
-      <tbody>${hoodImportRows.map((r, i) => `
+      <tbody data-fold-noun="שורות">${hoodImportRows.map((r, i) => `
         <tr>
           <td>${r.action === 'keep' ? '' : `<input type="checkbox" data-hood-row="${i}" ${r.checked ? 'checked' : ''} aria-label="${esc(r.name)}">`}</td>
           <td>${esc(r.name)}</td><td>${esc(r.city)}</td>
@@ -3514,10 +3654,26 @@ function renderHoodImport(){
 }
 
 async function scanHoodImport(){
+  // הבורר ריק כשהרשימה הגיעה אחרי שהפאנל צויר - ממלאים לפי דרישה.
+  if (!document.getElementById('hoodImportMarket')?.options.length){
+    hoodImportStatus('טוען את רשימת השווקים…');
+    await hoodImportInit();
+  }
   const slug = document.getElementById('hoodImportMarket')?.value;
   const market = window.ShukMarkets && window.ShukMarkets.bySlug(slug);
+  if (!market){
+    hoodImportStatus(slug ? 'השוק לא נמצא ברשימת השווקים.' : 'רשימת השווקים לא נטענה. רעננו את הדף ונסו שוב.');
+    return;
+  }
+  // הפאנל מגיע דרך crm-lazy עם 'govmap', אבל לא סומכים על הסדר: הקובץ
+  // נטען כאן לפי דרישה, כמו בשמירת נכס. בלי זה הכפתור ענה "GovMap לא
+  // נטען" למי שפתח/ה את הפאנל ישירות (21.11.2026).
+  if (!window.GovmapLookup && window.crmNeed){
+    hoodImportStatus('טוען את GovMap…');
+    try { await crmNeed('govmap'); } catch (e) { console.warn('GovMap לא נטען:', e); }
+  }
   const GL = window.GovmapLookup;
-  if (!market || !GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען.'); return; }
+  if (!GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען. רעננו את הדף ונסו שוב.'); return; }
   const btn = document.getElementById('hoodImportScan');
   btn.disabled = true;
   hoodImportRows = []; renderHoodImport();
@@ -3525,8 +3681,14 @@ async function scanHoodImport(){
     const { data: cities, error: cErr } = await sb.from('cities').select('id, name').eq('market_slug', slug);
     if (cErr) throw cErr;
     if (!cities || !cities.length){ hoodImportStatus('אין ערים משויכות לשוק הזה.'); return; }
+    // גם הכינויים של הערים (city_aliases): GovMap כותב לפעמים אחרת מאיתנו
+    // ("זיכרון יעקב"), והשכונה נשמרת בשם העיר שלנו.
+    const { data: aliases } = await sb.from('city_aliases').select('alias, city_id').in('city_id', cities.map(c => c.id));
+    const nameOf = new Map(cities.map(c => [c.id, c.name]));
+    const scanNames = cities.map(c => c.name)
+      .concat((aliases || []).filter(a => nameOf.has(a.city_id)).map(a => ({ name: a.alias, as: nameOf.get(a.city_id) })));
     hoodImportStatus('סורק את האזור…');
-    const found = await GL.neighborhoodsInArea(market.bbox, cities.map(c => c.name), (done, total, phase) => {
+    const found = await GL.neighborhoodsInArea(market.bbox, scanNames, (done, total, phase) => {
       hoodImportStatus((phase === 'scan' ? 'סורק את האזור' : 'שולף גבולות') + ' · ' + done + '/' + total);
     });
     const { data: existing, error: eErr } = await sb.from('neighborhoods')
@@ -3543,9 +3705,14 @@ async function scanHoodImport(){
     }).sort((a, b) => a.city.localeCompare(b.city, 'he') || a.name.localeCompare(b.name, 'he'));
     hoodImportDiag = found.diag || null;
     const withB = found.filter(h => h.boundary).length;
+    // הקריאה הצפופה ביותר: GovMap מקצצת לכל קריאה בלי לומר (חדרה 21.11.2026),
+    // והסריקה מפצלת עיגול "מלא". המספר כאן הוא מה שמלמד על התקרה האמיתית.
+    const dg = found.diag || {};
+    const densest = dg.maxFeatures ? ` הקריאה הצפופה ביותר החזירה ${dg.maxFeatures} שכונות` + (dg.splits ? `, ${dg.splits} עיגולים פוצלו.` : '.') : '';
+    const capped = dg.capped ? ' הסריקה הגיעה לתקרת הקריאות - ייתכן שחסרות שכונות בלב העיר; להריץ שוב על שוק קטן יותר.' : '';
     hoodImportStatus(!hoodImportRows.length
       ? 'לא נמצאו שכונות בערי השוק. אם זה לא האתר החי - הטוקן של GovMap עובד רק ב-shuknadlan.co.il.'
-      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.`);
+      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.` + densest + capped);
     renderHoodImport();
   } catch(e){
     console.warn('hood import scan failed', e);
@@ -4295,7 +4462,10 @@ function admAutoFold(root){
     // השורות, ואז גם אם המספר זהה השורה הראשונה אחרת.
     if (el.dataset.fold === String(n) && el._foldFirst === rows[0]) return;
     el._foldFirst = rows[0];
-    admFold(el, { rows });
+    // "שורות שלא דורשות טיפול" הוא הכיתוב של רשימות הממצאים; טבלה שכל שורותיה
+    // דורשות החלטה (ייבוא השכונות: 123 נמצאו, "עוד 118 שלא דורשות טיפול")
+    // אומרת מה היא מקפלת ב-data-fold-noun.
+    admFold(el, { rows, noun: el.dataset.foldNoun || undefined });
   });
 }
 
@@ -7506,7 +7676,7 @@ const PRO_MEDIA_BUCKET = 'property-images';
    נשמר כמפתח באנגלית ומתורגם רק בתצוגה. */
 const PRO_TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', contractor:'קבלן/ית בנייה ושיפוצים', planning_consultant:'יועץ/ת תכנון ובנייה', surveyor:'מודד/ת מוסמך/ת', electrician:'חשמלאי/ת', plumber:'אינסטלטור/ית', general:'בעל/ת מקצוע',
 };
 
 /* "מוצגת באתר" אינו status='active' בלבד: כרטיסייה שתקופת הפרסום שלה
@@ -7730,6 +7900,8 @@ async function loadProfessionalCardsAdmin(){
    המשרד שלו/ה. מאז שחיפה והקריות נכנסו (144 שכונות) סוכן/ת בעפולה ראה/תה
    רשימה של 158, רובה בחיפה. docs/regional-pages.md. */
 let allNeighborhoods = [];
+// ‏אותה רשימה לפי מזהה - חיפוש בודד במקום מעבר על כל השכונות בכל שורה. נכתבת רק ב-loadAllNeighborhoods.
+let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
 async function loadAllNeighborhoods(){
@@ -7738,6 +7910,7 @@ async function loadAllNeighborhoods(){
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
+  neighborhoodById = new Map(allNeighborhoods.map(n => [n.id, n]));
   if (!marketCityMap){
     marketCityMap = new Map((mc || []).map(r => [r.city_id, r.market_slug]));
   }
@@ -10290,7 +10463,7 @@ document.getElementById('refundBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action:'request', amount,
                              note: document.getElementById('refundNote').value || null }),
     });
@@ -10336,7 +10509,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ action:'cancel', refund_id: open.id }),
     });
     const data = await res.json();
@@ -10372,18 +10545,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
 const CLOSE_PHRASE = 'מחיקת חשבון';
 let closureSummary = null;
 
-async function callCloseAccount(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(SUPABASE_URL + '/functions/v1/close-account', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callJoinAgency */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callCloseAccount(payload){ return edgeCall(SUPABASE_URL + '/functions/v1/close-account', payload); }
 
 /* המשפט על הכסף. הוא נבנה פעם אחת ומוצג בשני מקומות - במקטע ובדיאלוג -
    כי אלה בדיוק אותם נתונים, ושתי גרסאות של אותו משפט הן שתי הזדמנויות
@@ -10616,7 +10778,7 @@ async function callRefundApi(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-refund', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   return { ok: res.ok, data: await res.json() };
@@ -10627,18 +10789,7 @@ async function callRefundApi(payload){
    עוברת דרך הפונקציה ולא דרך select ישיר, מסיבה אחת: ‏document_path לבדו
    חסר ערך - הדלי פרטי. הפונקציה מחזירה במקומו **קישור חתום** של עשר דקות,
    וזו הדרך היחידה לראות את הצילום. */
-async function callLicenseAppealApi(payload){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return { ok:false, data:{ error:'no_session' } };
-  const res = await fetch(LICENSE_APPEAL_URL, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-    body: JSON.stringify(payload),
-  });
-  let data = {};
-  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
-  return { ok: res.ok && !data.error, data };
-}
+function callLicenseAppealApi(payload){ return edgeCall(LICENSE_APPEAL_URL, payload); }
 
 /* ---------- יומן ביקורת אבטחה (מנהל/ת פלטפורמה) ----------
    ‏security_audit_log נכתב רק מטריגרים במסד (מיגרציה 20270423095000).
@@ -11403,7 +11554,7 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -12230,7 +12381,7 @@ async function callTeamInvite(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/add-team-member', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   let data = {};
@@ -12623,7 +12774,7 @@ async function loadClaimRequests(agencyId, callerId){
       const { data: { session } } = await sb.auth.getSession();
       const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         body: JSON.stringify({ action:'decide', claim_id:c.id, decision }),
       });
       const data = await res.json().catch(()=>({}));
@@ -12659,7 +12810,7 @@ async function callRelease(payload){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/release-team-member', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify(payload),
   });
   let data = {};
@@ -14480,7 +14631,7 @@ async function populateNeighborhoodSelect(selectedId){
   let list = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : marketNeighborhoods();
   const none = cityKey && !list.length;
   if (selectedId && !list.some(n => n.id === selectedId)){
-    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    const kept = neighborhoodById.get(selectedId);
     if (kept) list = [kept, ...list];
   }
   // "לא צוין" אינו "אין שכונה": בשמירה המסד משייך לפי הפין, כשהוא נופל
@@ -15174,7 +15325,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const { data: { session } } = await sb.auth.getSession();
       const geoRes = await fetch(GEOCODE_FUNCTION_URL, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         body: JSON.stringify({ street, house_number: houseNumber }),
       });
       const geoData = await geoRes.json();
@@ -15601,7 +15752,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const { data: { session } } = await sb.auth.getSession();
       const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        headers: edgeHeaders(session),
         // ‏property_id: הפונקציה שומרת לנכס בעצמה, אחרי בדיקת בעלות ומסלול.
         // לדפדפן מותר לכתוב ל-property_planning_info גוש וחלקה בלבד
         // (מיגרציה 20270102090000), ולכן אין כאן upsert.
@@ -15740,6 +15891,23 @@ let propertyExclusivities = {};
 // property_id → הלקוחות שלי שהנכס התאים להם (‏client_match_alerts, בלי
 // מה שנדחה ובלי לקוח/ה שסגר/ה עסקה), מהציון הגבוה לנמוך
 let propertyMatchedClients = {};
+/* ההיצע בלוחות יד2/מדלן לכל נכס פעיל: { [property_id]: board_supply }, מ-
+   properties_board_supply (אותו חישוב של דוח ה-CMA, listing_supply_stats).
+   נטען פעם אחת ב-loadProperties. משמש את התגית בכרטיס ואת חלון "דוח
+   לבעלים" (crm-owner-report.js). docs/listing-inventory.md */
+let propertyBoardSupply = {};
+/* משפט אחד ליועץ/ת על ההיצע בלוחות. מחירים מבוקשים, ברמת העיר. מחזיר ''
+   כשאין מדגם: המסד משתיק מתחת לסף, וכאן לא מנחשים. */
+function boardSupplyText(b){
+  if (!b || b.status !== 'ok') return '';
+  const pct = (b.subject_percentile === null || b.subject_percentile === undefined) ? null : Number(b.subject_percentile);
+  const boards = Array.isArray(b.boards) ? b.boards : [];
+  const names = [boards.includes('yad2') ? 'יד2' : '', boards.includes('madlan') ? 'מדלן' : ''].filter(Boolean).join(' ו') || 'הלוחות';
+  return `ב${names} יש כרגע ${Number(b.sample)} מודעות דומות${b.city ? ' ב' + b.city : ''}`
+    + ` (${b.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}, אותו סוג נכס ומספר חדרים דומה).`
+    + ` המחיר המבוקש החציוני ${shekel(b.median_price)}, וחצי מהמודעות בין ${shekel(b.p25_price)} ל-${shekel(b.p75_price)}.`
+    + (pct === null ? '' : ` המחיר של הנכס גבוה מ-${pct}% מהן.`);
+}
 
 /* בלעדיות: שורה חיה ב-property_exclusivities (נתבעה מול הסכם חתום, ויש לה
    מועד סיום), או המאפיין "בבלעדיות" שסוכנים מסמנים בטופס. השני הוא גם מה
@@ -15776,7 +15944,7 @@ function exclusivityDaysLeft(p){
 function propertySearchBlob(p){
   const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
   // שם השכונה יושב בטבלה נפרדת; אם המטמון עוד לא נטען פשוט לא מחפשים לפיו
-  const neighborhood = allNeighborhoods.find(n => n.id === p.neighborhood_id);
+  const neighborhood = neighborhoodById.get(p.neighborhood_id);
   return [
     p.title, p.city, neighborhood?.name, p.sales_area, p.street, p.house_number,
     p.property_type, p.description, p.marketing_description,
@@ -16027,7 +16195,7 @@ function propertyFilterActive(f){
 function filterProperties(rows, f){
   // החיפוש החופשי - פעם אחת על כל התיק, כי רחוב נבדק מול המלאי (crmQueryMatches)
   const query = crmQueryMatches(rows, f.q, propertySearchBlob, p => ({ ...p,
-    neighborhood_name: allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '' }), propertyNamesBlob);
+    neighborhood_name: neighborhoodById.get(p.neighborhood_id)?.name || '' }), propertyNamesBlob);
   propQueryNote = query ? query.note : '';
   return rows.filter(p => {
     if (f.status && p.status !== f.status) return false;
@@ -16478,7 +16646,7 @@ async function loadProperties(agentId, opts){
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
-    propertyExclusivities = {}; propertyMatchedClients = {};
+    propertyExclusivities = {}; propertyMatchedClients = {}; propertyBoardSupply = {};
     syncPropertyFilterOptions();
     renderProperties();
     return;
@@ -16489,7 +16657,7 @@ async function loadProperties(agentId, opts){
      סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
      שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
      את הרשימה, כמו קודם. */
-  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }, boardRes] = await Promise.all([
     loadPropertyViewCounts(propertyIds),
     sb.from('property_planning_info').select('*').in('property_id', propertyIds),
     // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
@@ -16500,11 +16668,17 @@ async function loadProperties(agentId, opts){
       .gte('ends_on', localIsoDate(new Date())),
     sb.from('client_match_alerts').select('property_id, client_id, score, agent_clients(full_name, status)')
       .in('property_id', propertyIds).neq('status', 'dismissed'),
+    // ההיצע בלוחות, קריאה אחת לכל הרשימה. לפני המיגרציה הפונקציה אינה
+    // קיימת: שגיאה משאירה את התגית בחוץ, כמו שאר הקריאות כאן.
+    sb.rpc('properties_board_supply', { p_ids: props.filter(p => p.status === 'active').map(p => p.id).slice(0, 500) })
+      .then(r => r, () => ({ data: null })),
     // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
     // אחרי הפעם הראשונה
     ensureNeighborhoodsLoaded(),
   ]);
   propertyViewCounts = viewCounts;
+  propertyBoardSupply = (boardRes && boardRes.data && typeof boardRes.data === 'object' && !Array.isArray(boardRes.data))
+    ? boardRes.data : {};
 
   propertyPlanningInfo = {};
   (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
@@ -16823,6 +16997,11 @@ function buildPropertyCard(p, agentId){
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     window.ShukAirLiving && ShukAirLiving.crmSpec(p) && { text: ShukAirLiving.crmSpec(p) },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    // ההיצע בלוחות: רק כשיש מדגם ומחיר. מחירים מבוקשים ברמת העיר, ולכן
+    // נתון ולא אזהרה (בלי גוון), והפירוט ב-title.
+    (b => b && b.status === 'ok' && b.subject_percentile != null && {
+      html:`📊 יקר מ-<b>${esc(b.subject_percentile)}%</b> בלוחות`, title: boardSupplyText(b) + ' מחירים מבוקשים, לא עסקאות.',
+    })(propertyBoardSupply[p.id]),
     // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
     p.price_unit === 'sqm'
       ? (p.price_total && p.price_total !== p.price && { text:`≈ ${shekel(p.price_total)} לכל הנכס`, title:'המחיר למ״ר כפול השטח' })
@@ -17377,7 +17556,7 @@ async function fetchMarketingCopy(propertyId){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(DESCRIPTION_FUNCTION_URL, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify({ property_id: propertyId, mode:'preview' }),
   });
   const data = await res.json().catch(()=> ({}));
@@ -17578,7 +17757,7 @@ async function promoteProperty(property, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/promote-property', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ property_id: propertyId }),
     });
     const data = await res.json();
@@ -17652,7 +17831,7 @@ async function produceMarketingVideo(property, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/property-video-create', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ property_id: property.id, replace_existing: hasVideo }),
     });
     const data = await res.json();
@@ -20068,8 +20247,6 @@ function impSetOverride(rowNumber, field, value){
   if (!Object.keys(bag).length) delete importState.overrides[rowNumber];
 }
 
-function impMarkDuplicates(){ PIC.markDuplicates(impCoreState()); }
-
 function impRevalidate(){
   // בנייה, ייבוא חוזר (מודעה של יד2 שכבר אצלי - עדכון) וכפילויות, בסדר שגם
   // השרת מריץ. מספרי השורות מתחילים ב-2: שורה 1 היא הכותרות.
@@ -20662,7 +20839,7 @@ function expFieldValue(p, key){
     case 'storage_location':
     case 'mamad_location':  return exp.location[p[key]] || p[key] || '';
     // בקובץ נכתב שם השכונה ולא המזהה — הוא גם מה שהייבוא מחפש בחזרה
-    case 'neighborhood':    return allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '';
+    case 'neighborhood':    return neighborhoodById.get(p.neighborhood_id)?.name || '';
     case 'move_in_soon':    return expYesNo(p.move_in_soon);
     case 'move_in_date':
     case 'listing_expires_at': return expDate(p[key]);
@@ -20936,7 +21113,6 @@ document.addEventListener('keydown', (e)=>{
    והוא לא מכיר את הארכיון. */
 let archivedLeadIds = new Set();
 let allLeads = [];
-let leadsView = 'active';
 
 /* המתג יושב ב-HTML ולא נבנה מחדש בכל רינדור, ולכן המאזין נרשם פעם אחת.
    ‏currentAgent הוא מקור ה-agentId גם כאן: ‎renderLeads‎ מעביר אותו הלאה
@@ -21397,7 +21573,7 @@ function leadIsFresh(lead){ return leadAgeMinutes(lead) < 24 * 60; }
 function leadPropertyContext(lead){
   const p = lead.property_id ? myPropertyRows.find(r => r.id === lead.property_id) : null;
   const hoodId = p?.neighborhood_id || lead.neighborhood_id;
-  const hood = hoodId ? allNeighborhoods.find(n => n.id === hoodId)?.name : '';
+  const hood = hoodId ? neighborhoodById.get(hoodId)?.name : '';
   return {
     title: p?.title || '',
     rooms: p?.rooms ? (Number(p.rooms) + ' חד׳') : '',
@@ -21788,7 +21964,7 @@ async function claimLead(lead, btn, agentId){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(CLAIM_FUNCTION_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: lead.id }),
     });
     const data = await res.json();
@@ -22297,7 +22473,7 @@ async function buyRssLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/rss-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: leadId }),
     });
     const data = await res.json();
@@ -22624,7 +22800,7 @@ async function buyMortgageLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/mortgage-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ lead_id: leadId }),
     });
     const data = await res.json();
@@ -22967,7 +23143,7 @@ async function buySavedSearchLead(lead, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/saved-search-lead-purchase', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ search_id: lead.id }),
     });
     const data = await res.json();
@@ -23457,7 +23633,7 @@ function renderSharedWithMe(){
 
   // אותו מפענח של "הנכסים שלי" ושל האתר (crmQueryMatches)
   const query = crmQueryMatches(inScope, q, sharedSearchBlob, r => ({ ...r, id: r.property_id,
-    neighborhood_name: allNeighborhoods.find(n => n.id === r.neighborhood_id)?.name || '' }),
+    neighborhood_name: neighborhoodById.get(r.neighborhood_id)?.name || '' }),
     r => [r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone].filter(Boolean).join(' '));
   const unsorted = inScope.filter(r => {
     if (onlyMatch && !isMatch(r)) return false;
@@ -23796,7 +23972,7 @@ async function loadClients(opts){
 
 function clientNeighborhoodLabel(c){
   if (!c || !c.neighborhood_id) return '';
-  const row = allNeighborhoods.find(n => n.id === c.neighborhood_id);
+  const row = neighborhoodById.get(c.neighborhood_id);
   return row ? row.name : 'שכונה שמורה';
 }
 
@@ -23811,7 +23987,7 @@ async function populateClientNeighborhoodSelect(selectedId){
     ? allNeighborhoods.filter(n => cityKeys.has(hoodCityKey(n.city)))
     : marketNeighborhoods();
   if (selectedId && !list.some(n => n.id === selectedId)){
-    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    const kept = neighborhoodById.get(selectedId);
     const belongs = kept && (!cityKeys.size || cityKeys.has(hoodCityKey(kept.city)));
     if (belongs) list = [kept, ...list];
     else if (!allNeighborhoods.length) list = [{ id: selectedId, name: 'שכונה שמורה', city: '' }, ...list];
@@ -24351,10 +24527,159 @@ const MATCH_SORTS = {
 let matchFilter = 'all';
 let matchSort = 'score';
 
+/* ---------- מודעות מהלוחות (יד2 / מדלן) במגירת ההתאמות ----------
+   המקור השלישי, אחרי הנכסים של הסוכן/ת ושל המשרד. ‏agent_client_board_matches
+   מדרגת כל מודעה באותו מנוע של הנכסים (client_property_match), ולכן הציון
+   כאן הוא אותו ציון. **אין כאן חישוב**: רק הצגה של מה שחזר.
+
+   שלושה דברים שהבלוק שומר עליהם (docs/listing-inventory.md):
+   - נפרד מהנכסים, בכותרת משלו. מודעה ציבורית אינה נכס של הסוכן/ת, ואין לה
+     "למיניסייט": המיניסייט שולח רק מהמאגר (הסקיל client-showcase).
+   - הקישור הוא כפתור, ורק לכתובת https של יד2, מדלן או פייסבוק.
+   - כשלא נבדק (מאפיין חובה, בלי עיר) נאמר שלא נבדק, ולא "אין מודעות".
+   הבלוק נטען אחרי שהמגירה נפתחה ואינו מעכב אותה. לפני המיגרציה הפונקציה
+   אינה קיימת, ואז הוא פשוט לא מופיע. */
+const BOARD_SOURCE_LABELS = { yad2:'יד2', madlan:'מדלן', facebook:'קבוצת פייסבוק' };
+function boardListingHref(url){
+  const u = String(url || '');
+  return /^https:\/\/([a-z0-9-]+\.)?(yad2\.co\.il|madlan\.co\.il|facebook\.com)\//i.test(u) ? u : '';
+}
+function boardMatchRow(m){
+  const src = BOARD_SOURCE_LABELS[m.source] || '';
+  const bits = [
+    src,
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.size_sqm ? `${Number(m.size_sqm)} מ״ר` : '',
+    (m.floor === 0) ? 'קומת קרקע' : (m.floor != null ? `קומה ${m.floor}` : ''),
+    m.neighborhood || m.city,
+    (m.no_broker === 'post' || m.no_broker === 'group') ? 'ללא תיווך' : '',
+  ].filter(Boolean).map(esc).join(' · ');
+  const was = m.price_was ? ` <span class="mb-was">ירד מ-${shekel(m.price_was)}</span>` : '';
+  const psm = m.price_per_sqm ? ` · ${shekel(m.price_per_sqm)}/מ״ר` : '';
+  const href = boardListingHref(m.url);
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price"><b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''}${esc(psm)}${was}</div>
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע במודעה, בלי מאפיינים">${esc(m.score)}%</span>
+      ${href ? `<a class="btn btn-ghost mb-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">פתיחה ב${esc(src || 'לוח')}</a>` : ''}
+    </div>`;
+}
+function boardMatchesHtml(r){
+  // unavailable / unsupported: לא נבדק (העיר אינה במלאי, או לקוח/ה מסחרי/ת). בלי בלוק.
+  if (!r || typeof r !== 'object' || r.status === 'unavailable' || r.status === 'unsupported') return '';
+  const head = '<div class="mb-h">מודעות מהלוחות יד 2 / מדלן</div>';
+  if (r.status === 'skipped_feature'){
+    return head + '<div class="lead-meta">מודעות בלוחות לא נבדקו, כי אין בהן נתון על המאפיין שנדרש בכרטיס.</div>';
+  }
+  if (r.status === 'no_city'){
+    return head + '<div class="lead-meta">כדי לראות מודעות מהלוחות צריך עיר בכרטיס הלקוח/ה.</div>';
+  }
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">בלוחות אין כרגע מודעות שעונות על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  // כרטיס רחב נותן את אותו ציון למאות מודעות. אומרים את זה, ואומרים לפי
+  // מה נבחרו אלה שמוצגות, אחרת חמש שורות נראות כמו "החמש המתאימות".
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהן באותו ציון (${esc(r.top_score)}%), ולכן מוצגות קודם מודעות שירדו במחיר, ואחריהן לפי מחיר למ״ר. דרישות מפורטות יותר בכרטיס (שכונה, שטח, קומה) יצמצמו את הרשימה.`
+    : '';
+  return head
+    + `<div class="lead-meta">מודעות ציבוריות, לא נכסים שלך או של המשרד. ${total === items.length
+        ? `${total} מודעות מתאימות.` : `מוצגות ${items.length} מתוך ${total} מודעות מתאימות.`}${tie}</div>`
+    + items.map(boardMatchRow).join('');
+}
+/* ---------- פוסטים בפייסבוק (ביקוש פתוח) במגירת ההתאמות ----------
+   בעלי נכס שפרסמו בקבוצות ושעוד אין להם סוכן. אותו דירוג של הנכסים
+   (agent_client_demand_matches -> client_property_match), בלי קישור, טלפון או
+   פרטי נכס: הקישור לפוסט נחשף רק למי שתפס/ה.
+
+   **הלחיצה היא "אני פונה"** (תומר, 19.11.2026): הכפתור קורא ל-claimOpenDemand
+   (crm-leads.js, open_demand_claim) ופותח את הפוסט. התפיסה בלעדית ולא
+   משתחררת, עד תקרה יומית (open_demand_claims_daily), ולכן הכפתור אומר את זה
+   במפורש ואינו "פתיחה". פוסט "ללא תיווך" כן כאן, עם תגית והנחיה. */
+function demandMatchRow(m){
+  const bits = [
+    m.property_type,
+    m.rooms ? `${m.rooms} חד׳` : '',
+    m.city,
+  ].filter(Boolean).map(esc).join(' · ');
+  const age = m.days_ago == null ? '' : (m.days_ago === 0 ? 'פורסם היום' : `פורסם לפני ${m.days_ago} ימים`);
+  const price = m.price ? `<b>${shekel(m.price)}</b>${m.deal_type === 'rent' ? ' לחודש' : ''} (מבוקש)` : 'מחיר לא צוין';
+  const label = m.mine ? 'פתיחת הפוסט (כבר תפסת)' : 'אני פונה ופתיחת הפוסט';
+  // "ללא תיווך": לא גובים דמי תיווך, אבל ייתכן שיעניינו אותם שירותי תיווך. הפוסט
+  // נשאר בהתאמות עם ההנחיה של הביקוש הפתוח (OPEN_DEMAND_NO_BROKER, crm-leads.js):
+  // הצעה אחת ומנומסת לשיווק מקצועי, לא "יש לי קונה".
+  const nb = (typeof OPEN_DEMAND_NO_BROKER !== 'undefined' && OPEN_DEMAND_NO_BROKER[m.no_broker]) || null;
+  return `<div class="mb-row">
+      <div class="mb-main">
+        <div class="mb-line">${bits}</div>
+        <div class="mb-price">${price}${age ? ` · <span class="mb-age">${esc(age)}</span>` : ''}</div>
+        ${m.summary ? `<div class="mb-sum">${esc(m.summary)}</div>` : ''}
+        ${nb ? `<div class="mb-nb"><b>${esc(nb.tag)}</b>. ${esc(nb.rule)}</div>` : ''}
+      </div>
+      <span class="mb-score" title="לפי מה שמופיע בפוסט">${esc(m.score)}%</span>
+      <button type="button" class="btn ${m.mine ? 'btn-ghost' : 'btn-gold'} mb-open" data-demand-claim="${esc(m.id)}" data-open-post="1">${esc(label)}</button>
+    </div>`;
+}
+function demandMatchesHtml(r){
+  if (!r || typeof r !== 'object') return '';
+  // לא נבדק או כבר נאמר בבלוק של הלוחות (מאפיין חובה, בלי עיר), ולקוח/ה מסחרי/ת
+  if (['unavailable', 'unsupported', 'no_city', 'skipped_feature'].includes(r.status)) return '';
+  const head = '<div class="mb-h">פוסטים בפייסבוק: בעלי נכס שמחפשים סוכן</div>';
+  if (r.status === 'none'){
+    return head + '<div class="lead-meta">אין כרגע פוסט פתוח בקבוצות שעונה על הדרישות.</div>';
+  }
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (r.status !== 'ok' || !items.length) return '';
+  const total = Number(r.total) || items.length;
+  const tie = Number(r.top_count) > items.length
+    ? ` ${Number(r.top_count)} מהם באותו ציון (${esc(r.top_score)}%), ולכן מוצגים קודם אלה שתפסת, ואחריהם החדשים.` : '';
+  return head
+    + `<div class="lead-meta">פוסטים של בעלי נכס, בלי פרטי קשר. <b>הלחיצה מסמנת "אני פונה"</b>:
+        הפוסט נתפס עבורך, לא נשאר פתוח לסוכנים אחרים ולא משתחרר, ונספר בתקרה היומית. ${total === items.length
+        ? `${total} פוסטים מתאימים.` : `מוצגים ${items.length} מתוך ${total} פוסטים מתאימים.`}${tie}</div>`
+    + items.map(demandMatchRow).join('');
+}
+async function loadClientBoardMatches(panel, client){
+  const box = document.createElement('div');
+  box.className = 'match-board';
+  panel.appendChild(box);
+  if (!client || !client.id) return;
+  const fetchBlocks = async () => {
+    // שתי הקריאות במקביל. כשל באחת (לפני המיגרציה) משאיר רק את השנייה.
+    const [boards, demand] = await Promise.all([
+      sb.rpc('agent_client_board_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+      sb.rpc('agent_client_demand_matches', { p_client_id: client.id, p_limit: 5 }).then(r => r, () => ({ error: true })),
+    ]);
+    // המגירה נסגרה ונפתחה ללקוח/ה אחר/ת בינתיים: התיבה כבר אינה במסמך
+    if (!box.isConnected) return;
+    box.innerHTML = (boards.error ? '' : boardMatchesHtml(boards.data)) + (demand.error ? '' : demandMatchesHtml(demand.data));
+  };
+  // המאזין נקשר מיד, לפני הטעינה: כשל בטעינה אינו משאיר כפתורים מתים.
+  let claiming = false;
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (!b || claiming || typeof claimOpenDemand !== 'function') return;
+    claiming = true;   // לחיצה כפולה לא תופסת פעמיים ולא פותחת שני חלונות
+    try {
+      await claimOpenDemand(b.getAttribute('data-demand-claim'), b);
+      // המצב השתנה (נתפס, או כבר לא פתוח): מציירים שוב
+      await fetchBlocks();
+    } catch (_e) { /* נשאר מה שהיה */ } finally { claiming = false; }
+  });
+  try { await fetchBlocks(); } catch (_e) { /* בלי הבלוק. ההתאמות עצמן כבר על המסך */ }
+}
+
 function renderClientMatches(panel, rows, client){
   panel._client = client;
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
+    loadClientBoardMatches(panel, client);
     return;
   }
 
@@ -24399,6 +24724,7 @@ function renderClientMatches(panel, rows, client){
     draw(panel.querySelector('[data-match-filter][aria-pressed="true"]')?.dataset.matchFilter || 'all');
   });
   draw(active);
+  loadClientBoardMatches(panel, client);
 }
 
 /* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
@@ -24918,48 +25244,33 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   btn.disabled = true; btn.textContent = 'שומר ומצליב…';
   feedback.textContent = '';
   let error, savedId = editingClientId;
-  if (editingClientId){
-    ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-  } else {
+  // אותה שמירה (עדכון או הוספה), שנקראת שוב אחרי כל גיבוי סכימה שמוריד שדה מה-payload
+  const persist = async () => {
+    if (editingClientId) return (await sb.from('agent_clients').update(payload).eq('id', editingClientId)).error;
+    const { data: row, error: insertError } = await sb.from('agent_clients').insert(payload).select('id').single();
+    savedId = row?.id;
+    return insertError;
+  };
+  if (!editingClientId){
     payload.agent_id  = currentAgent.id;
     payload.agency_id = currentAgent.agency_id;
-    let row;
-    ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-    savedId = row?.id;
   }
+  error = await persist();
   if (airLivingColumnMissing(error)) {
     stripAirLiving(payload);
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   let neighborhoodDeferred = false;
   // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
   if (shareLevelSchemaMissing(error)){
     delete payload.share_level;
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   // העמודה עולה עם 20271029170000, אחרי ה-HTML. בלי זה השמירה כולה נכשלת.
   if (clientNeighborhoodColumnMissing(error)){
     neighborhoodDeferred = true;
     delete payload.neighborhood_id;
-    if (editingClientId){
-      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
-    } else {
-      let row;
-      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
-      savedId = row?.id;
-    }
+    error = await persist();
   }
   btn.disabled = false; btn.textContent = original;
 
@@ -25986,7 +26297,7 @@ async function linesCall(task, body){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + task, {
     method:'POST',
-    headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+    headers: edgeHeaders(session),
     body: JSON.stringify(body || {}),
   });
   const out = await res.json().catch(() => ({}));
@@ -26196,7 +26507,7 @@ async function deleteCall(c, row, btn){
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=delete', {
       method:'POST',
-      headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+      headers: edgeHeaders(session),
       body: JSON.stringify({ call_ids: [c.id] }),
     });
     const out = await res.json().catch(() => ({}));
@@ -27007,7 +27318,7 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
 
-/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+/* קישור למודעה ציבורית במדלן, ביד2 או בפוסט פייסבוק. כל כתובת אחרת נשארת בלי כפתור. */
 function boardListingHref(raw){
   if (typeof raw !== 'string') return '';
   const s = raw.trim();
@@ -27016,7 +27327,8 @@ function boardListingHref(raw){
   try { host = new URL(s).hostname.toLowerCase(); }
   catch (e) { return ''; }
   const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
-    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il')
+    || host === 'facebook.com' || host.endsWith('.facebook.com');
   return ok ? s : '';
 }
 
@@ -27289,7 +27601,6 @@ async function loadNotifPrefs(agentId, opts){
    ========================================================================== */
 const AGENDA_KIND_LABELS = { meeting:'פגישה', showing:'סיור בנכס', signing:'חתימה', call:'שיחה', task:'משימה' };
 const AGENDA_KIND_ICONS  = { meeting:'🤝', showing:'🏠', signing:'✍️', call:'📞', task:'✅' };
-const AGENDA_MEETING_KINDS = ['meeting', 'showing', 'signing'];
 
 /* המשימות האוטומטיות. הסוג (‏auto_kind) הוא המפתח לכיבוי, והשמירה היא רשימת
    מושתקים - סוג חדש שייכנס במסד יגיע לכולם בלי backfill. */
@@ -27935,7 +28246,7 @@ async function gcalCall(action){
   if (!session) throw new Error('צריך להתחבר מחדש');
   const res = await fetch(SUPABASE_URL + '/functions/v1/google-calendar-connect', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    headers: edgeHeaders(session),
     body: JSON.stringify({ action }),
   });
   const data = await res.json().catch(()=> ({}));
@@ -29215,12 +29526,12 @@ function openNavLayer(layer){
 function closeNavLayers(){
   closeCreateSheet();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   closeBellPanel();
   if (typeof closeCoachLayer === 'function') closeCoachLayer();
   // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
   // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
-  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
+  if (typeof closeLeadPrefsSheetNow === 'function') closeLeadPrefsSheetNow();
 }
 
 function setNavLayer(layer){
@@ -29387,7 +29698,7 @@ function navTypingIn(el){
 // חלון של אשף או ייבוא שפתוח עכשיו - N שם הוא אות בשם, לא פקודה
 function navOverlayOpen(){
   return [...document.querySelectorAll('.imp-overlay,.pm-overlay')]
-    .some(el => getComputedStyle(el).display !== 'none');
+    .some(el => el.style.display !== 'none' && getComputedStyle(el).display !== 'none'); // inline קודם: אחרי סגירה ה-computed נשאר flex כ-150ms (יציאה מונפשת)
 }
 
 document.addEventListener('keydown', (e)=>{
@@ -29514,7 +29825,7 @@ async function adsCall(action, payload){
   try {
     res = await fetch(ADS_FUNCTION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      headers: edgeHeaders(session),
       body: JSON.stringify(Object.assign({ action }, payload || {})),
     });
   } catch (net) {
@@ -30626,33 +30937,48 @@ document.getElementById('acAudience')?.addEventListener('change', ()=>{
 });
 document.getElementById('acIntensity')?.addEventListener('input', adsSyncIntensity);
 
-let adsPropTimer = null;
-document.getElementById('acPropQ')?.addEventListener('input', (e)=>{
-  adsPropPicked = null;
-  clearTimeout(adsPropTimer);
-  // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
-  const q = e.target.value.replace(/[,()%*\\]/g, ' ').trim();
-  const list = document.getElementById('acPropList');
-  if (q.length < 2){ list.hidden = true; return; }
-  adsPropTimer = setTimeout(async ()=>{
-    const { data } = await sb.from('properties').select('id, title, city')
-      .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
-    list.innerHTML = '';
-    (data || []).forEach(p => {
-      const li = admEl('li');
-      const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : ''));
-      b.type = 'button';
-      b.addEventListener('click', ()=>{
-        adsPropPicked = { id: p.id, label: b.textContent };
-        e.target.value = b.textContent;
-        list.hidden = true;
+/* ‏חיפוש נכס פעיל לפי כותרת או עיר, עם רשימת בחירה: משותף לקונסולת הקמפיינים
+   ולטופס הסרטונים. ‏onInput נקראת בכל הקלדה (איפוס בחירה קודמת), ‏onPick(p, label)
+   בבחירה, ו-emptyNote מוצגת כשאין תוצאה (בלי הערה - רשימה ריקה). */
+function bindActivePropertyPicker(input, list, { onInput, onPick, emptyNote }){
+  let timer = null, seq = 0;
+  input.addEventListener('input', ()=>{
+    if (onInput) onInput();
+    clearTimeout(timer);
+    // ‏כל הקלדה מקדמת את seq: תשובה של שאילתה שכבר יצאה ולא התבטלה עם ה-timer
+    // (למשל אחרי מחיקת הטקסט) נזרקת במקום לפתוח מחדש רשימה ישנה.
+    const mySeq = ++seq;
+    // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
+    const q = input.value.replace(/[,()%*\\]/g, ' ').trim();
+    if (q.length < 2){ list.hidden = true; return; }
+    timer = setTimeout(async ()=>{
+      const { data } = await sb.from('properties').select('id, title, city')
+        .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
+      if (mySeq !== seq) return;
+      list.innerHTML = '';
+      (data || []).forEach(p => {
+        const li = admEl('li');
+        const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : ''));
+        b.type = 'button';
+        b.addEventListener('click', ()=>{
+          onPick(p, b.textContent);
+          input.value = b.textContent;
+          list.hidden = true;
+        });
+        li.appendChild(b); list.appendChild(li);
       });
-      li.appendChild(b); list.appendChild(li);
-    });
-    if (!(data || []).length) list.appendChild(admEl('li', 'adm-note', 'לא נמצא נכס פעיל'));
-    list.hidden = false;
-    dashPanelsMeasure();
-  }, 250);
+      if (emptyNote && !(data || []).length) list.appendChild(admEl('li', 'adm-note', emptyNote));
+      list.hidden = false;
+      dashPanelsMeasure();
+    }, 250);
+  });
+}
+
+const acPropInput = document.getElementById('acPropQ');
+if (acPropInput) bindActivePropertyPicker(acPropInput, document.getElementById('acPropList'), {
+  onInput: () => { adsPropPicked = null; },
+  onPick: (p, label) => { adsPropPicked = { id: p.id, label }; },
+  emptyNote: 'לא נמצא נכס פעיל',
 });
 
 document.getElementById('adsCopyForm')?.addEventListener('submit', async (e)=>{
@@ -31550,23 +31876,7 @@ function leadFormRow(f){
   const propList = admEl('ul', 'ads-pick-list'); propList.hidden = true;
   propWrap.appendChild(propQ); propWrap.appendChild(propList); grid.appendChild(propWrap);
   let propId = m.property_id || null;
-  let timer = null;
-  propQ.addEventListener('input', ()=>{
-    clearTimeout(timer);
-    const q = propQ.value.replace(/[,()%*\\]/g, ' ').trim();
-    if (q.length < 2){ propList.hidden = true; return; }
-    timer = setTimeout(async ()=>{
-      const { data } = await sb.from('properties').select('id, title, city').eq('status', 'active')
-        .or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
-      propList.innerHTML = '';
-      (data || []).forEach(p => {
-        const li = admEl('li'); const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : '')); b.type = 'button';
-        b.addEventListener('click', ()=>{ propId = p.id; propQ.value = b.textContent; propList.hidden = true; });
-        li.appendChild(b); propList.appendChild(li);
-      });
-      propList.hidden = false; dashPanelsMeasure();
-    }, 250);
-  });
+  bindActivePropertyPicker(propQ, propList, { onPick: (p) => { propId = p.id; } });
   // ‏style ולא hidden: ‏.cst-f מגדיר display:flex, וזה גובר על המאפיין hidden
   const syncVisible = ()=>{ propWrap.style.display = kind.value === 'property' ? '' : 'none'; dashPanelsMeasure(); };
   kind.addEventListener('change', syncVisible); syncVisible();
@@ -32354,7 +32664,7 @@ document.getElementById('quickCustomChips')?.addEventListener('click', e => {
 function openPromotePicker(){
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('promote');
   navLayerShow('createSheet', 'create', '.cs-row');
 }
@@ -32373,7 +32683,7 @@ function syncQuickBadges(){
 function openCmaPicker(){
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('cma');
   navLayerShow('createSheet', 'create', '.cs-row');
 }
@@ -32384,7 +32694,7 @@ function openCmaAddress(){
   if (!currentAgent || currentAgent.tier !== 'premium'){ openCmaPicker(); return; }
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('cma-address');
   navLayerShow('createSheet', 'create', 'input[name=street]');
 }
@@ -32811,10 +33121,8 @@ function propertyCommission(p){
   return p.deal_type === 'rent' ? price : price * COMMISSION_SALE_RATE;
 }
 
-function shekelShort(n){
-  const v = Math.round(Number(n) || 0);
-  return '₪' + v.toLocaleString('he-IL');
-}
+// ‏זהה ל-admMoney; נשאר כשם נפרד כי 22 אתרי קריאה משתמשים בו.
+function shekelShort(n){ return admMoney(n); }
 
 /* מספר מקוצר לעמודה צרה. במדד שרוחבו שליש שורה במסך של 360px אין מקום
    ל-"₪1,240,000" — והמספר המלא שנחתך גרוע מהמספר המעוגל שנקרא. הסכום
@@ -33570,6 +33878,8 @@ function openProfilePanel(){
   closeMenuPanel();
   closeBellPanel();
   buildProfilePanel();
+  // פתיחה באמצע יציאה מבטלת אותה (המסך המלא והטשטוש של הכותרת נשארים כמו שהם)
+  cancelLeave(panel); panel.inert = false;
   panel.classList.add('is-open');
   // בנייד הפאנל הוא מסך מלא (position:fixed), וה-backdrop-filter של הכותרת
   // היה הופך אותה לבלוק המכיל שלו - ראו html.pp-open ב-CSS
@@ -33580,13 +33890,37 @@ function openProfilePanel(){
   if (first) first.focus({ preventScroll:true });
 }
 
-function closeProfilePanel(){
+/* סגירה עם יציאה מונפשת (הסקיל animate). ‏is-open יורד מיד, כך שכל מי שקורא את מצב הפאנל
+   (כפתור האווטאר, Escape, ‏closeNavLayers) רואה אותו סגור, ו-is-leaving משאיר אותו מצויר 200ms.
+   ‏html.pp-open נשאר עד סוף היציאה: הוא מבטל את ה-backdrop-filter של הכותרת, ובלעדיו הפאנל המלא
+   בנייד (position:fixed בתוך הכותרת) היה מתכווץ לגובה הכותרת באמצע הדעיכה.
+   סגירה מיידית: Escape (מהמקלדת), וחילוף שכבה (closeProfilePanelNow). ‏closeProfilePanel משמשת גם
+   כמאזין לחיצה, ולכן אינה מקבלת פרמטרים: היא עוטפת את closeProfilePanelCore, שמקבלת את הבחירה
+   כפרמטר ולא כדגל ב-DOM. */
+function closeProfilePanelCore(instant){
   const panel = document.getElementById('profilePanel');
   if (!panel || !panel.classList.contains('is-open')) return;
   panel.classList.remove('is-open');
-  document.documentElement.classList.remove('pp-open');
   document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'me') setNavLayer(null);
+  if (instant){ document.documentElement.classList.remove('pp-open'); return; }
+  panel.inert = true;
+  leaveAnimated(panel, ()=>{ panel.inert = false; document.documentElement.classList.remove('pp-open'); });
+}
+
+function closeProfilePanel(){ closeProfilePanelCore(false); }
+
+/* סגירה מיידית, למי שסוגר את הפרופיל כדי לפתוח שכבה אחרת: ההחלפה מיידית, והפאנל הדועך לא נערם
+   מתחת לחדש. אם הוא כבר באמצע יציאה, היציאה מסתיימת כאן */
+function closeProfilePanelNow(){
+  const panel = document.getElementById('profilePanel');
+  if (!panel) return;
+  if (panel.classList.contains('is-leaving')){
+    cancelLeave(panel); panel.inert = false;
+    document.documentElement.classList.remove('pp-open');
+    return;
+  }
+  closeProfilePanelCore(true);
 }
 
 document.getElementById('avatarBtn').addEventListener('click', (e)=>{
@@ -33601,7 +33935,7 @@ document.addEventListener('click', closeProfilePanel);
 document.addEventListener('keydown', (e)=>{
   if (e.key !== 'Escape') return;
   if (!document.getElementById('profilePanel').classList.contains('is-open')) return;
-  closeProfilePanel();
+  closeProfilePanelNow();
   document.getElementById('avatarBtn').focus({ preventScroll:true });
 });
 
@@ -33618,7 +33952,8 @@ const navLayerReturn = {};
    (‏closeNavLayers, ‏:not([hidden]), נעילת הגלילה) רואה אותה סגורה; ‏is-leaving
    רק משאיר אותה מצוירת 200ms עם אנימציית היציאה (ה-CSS גובר על [hidden]).
    ‏searchSheet אינו ברשימה: הוא נפתח ב-Ctrl+K ובלי תנועה. ‏leadPrefsSheet אינו
-   ברשימה: סגירתו מחזירה את התוכן למקומו, והיציאה הייתה מראה גיליון ריק. */
+   ברשימה כי סגירתו מחזירה את הסעיפים למקומם בדף: היציאה שלו נעשית ב-
+   closeLeadPrefsSheet (assets/crm-leads.js), שדוחה את ההחזרה לסוף היציאה. */
 const NAV_LAYER_LEAVES = new Set(['createSheet', 'coachSheet']);
 
 /* פתיחה או סגירה מהמקלדת (N, Escape) בלי תנועה: פעולה שחוזרת עשרות פעמים ביום
@@ -33721,7 +34056,7 @@ function openCreateSheet(){
   if (navLayer === 'create') return;
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('main');
   navLayerShow('createSheet', 'create', '.cs-item');
 }
@@ -33920,7 +34255,7 @@ function openSearch(scope){
   if (navLayer !== 'search'){
     closeMenuPanel();
     closeCreateSheet();
-    closeProfilePanel();
+    closeProfilePanelNow();
     navLayerShow('searchSheet', 'search', '#crmSearchInput');
   }
   setSearchScope(scope || searchScope);

@@ -15,8 +15,8 @@
 | `seo-edge` | **קוראים לפני כל שינוי ב-`netlify/edge-functions/`** - רינדור ל-SEO ב-edge - סטטוס בכשל (**404** כשהמסד אמר שאין, **503 בלי `noindex`** על כשל זמני, ועותק אחרון שמולא), מילוי ה-HTML הראשון באותם `id` שה-JS כותב, שמירה על בלוק ב-`sitemap`, דף נחיתה עם מודעות, וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, מפה עצלה); פונקציה שמחזירה 200 בלי התוכן נראית תקינה ופוגעת באינדוקס (`neighborhood-page`, `deals-page`, `prices-page`, `og-tags`, `sitemap.ts`, `search-pages`) |
 | `perf-measure` | כל טענה על ביצועים — השרת שמחקה את Netlify, שני התרחישים, והמוקשים |
 | `swipe-photos` | תמונות ב-`/swipe` - `warm` כנתיב היחיד לטעינה מראש (אותה כתובת ורוחב כמו הכרטיס, אחרת הורדה כפולה), `fetchPriority` נמוך לחימום וגבוה להחלפה, `lean()` ל-Save-Data, `slideKind` לפני כל חימום (שקופיות הדמיה אינן תמונות), ומדידת הקשה עד תמונה גלויה שמודדת גם את הבייטים (`docs/swipe-mode.md`) |
-| `govmap` | כל עבודה מול GovMap — הטוקן והדומיין (**צד לקוח בלבד**, לפי מפ"י), ITM מול WGS84, החוזה `null`/`throw`, ה-CSP, ושכבות התוכניות 203/14 (ארציות, מתאר, הודעות 77-78); ובשרת - רק ממאגרים פתוחים (`parcels_open` מ-data.gov.il, ‏XPlan של מינהל התכנון בלי לבטל אימות תעודה) ולא מ-GovMap; ומידע תכנוני בבוט - רק כפתור לדף הבדיקה (הסקיל `planning-page`) (`docs/govmap.md`, `docs/parcels-open.md`) |
-| `planning-page` | מידע תכנוני דרך גבריאלה - **רק** כפתור "📄 מידע תכנוני" לדף `/plan?k=` (‏`planningButton`), לא טקסט ולא הודעה עם התוצאה; הדף (‏`plan.html`, `plan.js`) עם השיתוף, ההורדה וסוג הבעלות; `planning_links` ו-`planning-link`, והקישור כהרשאה (‏`docs/govmap.md`) |
+| `govmap` | כל עבודה מול GovMap — הטוקן והדומיין (**צד לקוח בלבד**, לפי מפ"י), ITM מול WGS84, החוזה `null`/`throw`, ה-CSP, ושכבות התוכניות 203/14 (ארציות, מתאר, הודעות 77-78), ואיזו חלקה נבחרת בנקודה (‏`pickParcel`: החלקה שביקשו ולא "היחידה", ו-`offPoint` בלי הייעוד של השכנה); ובשרת - רק ממאגרים פתוחים (`parcels_open` מ-data.gov.il, ‏XPlan של מינהל התכנון בלי לבטל אימות תעודה) ולא מ-GovMap; ומידע תכנוני בבוט - רק כפתור לדף הבדיקה (הסקיל `planning-page`) (`docs/govmap.md`, `docs/parcels-open.md`) |
+| `planning-page` | מידע תכנוני דרך גבריאלה - **רק** כפתור "📄 מידע תכנוני" לדף `/plan?k=` (‏`planningButton`), לא טקסט ולא הודעה עם התוצאה; הדף (‏`plan.html`, `plan.js`) עם השיתוף, ההורדה וסוג הבעלות, ו"לא נמצא" שאומר באיזה שלב (ארבע סיבות, רשימה סגורה בשלושה מקומות); `planning_links` ו-`planning-link`, והקישור כהרשאה (‏`docs/govmap.md`) |
 | `new-market` | שוק מקומי חדש או עיר חדשה בשוק — `markets.js`, השיוך במסד, `_redirects`, `market-pages.ts`, ונתוני העיר (`docs/regional-pages.md`) |
 | `market-go-live` | הדלקת שוק לגולשים — הסף (משרד ו-10 נכסים), סינון דף הבית, `live`, ה-`sitemap`, והבדיקות שאחרי |
 | `marketing-description` | התיאור השיווקי — איזה שדה מוצג בדף הנכס ובבוט, טביעת האצבע וה-stale, ומיגרציה שמשכתבת טקסט של נכסים (`docs/marketing-description.md`) |
@@ -49,7 +49,7 @@
 | `scraped-leads` | לידים מפוסטים בקבוצות פייסבוק ובמרקטפלייס - **לא insert ישיר ל-`leads`** (ליד בלי סוכן/ת נעלם בשקט): `scraped_lead_add` ‏(`pending_consent`), הסכמה שהופכת לליד `owner_inbound`/`seeker_inbound` לסוכן/ת אחד/ת, סירוב שנמחק לגמרי, וביקוש פתוח אחרי 7 ימים (ובתקופת ההשקה מרגע הקליטה, עם ליד בחינם גם ל-Pay&GO, לפי `scraped_leads_launch_until` ב-`pricing_config`) - אנונימי במסד (`demand_summary` ולא `property_details`), חינם, ומופץ כהתראה לכל סוכן/ת בעיר ובסוג הנכס עם כפתור בוואטסאפ; "אני פונה" (`open_demand_claim`) שמוריד אותו מהרשימה של השאר עם תקרה יומית, ו"ללא תיווך" (`no_broker`) שמוצג לבעלים עם הנחיה ומוסתר למחפשים; ההוראות לסוכן הסורק ב-`docs/agent-skills/facebook-leads-scanner.md`; `agent_works_city`/`agent_handles_type` כהגדרה אחת, ומחיקה 30 יום אחרי הפוסט (`docs/scraped-leads.md`) |
 | `property-card` | "הנכסים שלי" וכרטיס הנכס - פקד סינון חדש ב-`PROP_FILTER_IDS` וב-`propertyFilterActive` (אחרת איפוס וקישור לנכס לא עובדים), אריח בלי `tone` אלא אם הוא קריאה לפעולה, שורת תגיות אחת שבה הסדר הוא העדיפות, נתון לכרטיס שנטען פעם אחת ב-`loadProperties`, פעולת מנהל/ת בתפריט "⋯ עוד", ומקפים ארוכים ישנים שצצים אחרי עריכה ליד הכרטיס (`docs/agent-dashboard.md`) |
 | `crm-navigation` | הניווט והכותרת ב-CRM - `NAV_GROUPS` כרשימה היחידה (`check_crm_nav.py`), הסרגל התחתון (בית · לידים · + · חיפוש · התראות, והפרופיל מהאווטאר), שכבה שנפתחת רק ב-`openNavLayer` ונסגרת רק בפונקציה שלה (אחרת הכפתור נשאר מסומן), סמל הבית שנפתח בלשונית חדשה, המתנה בתוך תגית המסלול, ו-`backdrop-filter` של הכותרת שהופך אותה לבלוק המכיל של כל `fixed` שבה (`docs/crm-navigation.md`) |
-| `crm-startup` | מה ה-CRM טוען אחרי הכניסה - טעינה חדשה נכנסת לשרשרת של מה שהיא קוראת (`propsP`, `clientsP`, `pricingP`) ולא לטור, שאילתת supabase-js שיוצאת רק ב-`then`, ספירה במסד ולא בהורדת שורות (PostgREST חותך ב-1,000 בשקט), `scheduleNavCounts`, ומדידה עם `dashboard_load.mjs`; ופאנל איטי בגלל המסד - `pg_stat_statements`, ‏`explain analyze`, ופונקציה שנקראת לכל שורה (`docs/agent-dashboard.md`) |
+| `crm-startup` | מה ה-CRM טוען אחרי הכניסה - טעינה חדשה נכנסת לשרשרת של מה שהיא קוראת (`propsP`, `clientsP`, `pricingP`) ולא לטור, שאילתת supabase-js שיוצאת רק ב-`then`, ספירה במסד ולא בהורדת שורות (PostgREST חותך ב-1,000 בשקט), `scheduleNavCounts`, ומדידה עם `dashboard_load.mjs`; מסך ההמתנה שמצויר לפני רוב ה-CSS (שני בלוקי `<style>`, ‏`check_crm_boot_css.py`), ומספר גדול ב-`deeplink_timings` שנבדק מול יומן הבקשות לפני שמאשימים את הטעינה (אימות דו-שלבי, לשונית ברקע); ופאנל איטי בגלל המסד - `pg_stat_statements`, ‏`explain analyze`, ופונקציה שנקראת לכל שורה (`docs/agent-dashboard.md`) |
 | `office-team` | צוות המשרד ותפקידים - `role = 'manager'` הוא כל ההרשאה ואין "בעלים", מינוי מנהל/ת נוסף/ת מה-CRM (RLS שחוסם מחזיר 0 שורות ולא שגיאה), איחוד שני משרדים שנפתחו בטעות (כל טבלה שמפנה ל-`agencies`, מפתחות ייחודיים שמתנגשים, ו-`cascade` שמוחק בשקט אם מוחקים לפני שמעבירים), ושינוי slug של סוכן/ת שאין לו הפניה; והחלפת המייל שאיתו סוכן/ת נכנס/ת - `user_id` לחשבון החדש, ובקשת שיוך של מנהל/ת יחיד/ה שאיש אינו יכול לאשר (`docs/agent-invitations.md`, `docs/google-login.md`) |
 | `email-intake` | מייל שסוכן/ת מעביר/ה לגבריאלה - `EMAIL_TOOLS` הסגורה (מייל וקבציו נכתבו בידי אחרים), זיהוי לפי שולח רק דרך `verifiedSender`, קבצים מצורפים במחלצים המשותפים עם הוואטסאפ ורק אחרי הגייטים, ותקרת 60 השניות של ה-IMAP שבגללה מייל שנתפס אחריה אובד (`docs/email-intake.md`) |
 | `property-import` | ייבוא נכסים מקובץ - **ליבה אחת** לאשף ב-CRM ולקובץ שנשלח לגבריאלה (`assets/property-import-core.js`, ועותק זהה ב-`_shared` שנבדק ב-`check_import_core.py`), כל שורה שנדחית אומרת למה ומה לעשות, ייבוא חוזר שמעדכן בלי לדרוס, "מסחרי" ומחיר למ"ר ביד2, שכונה מכינוי שהכתובת גוברת עליה, ומודעה של יד2 פעם אחת למשרד (`docs/property-import.md`) |
@@ -77,7 +77,16 @@
    של קלוד. מהספרייה משמשים רק `govmap-deals-sync`, ‏`chrome-browser`,
    ‏`seo-geo-aeo`, ‏`skill-creator` ו-`marketing-psychology` (נוסף 14.11.2026, כידע בלבד ובכפוף לשורה שלו בטבלה). **לא** מוסיפים את `supabase/agent-skills`,
    כי הוא מכוון להחלת DDL ישירה (הכלל למטה).
-2. **PR שנוגע באתר, ב-`supabase/` או ב-`netlify/` עובר `/code-review`
+2. **PR שנוגע בקוד (`assets/`, דפי HTML, `supabase/`, `netlify/`) עובר קודם
+   `/simplify` על ה-diff שלו, ורק אחריו `/code-review`** - כדי שהסקירה תראה את
+   הקוד הסופי. זה צעד ידני בסשן, לפני פתיחת ה-PR, **לא** workflow ב-CI שדוחף
+   קומיטים (קומיט נוסף שנוגע באתר הוא עוד דיפלוי). ‏`/simplify` לא מחפש באגים
+   ואינו מחליף את `/code-review`. **אין "מפשטים" כפילות מכוונת:** קטעי GTM,
+   בלוק PWA ותגית האימות בכל דף, כינויי `esc`/`escAttr` (תמיד `function`),
+   עותקי `_shared` שנבדקים ב-CI, הרשימות המקבילות (`PROP_FILTER_IDS`,
+   `NAV_GROUPS`, מאפייני נכס), וה-CSS המוטבע. אחרי הפישוט הבדיקות
+   (`scripts/check_*.py`) חייבות לעבור, וטענת ביצועים נמדדת (`perf-measure`).
+   **PR שנוגע באתר, ב-`supabase/` או ב-`netlify/` עובר `/code-review`
    לפני בקשת המיזוג.** אין סביבת ביניים: האתר עולה תוך שניות והמיגרציה
    רצה על המסד החי.
    **ו-PR שנוגע ב-`netlify/edge-functions/` מציין בתיאורו שהסקיל `seo-edge`
@@ -403,6 +412,11 @@ python scripts/check_canonical.py --fix  # שתילה בדף סטטי שחסר
 הציור הראשון עלה מ-916ms ל-1,432ms. ‏`<link rel="stylesheet">` חוסם ציור
 עד שהקובץ מגיע — RTT שלם נוסף — בעוד CSS מוטבע מגיע יחד עם תחילת המסמך.
 
+**ומוטבע אינו אומר "הכול ב-`<head>`".** ב-`crm.html` ה-`<style>` מפוצל, ומסך
+ההמתנה יושב ב-HTML לפני רוב ה-CSS (‏FCP ‏1,116 → 240ms, ‏19.11.2026). כלל למסך
+הכניסה או ההמתנה נכתב בבלוק הראשון, ו-`scripts/check_crm_boot_css.py` חוסם
+ב-CI את ההפך. הסקיל `crm-startup`.
+
 ### מה זה קונה, ומה לא
 
 **בביקור החוזר הרווח ודאי. בביקור הראשון — תלוי בדף, ואין לנו כלל
@@ -613,8 +627,9 @@ python scripts/check_escapers.py
 המיגרציה `20271112130000_listing_inventory_yad2.sql`). הפרטים המלאים:
 `docs/listing-inventory.md`.
 
-**מה יש:** הטבלאות `listing_inventory`, ‏`listing_inventory_seeds` ו-
-`listing_inventory_sync_log` (כולן עם RLS), ה-RPC ‏`listing_inventory_sync`,
+**מה יש:** הטבלאות `listing_inventory`, ‏`listing_inventory_seeds`,
+‏`listing_inventory_sync_log` ו-`listing_inventory_price_history` (שינויי
+מחיר מ-19.11.2026; כולן עם RLS), ה-RPC ‏`listing_inventory_sync`,
 ופונקציית ה-Edge ‏`listing-inventory-intake` - מקבלת `POST` עם הכותרת
 `x-listing-intake-secret` (הסוד `LISTING_INTAKE_SECRET`). ‏`yad2` הוא מקור
 רביעי ב-`scraped_lead_add`, לצד `facebook_group`, ‏`facebook_marketplace`

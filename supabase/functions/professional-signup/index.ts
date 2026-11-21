@@ -46,7 +46,7 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const siteBaseUrl = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
 
-const VALID_TYPES = ["mortgage_advisor","appraiser","architect","interior_designer","real_estate_lawyer","cleaning","general"];
+const VALID_TYPES = ["mortgage_advisor","appraiser","architect","interior_designer","real_estate_lawyer","cleaning","contractor","planning_consultant","surveyor","electrician","plumber","general"];
 
 const TYPE_LABELS: Record<string, string> = {
   mortgage_advisor: "יועץ/ת משכנתאות",
@@ -54,6 +54,11 @@ const TYPE_LABELS: Record<string, string> = {
   architect: "אדריכל/ית",
   interior_designer: "מעצב/ת פנים",
   cleaning: "חברת ניקיון",
+  contractor: "קבלן/ית בנייה ושיפוצים",
+  planning_consultant: "יועץ/ת תכנון ובנייה",
+  surveyor: "מודד/ת מוסמך/ת",
+  electrician: "חשמלאי/ת",
+  plumber: "אינסטלטור/ית",
   real_estate_lawyer: "עו״ד מקרקעין",
   general: "בעל/ת מקצוע",
 };

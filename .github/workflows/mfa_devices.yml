@@ -1,0 +1,41 @@
+name: מכשיר זכור באימות כניסה
+
+# הנפקה ומימוש של אסימון מכשיר, תפוגה מרגע האימות, תקרה, מתג כיבוי, טריגר
+# והרשאות. רץ על כל מיגרציה, כי mfa_trusted_devices נוגעת ב-wa_login_verifications
+# וב-agent_wa_2fa, ושינוי באחת מהן עלול לשבור אותה בלי שגיאה.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/mfa_trusted_devices_test.py"
+      - ".github/workflows/mfa_devices.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/mfa_trusted_devices_test.py"
+      - ".github/workflows/mfa_devices.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת מכשיר זכור
+        run: python3 scripts/mfa_trusted_devices_test.py

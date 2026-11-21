@@ -46,6 +46,15 @@ description: מידע תכנוני דרך גבריאלה בריפו של שוק 
    (‏`land_ownership_of`) - הדף מוצג מחדש איתו
 4. קישור שכבר נענה מציג את התוצאה השמורה, בלי GovMap
 
+**"לא נמצא" נושא סיבה.** הדף קורא ל-`GovmapLookup.addressRecordWhy` ומקבל
+`{ record, reason }` - `no_address`, ‏`no_parcel`, ‏`no_parcel_at_point` או `ambiguous_parcel`
+(הכתובת נמצאה, אבל אין בנקודה חלקה, או שיש שתיים). בקישור של גוש/חלקה נבחרת החלקה
+**שביקשו** מתוך מה שבנקודה (‏`pickParcel`), ולא "היחידה"; ואם היא רק בטווח ולא בנקודה
+עצמה (‏`offPoint`), הרשומה חוזרת בלי ייעוד ותוכניות - הם של החלקה השכנה. לכל סיבה נוסח משלה ב-`notFoundText`, והיא נשמרת בקישור
+(‏`result = { not_found, reason }`, רשימה סגורה ב-`planning-link`). סיבה חדשה נכנסת
+לשלושתם: ‏`addressRecordWhy`, ‏`NOT_FOUND_REASONS` ו-`notFoundText`. **לא להחזיר נוסח
+אחד לכולם** - "GovMap לא מצא את הכתובת" על כתובת שנמצאה שולח את הסוכן/ת לחפש שגיאת כתיב.
+
 **שיתוף והורדה:** וואטסאפ, שיתוף של הטלפון, העתקה, מייל, PDF (חלון ההדפסה) וקובץ
 טקסט. **הטקסט המשותף בלי הקישור לדף** - הוא אישי לסוכן/ת. שם הקובץ באנגלית
 (‏`planning-<גוש>-<חלקה>.txt`): שם עברי נמחק בהורדת blob ויוצא "download".
@@ -72,6 +81,7 @@ description: מידע תכנוני דרך גבריאלה בריפו של שוק 
 
 ```sh
 node --experimental-strip-types scripts/planning_link_test.ts   # הסיכום
+node scripts/govmap_parcel_pick_test.cjs                         # בחירת החלקה והסיבות
 python3 scripts/check_edge_types.py
 python3 scripts/check_long_dash.py
 ```
