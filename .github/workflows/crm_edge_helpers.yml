@@ -1,0 +1,30 @@
+name: עוזרי ה-CRM המשותפים
+
+# ‏edgeHeaders ו-edgeCall (קריאה ל-Edge Function), הבלוק ששומר לקוח עם גיבויי
+# הסכימה, והבורר של נכס פעיל. הבדיקה קוראת את הקוד מ-crm.js ומריצה אותו על
+# גלובלים מדומים - בלי דפדפן ובלי רשת.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_edge_helpers_test.mjs"
+      - ".github/workflows/crm_edge_helpers.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_edge_helpers_test.mjs"
+      - ".github/workflows/crm_edge_helpers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת העוזרים
+        run: node scripts/crm_edge_helpers_test.mjs
