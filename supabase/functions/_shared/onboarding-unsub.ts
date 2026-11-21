@@ -40,7 +40,8 @@ export async function unsubUrl(kind: UnsubKind, id: string): Promise<string | nu
   const sig = await hmacHex(`${KIND_CODE[kind]}.${id}`);
   const token = `${KIND_CODE[kind]}.${id}.${sig}`;
   // עמוד באתר ולא בפונקציה: Supabase מגישה HTML מהדומיין הרגיל כ-text/plain (reminders-off.html)
-  return `${SITE_BASE_URL}/reminders-off?t=${encodeURIComponent(token)}`;
+  // הטוקן בקטע ה-fragment (#t=) ולא ב-query: GA4 רושם page_location עם ה-query, ולא עם ה-fragment, ואין לטוקן תפוגה
+  return `${SITE_BASE_URL}/reminders-off#t=${encodeURIComponent(token)}`;
 }
 
 /** מאמת טוקן ומחזיר את הסוג והמזהה, או null כשהחתימה שגויה. */

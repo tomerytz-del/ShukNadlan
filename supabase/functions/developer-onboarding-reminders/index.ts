@@ -82,12 +82,18 @@ Deno.serve(async (req: Request) => {
 
   const stats = { due: (due ?? []).length, sent: 0, skipped: 0, failed: 0 };
   const crmUrl = `${siteBaseUrl}/developer-crm`;
+  // סימון נבדק ומנוסה פעמיים: מייל שיצא וסימון שנכשל היו נשלחים שוב ביום החול הבא. כישלון שני נרשם בנפרד
+  // ("sent but unmarked" כשזה אחרי שליחה), כדי שיהיה גלוי שיש סיכון לכפילות
   const mark = async (developerId: string, no: number, what: string): Promise<boolean> => {
-    const { error: markErr } = await supabase.rpc("mark_developer_onboarding_reminder", {
-      p_developer_id: developerId, p_no: no,
-    });
-    if (markErr) console.error(`developer-onboarding-reminders: mark failed (${what})`, developerId, markErr.message);
-    return !markErr;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const { error: markErr } = await supabase.rpc("mark_developer_onboarding_reminder", {
+        p_developer_id: developerId, p_no: no,
+      });
+      if (!markErr) return true;
+      console.error(`developer-onboarding-reminders: mark failed (${what}, attempt ${attempt})`, developerId, markErr.message);
+    }
+    if (what === "after send") console.error("developer-onboarding-reminders: SENT BUT UNMARKED, duplicate risk", developerId);
+    return false;
   };
 
   for (const row of due ?? []) {

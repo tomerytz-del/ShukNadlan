@@ -24,7 +24,7 @@ begin
       add column onboarding_reminders_sent smallint not null default 0,
       add column onboarding_reminder_at    timestamptz,
       add column onboarding_attempt_at     timestamptz;
-    update public.ad_placements set onboarding_reminders_sent = 2;
+    update public.ad_placements set onboarding_reminders_sent = 2 where placement_type = 'professional_card';
   end if;
 end $$;
 

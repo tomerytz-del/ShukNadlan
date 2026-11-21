@@ -69,7 +69,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script>
 const FUNCTION_URL = 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/onboarding-reminders-unsubscribe';
-const token = new URLSearchParams(location.search).get('t') || '';
+// הטוקן ב-fragment ולא ב-query: GA4 רושם את כתובת הדף עם ה-query, ולא עם ה-fragment (ואין לטוקן תפוגה)
+const token = new URLSearchParams(location.hash.replace(/^#/, '')).get('t') || '';
 const btn = document.getElementById('stopBtn'), msg = document.getElementById('msg');
 
 function say(text, kind){ msg.textContent = text; msg.className = 'msg ' + (kind || ''); }
