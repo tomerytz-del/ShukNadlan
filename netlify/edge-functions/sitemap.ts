@@ -225,7 +225,7 @@ const SOURCES: Source[] = [
     field: "slug",
     lastmod: "published_at",
     listPath: "/projects",
-    query: `projects_public?slug=not.is.null&select=slug,published_at&limit=${LIMIT}`,
+    query: `projects_public?slug=not.is.null&select=slug,published_at&order=published_at.desc.nullslast&limit=${LIMIT}`,
   },
   {
     name: "בעלי מקצוע",
@@ -329,7 +329,7 @@ async function sbGet(path: string, timeout = FETCH_TIMEOUT_MS): Promise<RpcRows>
 /* ‏מודעות פעילות לפי עיר, והשוק של כל עיר. כשל כאן אינו "אפס מודעות". */
 async function loadCityMarkets(): Promise<CityMap> {
   const props = await sbGet(
-    `properties?status=eq.active&select=city,city_id,updated_at,property_type,rooms,deal_type,category&order=updated_at.desc&limit=${LIMIT}`,
+    `properties?status=eq.active&select=city,city_id,updated_at,property_type,rooms,deal_type,category&order=updated_at.desc.nullslast&limit=${LIMIT}`,
   );
   if (!props.ok) return { ok: false, byName: new Map(), rows: [] };
   const ids = [...new Set(props.rows.map((row) => String(row.city_id || "").trim()).filter(Boolean))];
@@ -527,7 +527,7 @@ function upsertLastmod(body: string, loc: string, mod: string, replaceOlder = fa
   if (end < 0) return body;
   const existing = /<lastmod>([^<]*)<\/lastmod>/.exec(body.slice(at, end));
   if (existing) {
-    if (!replaceOlder || existing[1] >= mod) return body;
+    if (!replaceOlder || day(existing[1]) >= mod) return body;
     return body.slice(0, at) + body.slice(at, end).replace(existing[0], `<lastmod>${mod}</lastmod>`) + body.slice(end);
   }
   const insertAt = at + needle.length;
