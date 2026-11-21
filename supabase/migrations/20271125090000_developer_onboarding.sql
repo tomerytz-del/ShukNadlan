@@ -11,25 +11,31 @@
 -- פרטי קשר לפרויקט (איש קשר + טלפון או וואטסאפ). רשות: שנת הקמה ופרויקטים שנמסרו.
 -- "פרויקט" = לא בארכיון ולא בבקשת מחיקה (כמו הספירה של מסלול החשבון).
 --
--- **תזכורות במייל: אחת אחרי 3 ימים ואחת אחרי 10, רק אם נשאר צעד פתוח.** חשבונות שנפתחו לפני
+-- **תזכורות במייל: אחת אחרי 3 ימים ואחת אחרי 10, רק אם נשאר צעד פתוח.** הפונקציה ששולחת אותן והתזמון
+-- שלה מגיעים בשלב 2, יחד (תזמון בלי פונקציה היה קורא לכתובת שאין בה כלום). חשבונות שנפתחו לפני
 -- המיגרציה הזו מסומנים כמי שקיבלו את שתיהן: אנחנו לא כותבים אליהם יוזמה שלא ביקשו. הם
 -- רואים את המדריך בדשבורד.
 --
 -- אידמפוטנטית.
 -- ============================================================================
 
-alter table public.developers
-  add column if not exists onboarding_reminders_sent smallint not null default 0,
-  add column if not exists onboarding_reminder_at    timestamptz;
+-- **חשבונות קיימים לא מקבלים תזכורות רטרואקטיביות.** הסימון (שתיהן כאילו נשלחו) נעשה
+-- פעם אחת בלבד, ברגע שהעמודה נוצרת: הרצה חוזרת (שחזור סכימה, ענף בדיקה) לא תחסום חשבון
+-- חדש, כי אז העמודה כבר קיימת. תאריך קבוע בקוד היה עושה בדיוק את זה.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'developers'
+                    and column_name = 'onboarding_reminders_sent') then
+    alter table public.developers
+      add column onboarding_reminders_sent smallint not null default 0,
+      add column onboarding_reminder_at    timestamptz;
+    update public.developers set onboarding_reminders_sent = 2;
+  end if;
+end $$;
 
 comment on column public.developers.onboarding_reminders_sent is
-  'כמה תזכורות מדריך התחלה במייל נשלחו (0-2). נקבע רק ב-mark_developer_onboarding_reminder.';
-
--- חשבונות קיימים: לא שולחים להם תזכורות רטרואקטיביות (תאריך קבוע, כדי שהרצה חוזרת לא תשנה חשבון חדש)
-update public.developers
-   set onboarding_reminders_sent = 2
- where onboarding_reminders_sent = 0
-   and created_at < timestamptz '2026-11-25 00:00:00+02';
+  'כמה תזכורות מדריך התחלה במייל נשלחו (0-2); 2 גם למי שהשלים את המדריך לפני התזכורת. נקבע רק ב-mark_developer_onboarding_reminder וב-developer_onboarding_reminders_due.';
 
 -- ---------------------------------------------------------------------------
 -- המצב
@@ -121,23 +127,45 @@ $$;
 -- ---------------------------------------------------------------------------
 create or replace function public.developer_onboarding_reminders_due(p_limit int default 20)
 returns table (developer_id uuid, email text, contact_name text, company_name text, reminder_no int)
-language sql
-stable
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  select d.id, d.email, d.contact_name, d.name, d.onboarding_reminders_sent + 1
-    from public.developers d
-   where d.status = 'active' and d.closed_at is null
-     and d.email is not null and btrim(d.email) <> ''
-     and d.onboarding_reminders_sent < 2
-     and d.created_at <= now() - case d.onboarding_reminders_sent when 0 then interval '3 days'
-                                                                  else interval '10 days' end
-     -- התזכורת השנייה אחרי העשירית, ורק אם הראשונה כבר יצאה
-     and (d.onboarding_reminder_at is null or d.onboarding_reminder_at <= now() - interval '1 day')
-     and not coalesce((public.developer_onboarding_state(d.id)->>'complete')::boolean, false)
-   order by d.created_at
-   limit greatest(1, least(coalesce(p_limit, 20), 100));
+declare
+  r      record;
+  v_out  int := 0;
+  v_max  int := greatest(1, least(coalesce(p_limit, 20), 100));
+begin
+  -- קודם הסינון הזול (זמן ומספר תזכורות), ורק אחריו חישוב המצב המלא לכל מועמד/ת
+  for r in
+    select d.id, d.email, d.contact_name, d.name, d.onboarding_reminders_sent
+      from public.developers d
+     where d.status = 'active' and d.closed_at is null
+       and d.email is not null and btrim(d.email) <> ''
+       and d.onboarding_reminders_sent < 2
+       and d.created_at <= now() - case d.onboarding_reminders_sent when 0 then interval '3 days'
+                                                                    else interval '10 days' end
+       and (d.onboarding_reminder_at is null or d.onboarding_reminder_at <= now() - interval '1 day')
+     order by d.created_at
+     limit 200
+  loop
+    exit when v_out >= v_max;
+
+    -- מי שהשלים/ה את המדריך לפני התזכורת: אין מה לשלוח, ומסמנים כדי שלא ייבדק שוב בכל ריצה
+    if coalesce((public.developer_onboarding_state(r.id)->>'complete')::boolean, false) then
+      update public.developers set onboarding_reminders_sent = 2 where id = r.id;
+      continue;
+    end if;
+
+    developer_id := r.id;
+    email        := r.email;
+    contact_name := r.contact_name;
+    company_name := r.name;
+    reminder_no  := r.onboarding_reminders_sent + 1;
+    v_out := v_out + 1;
+    return next;
+  end loop;
+end;
 $$;
 
 create or replace function public.mark_developer_onboarding_reminder(p_developer_id uuid, p_no int)
@@ -161,34 +189,3 @@ grant execute on function public.developer_onboarding_reminders_due(int) to serv
 
 revoke all on function public.mark_developer_onboarding_reminder(uuid, int) from public, anon, authenticated;
 grant execute on function public.mark_developer_onboarding_reminder(uuid, int) to service_role;
-
--- ---------------------------------------------------------------------------
--- התזמון: פעם ביום, רק כשיש חשבון שמחכה לתזכורת
--- ---------------------------------------------------------------------------
-do $$
-declare
-  v_url text := 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/developer-onboarding-reminders';
-begin
-  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
-    raise notice 'pg_cron אינו מותקן - תזכורות מדריך ההתחלה ליזמים לא תוזמנו';
-    return;
-  end if;
-
-  perform cron.unschedule('developer-onboarding-reminders')
-    where exists (select 1 from cron.job where jobname = 'developer-onboarding-reminders');
-  -- 07:41 UTC = 09:41 בחורף, אחרי שעות השקט של הלילה
-  perform cron.schedule('developer-onboarding-reminders', '41 7 * * *', format($cron$
-    select net.http_post(
-      url := %L,
-      headers := jsonb_strip_nulls(jsonb_build_object(
-        'Content-Type', 'application/json',
-        'x-alert-cron-secret', (select decrypted_secret from vault.decrypted_secrets
-                                 where name = 'alert_cron_secret' limit 1)))
-    )
-    where exists (select 1 from public.developers
-                   where status = 'active' and closed_at is null
-                     and onboarding_reminders_sent < 2
-                     and created_at <= now() - interval '3 days');
-  $cron$, v_url));
-end;
-$$;
