@@ -3620,7 +3620,7 @@ function renderHoodImport(){
   host.innerHTML = `
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th></th><th>שכונה</th><th>עיר</th><th>גבול</th><th>מה יקרה</th></tr></thead>
-      <tbody>${hoodImportRows.map((r, i) => `
+      <tbody data-fold-noun="שורות">${hoodImportRows.map((r, i) => `
         <tr>
           <td>${r.action === 'keep' ? '' : `<input type="checkbox" data-hood-row="${i}" ${r.checked ? 'checked' : ''} aria-label="${esc(r.name)}">`}</td>
           <td>${esc(r.name)}</td><td>${esc(r.city)}</td>
@@ -4447,7 +4447,10 @@ function admAutoFold(root){
     // השורות, ואז גם אם המספר זהה השורה הראשונה אחרת.
     if (el.dataset.fold === String(n) && el._foldFirst === rows[0]) return;
     el._foldFirst = rows[0];
-    admFold(el, { rows });
+    // "שורות שלא דורשות טיפול" הוא הכיתוב של רשימות הממצאים; טבלה שכל שורותיה
+    // דורשות החלטה (ייבוא השכונות: 123 נמצאו, "עוד 118 שלא דורשות טיפול")
+    // אומרת מה היא מקפלת ב-data-fold-noun.
+    admFold(el, { rows, noun: el.dataset.foldNoun || undefined });
   });
 }
 
