@@ -133,7 +133,10 @@
     mentor: ['coach'],
     adminHome: ['command', 'coach'],
     accGrowth: ['growth'],
-    accNeighborhoods: ['hoodDrafts', 'areas'],
+    /* ייבוא השכונות מ-GovMap יושב בפאנל הזה: בלי 'govmap' כאן כפתור
+       הסריקה ענה "GovMap לא נטען" לכל מי שפתח/ה את הפאנל ישירות, ועבד רק
+       אחרי ביקור בפאנל אחר שטוען אותו (21.11.2026, חדרה). */
+    accNeighborhoods: ['hoodDrafts', 'areas', 'govmap'],
     accSuggestions: ['suggestions'],
     accCoachGaps: ['coach'],
     accAdminInbox: ['adminInbox'],

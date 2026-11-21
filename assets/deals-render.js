@@ -44,31 +44,18 @@
     return m ? MONTHS[+m[2] - 1] + ' ' + m[1] : '';
   }
 
-  /* החודש לפי שעון ירושלים, לא לפי updated_at שנשאר על חודש קודם. */
-  function jerusalemMonthYear(date) {
-    var fmt = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Jerusalem', year: 'numeric', month: 'numeric'
-    });
-    var parts = fmt.formatToParts(date || new Date());
-    var month = 1, year = '';
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].type === 'month') month = +parts[i].value;
-      if (parts[i].type === 'year') year = parts[i].value;
-    }
-    return MONTHS[month - 1] ? MONTHS[month - 1] + ' ' + year : '';
-  }
-
   function roomsLabel(r) {
     if (r <= 3) return 'עד 3 חדרים';
     if (r >= 6) return '5.5 חדרים ומעלה';
     return r + ' חדרים';
   }
 
+  /* ‏החודש הוא חודש **הנתונים** - סוף החלון שדווח, ובהיעדרו העדכון האחרון - ולא
+     חודש הבקשה: כותרת שאומרת "נובמבר" על נתונים שנגמרים באוקטובר מטעה גם
+     גולש וגם מנוע AI שמצטט אותה. הכותרת גם אינה מבטיחה "לפי שכונה": הדף
+     מציג חציון ליישוב ולפי חדרים, והשכונה היא עמודה בעסקאות האחרונות. */
   function title(d) {
-    if (d && d.slug === 'afula') {
-      return 'עסקאות נדל״ן בעפולה לפי שכונה - ' + jerusalemMonthYear(new Date());
-    }
-    var when = monthYear(d && d.updated_at);
+    var when = monthYear(d && (d.period_end || d.updated_at));
     return 'עסקאות נדל״ן ב' + d.name + (when ? ' - ' + when : '');
   }
 

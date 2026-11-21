@@ -361,50 +361,6 @@ async function hoodLinks(slug: string): Promise<{ ok: boolean; map: Map<string, 
   }
 }
 
-/* שניות עד תחילת החודש הבא בירושלים. הכותרת של עפולה תלויה בחודש,
-   ומטמון של שעה היה משאיר את החודש הקודם אחרי ה-1. */
-export function secondsUntilNextJerusalemMonth(now = new Date()): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Jerusalem",
-    year: "numeric",
-    month: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(now);
-  const num = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
-  const year = num("year");
-  const month = num("month");
-  let lo = now.getTime();
-  let hi = now.getTime() + 32 * 24 * 3600 * 1000;
-  while (hi - lo > 1000) {
-    const mid = Math.floor((lo + hi) / 2);
-    const midParts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Jerusalem",
-      year: "numeric",
-      month: "numeric",
-      hourCycle: "h23",
-    }).formatToParts(new Date(mid));
-    const midYear = Number(midParts.find((part) => part.type === "year")?.value || 0);
-    const midMonth = Number(midParts.find((part) => part.type === "month")?.value || 0);
-    if (midYear === year && midMonth === month) lo = mid;
-    else hi = mid;
-  }
-  return Math.max(1, Math.ceil((hi - now.getTime()) / 1000));
-}
-
-function dealsCacheWindow(slug: string): { maxAge: number; swr: number } {
-  let maxAge = 3600;
-  let swr = 86400;
-  if (slug === "afula") {
-    const cap = secondsUntilNextJerusalemMonth();
-    maxAge = Math.max(1, Math.min(3600, cap));
-    swr = Math.max(0, Math.min(86400, cap - maxAge));
-  }
-  return { maxAge, swr };
-}
-
 /* ‏utm ו-gclid אינם חלק מהדף. ב-edge עם cache ידני כל פרמטר נכנס
    למפתח כברירת מחדל, ו-query= ריק לא מאחד אותם. query=_ הוא מפתח
    דמה שאינו בכתובת: כל בקשה בלי "_" היא "אי-התאמה" וחולקת רשומה אחת. */
@@ -543,11 +499,7 @@ export default async function handler(request: Request, context: Context) {
      שכשל רגעי לא יוגש שעה שלמה - וזה גם מה שהופך "טריגר build אחרי
      עדכון" למיותר: אין build, ואחרי שעה הדף משקף את המסד. */
   if (cache && !hoodFailed) {
-    const window = dealsCacheWindow(slug);
-    headers.set(
-      "Netlify-CDN-Cache-Control",
-      `public, max-age=${window.maxAge}, stale-while-revalidate=${window.swr}`,
-    );
+    headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   } else if (hoodFailed) {
     /* דף בלי קישורי שכונה אינו נשמר לשעה. */

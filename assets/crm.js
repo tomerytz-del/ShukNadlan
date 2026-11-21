@@ -3585,14 +3585,24 @@ let hoodImportRows = [];
    לפני הריצה הראשונה, ובלעדיהן כל תיקון הוא ניחוש. */
 let hoodImportDiag = null;
 
+/* ממלאת את בורר השוק של הייבוא. רשימת השווקים מגיעה מ-assets/markets.js,
+   שנטען עצל (הקבוצה 'markets'), ופאנל הניהול נפתח מהתפריט בלי לחכות לה:
+   עד 21.11.2026 הבורר נשאר ריק (רק חץ) לכל מי שלא ביקר/ה קודם בפאנל שטוען
+   אותה, והסריקה לא יצאה לדרך. לכן: אם הרשימה עוד לא כאן, מחכים לה
+   וממלאים כשהיא מגיעה. אידמפוטנטית - בורר מלא לא מצויר שוב. */
 function hoodImportInit(){
   const sel = document.getElementById('hoodImportMarket');
-  if (!sel || sel.options.length) return;
+  if (!sel || sel.options.length) return Promise.resolve();
   const list = (window.ShukMarkets && window.ShukMarkets.list) || [];
+  if (!list.length){
+    if (!window.crmNeed) return Promise.resolve();
+    return crmNeed('markets').then(() => hoodImportInit(), err => console.warn('markets.js לא נטען:', err));
+  }
   sel.innerHTML = list.map(m => `<option value="${esc(m.slug)}">${esc(m.label)}</option>`).join('');
   // השוק שאינו ברירת המחדל קודם - בו יש מה לייבא
   const other = list.find(m => !m.isDefault);
   if (other) sel.value = other.slug;
+  return Promise.resolve();
 }
 
 function hoodImportStatus(text){
@@ -3610,7 +3620,7 @@ function renderHoodImport(){
   host.innerHTML = `
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th></th><th>שכונה</th><th>עיר</th><th>גבול</th><th>מה יקרה</th></tr></thead>
-      <tbody>${hoodImportRows.map((r, i) => `
+      <tbody data-fold-noun="שורות">${hoodImportRows.map((r, i) => `
         <tr>
           <td>${r.action === 'keep' ? '' : `<input type="checkbox" data-hood-row="${i}" ${r.checked ? 'checked' : ''} aria-label="${esc(r.name)}">`}</td>
           <td>${esc(r.name)}</td><td>${esc(r.city)}</td>
@@ -3635,10 +3645,26 @@ function renderHoodImport(){
 }
 
 async function scanHoodImport(){
+  // הבורר ריק כשהרשימה הגיעה אחרי שהפאנל צויר - ממלאים לפי דרישה.
+  if (!document.getElementById('hoodImportMarket')?.options.length){
+    hoodImportStatus('טוען את רשימת השווקים…');
+    await hoodImportInit();
+  }
   const slug = document.getElementById('hoodImportMarket')?.value;
   const market = window.ShukMarkets && window.ShukMarkets.bySlug(slug);
+  if (!market){
+    hoodImportStatus(slug ? 'השוק לא נמצא ברשימת השווקים.' : 'רשימת השווקים לא נטענה. רעננו את הדף ונסו שוב.');
+    return;
+  }
+  // הפאנל מגיע דרך crm-lazy עם 'govmap', אבל לא סומכים על הסדר: הקובץ
+  // נטען כאן לפי דרישה, כמו בשמירת נכס. בלי זה הכפתור ענה "GovMap לא
+  // נטען" למי שפתח/ה את הפאנל ישירות (21.11.2026).
+  if (!window.GovmapLookup && window.crmNeed){
+    hoodImportStatus('טוען את GovMap…');
+    try { await crmNeed('govmap'); } catch (e) { console.warn('GovMap לא נטען:', e); }
+  }
   const GL = window.GovmapLookup;
-  if (!market || !GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען.'); return; }
+  if (!GL || typeof GL.neighborhoodsInArea !== 'function'){ hoodImportStatus('GovMap לא נטען. רעננו את הדף ונסו שוב.'); return; }
   const btn = document.getElementById('hoodImportScan');
   btn.disabled = true;
   hoodImportRows = []; renderHoodImport();
@@ -3664,9 +3690,14 @@ async function scanHoodImport(){
     }).sort((a, b) => a.city.localeCompare(b.city, 'he') || a.name.localeCompare(b.name, 'he'));
     hoodImportDiag = found.diag || null;
     const withB = found.filter(h => h.boundary).length;
+    // הקריאה הצפופה ביותר: GovMap מקצצת לכל קריאה בלי לומר (חדרה 21.11.2026),
+    // והסריקה מפצלת עיגול "מלא". המספר כאן הוא מה שמלמד על התקרה האמיתית.
+    const dg = found.diag || {};
+    const densest = dg.maxFeatures ? ` הקריאה הצפופה ביותר החזירה ${dg.maxFeatures} שכונות` + (dg.splits ? `, ${dg.splits} עיגולים פוצלו.` : '.') : '';
+    const capped = dg.capped ? ' הסריקה הגיעה לתקרת הקריאות - ייתכן שחסרות שכונות בלב העיר; להריץ שוב על שוק קטן יותר.' : '';
     hoodImportStatus(!hoodImportRows.length
       ? 'לא נמצאו שכונות בערי השוק. אם זה לא האתר החי - הטוקן של GovMap עובד רק ב-shuknadlan.co.il.'
-      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.`);
+      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.` + densest + capped);
     renderHoodImport();
   } catch(e){
     console.warn('hood import scan failed', e);
@@ -4416,7 +4447,10 @@ function admAutoFold(root){
     // השורות, ואז גם אם המספר זהה השורה הראשונה אחרת.
     if (el.dataset.fold === String(n) && el._foldFirst === rows[0]) return;
     el._foldFirst = rows[0];
-    admFold(el, { rows });
+    // "שורות שלא דורשות טיפול" הוא הכיתוב של רשימות הממצאים; טבלה שכל שורותיה
+    // דורשות החלטה (ייבוא השכונות: 123 נמצאו, "עוד 118 שלא דורשות טיפול")
+    // אומרת מה היא מקפלת ב-data-fold-noun.
+    admFold(el, { rows, noun: el.dataset.foldNoun || undefined });
   });
 }
 
