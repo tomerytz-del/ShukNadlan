@@ -1672,6 +1672,16 @@ async function ppShelfToMap(items, filtered){
   }
   if (!ppShelfFiltered) return;
   ppShelfFiltered = false;
+  /* עם החיפוש במשפט הוא מקור האמת למפה: מציירים שוב את מה שהוא מחזיר, בדיוק
+     כמו ב-onSentenceChange. הקריאה הקודמת ל-runSearch() שאלה את ה-DB לפי
+     searchState, כלומר עקפה את המשפט (כינויים, אזורים וקבוצות יישובים) ויכלה
+     להחזיר רשימה אחרת ממה שהמשפט מציג. */
+  if (sentence && sentence.loaded()){
+    const results = sentence.results();
+    renderPropertyGrid(results, resultsMode);
+    renderSentenceMapTag(results, sentence.state());
+    return;
+  }
   if (searchHasRun) await runSearch();
   else renderPropertyGrid(allActiveProperties);
 }
