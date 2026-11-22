@@ -1278,13 +1278,14 @@ Deno.serve(async (req: Request) => {
       const reclaim = !items.some((it) => templateTier(it.type) === 1)
         && await templateIdsHeld(sb, row.agent_id, ids);
       const plan = planTemplateSlots(items, { template: true, reclaim });
+      const tierRow = { log_id: String(row.log_id), agent_id: String(row.agent_id) };
       if (!plan.send.length) {
-        await deferTemplateTier(sb, row, [], items);
+        await deferTemplateTier(sb, tierRow, [], items);
         skipped++;
         return;
       }
       if (plan.defer.length) {
-        const ok = await deferTemplateTier(sb, row, plan.send, plan.defer);
+        const ok = await deferTemplateTier(sb, tierRow, plan.send, plan.defer);
         if (!ok) {
           skipped++;
           return;
