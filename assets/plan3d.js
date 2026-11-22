@@ -345,6 +345,24 @@ function wetTiles(g){
       if(f.hz){box(g,MATS.wtile,x1,x2,0,TH,lo,hi,false,false);box(g,MATS.wtrim,x1,x2,TH,TH+3,lo-.3,hi+.3,false,false)}
       else{box(g,MATS.wtile,lo,hi,0,TH,x1,x2,false,false);box(g,MATS.wtrim,lo-.3,hi+.3,TH,TH+3,x1,x2,false,false)}})})})});
 }
+/* סגנון "בסיס": קווי מתאר על כל קצוות הקירות (רצפה, תקרה, פינות ופתחים). דגם לבן בלי צבעים
+   נראה במבט ראשון כמשטח אחד, ואין איפה שהקיר נגמר (תומר, 22.11.2026).
+   הקו הוא תיבה דקה (2.2 ס"מ) ולא LineSegments, שהוא פיקסל אחד ונעלם בטלפון; כולן מופע אחד (InstancedMesh) */
+function wallOutlines(g){
+  var t=2.2,list=[];
+  g.children.forEach(function(m){
+    if(!m.isMesh||(m.material!==MATS.wall&&m.material!==MATS.core&&m.material!==MATS.trim))return;
+    var gp=m.geometry.parameters,p=m.position,w=gp.width,h=gp.height,d=gp.depth,i,j;
+    for(i=-1;i<=1;i+=2)for(j=-1;j<=1;j+=2){
+      list.push([p.x,p.y+i*h/2,p.z+j*d/2,w+t,t,t]);
+      list.push([p.x+i*w/2,p.y,p.z+j*d/2,t,h+t,t]);
+      list.push([p.x+i*w/2,p.y+j*h/2,p.z,t,t,d+t])}
+  });
+  var im=new T.InstancedMesh(new T.BoxGeometry(1,1,1),new T.MeshBasicMaterial({color:0x14181b,clippingPlanes:[cutPlane]}),list.length);
+  var M=new T.Matrix4(),q=new T.Quaternion(),v=new T.Vector3(),sc=new T.Vector3();
+  list.forEach(function(e,k){M.compose(v.set(e[0],e[1],e[2]),q,sc.set(e[3],e[4],e[5]));im.setMatrixAt(k,M)});
+  im.instanceMatrix.needsUpdate=true;im.frustumCulled=false;g.add(im);
+}
 function addWall(g,w){
   var s=S.scale,H=S.ceil,rail=w.t==='rail';
   var th=w.t==='ext'?S.wExt:w.t==='int'?S.wInt:rail?4:8, hh=rail?110:H;
@@ -712,6 +730,7 @@ function rebuild(){
   MODEL.walls.forEach(function(w){addWall(wallGroup,w)});
   MODEL.solids.forEach(function(q){box(wallGroup,MATS.core,q[0]*s,q[2]*s,0,H,q[1]*s,q[3]*s,true)});
   wetTiles(wallGroup);
+  if(STYLES[S.style].flat)wallOutlines(wallGroup);
   world.add(wallGroup);
   buildCutEdges();
   /* ריהוט */
