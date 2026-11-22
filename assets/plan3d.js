@@ -271,6 +271,8 @@ function buildMats(){
   MATS.scr=MATS.wall;
   MATS.trim=mk(shade(wc,.68),.7,{clippingPlanes:[cutPlane]});
   /* הליבה באותו גוון של הקירות: גוון כהה יותר נקרא כ"קיר בצבע אחר" (תומר, 22.11.2026) */
+  var wetC=S.mat.fl.wet.a;
+  MATS.wtile=mk(st.flat?shade(wc,.86):mixC(wetC,'#ffffff',.3),.3,{clippingPlanes:[cutPlane]});MATS.wtrim=mk(st.flat?shade(wc,.7):shade(wetC,.8),.4,{clippingPlanes:[cutPlane]});
   MATS.core=mk(wc,.95,{side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.rail=new T.MeshStandardMaterial({color:lin(0xaed0e0),roughness:.05,metalness:.1,envMapIntensity:1.2,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.glass=new T.MeshStandardMaterial({color:lin(0x9fc4d8),roughness:.03,metalness:.1,envMapIntensity:1.4,transparent:true,opacity:.22,depthWrite:false,side:T.DoubleSide,clippingPlanes:[cutPlane]});
@@ -321,6 +323,27 @@ function box(g,mat,x1,x2,y0,y1,z1,z2,collide,shadow){
   m.castShadow=shadow!==false;m.receiveShadow=true;g.add(m);
   if(collide&&y0<100)boxes.push({x1:x1,x2:x2,z1:z1,z2:z2});
   return m;
+}
+/* חיפוי קרמיקה בחדרים הרטובים, עד 150 ס"מ. בלי זה אסלה, כיור ואמבטיה לבנים נבלעים בקיר לבן
+   (תומר, 22.11.2026). לכל קיר או גוש ליבה שיושב על גבול של חדר רטוב נוסף לוח דק בצד של החדר,
+   עם דילוג על פתחים */
+function wetTiles(g){
+  var s=S.scale,TH=150,faces=[];
+  MODEL.walls.forEach(function(w){if(w.t!=='ext'&&w.t!=='int')return;var hz=w.h!==undefined;
+    faces.push({hz:hz,c:hz?w.h:w.v,lo:Math.min(w.a,w.b),hi:Math.max(w.a,w.b),th:w.t==='ext'?S.wExt:S.wInt,o:(w.o||[]).map(function(o){return [o[1],o[2]]})})});
+  MODEL.solids.forEach(function(q){[[true,q[1],q[0],q[2]],[true,q[3],q[0],q[2]],[false,q[0],q[1],q[3]],[false,q[2],q[1],q[3]]].forEach(function(e){
+    faces.push({hz:e[0],c:e[1],lo:e[2],hi:e[3],th:0,o:[]})})});
+  MODEL.rooms.forEach(function(r){if(r.f!=='wet')return;r.r.forEach(function(q){faces.forEach(function(f){
+    var e1=f.hz?q[1]:q[0],e2=f.hz?q[3]:q[2],side=Math.abs(f.c-e1)<6?1:Math.abs(f.c-e2)<6?-1:0;if(!side)return;
+    var a=Math.max(f.lo,f.hz?q[0]:q[1]),b=Math.min(f.hi,f.hz?q[2]:q[3]);if(b-a<8)return;
+    var segs=[[a,b]];
+    f.o.forEach(function(o){var out=[];segs.forEach(function(sg){
+      if(o[1]<=sg[0]||o[0]>=sg[1]){out.push(sg);return}
+      if(o[0]-sg[0]>4)out.push([sg[0],o[0]]);if(sg[1]-o[1]>4)out.push([o[1],sg[1]])});segs=out});
+    var p1=f.c*s+side*(f.th/2),p2=p1+side*1.2,lo=Math.min(p1,p2),hi=Math.max(p1,p2);
+    segs.forEach(function(sg){var x1=sg[0]*s,x2=sg[1]*s;
+      if(f.hz){box(g,MATS.wtile,x1,x2,0,TH,lo,hi,false,false);box(g,MATS.wtrim,x1,x2,TH,TH+3,lo-.3,hi+.3,false,false)}
+      else{box(g,MATS.wtile,lo,hi,0,TH,x1,x2,false,false);box(g,MATS.wtrim,lo-.3,hi+.3,TH,TH+3,x1,x2,false,false)}})})})});
 }
 function addWall(g,w){
   var s=S.scale,H=S.ceil,rail=w.t==='rail';
@@ -688,6 +711,7 @@ function rebuild(){
   wallGroup=new T.Group();
   MODEL.walls.forEach(function(w){addWall(wallGroup,w)});
   MODEL.solids.forEach(function(q){box(wallGroup,MATS.core,q[0]*s,q[2]*s,0,H,q[1]*s,q[3]*s,true)});
+  wetTiles(wallGroup);
   world.add(wallGroup);
   buildCutEdges();
   /* ריהוט */
