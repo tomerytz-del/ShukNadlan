@@ -276,7 +276,9 @@ UTILITY עם כפתור `לפתיחה` והבסיס `https://shuknadlan.co.il{{1
 `new_lead`, `showcase_meeting`, `agenda_reminder`, `ops_alert`. שורה 2:
 `open_demand`. שורה 3: `match_digest` ושאר הסיכומים. שורה 1 לא נכנסת
 לתקציר. התקרות (1 ביום, שניה אחרי 8 שעות, גג 2) והשקט כולל שישי מ-13:00
-והשבת לא משתנים. הפיצול ב-`planTemplateSlots`.
+והשבת לא משתנים. הפיצול ב-`planTemplateSlots`. התקציר אוסף רק מה שנוצר
+אחרי `notif_digest_enabled_at` ולא ישן מ-24 שעות, תקציר אחד לחלון.
+שורה 1 לא נחתכת.
 
 **131049.** הקוד יושב ב-`delivery_detail` כש-`whatsapp_status = sent`, לא
 רק ב-`last_error`. `notification_log_hit_131049` קורא את שניהם.

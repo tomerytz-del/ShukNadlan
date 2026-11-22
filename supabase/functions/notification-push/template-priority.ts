@@ -85,14 +85,54 @@ export function planTemplateSlots<T extends { type: string }>(
   }
   const send = items.filter((it) => !deferTiers.has(templateTier(it.type)));
   const defer = items.filter((it) => deferTiers.has(templateTier(it.type)));
+  const sendHasTier1 = send.some((it) => templateTier(it.type) === 1);
   if (opts.reclaim) {
-    const types = new Set(items.map((it) => it.type));
-    return { send, defer, digest: items.length > 1 || types.size > 1 };
+    const types = new Set(send.map((it) => it.type));
+    return {
+      send,
+      defer,
+      digest: !sendHasTier1 && (send.length > 1 || types.size > 1),
+    };
   }
   const summaries = send.filter((it) => templateTier(it.type) === 3);
-  const digest = defer.length === 0 && summaries.length > 1
+  const digest = !sendHasTier1 && defer.length === 0 && summaries.length > 1
     && summaries.length === send.length;
   return { send, defer, digest };
+}
+
+/** שורה 1 לא נחסמת בתקרה ולא נדחית לתקציר, גם כשיש סיכום ישן לידה. */
+export function tier1KeepsSlot(type: string): boolean {
+  if (templateTier(type) !== 1) return false;
+  const item = (t: string) => ({ type: t });
+  const alone = planTemplateSlots([item(type)], { template: true, reclaim: false });
+  const mixed = planTemplateSlots(
+    [item(type), item("open_demand"), item("match_digest")],
+    { template: true, reclaim: false },
+  );
+  const held = planTemplateSlots(
+    [item(type), item("match_digest")],
+    { template: true, reclaim: true },
+  );
+  const kept = (plan: SlotPlan<{ type: string }>) => plan.send.some((it) => it.type === type)
+    && !plan.defer.some((it) => it.type === type)
+    && !plan.digest;
+  return kept(alone) && kept(mixed) && kept(held);
+}
+
+/**
+ * תקציר אוסף רק שורה 2 ו-3 שנוצרו אחרי ההדלקה, ולא ישנות מ-24 שעות.
+ * שורה 1 תמיד נאספת. השאר (אבטחה, תקציב) לא נחתכים כאן.
+ */
+export function digestCollectable(
+  type: string,
+  createdAt: Date,
+  opts: { enabledAt: Date; now: Date },
+): boolean {
+  const tier = templateTier(type);
+  if (tier !== 2 && tier !== 3) return true;
+  const dayAgo = new Date(opts.now.getTime() - 24 * 60 * 60 * 1000);
+  const since = opts.enabledAt > dayAgo ? opts.enabledAt : dayAgo;
+  return createdAt.getTime() >= since.getTime();
 }
 
 function countPhrase(n: number, one: string, many: string): string | null {

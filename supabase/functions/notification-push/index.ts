@@ -1375,6 +1375,7 @@ async function templateIdsHeld(
     .eq("agent_id", agentId)
     .eq("whatsapp_status", "skipped_template_cap")
     .gt("created_at", since)
+    .order("created_at", { ascending: false })
     .limit(80);
   if (error || !Array.isArray(data)) return false;
   const held = new Set<string>();
@@ -1427,8 +1428,34 @@ async function deferTemplateTier(
     whatsapp_status: "skipped_template_cap",
     last_error: "skipped_template_cap",
   });
-  if (parkErr) console.error("template tier park failed", row.log_id, parkErr.message);
+  if (parkErr) {
+    console.error("template tier park failed", row.log_id, parkErr.message);
+    await recordParkMiss(sb, row.log_id, parkErr.message || "park failed");
+  }
   return true;
+}
+
+/** נראה בפאנל הבריאות. כשל הרישום לא עוצר את השורה הגבוהה. */
+async function recordParkMiss(
+  sb: { from: (table: string) => any },
+  logId: string,
+  message: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await sb.from("ops_findings").upsert({
+    key: "wa_template_tier_park",
+    area: "health",
+    code: "wa_template_tier_park",
+    severity: "low",
+    title: "פיצול תבנית וואטסאפ לא נרשם",
+    detail: `log ${logId}: ${message}`.slice(0, 500),
+    suggestion: "השורה הגבוהה יצאה. הנמוכה תחזור בסבב הבא אם לא נרשמה.",
+    metric: 1,
+    metric_unit: "count",
+    last_seen: now,
+    resolved_at: null,
+  }, { onConflict: "key" });
+  if (error) console.error("ops finding for template park failed", error.message);
 }
 
 // true: לשלוח. שגיאה או פונקציה חסרה לא בולעות את ההתראה.

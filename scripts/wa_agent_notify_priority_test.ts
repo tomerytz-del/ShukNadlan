@@ -3,11 +3,13 @@
 
 import { readFileSync } from "node:fs";
 import {
+  digestCollectable,
   digestSummary,
   logHit131049,
   planTemplateSlots,
   templateTier,
   templatesHeld,
+  tier1KeepsSlot,
   TIER1_TYPES,
 } from "../supabase/functions/notification-push/template-priority.ts";
 
@@ -97,6 +99,37 @@ check("בלי כתובת ובלי טלפון", !/https?:\/\//.test(text) && !/(?
 check("שורה 1 לא נספרת בתקציר", !text.includes("ליד") && digestSummary([item("new_lead")]).startsWith("יש עדכונים"));
 check("ביקוש אחד", digestSummary([item("open_demand")]) === "יש לך ביקוש פתוח אחד. הפרטים בפעמון.");
 
+const now = new Date("2026-11-22T12:00:00.000Z");
+const enabledAt = new Date("2026-11-22T10:00:00.000Z");
+for (const type of TIER1_TYPES) {
+  check(`שורה 1 לא נחסמת ולא נדחית: ${type}`, tier1KeepsSlot(type));
+  check(`שורה 1 נאספת גם כשהיא ישנה: ${type}`, digestCollectable(
+    type,
+    new Date("2026-01-01T00:00:00.000Z"),
+    { enabledAt, now },
+  ));
+}
+check("סיכום ישן מ-24 שעות לא נאסף", !digestCollectable(
+  "match_digest",
+  new Date("2026-11-21T11:00:00.000Z"),
+  { enabledAt, now },
+));
+check("ביקוש מלפני ההדלקה לא נאסף", !digestCollectable(
+  "open_demand",
+  new Date("2026-11-22T09:00:00.000Z"),
+  { enabledAt, now },
+));
+check("ביקוש אחרי ההדלקה נאסף", digestCollectable(
+  "open_demand",
+  new Date("2026-11-22T11:00:00.000Z"),
+  { enabledAt, now },
+));
+check("התראת אבטחה לא נחתכת בתקציר", digestCollectable(
+  "security_alert",
+  new Date("2026-11-20T00:00:00.000Z"),
+  { enabledAt, now },
+));
+
 const sql = readFileSync(
   new URL("../supabase/migrations/20271130100000_wa_agent_notify_priority.sql", import.meta.url),
   "utf8",
@@ -117,6 +150,16 @@ check("השבת ותקרת התבניות לא נערכות", (sql.match(/notif_
 check("אין מחיקה", !/\bdelete\s+from\b/i.test(sql));
 check("השליחה מפצלת לפי השורה", push.includes("planTemplateSlots") && push.includes("digestSummary")
   && push.includes('action_path: "/crm?goto=bell"'));
+check("שורה 1 תמיד ב-SQL", sql.includes(
+  "when p_type in ('new_lead', 'showcase_meeting', 'agenda_reminder', 'ops_alert') then true",
+));
+check("חותמת הדלקה ו-24 שעות", sql.includes("notif_digest_enabled_at")
+  && sql.includes("interval '24 hours'"));
+check("תקציר אחד בחלון", sql.includes("notification_digest_sent_this_window"));
+check("claim והשער אוספים לפי החותמת",
+  (sql.match(/notification_digest_collectable\(n\.type, n\.created_at\)/g) || []).length === 2);
+check("היומן ממוין", push.includes('.order("created_at", { ascending: false })'));
+check("כשל חניה נרשם", push.includes("ops_findings") && push.includes("wa_template_tier_park"));
 check("שקט השבת נשאר בגוף", sql.includes("notification_agent_send_quiet"));
 
 if (failed) {
