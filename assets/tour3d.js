@@ -99,6 +99,7 @@ async function openModel(){
   if(+st.declared_balcony_sqm>0)sub.push('מרפסת '+st.declared_balcony_sqm+' מ"ר');
   $('mSub').textContent=sub.join(', ');
   $('grabTxt').textContent=m.name+' · הדמיה להמחשה בלבד';
+  $('nowSub').textContent=m.name+' · הדמיה להמחשה בלבד';
   if(mine&&!edit){
     var a=document.createElement('a');a.className='back';a.href='/tour3d?m='+encodeURIComponent(m.id)+'&edit=1';a.textContent='עריכת הסיור';
     $('mSub').after(a);
@@ -128,7 +129,7 @@ async function openModel(){
     });
   }
   window.Plan3D.start({
-    model:m.model, settings:st, views:m.views, lights:m.lights, planUrl:planUrl, editable:edit,
+    title:m.name, model:m.model, settings:st, views:m.views, lights:m.lights, planUrl:planUrl, editable:edit,
     onSave:async function(d){
       var patch={settings:d.settings,views:d.views,lights:d.lights};
       var f=JSON.stringify(d.furniture);
