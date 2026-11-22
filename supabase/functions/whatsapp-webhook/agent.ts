@@ -11160,8 +11160,11 @@ export async function runAgentTurn(opts: {
         `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
         `ms=${Date.now() - llmStart}`,
     );
-    // ולפירוט העלות בפאנל "עלויות" (‏ai_usage_log) - שורה לכל קריאה בתור
-    logAiUsage(anthropicRow("gabriela_agent", response.model || MODEL, response.usage,
+    // ולפירוט העלות בפאנל "עלויות" (‏ai_usage_log) - שורה לכל קריאה בתור. תור עם
+    // רשימת כלים מצומצמת (מייל, קובץ) נרשם בנפרד: הקידומת שלו אחרת, ו-
+    // ai_cache_warm_targets שהתעוררה אחריו חיממה קידומת מלאה שלא הייתה במטמון
+    // וכתבה את כולה (~$0.45, ארבע פעמים בשבוע של 15-22.11.2026).
+    logAiUsage(anthropicRow(allowedTools ? "gabriela_agent_limited" : "gabriela_agent", response.model || MODEL, response.usage,
       { agency_id: agent.agency_id, agent_id: agent.id }));
 
     const text = response.content

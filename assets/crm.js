@@ -3459,10 +3459,10 @@ async function loadNeighborhoodsAdmin(){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   loadNeighborhoodCityOptions();
   hoodImportInit();
-  let { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name');
+  let { data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name').order('id'));
   // ‏is_industrial (‏20270430090000) - בדקה שלפני המיגרציה הרשימה נטענת בלעדיה
   if (error && /is_industrial/.test(error.message || '')){
-    ({ data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name'));
+    ({ data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name').order('id')));
   }
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
@@ -7338,6 +7338,7 @@ function renderCostsReport(){
    לפי יכולת". יכולת חדשה שכותבת ליומן מקבלת כאן שורה. */
 const AI_FEATURES = {
   gabriela_agent:    { label: 'גבריאלה לסוכנים', sub: 'העוזרת בוואטסאפ, כל קריאה למודל בתור', unit: 'לקריאה' },
+  gabriela_agent_limited: { label: 'גבריאלה לסוכנים - מייל וקבצים', sub: 'תור עם רשימת כלים מצומצמת (מייל שהועבר, קובץ שנשלח)', unit: 'לקריאה' },
   gabriela_public:   { label: 'גבריאלה לגולשים', sub: 'הבוט הציבורי בוואטסאפ', unit: 'לקריאה' },
   gabriela_agent_warm:  { label: 'שמירת המטמון - גבריאלה לסוכנים', sub: 'בקשה ריקה אחרי 50 דקות של שקט, בשעות היום', unit: 'לבקשה' },
   gabriela_public_warm: { label: 'שמירת המטמון - גבריאלה לגולשים', sub: 'בקשה ריקה אחרי 50 דקות של שקט, בשעות היום', unit: 'לבקשה' },
@@ -7904,9 +7905,15 @@ let allNeighborhoods = [];
 let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
+/* ‏PostgREST חותך ב-1,000 שורות בשקט, ובטבלה יותר מזה (1,640 ב-22.11.2026):
+   שאילתה אחת ממוינת לפי שם הפילה את סוף האלף-בית ("רובע יזרעאל" בעפולה).
+   לכן `fetchAllPages` (למטה), ועם id כמפתח מיון אחרון כדי שהעמודים לא יחפפו. */
 async function loadAllNeighborhoods(){
-  const [{ data: hoods }, { data: mc }] = await Promise.all([
-    sb.from('neighborhoods').select('id, city, name, city_id, is_planned, is_industrial').order('name'),
+  const [hoods, { data: mc }] = await Promise.all([
+    fetchAllPages(() => sb.from('neighborhoods')
+      .select('id, city, name, city_id, is_planned, is_industrial')
+      .order('name').order('id'))
+      .then(r => { if (r.error) console.warn('neighborhoods load failed', r.error); return r.data || []; }),
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
@@ -16023,6 +16030,8 @@ function crmQueryMatches(rows, q, blobOf, asSearchRow, namesOf){
   if (!q) return null;
   if (!crmQueryReady()){ ensureCrmQuery(); return null; }
   const SC = window.SearchCore, Core = window.SentenceSearch.Core;
+  // נרמול הטקסט של כל נכס בכל הקשה הוא רוב הזמן בסינון (search-core.js, memoStr)
+  if (SC.enableMemo) SC.enableMemo();
   const plain = () => ({ rows: new Set(rows.filter(r => SC.textHas(blobOf(r), q))), note: '' });
   if (/^[#\d\s\-+()]+$/.test(q)) return plain();
   if (namesOf && rows.some(r => SC.textHas(namesOf(r), q))) return plain();
@@ -22858,7 +22867,7 @@ const SS_DEAL_LABELS = { sale:'מחפש/ת לקנייה', rent:'מחפש/ת לש
 
 async function loadSavedSearchHoods(){
   if (savedSearchHoods.size) return;
-  const { data } = await sb.from('neighborhoods').select('id, name');
+  const { data } = await fetchAllPages(() => sb.from('neighborhoods').select('id, name').order('id'));
   (data || []).forEach(n => savedSearchHoods.set(n.id, n.name));
 }
 
@@ -24056,8 +24065,49 @@ function clientSearchBlob(c){
 /* ‏var ולא let: renderClients נקראת גם לפני שהשורה הזו רצה, ו-let בתוך ה-TDZ היה זורק.
    ביטול הטיימר בכניסה: מי שמרנדר ישר (בחירת סינון, ניקוי) לא משאיר רינדור שני בדרך. */
 var clientSearchTimer = null;
+
+/* ‏רשימת הלקוחות נבנית במנות, כמו "הנכסים שלי" (‏PROP_TABS_CHUNK): ‏renderClients
+   בנתה טאב לכל לקוח שתואם, ובהקשות הראשונות של חיפוש אלה מאות. נמדד: 500
+   לקוחות, מעבד פי 4, שבע הקשות - ‏400-860ms סינכרוני ו-5-7 משימות ארוכות.
+   ‏var ולא let: renderClients נקראת גם לפני שהשורות האלה רצות. */
+var CLIENT_TABS_CHUNK = 20;
+var clientTabsShown = 0;      // 0 = עוד לא נקבע: המנה הראשונה
+
+/* כמה טאבים להציג: לפחות מנה אחת, מה שכבר הוצג, ועד הלקוח/ה הפתוח/ה הרחוק/ה
+   ביותר - טאב פתוח שנשאר מחוץ לרשימה (קישור ‏?client=, או כרטיס שנפתח ואז
+   הרשימה נבנתה מחדש) היה נעלם. פונקציה טהורה, נבדקת ב-crm_edge_helpers_test. */
+function clientTabsWindow(rows, expanded, shown, chunk){
+  let n = Math.max(shown || 0, chunk);
+  for (let i = rows.length - 1; i >= n; i--){
+    if (expanded.has(rows[i].id)){ n = i + 1; break; }
+  }
+  return Math.min(n, rows.length);
+}
+
+/* אילו כרטיסים נשארים פתוחים כשהרשימה חוזרת למנה הראשונה: אלה שבמנה הראשונה
+   של הרשימה החדשה, ועוד ‏pin (הלקוח/ה שקישור עמוק ביקש). כרטיס פתוח רחוק היה מותח את
+   החלון (‏clientTabsWindow) בכל הקשה ובונה מחדש מאות טאבים - בדיוק מה שהחלוקה
+   למנות באה למנוע. פונקציה טהורה, נבדקת ב-crm_edge_helpers_test. */
+function clientExpandedAfterReset(filtered, expanded, chunk, pin){
+  const near = new Set(filtered.slice(0, chunk).map(c => c.id));
+  return new Set([...expanded].filter(id => id === pin || near.has(id)));
+}
+
+/* שינוי של חיפוש, סינון או מיון חוזר למנה הראשונה (וסוגר כרטיסים פתוחים שמחוץ
+   לה); פעולה על לקוח (עריכה, מחיקה, פתיחת כרטיס) קוראת ל-renderClients ושומרת על מה
+   שכבר הוצג. ‏pinId - כרטיס שנשאר פתוח גם אם הוא מחוץ למנה (קישור עמוק). */
+var clientTabsReset = null;
+function renderClientsFromTop(pinId){
+  clientTabsShown = 0;
+  clientTabsReset = { pin: pinId || null };
+  renderClients();
+}
+
 function renderClients(){
   clearTimeout(clientSearchTimer);
+  // נצרך בכל קריאה, גם כשהרשימה ריקה והפונקציה חוזרת מוקדם - אחרת הוא היה מחכה לרינדור הבא
+  const reset = clientTabsReset;
+  clientTabsReset = null;
   // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
   renderClientsCard();
   const listEl = document.getElementById('clientsList');
@@ -24124,7 +24174,36 @@ function renderClients(){
   const tabsWrap = document.createElement('div');
   tabsWrap.className = 'prop-tabs client-tabs';
   listEl.appendChild(tabsWrap);
-  filtered.forEach(c => tabsWrap.appendChild(buildClientTab(c)));
+  const moreRow = document.createElement('div');
+  moreRow.className = 'ui-scope ui-more-row pr-more-row';
+  listEl.appendChild(moreRow);
+
+  const chunk = CLIENT_TABS_CHUNK || 20;
+  if (reset){
+    const keep = clientExpandedAfterReset(filtered, expandedClientIds, chunk, reset.pin);
+    expandedClientIds.clear();
+    keep.forEach(id => expandedClientIds.add(id));
+  }
+  clientTabsShown = clientTabsWindow(filtered, expandedClientIds, clientTabsShown, chunk);
+  const drawClientTabs = () => {
+    for (let i = tabsWrap.childElementCount; i < clientTabsShown; i++){
+      tabsWrap.appendChild(buildClientTab(filtered[i]));
+    }
+    const left = filtered.length - clientTabsShown;
+    const next = Math.min(chunk, left);
+    moreRow.innerHTML = left > 0
+      ? `<button type="button" class="ui-more">עוד ${next === 1 ? 'לקוח/ה אחד/ת' : next + ' לקוחות'}${left > next ? ` (נשארו ${left})` : ''}</button>`
+      : '';
+  };
+  moreRow.addEventListener('click', e => {
+    if (!e.target.closest('.ui-more')) return;
+    const first = clientTabsShown;
+    clientTabsShown = Math.min(clientTabsShown + chunk, filtered.length);
+    drawClientTabs();
+    // המיקוד עובר ללקוח/ה הראשון/ה שנוסף/ה, ולא נשאר על כפתור שנעלם
+    tabsWrap.children[first]?.querySelector('.prop-tab-head')?.focus({ preventScroll:true });
+  });
+  drawClientTabs();
 }
 
 /* ---------- קובץ הלקוחות כרשימת טאבים ----------
@@ -26564,6 +26643,18 @@ async function toggleClientCalls(c, btn, el){
   (el.querySelector('.cc-bar') || el.querySelector('.lead-actions')).insertAdjacentElement('afterend', box);
 }
 
+/* סינון הסטטוס אחרי קישור עמוק: נשאר כמו שהוא כשהוא כבר כולל את הלקוח/ה (ברירת
+   המחדל "מחפשים" = active), ואחרת "כל הסטטוסים" (''). */
+function clientStatusFilterFor(c, current){
+  return (!current || current === c.status) ? current : '';
+}
+
+/* הלשונית שבה הלקוח/ה נמצא/ת: "הכול" נשארת "הכול", ואחרת לפי סוג הכרטיס. */
+function clientKindFor(c, current){
+  if (current === 'all') return 'all';
+  return isOwnerClient(c) ? 'owners' : 'seekers';
+}
+
 /* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
    סיכום שיחה) פותח את הכרטיס עצמו ואת השיחות שבו, ולא רק את הקטגוריה.
    ‏focus=matches (התראת התאמה) פותח במקום השיחות את רשימת ההתאמות. */
@@ -26571,8 +26662,18 @@ function openClientFromParam(id, focus){
   if (!/^[0-9a-f-]{36}$/i.test(id || '')) return;
   const c = clientRows.find(r => r.id === id);
   if (!c) return;
+  /* הקישור ביקש את הלקוח/ה הזה/זו, לא את הסינון של אתמול (כמו openPropertyFromParam).
+     בלי זה בעל/ת נכס לא נבנה/תה כשנבחרה לשונית "מחפשים", וגם חיפוש או סינון סטטוס
+     פעילים הסתירו אותו/ה, והקישור לא עשה כלום. החלון מורחב עד הכרטיס ב-renderClients. */
+  ['clientSearch','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  // ברירת המחדל של הסטטוס היא "מחפשים": מרחיבים אותה רק אם היא מסתירה את הלקוח/ה הזה/זו
+  const statusEl = document.getElementById('clientStatusFilter');
+  if (statusEl) statusEl.value = clientStatusFilterFor(c, statusEl.value);
+  clearTimeout(clientSearchTimer);
+  if (typeof clientsKind !== 'undefined') clientsKind = clientKindFor(c, clientsKind);
   expandedClientIds.add(id);
-  renderClients();
+  renderClientsFromTop(id);
   setTimeout(() => {
     const el = document.querySelector(`[data-client-card="${id}"]`);
     if (!el) return;
@@ -26707,10 +26808,10 @@ async function handleShareParam(){
 const CLIENT_SEARCH_DEBOUNCE_MS = 150;
 document.getElementById('clientSearch').addEventListener('input', ()=>{
   clearTimeout(clientSearchTimer);
-  clientSearchTimer = setTimeout(renderClients, CLIENT_SEARCH_DEBOUNCE_MS);
+  clientSearchTimer = setTimeout(renderClientsFromTop, CLIENT_SEARCH_DEBOUNCE_MS);
 });
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
-  .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+  .forEach(id => document.getElementById(id).addEventListener('change', renderClientsFromTop));
 document.getElementById('clientFilterToggle').addEventListener('click', e => {
   const open = document.getElementById('clientToolbar').classList.toggle('is-filters-open');
   e.currentTarget.setAttribute('aria-expanded', String(open));
@@ -26719,7 +26820,7 @@ document.getElementById('clientClearFilters').addEventListener('click', ()=>{
   ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
   clearTimeout(clientSearchTimer);
-  renderClients();
+  renderClientsFromTop();
 });
 
 /* ---------- התראות התאמה ----------

@@ -33,7 +33,7 @@
 (function (root) {
   'use strict';
 
-  function norm(s) {
+  function normRaw(s) {
     return String(s || '').toLowerCase()
       .replace(/(\d),(?=\d{3})/g, '$1')        // 1,600,000 → 1600000
       .replace(/(\d)\.(?=\d)/g, '$1\u0000')     // 2.8 שורד את ניקוי הנקודות
@@ -44,6 +44,35 @@
       .replace(/\s+/g, ' ')
       .trim();
   }
+
+  /* ‏norm, areaKey ו-wordForms הן פונקציות טהורות על מחרוזת, והן רצות על אותו
+     טקסט של כל נכס בכל הקשה (‏textHas בכל שורה, ‏compileQuery על כל התיק).
+     פרופיל CPU של חיפוש הנכסים ב-CRM (1,000 נכסים, מעבד איטי פי 4) הראה
+     ‏norm ו-areaKey ו-wordForms כ-80% מ-filterProperties.
+
+     **המטמון כבוי כברירת מחדל ונדלק ב-enableMemo()** - ה-CRM קורא לה, והבוטים
+     (שמריצים את אותו עותק בתהליך ארוך ועל טקסט של בעלים וטלפונים) לא. כך אין
+     שם זיכרון שגדל ואין טקסט של משתמש שנשאר בין בקשות. כשהוא דלוק הוא מוגבל
+     ב-MEMO_MAX ערכים לכל פונקציה ונמחק כשהוא מתמלא. ‏wordForms מחזירה מערך
+     משותף ומוקפא: מי שינסה לשנות אותו יקבל שגיאה במקום להרעיל את המטמון. */
+  var MEMO_MAX = 20000;
+  var memoOn = false;
+  function enableMemo() { memoOn = true; }
+  function memoStr(compute) {
+    var cache = new Map();
+    return function (s) {
+      var k = String(s || '');
+      if (!memoOn) return compute(k);
+      var hit = cache.get(k);
+      if (hit !== undefined) return hit;
+      var v = compute(k);
+      if (cache.size >= MEMO_MAX) cache.clear();
+      cache.set(k, v);
+      return v;
+    };
+  }
+  var normMemo = null;
+  function norm(s) { return (normMemo || (normMemo = memoStr(normRaw)))(s); }
 
   /* ---------- מה נחשב "יש בנכס" ----------
      ‏also: קודים נוספים במערך features שמקיימים את המאפיין. ‏column: עמודה
@@ -316,12 +345,14 @@
     [/(^| )([ובלמה]{0,2})סי(?= ?\d)/g, '$1$2c'], [/(^| )([ובלמה]{0,2})בי(?= ?\d)/g, '$1$2b'],
     [/(^| )([ובלמה]{0,2})די(?= ?\d)/g, '$1$2d'], [/(^| )([ובלמה]{0,2})אי(?= ?\d)/g, '$1$2a'],
   ];
-  function areaKey(s) {
+  function areaKeyRaw(s) {
     var t = norm(s);
     HEB_LATIN.forEach(function (r) { t = t.replace(r[0], r[1]); });
     return t.replace(/([a-z]) +(?=\d)/g, '$1')
       .replace(/[^0-9a-zא-ת ]+/g, ' ').replace(/\s+/g, ' ').trim();
   }
+  var areaKeyMemo = null;
+  function areaKey(s) { return (areaKeyMemo || (areaKeyMemo = memoStr(areaKeyRaw)))(s); }
   function compactKey(s) { return areaKey(s).replace(/ /g, ''); }
 
   // מילים שאינן שם: "שכונה 5" בלי המספר היא "שכונה", והיא הייתה תופסת כל משפט
@@ -495,15 +526,17 @@
   /* ‏cut מסמן מילה שאיבדה ה"א סופית. היא מתאימה רק כמילה שלמה ולא כתחילת
      מילה: "עליה" ← "עלי", ו"עלי" כתחילת מילה היה תופס את "עלית" (עפולה
      עלית) - מילה אחרת ולא כתיב אחר של אותה מילה. */
-  function wordForms(s) {
-    return areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
+  function wordFormsRaw(s) {
+    return Object.freeze(areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
       .map(function (w) {
         if (w.length > 3) w = w.replace(/^ה/, '');
         w = w.replace(/יי+/g, 'י').replace(/וו+/g, 'ו');
         var cut = w.length > 3 && /ה$/.test(w);
-        return { w: cut ? w.slice(0, -1) : w, cut: cut };
-      });
+        return Object.freeze({ w: cut ? w.slice(0, -1) : w, cut: cut });
+      }));
   }
+  var wordFormsMemo = null;
+  function wordForms(s) { return (wordFormsMemo || (wordFormsMemo = memoStr(wordFormsRaw)))(s); }
   function textWords(s) {
     return wordForms(s).map(function (f) { return f.w; });
   }
@@ -613,6 +646,7 @@
   }
 
   var SearchCore = {
+    enableMemo: enableMemo, _raw: { norm: normRaw, areaKey: areaKeyRaw, wordForms: wordFormsRaw },
     norm: norm, textMatches: textMatches, textHas: textHas, textWords: textWords, streetNameKey: streetNameKey,
     areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,

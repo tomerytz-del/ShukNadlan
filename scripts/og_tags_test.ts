@@ -405,6 +405,13 @@ bodies.push(
   ["כתבה: אחוזים של תגית בנתיב פנימי יוצאים מוברחים",
     ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes(">/&lt;script&gt;</a>") &&
     !ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes("<script>")],
+  ["כתבה: כתובת של האתר בלי סכמה הופכת לקישור https פנימי",
+    ab.html("נמצאת בדף:\nshuknadlan.co.il/prices. להערכה").includes('<a href="https://shuknadlan.co.il/prices" dir="ltr">/prices</a>. להערכה') &&
+    ab.html("www.shuknadlan.co.il/about,").includes('href="https://www.shuknadlan.co.il/about"') &&
+    ab.html("ב-shuknadlan.co.il/n/afula)").includes('ב-<a href="https://shuknadlan.co.il/n/afula"') &&
+    !ab.html("shuknadlan.co.il/prices").includes("target=")],
+  ["כתבה: בלי סכמה - רק האתר שלנו, ולא חלק ממארח, מייל או נתיב אחר",
+    !ab.html("x@shuknadlan.co.il a.shuknadlan.co.il/x evil.com/shuknadlan.co.il shuknadlan.co.ilx my-shuknadlan.co.il/x example.com/prices").includes("<a")],
   ["כתבה: javascript, data, ואות שנדבקת לסכמה - בלי קישור", !schemes.includes("<a")],
   ["כתבה: מארח זר שנראה כמו האתר - חיצוני או טקסט",
     spoofAnchors.length >= 4 && spoofAnchors.every((a) => a.includes('rel="noopener nofollow"') && a.includes('target="_blank"'))],

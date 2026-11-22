@@ -2234,7 +2234,22 @@ function initBuyerWizard(agency, sb){
   /* השכונות נטענות אחרי שהדף כבר עומד. כישלון אינו שובר דבר: נשארת תיבת
      הטקסט החופשי עם עיר המשרד. */
   if (!sb) return;
-  sb.from('neighborhoods').select('id, city, name').then(({ data, error })=>{
+  /* PostgREST חותך ב-1,000 שורות ובטבלה יותר: קוראים בעמודים */
+  (async ()=>{
+    const rows = [];
+    for (let from = 0; ; from += 1000){
+      const { data, error } = await sb.from('neighborhoods').select('id, city, name').order('id').range(from, from + 999);
+      if (error){
+        // עמוד מאוחר שנכשל לא מפיל את מה שכבר נטען (רשימה חלקית עדיפה על ריקה)
+        if (!rows.length) return { data: null, error };
+        console.warn('neighborhoods: עמוד נכשל, הרשימה חלקית', error);
+        break;
+      }
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return { data: rows, error: null };
+  })().then(({ data, error })=>{
     if (error || !data || !data.length) return;
     buyHoods.rows = data;
     buyHoods.byId = new Map(data.map(h => [h.id, h]));

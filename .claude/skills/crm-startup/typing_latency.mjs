@@ -1,6 +1,6 @@
 // מדידת השהיית ההקלדה בחיפוש של ה-CRM מול Supabase מדומה.
 //
-//   WHICH=props|clients CPU=4 GAP=120 EXPECT=<מספר תוצאות> \
+//   WHICH=props|clients CPU=4 GAP=120 EXPECT=<מספר תוצאות> [PROFILE=1] \
 //     node typing_latency.mjs <תיקיית אתר> [agent|manager] [נכסים] [לקוחות]
 //
 // מריצים פעמיים - על עותק של main ועל הריפו - ומשווים (ראו "מדידה" ב-SKILL.md).
@@ -100,6 +100,7 @@ const pre = await pg.evaluate(async () => { try { await crmNeed('properties', { 
 if (!pre.props || (process.env.WHICH === 'clients' && !pre.clients)) { console.error('הנתונים לא נטענו (myPropertyRows ריק):', JSON.stringify(pre)); await b.close(); process.exit(1); }
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU || 4) });
 await pg.evaluate(e => { window.__EXPECT = e.x; window.__GAP = e.g; }, { x: process.env.EXPECT || '', g: Number(process.env.GAP || 0) });
+if (process.env.PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start'); }
 const res = await pg.evaluate(async ({ which }) => {
   const q = which === 'props' ? 'הרצל 12' : 'לקוח 12';
   const id = which === 'props' ? 'propSearch' : 'clientSearch';
@@ -133,5 +134,22 @@ const res = await pg.evaluate(async ({ which }) => {
   const countTxt = (document.getElementById(which === 'props' ? 'propFilterCount' : 'clientFilterCount') || {}).textContent || '';
   return { rowsTotal, countTxt: countTxt.slice(0, 60), settleMs: settle, chars: q.length, perKeyMs: per.join(','), syncTotalMs: Math.round(total), maxKeyMs: Math.max(...per), longTasks: long.length, longTaskMs: Math.round(long.reduce((a, b) => a + b, 0)), wallMs: Math.round(wall) };
 }, { which: process.env.WHICH || 'props' });
+if (process.env.PROFILE) {
+  // פרופיל CPU של ההקלדה (PROFILE=1): מי אוכל את הזמן, לפי זמן עצמי וזמן כולל
+  const { profile } = await cdp.send('Profiler.stop');
+  const byId = new Map(profile.nodes.map(n => [n.id, n]));
+  const parent = new Map(); profile.nodes.forEach(n => (n.children || []).forEach(c => parent.set(c, n.id)));
+  const label = n => { const c = n.callFrame; return (c.functionName || '(anon)') + ' ' + c.url.replace('http://x.test/', '') + ':' + (c.lineNumber + 1); };
+  const self = new Map(), incl = new Map(), dt = profile.timeDeltas;
+  profile.samples.forEach((id, k) => {
+    const t = dt[k] || 0, l = label(byId.get(id));
+    self.set(l, (self.get(l) || 0) + t);
+    const seen = new Set(); let cur = id;
+    while (cur) { const x = label(byId.get(cur)); if (!seen.has(x)) { seen.add(x); incl.set(x, (incl.get(x) || 0) + t); } cur = parent.get(cur); }
+  });
+  const top = (m, n) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => (Math.round(v / 100) / 10) + 'ms  ' + k);
+  console.log('SELF top:\n' + top(self, 14).join('\n'));
+  console.log('INCLUSIVE top:\n' + top(incl, 22).join('\n'));
+}
 console.log(JSON.stringify({ role, n: { props: NPROPS, clients: NCLIENTS }, cpu: Number(process.env.CPU || 4), which: process.env.WHICH || 'props', ...res, pageErrors: errs.slice(0, 3) }));
 await b.close();
