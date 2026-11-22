@@ -736,7 +736,11 @@ function dispose(g){if(!g)return;g.traverse(function(o){if(o.geometry)o.geometry
 var selBox=null;
 function rebuild(){
   [wallGroup,floorGroup,furnGroup,labelGroup,lampGroup,ceilGroup,edgeGroup].forEach(dispose);
-  if(planMesh){world.remove(planMesh);planMesh=null}
+  /* dispose() משחרר גאומטריה בלבד. לרצפות, לתוויות ולשכבת התוכנית יש טקסטורה וחומר משלהן לכל בנייה,
+     ובלי שחרור כל שינוי צבע דלף כמה MB בכרטיס הגרפי */
+  var freeMat=function(o){if(o&&o.material){if(o.material.map)o.material.map.dispose();o.material.dispose()}};
+  floorMeshes.forEach(freeMat);if(labelGroup)labelGroup.children.forEach(freeMat);
+  if(planMesh){world.remove(planMesh);freeMat(planMesh);planMesh.geometry.dispose();planMesh=null}
   if(selBox){world.remove(selBox);selBox=null}
   boxes=[];floorMeshes=[];furnMap={};
   buildMats();
@@ -891,7 +895,7 @@ function updateSun(){
   $('timeLbl').textContent='שעה: '+fmtH(S.time);$('timeBig').textContent=fmtH(S.time);
   $('sunDesc').textContent=p.el>0?'שמש ב'+dirName(p.az)+', גובה '+Math.round(p.el)+'°':'השמש מתחת לאופק';
   $('time').value=S.time;
-  $('info').innerHTML='<span>'+esc(S.city)+' · '+S.date.split('-').reverse().join('.')+' · <b>'+fmtH(S.time)+'</b></span>'+
+  $('info').innerHTML='<span>'+esc(S.city)+' · '+esc(S.date.split('-').reverse().join('.'))+' · <b>'+fmtH(S.time)+'</b></span>'+
     '<span>שמש: גובה <b>'+Math.round(p.el)+'°</b> · '+(p.el>0?dirName(p.az):'מתחת לאופק')+'</span>';
   $('sunTbl').innerHTML='<tr><th>זריחה</th><td class="n">'+fmtH(ll2.rise)+'</td><th>שקיעה</th><td class="n">'+fmtH(ll2.set)+'</td></tr>'+
     '<tr><th>גובה</th><td class="n">'+Math.round(p.el)+'°</td><th>אזימוט</th><td class="n">'+Math.round(p.az)+'° ('+dirName(p.az)+')</td></tr>';
@@ -960,7 +964,7 @@ function showHint(){
   var touch=matchMedia('(pointer:coarse)').matches;
   h.textContent=S.mode==='drone'
     ?(touch?'אצבע אחת לסיבוב, שתי אצבעות לזום ולהזזה':'גרירה לסיבוב, גלגלת לזום, לחצן ימני להזזה')
-    :(touch?'גררו כדי להסתכל, החצים להליכה, הקשה על הרצפה או על המפה למעבר':'גרירה להסתכלות, W A S D להליכה, לחיצה על הרצפה או על המפה למעבר');
+    :(touch?'גררו כדי להסתכל, העיגול להליכה, הקשה על הרצפה או על המפה למעבר':'גרירה להסתכלות, W A S D להליכה, לחיצה על הרצפה או על המפה למעבר');
   clearTimeout(hintT);hintT=setTimeout(function(){h.style.opacity=0},5200);
 }
 function curView(name){return {n:name,mode:S.mode,drone:Object.assign({},S.drone),fp:Object.assign({},S.fp)}}
@@ -1029,7 +1033,7 @@ canvas.addEventListener('pointermove',function(e){
 canvas.addEventListener('pointerleave',function(){if(marker)marker.visible=false});
 function togglePerson(){
   var ex=FURN.filter(function(f){return f.auto})[0];
-  if(ex){furnGroup.remove(furnMap[ex.id]);delete furnMap[ex.id];FURN=FURN.filter(function(f){return f!==ex});if(selId===ex.id)selId=null;refreshLists();selTools();$('tgPerson').setAttribute('aria-pressed',false);return}
+  if(ex){furnGroup.remove(furnMap[ex.id]);delete furnMap[ex.id];FURN=FURN.filter(function(f){return f!==ex});if(selId===ex.id){selId=null;if(selBox){world.remove(selBox);selBox=null}}refreshLists();selTools();$('tgPerson').setAttribute('aria-pressed',false);shadowDirty();return}
   var f0=S.fp,fx=Math.sin(f0.yaw),fz=-Math.cos(f0.yaw),d=300,x=f0.x+fx*d,z=f0.z+fz*d;
   while(d>110&&inside(x,z)){d-=30;x=f0.x+fx*d;z=f0.z+fz*d}
   var f={id:'f'+(uid++),t:'personM',x:x/S.scale,y:z/S.scale,rot:(deg(f0.yaw)+180)%360,w:0,d:0,auto:1};
@@ -1047,7 +1051,8 @@ window.addEventListener('keydown',function(e){
   var tg=e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return;
   keys[e.code]=true;keys.shift=e.shiftKey;
   if(S.edit&&selId){if(e.code==='KeyR'){rotSel(e.shiftKey?-15:15)}else if(e.code==='Delete'||e.code==='Backspace'){delSel();e.preventDefault()}}
-  if(e.code.indexOf('Arrow')===0||e.code==='Space')e.preventDefault();
+  /* רווח נחסם רק על הבמה: על כפתור הוא הלחיצה של מי שמנווט במקלדת */
+  if(e.code.indexOf('Arrow')===0||(e.code==='Space'&&(e.target===canvas||e.target===document.body)))e.preventDefault();
 });
 window.addEventListener('keyup',function(e){keys[e.code]=false;keys.shift=e.shiftKey});
 window.addEventListener('blur',function(){keys={}});
@@ -1176,7 +1181,7 @@ function fillStyles(){
     return '<button class="style" data-k="'+k+'" aria-pressed="'+(S.style===k)+'"><span class="sw">'+s.sw.map(function(c){return '<i style="background:'+c+'"></i>'}).join('')+'</span><b>'+s.label+'</b><small>'+s.sub+'</small></button>'}).join('');
 }
 function fillCal(){
-  $('calRoom').innerHTML=MODEL.rooms.filter(function(r){return !r.svc}).map(function(r,i){return '<option value="'+r.id+'">'+esc(r.name)+'</option>'}).join('');
+  $('calRoom').innerHTML=MODEL.rooms.filter(function(r){return !r.svc}).map(function(r,i){return '<option value="'+esc(r.id)+'">'+esc(r.name)+'</option>'}).join('');
   calHint();
 }
 function roomBox(id){var r=MODEL.rooms.filter(function(x){return x.id===id})[0]||MODEL.rooms[0];if(!r)return {w:1,d:1};var q=r.r[0];return {w:q[2]-q[0],d:q[3]-q[1]}}
@@ -1268,7 +1273,7 @@ function chipClick(e,kind,arr){
   var c=e.target.closest('.chip');if(!c)return;var v=arr[+c.dataset.i];if(!v)return;
   if(kind==='v'){goView(v);sheet(false)}
   else{var ll=CITIES[v.city||S.city],d=sunDay(ll[0],ll[1],v.date||S.date);
-    if(v.city){S.city=v.city;}if(v.date)S.date=v.date;if(v.north!=null)S.north=v.north;
+    if(v.city){S.city=v.city;}if(v.date)S.date=v.date;   /* בלי north: הוא שייך לדגם, ותבנית ישנה (או של דגם המקור במראה) הייתה מחזירה אותו */
     S.time=v.t==='sunset'?Math.max(0,(d.set||18)-0.35):v.t==='dusk'?Math.min(24,(d.set||18)+0.9):v.t;
     if(v.lamps)S.lamps=v.lamps;syncInputs();updateSun();dirty()}
 }
@@ -1276,7 +1281,7 @@ $('viewChips').addEventListener('click',function(e){chipClick(e,'v',VIEWS)});$('
 ['viewChips','lightChips'].forEach(function(id){$(id).addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();e.target.click()}})});
 $('saveView').addEventListener('click',function(){var n=$('viewName').value.trim();if(!n)n='זווית '+(VIEWS.length+1);VIEWS.push(curView(n));$('viewName').value='';fillChips();dirty()});
 $('saveLight').addEventListener('click',function(){var n=$('lightName').value.trim();if(!n)n='תאורה '+(LIGHTS.length+1);
-  LIGHTS.push({n:n,city:S.city,date:S.date,north:S.north,t:S.time,lamps:S.lamps});$('lightName').value='';fillChips();dirty()});
+  LIGHTS.push({n:n,city:S.city,date:S.date,t:S.time,lamps:S.lamps});$('lightName').value='';fillChips();dirty()});
 $('expJson').addEventListener('click',function(){$('json').value=JSON.stringify(dataOut(),null,1);$('jsonMsg').textContent='הנתונים מוכנים להעתקה.'});
 $('copyJson').addEventListener('click',function(){var t=$('json');if(!t.value)t.value=JSON.stringify(dataOut(),null,1);t.select();
   var ok=function(){$('jsonMsg').textContent='הועתק.'},no=function(){$('jsonMsg').textContent='ההעתקה נחסמה. הטקסט מסומן, לחצו Ctrl+C.'};
@@ -1381,6 +1386,7 @@ $('floorSw').addEventListener('click',function(e){var b=e.target.closest('.flb')
 $('floorBox').addEventListener('input',function(e){var z=e.target.dataset.z;if(!z)return;var sp=S.mat.fl[z];
   if(e.target.type==='color')S.mat.fl[z]=mkSpec(sp.k,e.target.value,z);
   else S.mat.fl[z]=mkSpec(e.target.value,sp.a,z);
+  if(baseWall)S.mat.wall=baseWall;   /* הניגוד מחושב מהקיר שנבחר, לא מקיר שכבר הוזז בגלל ריצוף קודם */
   matChanged(z)});
 $('matReset').addEventListener('click',function(){S.mat=styleMat(S.style);baseWall=S.mat.wall;syncMat();$('contrastNote').hidden=true;rebuild();dirty()});
 
@@ -1398,7 +1404,7 @@ function nowLabel(t){
 var miniKey='';
 function drawMini(){
   if(S.mode!=='fp')return;
-  var g0=S.fpGoal,key=[S.fp.x|0,S.fp.z|0,S.fp.yaw.toFixed(2),g0?g0.x|0:'',g0?g0.z|0:'',planImg.complete,miniC.width].join();
+  var g0=S.fpGoal,key=[S.fp.x|0,S.fp.z|0,S.fp.yaw.toFixed(2),g0?g0.x|0:'',g0?g0.z|0:'',planImg.complete,miniC.width,S.scale].join();
   if(key===miniKey)return;miniKey=key;
   var W=miniC.width,H=miniC.height,k=Math.min(W/MM.w,H/MM.h);
   mctx.fillStyle='#fff';mctx.fillRect(0,0,W,H);
