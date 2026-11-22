@@ -9,6 +9,7 @@ import {
   containsHttpUrl,
   ctaMessage,
   listMessage,
+  replyButtonsMessage,
   reminderFindingPath,
   REMINDER_FILTER_QUERY,
   REMINDER_UTILITY_ENV,
@@ -311,6 +312,10 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
     const body = bareBody();
     const interactive = !containsHttpUrl(body) && plan.kind === "single"
       ? ctaMessage(to, body, plan.label, absoluteUrl(SITE_BASE, plan.path))
+      // שני ממצאים = `buttons` (עד שלושה כפתורי תשובה). בלי הענף הזה התזכורת
+      // יצאה כטקסט עם "פרטים ב-CRM" ובלי שום קישור (22.11.2026).
+      : !containsHttpUrl(body) && plan.kind === "buttons"
+      ? replyButtonsMessage(to, body, plan.rows)
       : !containsHttpUrl(body) && plan.kind === "list"
       ? listMessage(to, body, plan.button, plan.section, plan.rows)
       : null;
