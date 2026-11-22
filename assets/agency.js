@@ -2239,7 +2239,12 @@ function initBuyerWizard(agency, sb){
     const rows = [];
     for (let from = 0; ; from += 1000){
       const { data, error } = await sb.from('neighborhoods').select('id, city, name').order('id').range(from, from + 999);
-      if (error) return { data: null, error };
+      if (error){
+        // עמוד מאוחר שנכשל לא מפיל את מה שכבר נטען (רשימה חלקית עדיפה על ריקה)
+        if (!rows.length) return { data: null, error };
+        console.warn('neighborhoods: עמוד נכשל, הרשימה חלקית', error);
+        break;
+      }
       rows.push(...(data || []));
       if (!data || data.length < 1000) break;
     }
