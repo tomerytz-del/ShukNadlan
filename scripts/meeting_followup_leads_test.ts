@@ -1,6 +1,7 @@
 // אישור ותזכורת לפגישה עם ליד מ"הלידים שלי": מתי שולחים, מתי שואלים טלפון, ומתי לא.
 //   node --experimental-strip-types scripts/meeting_followup_leads_test.ts
 import { readFileSync } from "node:fs";
+import { clientPhoneE164 } from "../supabase/functions/_shared/phone-il.ts";
 import { fetchOwnLead, isNumberBlocked, leadFollowupPlan, type OwnLead, saveLeadPhone } from "../supabase/functions/whatsapp-webhook/agenda-lead.ts";
 import {
   agentStopNotification, isMeetingOptOutText, meetingStopCustomerReply, stopNotificationCreatedAt,
@@ -115,7 +116,7 @@ await test("טלפון שמור שהשולח ידחה נחשב חסר: שואל�
 });
 
 await test("מספר בפורמטים מקובלים נשמר", async () => {
-  for (const good of ["050-123-4567", "+972 50 123 4567", "(03) 123-4567"]) {
+  for (const good of ["050-123-4567", "+972 50 123 4567", "972501234567", "0097250 1234567"]) {
     const noPhone = { ...LEAD, raw_phone: null };
     const { sb, calls } = fakeSb(noPhone);
     const plan = await leadFollowupPlan(sb, "agent-1", noPhone, good);
@@ -178,6 +179,27 @@ await test("תזמון ההתראה: עוקפים שקט רק לפגישה ב-12
     "הסף נגזר מ-notif_push_urgent_fresh_minutes");
 });
 
+await test("נרמול הטלפון: 972 רק למספר ישראלי, כמו agenda_phone_e164 במסד", () => {
+  const table: Array<[string | null, string | null]> = [
+    ["050-123-4567", "972501234567"], ["+972 50 123 4567", "972501234567"], ["972501234567", "972501234567"],
+    ["0501234567", "972501234567"], ["0097250 1234567", "972501234567"],
+    ["03-1234567", null], ["501234567", null], ["2125550100", null], ["12345", null], ["97250123456", null],
+    ["12125550100", "12125550100"], ["+44 7911 123456", "447911123456"], [null, null],
+  ];
+  for (const [input, want] of table) {
+    assert(clientPhoneE164(input) === want, `${input} -> ${clientPhoneE164(input)} (צריך ${want})`);
+  }
+});
+
+await test("מספר ללא אפס מוביל (אקסל): אינו נשלח, והבוט מבקש מספר מלא", async () => {
+  const stripped = { ...LEAD, raw_phone: "501234567" };
+  const { sb } = fakeSb(stripped);
+  const plan = await leadFollowupPlan(sb, "agent-1", stripped, undefined);
+  assert(plan.notify === false && /מה המספר/.test(plan.note || ""), "מספר בלי אפס אינו מספר שאפשר לשלוח אליו");
+  const fixed = await leadFollowupPlan(fakeSb(stripped).sb, "agent-1", stripped, "0501234567");
+  assert(fixed.notify === true && fixed.phoneToSave === "0501234567", "מספר מלא מחליף אותו");
+});
+
 await test("מספר חסום (131050): נחסם גם בפורמט כתיבה אחר, ומספר אחר לא", async () => {
   const mk = (blocked: string[]) => ({
     from() {
@@ -209,6 +231,8 @@ await test("המיגרציה: חשבון הדגמה, עצירה לפי טלפו�
   assert(!/i\.status = 'open'/.test(sql.slice(sql.indexOf("agent_agenda_client_stop(p_phone"))), "העצירה אינה מסננת לפי status");
   assert(!/i\.due_at > now\(\)/.test(sql.slice(sql.indexOf("agent_agenda_client_stop(p_phone"))), "העצירה אינה מסננת לפי מועד");
   assert(/when d ~ '\^0\[0-9\]\{9\}\$'\s+then '972'/.test(sql), "972 רק למספר ישראלי (0 ואחריו 9 ספרות)");
+  assert(/d not like '972%'/.test(sql), "972 עם פחות מ-9 ספרות אינו מספר בינלאומי");
+  assert(/where id = r\.i_id and status = 'open'/.test(sql), "client_notify כבה רק בפריט פתוח");
   assert(/create table if not exists public\.whatsapp_optouts/.test(sql), "טבלת החסימות");
   assert(/insert into public\.whatsapp_optouts/.test(sql), "131050 רושם חסימה");
   assert(/v_blocked/.test(sql) && /'number_blocked'/.test(sql), "claim מדלגת על מספר חסום");

@@ -234,6 +234,7 @@ import {
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
 import { answerLeadImport, runLeadImport } from "./lead-import.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
 import {
   fetchOwnLead, isNumberBlocked, leadFollowupPlan, NUMBER_BLOCKED_NOTE, type OwnLead, saveLeadPhone,
 } from "./agenda-lead.ts";
@@ -10103,8 +10104,8 @@ async function clientFollowupPlan(
   const { data: client } = await ctx.supabase
     .from("agent_clients").select("full_name, phone")
     .eq("id", clientId).eq("agent_id", ctx.agent.id).maybeSingle();
-  const digits = String(client?.phone || "").replace(/\D/g, "");
-  if (digits.length < 9) {
+  // אותו כלל כמו השולח (clientPhoneE164): מספר שהשולח ידחה אינו "נשלח עכשיו"
+  if (!clientPhoneE164(client?.phone)) {
     return {
       notify: false,
       note: `ל${client?.full_name || "לקוח/ה"} אין טלפון בכרטיס, ולכן לא יישלחו אישור ותזכורת. ` +

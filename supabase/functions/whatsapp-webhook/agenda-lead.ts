@@ -8,7 +8,7 @@
 //
 // בקובץ נפרד מ-agent.ts כדי שהבדיקה תרוץ בלי לטעון את כל העוזרת.
 
-import { phoneE164 } from "../_shared/projects.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
 
 export type OwnLead = {
   id: string;
@@ -28,11 +28,11 @@ export type FollowupPlan = { notify: boolean; note?: string; phoneToSave?: strin
 export type LeadSb = { from: (table: string) => any };
 
 /**
- * האם `meeting-client` ישלח למספר הזה. אותה נורמליזציה של השולח (phoneE164), כדי
+ * האם `meeting-client` ישלח למספר הזה. אותה נורמליזציה של השולח (clientPhoneE164, כמו במסד), כדי
  * שהבוט לא יגיד "נשלח" על מספר שהשולח ידחה כ-no_phone.
  */
 function sendable(value: unknown): boolean {
-  return phoneE164(typeof value === "string" ? value : null) !== null;
+  return clientPhoneE164(value) !== null;
 }
 
 /**
@@ -124,7 +124,7 @@ export const NUMBER_BLOCKED_NOTE =
 
 /** האם המספר ב-whatsapp_optouts (קיבל 131050). כשל בקריאה אינו חוסם: הסבב במסד חוסם ממילא. */
 export async function isNumberBlocked(sb: LeadSb, phone: unknown): Promise<boolean> {
-  const e164 = phoneE164(typeof phone === "string" ? phone : null);
+  const e164 = clientPhoneE164(phone);
   if (!e164) return false;
   const { data } = await sb.from("whatsapp_optouts").select("phone_e164").eq("phone_e164", e164).maybeSingle();
   return !!data;

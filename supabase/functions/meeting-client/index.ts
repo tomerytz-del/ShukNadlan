@@ -9,6 +9,7 @@ import {
   reminderTemplateConfigured, respondToMeeting, sendButtonsTemplate, sendButtonsText, sendLinkButton,
   sendMeetingTemplate, sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
 } from "../_shared/meeting-client.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
 
 // ============================================================================
 // פולואפ ללקוח/ה על פגישה שנקבעה דרך גבריאלה — meeting.html ↔ כאן ↔
@@ -326,7 +327,7 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
     return status;
   };
 
-  const to = phoneE164(row.client_phone);
+  const to = clientPhoneE164(row.client_phone);
   if (!to) return await done("no_phone", null, "אין לאיש הקשר מספר טלפון תקין");
   if (!waConfigured()) return await done("failed", null, "WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID לא מוגדרים");
 

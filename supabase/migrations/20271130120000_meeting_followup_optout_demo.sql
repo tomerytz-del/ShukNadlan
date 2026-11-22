@@ -37,7 +37,7 @@ as $$
   select case
     when d ~ '^0[0-9]{9}$'            then '972' || substr(d, 2)
     when d ~ '^972[0-9]{9}$'          then d
-    when d ~ '^[1-9][0-9]{10,14}$'    then d
+    when d ~ '^[1-9][0-9]{10,14}$' and d not like '972%' then d
     else null
   end
   from (
@@ -308,7 +308,9 @@ begin
      where item_id = r.i_id and status = 'pending';
     get diagnostics v_n = row_count;
 
-    update public.agent_agenda_items set client_notify = false where id = r.i_id;
+    -- רק פריט פתוח: לפריט שהסתיים (בוצע, בוטל) נשארת התגית ב-CRM של מה שהלקוח/ה ענה/תה
+    update public.agent_agenda_items set client_notify = false
+     where id = r.i_id and status = 'open';
 
     -- רק פריט שבאמת נעצרה בו הודעה מדווח: הוובהוק מתריע לסוכן/ת ועונה לנמען/ת רק עליו
     if v_n > 0 then
