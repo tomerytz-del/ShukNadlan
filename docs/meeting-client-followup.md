@@ -31,7 +31,7 @@
 | `supabase/functions/_shared/meeting-client.ts` | שליחה ל-Meta (תבנית / טקסט / כפתורים), ה-payload של הכפתורים והתשובות ללקוח/ה |
 | `supabase/functions/whatsapp-webhook/index.ts` | לחיצה על כפתור, **לפני** זיהוי הסוכן/ת והבוט הציבורי |
 | `supabase/functions/whatsapp-webhook/agent.ts` | `notify_client` ב-`agenda_add` / `agenda_update`, ו-`client_followup` בתשובה וב-`agenda_list`; `lead_id` ו-`lead_phone` לליד מ"הלידים שלי" |
-| `supabase/functions/whatsapp-webhook/agenda-lead.ts`, `supabase/migrations/20271129110000_meeting_followup_leads.sql` | ליד כאיש קשר: הלוגיקה בבוט, ו-`agent_agenda_contact` במסד |
+| `supabase/functions/whatsapp-webhook/agenda-lead.ts`, `supabase/migrations/20271130110000_meeting_followup_leads.sql` | ליד כאיש קשר: הלוגיקה בבוט, ו-`agent_agenda_contact` במסד |
 | `meeting.html`, `assets/meeting.js` | הדף ללקוח/ה |
 | `crm.html`, `assets/crm.js` | התיבה "📲 לשלוח ללקוח/ה" בטופס היומן, הכפתור "📲 לשלוח ללקוח/ה" על פגישה קיימת, התגים (אישור / משוב), האזהרה בביטול, והמתג של המשימה האוטומטית |
 

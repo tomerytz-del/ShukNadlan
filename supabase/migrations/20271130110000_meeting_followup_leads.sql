@@ -1,7 +1,7 @@
 -- ============================================================================
 -- אישור ותזכורת לפגישה גם לליד מ"הלידים שלי", בלי כרטיס לקוח/ה.
 --
--- version 20271129110000.
+-- version 20271130110000.
 -- הפונקציות כאן נבנו מהגרסה האחרונה של כל אחת, 20270319090000_meeting_client_followup:
 -- agent_agenda_client_outbox, agent_agenda_client_claim, agent_agenda_client_respond,
 -- agent_agenda_client_feedback. אף מיגרציה מאוחרת יותר לא הגדירה אותן מחדש.

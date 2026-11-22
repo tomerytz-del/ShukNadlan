@@ -3,14 +3,14 @@ name: פולואפ פגישה לליד
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271129110000_meeting_followup_leads.sql"
+      - "supabase/migrations/20271130110000_meeting_followup_leads.sql"
       - "supabase/functions/whatsapp-webhook/agenda-lead.ts"
       - "scripts/meeting_followup_leads_test.ts"
       - ".github/workflows/meeting_followup_leads.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271129110000_meeting_followup_leads.sql"
+      - "supabase/migrations/20271130110000_meeting_followup_leads.sql"
       - "supabase/functions/whatsapp-webhook/agenda-lead.ts"
       - "scripts/meeting_followup_leads_test.ts"
       - ".github/workflows/meeting_followup_leads.yml"

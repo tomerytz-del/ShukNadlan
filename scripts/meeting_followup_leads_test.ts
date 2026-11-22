@@ -138,7 +138,7 @@ await test("ליד שאינו של הסוכן/ת או שלא קיים: אין ש
 
 await test("המיגרציה: ליד נלקח רק כשהוא של הסוכן/ת ופתוח, ולקוח/ה גובר/ת", () => {
   const sql = readFileSync(
-    new URL("../supabase/migrations/20271129110000_meeting_followup_leads.sql", import.meta.url), "utf8");
+    new URL("../supabase/migrations/20271130110000_meeting_followup_leads.sql", import.meta.url), "utf8");
   assert(/l\.agent_id = p_agent_id/.test(sql), "חייבת להיות בדיקת בעלות על הליד");
   assert(/l\.status = 'unlocked'/.test(sql), "ליד נעול אסור לשליחה");
   assert(/p_client_id is null/.test(sql), "לקוח/ה גובר/ת על ליד");
