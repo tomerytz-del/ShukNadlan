@@ -670,7 +670,7 @@
         if (window.MarketScope) q = MarketScope.apply(q, spec);
         return q.order('is_promoted', { ascending: false }).order('created_at', { ascending: false }).order('id')
           .range(from, from + PAGE - 1).then(function (r) {
-            if (!r || r.error) return all;
+            if (!r || r.error) { console.warn('swipe: טעינת עמוד נכסים נכשלה, החפיסה חלקית (' + all.length + ')', r && r.error); return all; }
             var d = r.data || [];
             all = all.concat(d);
             if (d.length < PAGE || all.length >= MAX) return all;
