@@ -262,7 +262,7 @@ async function marketCities(): Promise<Row[] | undefined> {
 async function loadDefaultMarketAgencies(): Promise<{ ok: true; rows: Row[]; total: number } | { ok: false }> {
   const [offices, staff, marketMembers, cities] = await Promise.all([
     rest("agencies?select=id,slug,name,city_id&slug=not.is.null&order=name.asc&limit=1000"),
-    rest(`agency_members_public?select=agency_id,role,phone_e164,active&limit=${STAFF_LIMIT}`),
+    rest(`agency_members_public?select=agency_id,active&limit=${STAFF_LIMIT}`),
     rest(`agency_members_public?select=id,agency_id,service_markets&limit=${MARKET_MEMBER_LIMIT}`),
     marketCities(),
   ]);
