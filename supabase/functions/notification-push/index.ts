@@ -9,6 +9,7 @@ import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/
 import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
+import { digestSummary, planTemplateSlots, templateTier } from "./template-priority.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 import {
   isShareOnlyBatch, separateShareEntries, shareDigestItems, textBodyHead, textBodyItemLine,
@@ -1270,6 +1271,30 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // משבצת תבנית אחת. שורה 1 יוצאת לבד. ביקוש פתוח קודם לסיכום.
+    // מה שנדחה נרשם skipped_template_cap ונשאר לפעמון ולתקציר.
+    if (row.channel_mode === "template" && items.length) {
+      const ids = notifIdList(items);
+      const reclaim = !items.some((it) => templateTier(it.type) === 1)
+        && await templateIdsHeld(sb, row.agent_id, ids);
+      const plan = planTemplateSlots(items, { template: true, reclaim });
+      const tierRow = { log_id: String(row.log_id), agent_id: String(row.agent_id) };
+      if (!plan.send.length) {
+        await deferTemplateTier(sb, tierRow, [], items);
+        skipped++;
+        return;
+      }
+      if (plan.defer.length) {
+        const ok = await deferTemplateTier(sb, tierRow, plan.send, plan.defer);
+        if (!ok) {
+          skipped++;
+          return;
+        }
+        items = plan.send;
+      }
+      if (plan.digest) items = digestBellItems(items);
+    }
+
     if (items.some((it) => it.type === "open_demand" && it.id)) {
       items = await attachBoardActionUrls(sb, items);
     }
@@ -1327,6 +1352,112 @@ Deno.serve(async (req: Request) => {
 
   return json({ sent, failed, skipped, processed: batch.length });
 });
+
+function digestBellItems(items: Item[]): Item[] {
+  return [{
+    type: "system",
+    title: digestSummary(items),
+    body: null,
+    action_path: "/crm?goto=bell",
+    ids: notifIdList(items),
+  }];
+}
+
+/** true כשכל המזהים כבר נעצרו בתקרה ב-72 השעות האחרונות. זו שליחת התקציר. */
+async function templateIdsHeld(
+  sb: { from: (table: string) => any },
+  agentId: string,
+  ids: string[],
+): Promise<boolean> {
+  if (!ids.length) return false;
+  const since = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+  const { data, error } = await sb.from("notification_push_log")
+    .select("notification_ids")
+    .eq("agent_id", agentId)
+    .eq("whatsapp_status", "skipped_template_cap")
+    .gt("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(80);
+  if (error || !Array.isArray(data)) return false;
+  const held = new Set<string>();
+  for (const row of data) {
+    const list = row?.notification_ids;
+    if (!Array.isArray(list)) continue;
+    for (const id of list) if (typeof id === "string") held.add(id);
+  }
+  return ids.every((id) => held.has(id));
+}
+
+/**
+ * מפצל שורת יומן: הגבוהה נשארת pending, הנמוכה נרשמת skipped_template_cap.
+ * false: אי אפשר להפריד, ולא שולחים כדי שלא לסמן גם את הנדחה כנשלח.
+ */
+async function deferTemplateTier(
+  sb: { from: (table: string) => any },
+  row: { log_id: string; agent_id: string },
+  send: Item[],
+  defer: Item[],
+): Promise<boolean> {
+  const sendIds = notifIdList(send);
+  const deferIds = notifIdList(defer);
+  const holdRow = async () => {
+    const { error } = await sb.from("notification_push_log").update({
+      whatsapp_status: "skipped_template_cap",
+      last_error: "skipped_template_cap",
+    }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+    if (error) console.error("template tier hold failed", row.log_id, error.message);
+  };
+  if (!deferIds.length) return true;
+  if (!sendIds.length) {
+    await holdRow();
+    return false;
+  }
+  const { error: splitErr } = await sb.from("notification_push_log").update({
+    notification_ids: sendIds,
+    types: [...new Set(send.map((it) => it.type))],
+  }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+  if (splitErr) {
+    console.error("template tier split failed", row.log_id, splitErr.message);
+    await holdRow();
+    return false;
+  }
+  const { error: parkErr } = await sb.from("notification_push_log").insert({
+    agent_id: row.agent_id,
+    notification_ids: deferIds,
+    types: [...new Set(defer.map((it) => it.type))],
+    channel_mode: "template",
+    whatsapp_status: "skipped_template_cap",
+    last_error: "skipped_template_cap",
+  });
+  if (parkErr) {
+    console.error("template tier park failed", row.log_id, parkErr.message);
+    await recordParkMiss(sb, row.log_id, parkErr.message || "park failed");
+  }
+  return true;
+}
+
+/** נראה בפאנל הבריאות. כשל הרישום לא עוצר את השורה הגבוהה. */
+async function recordParkMiss(
+  sb: { from: (table: string) => any },
+  logId: string,
+  message: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await sb.from("ops_findings").upsert({
+    key: "wa_template_tier_park",
+    area: "health",
+    code: "wa_template_tier_park",
+    severity: "low",
+    title: "פיצול תבנית וואטסאפ לא נרשם",
+    detail: `log ${logId}: ${message}`.slice(0, 500),
+    suggestion: "השורה הגבוהה יצאה. הנמוכה תחזור בסבב הבא אם לא נרשמה.",
+    metric: 1,
+    metric_unit: "count",
+    last_seen: now,
+    resolved_at: null,
+  }, { onConflict: "key" });
+  if (error) console.error("ops finding for template park failed", error.message);
+}
 
 // true: לשלוח. שגיאה או פונקציה חסרה לא בולעות את ההתראה.
 async function templateCapAllows(
