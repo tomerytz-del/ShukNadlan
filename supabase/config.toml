@@ -307,6 +307,9 @@ verify_jwt = true           # כלי בדיקה — מוגבל ל-is_platform_ad
 [functions.project-manage]
 verify_jwt = true           # ניהול פרויקטים של יזם — שלוש מהפעולות נוגעות בארנק
 
+[functions.plan-model]
+verify_jwt = true           # רכישת דגם דירה תלת-ממדי וקריאת התוכנית — מנכה ₪49 מהארנק, לסוכן/ת או ליזם מזוהים
+
 [functions.project-lead-purchase]
 verify_jwt = true           # רכישת ליד ממדף היזמים — פעולה שמעבירה כסף
 
