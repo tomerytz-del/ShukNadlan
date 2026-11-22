@@ -1,7 +1,8 @@
 // אישור ותזכורת לפגישה עם ליד מ"הלידים שלי": מתי שולחים, מתי שואלים טלפון, ומתי לא.
 //   node --experimental-strip-types scripts/meeting_followup_leads_test.ts
 import { readFileSync } from "node:fs";
-import { fetchOwnLead, leadFollowupPlan, type OwnLead } from "../supabase/functions/whatsapp-webhook/agenda-lead.ts";
+import { fetchOwnLead, leadFollowupPlan, type OwnLead, saveLeadPhone } from "../supabase/functions/whatsapp-webhook/agenda-lead.ts";
+import { agentStopNotification, isMeetingOptOutText } from "../supabase/functions/whatsapp-webhook/meeting-optout.ts";
 
 let failed = 0;
 async function test(name: string, fn: () => void | Promise<void>) {
@@ -65,17 +66,25 @@ await test("ליד בלי טלפון: לא שולחים, שואלים את המ�
   assert(!calls.some((c) => c.op === "update"), "אסור לכתוב בלי מספר");
 });
 
-await test("ליד בלי טלפון, והסוכן/ת אמר/ה מספר: נשמר על הליד של הסוכן/ת ונשלח", async () => {
+await test("ליד בלי טלפון, והסוכן/ת אמר/ה מספר: מאשרים שליחה, אבל התוכנית אינה כותבת לליד", async () => {
   const noPhone = { ...LEAD, raw_phone: null };
   const { sb, calls } = fakeSb(noPhone);
   const plan = await leadFollowupPlan(sb, "agent-1", noPhone, " 0501234567 ");
   assert(plan.notify === true, "עם מספר תקין צריך לשלוח");
-  const upd = calls.find((c) => c.op === "update");
-  assert(upd, "המספר צריך להישמר");
-  assert((upd!.patch as { raw_phone: string }).raw_phone === "0501234567", "נשמר המספר כמו שנאמר, בלי רווחים");
+  assert(plan.phoneToSave === "0501234567", "המספר מוחזר לקורא, בלי רווחים");
+  assert(!calls.some((c) => c.op === "update"), "אסור לכתוב לליד לפני שהפגישה נשמרה");
+});
+
+await test("saveLeadPhone: נכתב רק לליד של הסוכן/ת ורק כשהוא פתוח, ומחזיר false בכשל", async () => {
+  const ok = fakeSb(LEAD);
+  assert(await saveLeadPhone(ok.sb, "agent-1", "lead-1", "0501234567") === true, "שמירה תקינה");
+  const upd = ok.calls.find((c) => c.op === "update");
   const f = Object.fromEntries(upd!.filters);
   assert(f.id === "lead-1" && f.agent_id === "agent-1" && f.status === "unlocked",
     "העדכון חייב להיות מוגבל לליד, לסוכן/ת ולליד פתוח");
+  assert((upd!.patch as { raw_phone: string }).raw_phone === "0501234567", "נשמר המספר");
+  const bad = fakeSb(LEAD, { message: "boom" });
+  assert(await saveLeadPhone(bad.sb, "agent-1", "lead-1", "0501234567") === false, "כשל נראה לקורא");
 });
 
 await test("מספר לא תקין לא נשמר ולא נשלח אליו", async () => {
@@ -91,7 +100,7 @@ await test("מספר שנאמר עם טקסט או עם שני מספרים לא
     const noPhone = { ...LEAD, raw_phone: null };
     const { sb, calls } = fakeSb(noPhone);
     const plan = await leadFollowupPlan(sb, "agent-1", noPhone, bad);
-    assert(plan.notify === false, `"${bad}" אינו מספר אחד`);
+    assert(plan.notify === false && !plan.phoneToSave, `"${bad}" אינו מספר אחד`);
     assert(!calls.some((c) => c.op === "update"), `"${bad}" אסור שיישמר`);
   }
 });
@@ -108,16 +117,9 @@ await test("מספר בפורמטים מקובלים נשמר", async () => {
     const noPhone = { ...LEAD, raw_phone: null };
     const { sb, calls } = fakeSb(noPhone);
     const plan = await leadFollowupPlan(sb, "agent-1", noPhone, good);
-    assert(plan.notify === true, `"${good}" צריך להתקבל`);
-    assert(calls.some((c) => c.op === "update"), `"${good}" צריך להישמר`);
+    assert(plan.notify === true && !!plan.phoneToSave, `"${good}" צריך להתקבל ולחזור לשמירה`);
+    assert(!calls.some((c) => c.op === "update"), `"${good}": התוכנית אינה כותבת`);
   }
-});
-
-await test("כשל בשמירת המספר: לא שולחים", async () => {
-  const noPhone = { ...LEAD, raw_phone: null };
-  const { sb } = fakeSb(noPhone, { message: "boom" });
-  const plan = await leadFollowupPlan(sb, "agent-1", noPhone, "0501234567");
-  assert(plan.notify === false, "אם השמירה נכשלה אין טלפון בליד, ואין שליחה");
 });
 
 await test("ליד נעול: לא שולחים וגם לא כותבים, גם כשנאמר מספר", async () => {
@@ -134,6 +136,38 @@ await test("ליד שאינו של הסוכן/ת או שלא קיים: אין ש
   assert((await fetchOwnLead(sb, "agent-2", "lead-1")) === null, "ליד של סוכן/ת אחר/ת אינו מוחזר");
   const plan = await leadFollowupPlan(sb, "agent-2", null, undefined);
   assert(plan.notify === false, "בלי ליד אין שליחה");
+});
+
+await test("בקשת הסרה: מילים נפוצות מתאימות, ומשפט ארוך או 'סירו' לבד לא", () => {
+  for (const t of ["הסר", "הסירו", "הסירי", "הסר אותי", "תסירו אותי", "לא רלוונטי", "לא רלוונטית",
+    "לא מעוניין", "לא מעוניינת", "הסרה", "הסר!", "STOP", "לא מעוניין בבקשה", "  הסר  ", "לא רלוונטי תודה"]) {
+    assert(isMeetingOptOutText(t), `"${t}" צריך להיחשב בקשת הסרה`);
+  }
+  for (const t of ["הסר את הדירה מהרשימה שלי בבקשה היא נמכרה", "לא רלוונטי לי הדירה הזאת גדולה מדי", "כן", "שלום",
+    "אשמח לפרטים", "לא", "אפשר להסיר את ההסכם?", "", "סירו", "לא מעוניין בנכס הזה בגלל המחיר", null, 42]) {
+    assert(!isMeetingOptOutText(t as unknown), `"${t}" אינו בקשת הסרה`);
+  }
+});
+
+await test("התראת העצירה לסוכן/ת: שם איש הקשר וכותרת, בלי טלפון", () => {
+  const n = agentStopNotification({ item_id: "i", agent_id: "a", title: "סיור בהרצל 12", due_at: null,
+    contact_name: "דנה לוי", cancelled: 3 }, "יום שלישי 14.10 בשעה 17:00");
+  assert(n.title.includes("דנה לוי"), "הכותרת כוללת את השם");
+  assert(n.body.includes("סיור בהרצל 12") && n.body.includes("בוטלו"), "הגוף כולל את הפגישה ואת הביטול");
+  assert(!/\d{9}/.test(n.title + n.body), "בלי מספר טלפון");
+});
+
+await test("המיגרציה: חשבון הדגמה, עצירה לפי טלפון, וכיבוי הפריט אחרי סימון השורות", () => {
+  const sql = readFileSync(
+    new URL("../supabase/migrations/20271130120000_meeting_followup_optout_demo.sql", import.meta.url), "utf8");
+  assert(/cf863e10-c25d-41ed-8b22-d6899a56e95d/.test(sql), "משרד ההדגמה");
+  assert(/play\.review@shuknadlan\.co\.il/.test(sql), "חשבון הבדיקה של גוגל פליי");
+  assert(/not public\.agent_agenda_is_demo\(p_agent_id\)/.test(sql), "agent_agenda_contact מדלגת על הדגמה");
+  assert(/v_demo := public\.agent_agenda_is_demo\(r\.agent_id\)/.test(sql), "claim מדלגת על הדגמה");
+  assert(/'demo_account'/.test(sql), "סיבת הדילוג נרשמת");
+  const mark = sql.indexOf("set status = 'opted_out'");
+  const off = sql.indexOf("set client_notify = false");
+  assert(mark > 0 && off > mark, "קודם מסמנים את השורות opted_out ורק אחר כך מכבים את הפריט (הטריגר מוחק pending)");
 });
 
 await test("המיגרציה: ליד נלקח רק כשהוא של הסוכן/ת ופתוח, ולקוח/ה גובר/ת", () => {

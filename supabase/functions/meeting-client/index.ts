@@ -383,6 +383,14 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
     await supabase.from("whatsapp_messages").insert({
       direction: "out", wa_phone: to, msg_type: mode, body: line.slice(0, 2000), error: err.message.slice(0, 500),
     });
+    if (err.code === WA_OPTED_OUT) {
+      // הנמען/ת ביקש/ה מ-Meta להפסיק: מבטלים את כל מה שממתין לאותו מספר, לא רק
+      // את השורה הזו. כשל כאן אינו משנה את סטטוס השורה הנוכחית.
+      const { error: stopErr } = await supabase.rpc("agent_agenda_client_opt_out_phone", {
+        p_message_id: row.message_id,
+      });
+      if (stopErr) console.error("meeting opt-out cancel failed", stopErr.message);
+    }
     return await done(err.code === WA_OPTED_OUT ? "opted_out" : "failed", mode, err.message);
   }
 }

@@ -17,7 +17,12 @@ export type OwnLead = {
   status: string;
 };
 
-export type FollowupPlan = { notify: boolean; note?: string };
+/**
+ * `phoneToSave`: מספר שהסוכן/ת אמר/ה, שעבר אימות ועוד לא נשמר. הקורא שומר אותו
+ * (saveLeadPhone) **רק אחרי** שהפגישה נשמרה ביומן, כדי שכשל בשמירת הפגישה לא ישאיר
+ * מספר שהסוכן/ת לא ראה/תה נכנס לליד.
+ */
+export type FollowupPlan = { notify: boolean; note?: string; phoneToSave?: string };
 
 // deno-lint-ignore no-explicit-any
 export type LeadSb = { from: (table: string) => any };
@@ -49,8 +54,9 @@ export async function fetchOwnLead(sb: LeadSb, agentId: string, leadId: string):
 
 /**
  * האם לשלוח לליד אישור ותזכורת, ומה לומר על זה לסוכן/ת.
- * `phoneInput` הוא מספר שהסוכן/ת אמר/ה עכשיו לליד שאין לו טלפון. הוא נשמר על
- * הליד של הסוכן/ת עצמו/ה. אסור לנחש מספר, ואסור לשמור מספר שאינו תקין.
+ * `phoneInput` הוא מספר שהסוכן/ת אמר/ה עכשיו לליד שאין לו טלפון. התוכנית אינה כותבת: היא
+ * מחזירה `phoneToSave`, והקורא שומר אחרי שהפגישה נשמרה. אסור לנחש מספר, ואסור לשמור
+ * מספר שאינו תקין.
  */
 export async function leadFollowupPlan(
   sb: LeadSb,
@@ -76,6 +82,7 @@ export async function leadFollowupPlan(
   const name = String(lead.raw_name || "").trim() || "הליד";
 
   let ok = sendable(lead.raw_phone);
+  let phoneToSave: string | undefined;
   const given = String(phoneInput ?? "").trim();
   if (!ok && given) {
     if (!dictatedPhoneOk(given)) {
@@ -85,15 +92,7 @@ export async function leadFollowupPlan(
           "לבקש מהסוכן/ת מספר מלא. לא לנחש ספרות.",
       };
     }
-    const { error } = await sb.from("leads")
-      .update({ raw_phone: given.slice(0, 40) })
-      .eq("id", lead.id).eq("agent_id", agentId).eq("status", "unlocked");
-    if (error) {
-      return {
-        notify: false,
-        note: "לא הצלחתי לשמור את המספר בליד, ולכן לא יישלחו אישור ותזכורת. אפשר לנסות שוב.",
-      };
-    }
+    phoneToSave = given.slice(0, 40);
     ok = true;
   }
 
@@ -104,5 +103,16 @@ export async function leadFollowupPlan(
         "לשאול את הסוכן/ת מה המספר שלו/ה. לא לנחש. אחרי שנאמר, לקרוא שוב עם lead_phone והמספר.",
     };
   }
-  return { notify: true };
+  return phoneToSave ? { notify: true, phoneToSave } : { notify: true };
+}
+
+/**
+ * שומר את המספר על הליד של הסוכן/ת (רק ליד פתוח). מחזירה false בכשל, והקורא מבטל את
+ * השליחה ואומר לסוכן/ת.
+ */
+export async function saveLeadPhone(sb: LeadSb, agentId: string, leadId: string, phone: string): Promise<boolean> {
+  const { error } = await sb.from("leads")
+    .update({ raw_phone: phone })
+    .eq("id", leadId).eq("agent_id", agentId).eq("status", "unlocked");
+  return !error;
 }

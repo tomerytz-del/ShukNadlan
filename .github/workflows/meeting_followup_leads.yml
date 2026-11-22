@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20271130110000_meeting_followup_leads.sql"
+      - "supabase/migrations/20271130120000_meeting_followup_optout_demo.sql"
+      - "supabase/functions/whatsapp-webhook/meeting-optout.ts"
       - "supabase/functions/whatsapp-webhook/agenda-lead.ts"
       - "scripts/meeting_followup_leads_test.ts"
       - ".github/workflows/meeting_followup_leads.yml"
@@ -11,6 +13,8 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/20271130110000_meeting_followup_leads.sql"
+      - "supabase/migrations/20271130120000_meeting_followup_optout_demo.sql"
+      - "supabase/functions/whatsapp-webhook/meeting-optout.ts"
       - "supabase/functions/whatsapp-webhook/agenda-lead.ts"
       - "scripts/meeting_followup_leads_test.ts"
       - ".github/workflows/meeting_followup_leads.yml"
