@@ -9955,11 +9955,11 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   if (leadRef?.row?.status === "unlocked" && !row.client_id) row.lead_id = leadRef.row.id;
   // ליד שביקשו ולא קושר: אומרים למה, ולא בשקט (כמו ב-agenda_update)
   const leadNotLinked = leadRef && !row.lead_id
-    ? (row.client_id
+    ? (!leadRef.row
+      ? "לא קישרתי את הפגישה לליד: הוא לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש ב-list_leads ולא להמציא מזהה."
+      : row.client_id
       ? "לא קישרתי את הפגישה לליד: היא עם לקוח/ה מהקובץ, וההודעות יוצאות אליו/ה."
-      : leadRef.row?.status && leadRef.row.status !== "unlocked"
-      ? "לא קישרתי את הפגישה לליד: הוא עוד נעול ב\"הלידים שלי\"."
-      : null)
+      : "לא קישרתי את הפגישה לליד: הוא עוד נעול ב\"הלידים שלי\".")
     : null;
 
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
