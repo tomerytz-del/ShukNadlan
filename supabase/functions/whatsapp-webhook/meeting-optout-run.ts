@@ -22,19 +22,20 @@ export async function stopMeetingFollowups(
   const items = (data || []) as StoppedItem[];
   if (!items.length) return false;
 
-  for (const item of items) {
+  // התראה אחת לכל פגישה שנעצרה, בקריאה אחת. suppress_push מפורש: הסוכן/ת צריך/ה לשמוע
+  // על זה גם כשהוא/היא לא מסתכל/ת.
+  const { error: insErr } = await supabase.from("notifications").insert(items.map((item) => {
     const note = agentStopNotification(item, item.due_at ? meetingWhenText(item.due_at) : "");
-    // suppress_push מפורש: הסוכן/ת צריך/ה לשמוע על זה גם כשהוא/היא לא מסתכל/ת
-    const { error: insErr } = await supabase.from("notifications").insert({
+    return {
       agent_id: item.agent_id,
       type: "agenda_reminder",
       title: note.title,
       body: note.body,
       related_agenda_item_id: item.item_id,
       suppress_push: false,
-    });
-    if (insErr) console.error("meeting stop notification failed", insErr.message);
-  }
+    };
+  }));
+  if (insErr) console.error("meeting stop notification failed", insErr.message);
   await kickNotificationPush();
   await reply(MEETING_STOP_CUSTOMER_REPLY);
   return true;
