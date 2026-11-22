@@ -148,6 +148,14 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
 /* ---- תוספות הדף ---- */
 [data-mode="fp"] .droneOnly{display:none!important}
 .viewer .edOnly{display:none!important}
+.sws{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.swb{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);cursor:pointer;padding:0}
+.swb[aria-pressed="true"]{outline:3px solid var(--accent);outline-offset:2px}
+.swpick{width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--line);cursor:pointer;background:conic-gradient(#e44,#ec4,#4c6,#4cc,#46e,#c4e,#e44);display:block}
+.swpick input{opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.flb{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;font-size:13px;min-height:36px}
+.flb i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+.flb[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);font-weight:600}
 .app{height:100dvh}
 .grab{display:none}
 .tg.ic{padding:8px 9px;display:inline-flex;align-items:center}
@@ -291,6 +299,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <section class="sec" data-s="style">
         <div class="grp"><h3>סגנון עיצוב</h3><div class="styles" id="styles"></div></div>
+        <div class="grp" id="quickBox">
+          <h3>צבע המטבח</h3>
+          <div class="sws"><span id="kitSw" class="sws"></span><label class="swpick" title="צבע אחר"><input id="kitColor" type="color" aria-label="צבע אחר למטבח"></label></div>
+          <h3 style="margin-top:6px">ריצוף</h3>
+          <div class="chips" id="floorSw"></div>
+        </div>
         <div class="grp edOnly"><h3>צבעים וחומרים</h3>
           <div class="f"><label for="wallColor">צבע קירות</label><input id="wallColor" type="color"></div>
           <div id="floorBox" class="grp"></div>

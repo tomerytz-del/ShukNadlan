@@ -83,10 +83,32 @@ function span(){return Math.max(BOUNDS.x2-BOUNDS.x1,BOUNDS.y2-BOUNDS.y1)*S.scale
 /* נקודת מבט ראשון בחדר: מרכז החדר, עם הפנים למרכז הדירה */
 function roomSpot(r){var c=center(),q=r.r[0],x=(q[0]+q[2])/2*S.scale,z=(q[1]+q[3])/2*S.scale;
   return {x:x,z:z,yaw:Math.atan2(c.x-x,-(c.z-z)),pitch:-0.05}}
+/* נקודת הפתיחה של מבט ראשון: פתח הבית, עם הפנים פנימה.
+   מחפשים את חלל הכניסה (לפי המזהה או לפי תווית "כניסה"/"מבואה"), ואת הפתח שבגבולו:
+   דלת בקיר חיצוני היא דלת הכניסה, ועומדים בה. פתח פנימי הוא המעבר לדירה, ועומדים מולו בקצה הרחוק */
 function startFp(){
-  var pick=function(p){return MODEL.rooms.filter(function(r){return r.id.indexOf(p)===0})[0]};
-  var r=pick('entry')||pick('living')||MODEL.rooms.filter(function(x){return !x.nc})[0]||MODEL.rooms[0];
-  return r?roomSpot(r):{x:center().x,z:center().z,yaw:0,pitch:-0.05}}
+  var s=S.scale,IN=45,rooms=MODEL.rooms,r=null,i;
+  var has=function(q,x,y){return x>=q[0]&&x<=q[2]&&y>=q[1]&&y<=q[3]};
+  /* "כניסה" קודמת ל"מבואה": מבואה היא לפעמים המעבר לחדר ההורים, ולא פתח הבית */
+  [/כניסה/,/מבואה/].forEach(function(re,n){
+    for(i=0;i<rooms.length&&!r;i++)if((!n&&/^(entry|entrance|foyer)/.test(rooms[i].id))||re.test(rooms[i].name||''))r=rooms[i];
+    if(!r)MODEL.labels.forEach(function(l){if(r||!re.test(l[0]))return;
+      r=rooms.filter(function(x){return has(x.r[0],l[1],l[2])})[0]||null})});
+  if(!r){var pick=function(p){return rooms.filter(function(x){return x.id.indexOf(p)===0})[0]};
+    r=pick('living')||rooms.filter(function(x){return !x.nc})[0]||rooms[0];
+    return r?roomSpot(r):{x:center().x,z:center().z,yaw:0,pitch:-0.05}}
+  var q=r.r[0],best=null;
+  MODEL.walls.forEach(function(w){(w.o||[]).forEach(function(o){
+    if(o[0]!=='d')return;var mid=(o[1]+o[2])/2,horiz=w.h!==undefined,c=horiz?w.h:w.v,side=null;
+    if(horiz&&mid>q[0]-4&&mid<q[2]+4){if(Math.abs(c-q[1])<10)side='top';else if(Math.abs(c-q[3])<10)side='bottom'}
+    if(!horiz&&mid>q[1]-4&&mid<q[3]+4){if(Math.abs(c-q[0])<10)side='left';else if(Math.abs(c-q[2])<10)side='right'}
+    if(side&&(!best||(w.t==='ext'&&!best.ext)))best={side:side,mid:mid,ext:w.t==='ext'}})});
+  if(!best)return roomSpot(r);
+  /* dir: לאן מסתכלים. מדלת חיצונית פנימה לחדר; מול פתח פנימי, אליו */
+  var D={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]}[best.side],dx=best.ext?-D[0]:D[0],dz=best.ext?-D[1]:D[1];
+  var x=(D[0]?(dx>0?q[0]:q[2]):clamp(best.mid,q[0],q[2]))*s,z=(D[1]?(dz>0?q[1]:q[3]):clamp(best.mid,q[1],q[3]))*s;
+  return {x:x+dx*IN,z:z+dz*IN,yaw:Math.atan2(dx,-dz),pitch:-0.04};
+}
 function defaultViews(){var c=center(),R=span(),seen={},out=[
   {n:'מבט על',mode:'drone',drone:{az:0,pol:0.06,rad:R*1.65,tx:c.x,tz:c.z}},
   {n:'מבט אלכסוני',mode:'drone',drone:{az:0.45,pol:0.85,rad:R*1.55,tx:c.x,tz:c.z}}];
@@ -278,8 +300,9 @@ function buildMats(){
   else{MATS.fx.wood=mk('#ffffff',.55,{map:woodTex(F.wood)});MATS.fx.wood2=mk('#ffffff',.5,{map:woodTex(shade(F.wood,.6))})}
   /* מטבח: חזיתות בגוון שנבדל מהקיר, משטח בהיר, ונירוסטה. ארון לבן על קיר לבן נראה כגוש אחד
      (תומר, 22.11.2026). הגוונים לפי סגנון; ב"בסיס" הם אפורים, כמו כל השאר */
-  var K=KITCHEN[S.style]||KITCHEN.modern_clean;
-  MATS.fx.kcase=mk(K[0],.7);MATS.fx.ward=mk(st.flat?F.case:mixC(K[0],'#ffffff',.55),.75);MATS.fx.ktop=mk(K[1],.25);MATS.fx.ksplash=mk(K[2],.35);
+  var K=(KITCHEN[S.style]||KITCHEN.modern_clean).slice(),wardC=K[0];
+  if(!st.flat&&S.mat.kitchen)K[0]=S.mat.kitchen;   /* בחירת המשתמש/ת חלה על המטבח, לא על ארונות הבגדים */
+  MATS.fx.kcase=mk(K[0],.7);MATS.fx.ward=mk(st.flat?F.case:mixC(wardC,'#ffffff',.55),.75);MATS.fx.ktop=mk(K[1],.25);MATS.fx.ksplash=mk(K[2],.35);
   MATS.fx.steel=mk(st.flat?'#b9b6af':'#b4babf',.3,{metalness:.7,envMapIntensity:1});
   MATS.fx.hob=mk(st.flat?'#a8a59e':'#111315',.12,{metalness:.2,envMapIntensity:1});
 }
@@ -786,7 +809,7 @@ function poseDrone(d){
 }
 function poseFP(f){
   var e=new T.Euler(f.pitch,-f.yaw,0,'YXZ');
-  return {p:new T.Vector3(f.x,160,f.z),q:new T.Quaternion().setFromEuler(e),fov:fpFov()};
+  return {p:new T.Vector3(f.x,EYE_H,f.z),q:new T.Quaternion().setFromEuler(e),fov:fpFov()};
 }
 function poseOf(v){return v.mode==='fp'?poseFP(v.fp):poseDrone(v.drone)}
 function applyCamera(){
@@ -796,6 +819,8 @@ function applyCamera(){
   if(camera.fov!==P.fov){camera.fov=P.fov;camera.updateProjectionMatrix()}
 }
 var tw=null;
+/* גובה העיניים. 160 הרגיש כמו מבט מלמעלה על הרהיטים (תומר, 22.11.2026) */
+var EYE_H=148;
 /* זווית המבט במבט ראשון. fov ב-Three הוא אנכי, ולכן בטלפון זקוף 72 מעלות נותנות רק כ-40 לרוחב,
    והחדר נראה כמו דרך חור מנעול. מרחיבים עד שהרוחב מגיע ל-78 מעלות, עם תקרה של 92 (מעבר לזה
    הקצוות נמתחים) */
@@ -1167,6 +1192,7 @@ function styleMat(key){var st=STYLES[key],m={wall:st.wall,fl:{}};
   ['tile','wood','wet','deck'].forEach(function(z){var f=st.fl[z];m.fl[z]=mkSpec(f[0],f[1],z,f[2])});return m}
 function validMat(m){
   if(!m||!HEX.test(m.wall||'')||!m.fl)return null;var out={wall:m.wall,fl:{}};
+  if(HEX.test(m.kitchen||''))out.kitchen=m.kitchen;
   for(var i=0;i<ZONES.length;i++){var z=ZONES[i][0],f=m.fl[z];
     if(!f||!HEX.test(f.a||'')||!TEXKINDS.some(function(t){return t[0]===f.k}))return null;
     out.fl[z]=mkSpec(f.k,f.a,z,+f.c>=10&&+f.c<=200?+f.c:0)}
@@ -1196,7 +1222,18 @@ function buildMatUI(){
   $('floorBox').innerHTML=ZONES.map(function(z){return '<div class="mrow"><div class="f"><label for="fk_'+z[0]+'">'+z[1]+'</label><select id="fk_'+z[0]+'" data-z="'+z[0]+'">'+
     TEXKINDS.map(function(t){return '<option value="'+t[0]+'">'+t[1]+'</option>'}).join('')+'</select></div><div class="f"><label for="fc_'+z[0]+'">צבע</label><input id="fc_'+z[0]+'" data-z="'+z[0]+'" type="color"></div></div>'}).join('');
 }
+/* בחירה מהירה, גם לצופה: צבע חזיתות המטבח וריצוף הדירה. לצופה זה לא נשמר (אין onSave) */
+var KIT_SW=[['לבן','#f2f2f0'],['אפור בהיר','#b9bec2'],['אפור כהה','#4a4f55'],['שחור','#232527'],['קרם','#e8dfcc'],['עץ','#c39f6c'],['זית','#7c8a6a'],['כחול','#3f84ad'],['נייבי','#27384f'],['טרקוטה','#b5654a']];
+var FLOOR_SW=[['אפור בהיר','tile','#c9cdd0'],['אפור כהה','tile','#6f757b'],['קרם בהיר','tile','#e9e0cf'],['קרם כהה','tile','#cdbd9f'],['פרקט אלון','plank','#b88a5a'],['פרקט כהה','plank','#6e4a2f'],['שיש בהיר','marble','#eeeae4'],['בטון','concrete','#aaa9a5']];
+function fillQuick(){
+  var kc=(S.mat.kitchen||(KITCHEN[S.style]||KITCHEN.modern_clean)[0]).toLowerCase(),fl=S.mat.fl.tile;
+  $('kitSw').innerHTML=KIT_SW.map(function(c){return '<button type="button" class="swb" data-c="'+c[1]+'" aria-label="'+c[0]+'" title="'+c[0]+'" aria-pressed="'+(c[1]===kc)+'" style="background:'+c[1]+'"></button>'}).join('');
+  $('kitColor').value=kc;
+  $('floorSw').innerHTML=FLOOR_SW.map(function(c,i){return '<button type="button" class="flb" data-i="'+i+'" aria-pressed="'+(fl.k===c[1]&&fl.a.toLowerCase()===c[2])+'"><i style="background:'+c[2]+'"></i>'+c[0]+'</button>'}).join('');
+  var flat=!!STYLES[S.style].flat;$('quickBox').hidden=flat;
+}
 function syncMat(){
+  fillQuick();
   $('wallColor').value=S.mat.wall;
   ZONES.forEach(function(z){var sp=S.mat.fl[z[0]];$('fk_'+z[0]).value=sp.k;$('fc_'+z[0]).value=sp.a})
 }
@@ -1206,6 +1243,11 @@ function matChanged(src){
   syncMat();clearTimeout(rbT);rbT=setTimeout(function(){rebuild();dirty()},140);
 }
 $('wallColor').addEventListener('input',function(){S.mat.wall=this.value;matChanged('wall')});
+$('kitSw').addEventListener('click',function(e){var b=e.target.closest('.swb');if(!b)return;S.mat.kitchen=b.dataset.c;matChanged('kitchen')});
+$('kitColor').addEventListener('input',function(){S.mat.kitchen=this.value;matChanged('kitchen')});
+$('floorSw').addEventListener('click',function(e){var b=e.target.closest('.flb');if(!b)return;var c=FLOOR_SW[+b.dataset.i];
+  /* ריצוף אחד לכל הדירה חוץ מהחדרים הרטובים והמרפסת */
+  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');matChanged('floor')});
 $('floorBox').addEventListener('input',function(e){var z=e.target.dataset.z;if(!z)return;var sp=S.mat.fl[z];
   if(e.target.type==='color')S.mat.fl[z]=mkSpec(sp.k,e.target.value,z);
   else S.mat.fl[z]=mkSpec(e.target.value,sp.a,z);
