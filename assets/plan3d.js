@@ -258,10 +258,19 @@ function buildMats(){
   MATS.fx.lampshade=mk('#fff3dc',.9,{emissive:lin('#ffe2a8'),emissiveIntensity:.35});
   MATS.fx.sglass=new T.MeshStandardMaterial({color:lin(0xbfe0ea),roughness:.04,transparent:true,opacity:.2,envMapIntensity:1.3,depthWrite:false,side:T.DoubleSide});MATS.fx.pLeg=mk('#3b4047',.85);MATS.fx.pTop=mk('#2f7f86',.8);MATS.fx.pSkin=mk('#c8a98f',.7);
   MATS.fx.tvscreen=mk('#0b0c0e',.12,{metalness:.2,envMapIntensity:1});
+  /* חומרי הריהוט. ב"בסיס" הכול נשאר אפור ובלי טקסטורה */
+  var F=st.f;
+  MATS.fx.cushion=mk(mixC(F.fabric,'#ffffff',.2),.95);
+  MATS.fx.rug2=mk(shade(F.rug,.86),.95);
+  MATS.fx.green2=mk(shade(F.green,.7),.9);
+  MATS.fx.pot=mk(st.flat?F.case:'#e7e1d6',.6);
+  MATS.fx.mirror=mk(st.flat?'#c4c1ba':'#cfd9dd',.05,{metalness:.9,envMapIntensity:1.4});
+  if(st.flat){MATS.fx.wood2=mk(shade(F.wood,.85),.7)}
+  else{MATS.fx.wood=mk('#ffffff',.55,{map:woodTex(F.wood)});MATS.fx.wood2=mk('#ffffff',.5,{map:woodTex(shade(F.wood,.6))})}
   /* מטבח: חזיתות בגוון שנבדל מהקיר, משטח בהיר, ונירוסטה. ארון לבן על קיר לבן נראה כגוש אחד
      (תומר, 22.11.2026). הגוונים לפי סגנון; ב"בסיס" הם אפורים, כמו כל השאר */
   var K=KITCHEN[S.style]||KITCHEN.modern_clean;
-  MATS.fx.kcase=mk(K[0],.7);MATS.fx.ktop=mk(K[1],.25);MATS.fx.ksplash=mk(K[2],.35);
+  MATS.fx.kcase=mk(K[0],.7);MATS.fx.ward=mk(st.flat?F.case:mixC(K[0],'#ffffff',.55),.75);MATS.fx.ktop=mk(K[1],.25);MATS.fx.ksplash=mk(K[2],.35);
   MATS.fx.steel=mk(st.flat?'#b9b6af':'#b4babf',.3,{metalness:.7,envMapIntensity:1});
   MATS.fx.hob=mk(st.flat?'#a8a59e':'#111315',.12,{metalness:.2,envMapIntensity:1});
 }
@@ -331,29 +340,104 @@ function cabRow(g,m,w,h,d,y0,zc,handleTop){
   for(var i=1;i<n;i++)B(g,m.dark,1,h-4,.8,-w/2+w*i/n,y0+2,zf);
   for(var j=0;j<n;j++)B(g,m.steel,Math.min(26,w/n-14),1.6,2.4,-w/2+w*(j+.5)/n,handleTop?y0+h-9:y0+7,zf+1.2);
 }
+/* טקסטורת עץ: סיבים לאורך ה-u. נשמרת במטמון לפי צבע, כי rebuild רץ בכל שינוי סגנון */
+var woodCache={};
+function woodTex(hex){
+  if(woodCache[hex])return woodCache[hex];
+  var cv=document.createElement('canvas');cv.width=256;cv.height=256;var c=cv.getContext('2d');
+  c.fillStyle=hex;c.fillRect(0,0,256,256);
+  var seed=7;var rnd=function(){seed=(seed*16807)%2147483647;return seed/2147483647};
+  for(var i=0;i<110;i++){
+    var y=rnd()*256,dark=rnd()>.35;c.strokeStyle=dark?'rgba(40,24,10,'+(0.03+rnd()*.06)+')':'rgba(255,240,215,'+(0.03+rnd()*.07)+')';
+    c.lineWidth=.6+rnd()*2.2;c.beginPath();c.moveTo(0,y);
+    var amp=rnd()*5;c.bezierCurveTo(85,y+amp,170,y-amp,256,y);c.stroke();
+  }
+  var t=new T.CanvasTexture(cv);t.encoding=T.sRGBEncoding;t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  woodCache[hex]=t;return t;
+}
+/* קופסה מעוגלת: כריות, מזרנים, פינות רכות. r רדיוס הפינה בס"מ */
+function R(g,mat,w,h,d,x,y,z,r){
+  r=Math.max(.4,Math.min(r==null?3:r,w/2-.2,d/2-.2,h/2-.1));
+  var b=r*.6,hw=w/2-b,hd=d/2-b,rr=Math.max(.2,r-b),s=new T.Shape();
+  s.moveTo(-hw+rr,-hd);s.lineTo(hw-rr,-hd);s.quadraticCurveTo(hw,-hd,hw,-hd+rr);s.lineTo(hw,hd-rr);s.quadraticCurveTo(hw,hd,hw-rr,hd);
+  s.lineTo(-hw+rr,hd);s.quadraticCurveTo(-hw,hd,-hw,hd-rr);s.lineTo(-hw,-hd+rr);s.quadraticCurveTo(-hw,-hd,-hw+rr,-hd);
+  var geo=new T.ExtrudeGeometry(s,{depth:Math.max(.1,h-2*b),bevelEnabled:true,bevelSize:b,bevelThickness:b,bevelSegments:2,curveSegments:4});
+  geo.rotateX(-Math.PI/2);geo.center();
+  var m=new T.Mesh(geo,mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;
+}
+/* לוח עץ: קופסה שה-UV שלה לפי המידות, כדי שהסיבים יהיו באותו גודל בכל רהיט (חזרה כל 120 ס"מ) */
+function W(g,mat,w,h,d,x,y,z){
+  var geo=new T.BoxGeometry(w,h,d),uv=geo.attributes.uv,dim=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  for(var f=0;f<6;f++)for(var i=0;i<4;i++){var k=f*4+i;uv.setXY(k,uv.getX(k)*dim[f][0]/120,uv.getY(k)*dim[f][1]/120)}
+  var m=new T.Mesh(geo,mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;
+}
+var CORNERS=[[-1,-1],[1,-1],[-1,1],[1,1]];
+/* ארבע רגליים מחודדות, נוטות מעט החוצה */
+function legs(g,mat,w,d,h,inset,r0,r1,splay){
+  CORNERS.forEach(function(c){var l=Cy(g,mat,r0,r1,h,c[0]*(w/2-inset),0,c[1]*(d/2-inset),10);
+    if(splay){l.rotation.z=-c[0]*splay;l.rotation.x=c[1]*splay}});
+}
+function leaves(g,m,list){list.forEach(function(c,i){var s=new T.Mesh(new T.IcosahedronGeometry(c[3],1),i%2?m.green2:m.green);
+  s.position.set(c[0],c[1],c[2]);s.scale.y=.82;s.castShadow=true;s.receiveShadow=false;g.add(s)})}
+function books(g,m,x,y,z,rot){var a=R(g,m.accent,24,3,17,x,y,z,.8);a.rotation.y=rot;var b=R(g,m.white,21,2.6,15,x+1,y+3,z,.8);b.rotation.y=rot+.25}
+function sofaBody(g,m,w,d,n){
+  legs(g,m.dark,w,d,9,7,2.2,1.6,0);
+  R(g,m.fabric,w,22,d,0,9,0,5);                                   /* בסיס */
+  R(g,m.fabric,17,50,d,-w/2+8.5,11,0,7);R(g,m.fabric,17,50,d,w/2-8.5,11,0,7);  /* משענות יד */
+  R(g,m.fabric,w-30,52,18,0,26,-d/2+9,7);                         /* גב */
+  var cw=(w-36)/n;
+  for(var i=0;i<n;i++){var x=-w/2+18+cw*(i+.5);
+    R(g,m.cushion,cw-1.6,14,d-30,x,31,9,5);                       /* כרית ישיבה */
+    var bc=R(g,m.cushion,cw-3,34,14,x,45,-d/2+25,6);bc.rotation.x=-.16}  /* כרית גב */
+}
 var BUILD={
   bed2:function(g,m,w,d){bed(g,m,w,d,2)},bed1:function(g,m,w,d){bed(g,m,w,d,1)},
   sofa:function(g,m,w,d){
-    B(g,m.fabric,w,38,d,0,6,0);B(g,m.fabric,w,44,22,0,44,-d/2+11);
-    B(g,m.fabric,20,28,d-22,-w/2+10,44,11);B(g,m.fabric,20,28,d-22,w/2-10,44,11);
-    var n=Math.max(2,Math.round((w-40)/75)),cw=(w-40)/n;
-    for(var i=0;i<n;i++)B(g,m.fabric,cw-2,12,d-28,-w/2+20+cw*(i+.5),44,12);
-    B(g,m.accent,38,36,12,-w/2+42,56,-d/2+30);B(g,m.accent,38,36,12,w/2-42,56,-d/2+30);
-    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){B(g,m.dark,5,6,5,c[0]*(w/2-8),0,c[1]*(d/2-8))});
+    sofaBody(g,m,w,d,Math.max(2,Math.round((w-36)/72)));
+    var p1=R(g,m.accent,38,36,11,-w/2+38,47,-d/2+36,5);p1.rotation.x=-.3;p1.rotation.z=.12;
+    var p2=R(g,m.white,34,32,10,w/2-36,47,-d/2+36,5);p2.rotation.x=-.3;p2.rotation.z=-.1;
   },
-  arm:function(g,m,w,d){B(g,m.accent,w,36,d,0,6,0);B(g,m.accent,w,42,16,0,42,-d/2+8);B(g,m.accent,14,24,d-16,-w/2+7,42,8);B(g,m.accent,14,24,d-16,w/2-7,42,8);
-    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){B(g,m.dark,4,6,4,c[0]*(w/2-7),0,c[1]*(d/2-7))})},
-  coffee:function(g,m,w,d){B(g,m.wood,w,3,d,0,36,0);[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){B(g,m.dark,4,36,4,c[0]*(w/2-6),0,c[1]*(d/2-6))})},
-  coffeeR:function(g,m,w){Cy(g,m.wood,w/2,w/2,3,0,36,0,28);Cy(g,m.dark,3,3,36,0,0,0,8);Cy(g,m.dark,w/4,w/4,2,0,0,0,16)},
-  table:function(g,m,w,d){B(g,m.wood,w,5,d,0,70,0);[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){B(g,m.dark,6,70,6,c[0]*(w/2-12),0,c[1]*(d/2-10))})},
-  otable:function(g,m,w,d){BUILD.table(g,m,w,d)},
-  chair:function(g,m,w,d){B(g,m.wood,w-2,4,d-2,0,45,0);B(g,m.wood,w-2,42,4,0,49,-d/2+4);[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){B(g,m.dark,3,45,3,c[0]*(w/2-5),0,c[1]*(d/2-5))})},
-  ochair:function(g,m,w,d){BUILD.chair(g,m,w,d)},
-  wardrobe:function(g,m,w,d){B(g,m.case,w,230,d,0,0,0);var n=Math.max(2,Math.round(w/50));for(var i=1;i<n;i++)B(g,m.dark,1.2,224,1,-w/2+w*i/n,3,d/2);
-    for(var j=0;j<n;j+=2)B(g,m.dark,2,22,2,-w/2+w*(j+.5)/n+3,110,d/2+1)},
-  desk:function(g,m,w,d){B(g,m.wood,w,4,d,0,72,0);B(g,m.wood,4,72,d-4,-w/2+3,0,0);B(g,m.wood,4,72,d-4,w/2-3,0,0);
-    B(g,m.dark,56,32,3,0,78,-d/2+14);B(g,m.dark,8,10,6,0,76,-d/2+14)},
-  tv:function(g,m,w,d){B(g,m.case,w,46,d,0,0,0);B(g,m.tvscreen,Math.min(w*.62,150),82,4,0,96,-d/2+3)},
+  arm:function(g,m,w,d){sofaBody(g,Object.assign({},m,{fabric:m.accent,cushion:m.accent}),w,d,1)},
+  coffee:function(g,m,w,d){
+    W(g,m.wood,w,3.5,d,0,36,0);W(g,m.wood,w-16,2,d-16,0,13,0);
+    CORNERS.forEach(function(c){B(g,m.dark,3,36,3,c[0]*(w/2-5),0,c[1]*(d/2-5))});
+    books(g,m,-w*.2,39.5,0,.2);Cy(g,m.pot,10,6,6,w*.22,39.5,-2,20)},
+  coffeeR:function(g,m,w){Cy(g,m.wood,w/2,w/2,3.5,0,36,0,36);Cy(g,m.dark,2.5,2.5,34,0,2,0,10);Cy(g,m.dark,w*.3,w*.3,2,0,0,0,24);books(g,m,-6,39.5,4,.5)},
+  table:function(g,m,w,d){
+    W(g,m.wood,w,4,d,0,71,0);
+    W(g,m.wood2,w-26,7,2.5,0,64,d/2-13);W(g,m.wood2,w-26,7,2.5,0,64,-d/2+13);W(g,m.wood2,2.5,7,d-26,w/2-13,64,0);W(g,m.wood2,2.5,7,d-26,-w/2+13,64,0);
+    legs(g,m.wood2,w,d,71,11,3.4,2.2,0);
+    if(w>=150){Cy(g,m.pot,5,7,22,0,75,0,16);leaves(g,m,[[0,106,0,10],[-7,100,3,8],[7,101,-3,8]])}
+  },
+  otable:function(g,m,w,d){W(g,m.wood,w,4,d,0,71,0);legs(g,m.dark,w,d,71,10,2.6,2.6,0)},
+  chair:function(g,m,w,d){
+    legs(g,m.wood2,w,d,44,5,1.7,1.1,.07);
+    R(g,m.fabric,w-3,6,d-3,0,43,1,2.5);
+    var bk=R(g,m.fabric,w-5,38,4.5,0,50,-d/2+3.5,2.2);bk.rotation.x=-.13;
+  },
+  ochair:function(g,m,w,d){BUILD.chair(g,Object.assign({},m,{fabric:m.white,wood2:m.dark}),w,d)},
+  wardrobe:function(g,m,w,d){
+    B(g,m.dark,w-2,8,d-5,0,0,-1);B(g,m.ward,w,222,d-2,0,8,-1);
+    var n=Math.max(2,Math.round(w/50)),dw=w/n;
+    for(var i=0;i<n;i++){var x=-w/2+dw*(i+.5);
+      B(g,m.ward,dw-1.2,218,2,x,10,d/2-1);                         /* דלת בולטת, והרווח ביניהן הוא הצל */
+      B(g,m.steel,1.4,60,2.4,x+(i%2?-1:1)*(dw/2-5),95,d/2+1)}      /* ידית ארוכה */
+  },
+  desk:function(g,m,w,d){
+    W(g,m.wood,w,3.5,d,0,72,0);B(g,m.dark,3,72,3,-w/2+5,0,d/2-5);B(g,m.dark,3,72,3,-w/2+5,0,-d/2+5);
+    W(g,m.wood2,38,56,d-6,w/2-21,14,0);B(g,m.dark,38,.8,.8,w/2-21,42,d/2-2.6);B(g,m.steel,14,1.4,2,w/2-21,58,d/2-2);B(g,m.steel,14,1.4,2,w/2-21,30,d/2-2);
+    B(g,m.tvscreen,56,32,2.2,-8,88,-d/2+13);B(g,m.dark,3,13,3,-8,75.5,-d/2+14);B(g,m.dark,20,1.2,13,-8,75.5,-d/2+14);
+    B(g,m.dark,40,1.4,13,-8,75.5,d/2-18)},
+  tv:function(g,m,w,d){
+    /* מזנון עץ על רגליים, עם דלתות; מעליו מסך עם מסגרת, מקרן קול ופריטי נוי */
+    legs(g,m.dark,w,d,12,8,1.8,1.3,0);W(g,m.wood,w,34,d,0,12,0);
+    var n=Math.max(3,Math.round(w/55));for(var i=1;i<n;i++)B(g,m.dark,.8,30,.8,-w/2+w*i/n,14,d/2);
+    for(var j=0;j<n;j++)B(g,m.steel,10,1.2,1.6,-w/2+w*(j+.5)/n,39,d/2+.8);
+    var sw=Math.min(w*.7,150),sh=sw*.5625;
+    B(g,m.dark,sw+2.4,sh+2.4,2.4,0,82,-d/2+2.2);B(g,m.tvscreen,sw,sh,1,0,83.2,-d/2+3.6);
+    R(g,m.dark,Math.min(90,sw*.6),6,8,0,46,-d/2+12,2);
+    if(w>=140){books(g,m,w/2-22,46,2,.15);Cy(g,m.pot,6,5,10,-w/2+18,46,2,16);leaves(g,m,[[-w/2+18,66,2,9],[-w/2+13,61,5,7],[-w/2+23,62,0,7]])}
+  },
   island:function(g,m,w,d){
     B(g,m.dark,w-8,10,d-10,0,0,0);cabRow(g,m,w,78,d,10,0,true);B(g,m.ktop,w+6,4,d+26,0,88,10);
     for(var i=0;i<3;i++){var sx=-w*.3+i*w*.3;Cy(g,m.steel,2,2,62,sx,0,d/2+34,8);Cy(g,m.wood,17,17,5,sx,62,d/2+34,18);Cy(g,m.steel,14,14,1.5,sx,0,d/2+34,16)}},
@@ -369,13 +453,15 @@ var BUILD={
     var sx=w*.2;B(g,m.steel,56,1,42,sx,90,2);B(g,m.dark,48,.6,34,sx,91,2);
     Cy(g,m.steel,1.6,1.6,30,sx,90,-d/2+8,8);B(g,m.steel,2.4,2.4,18,sx,119,-d/2+16);
   },
-  rug:function(g,m,w,d){B(g,m.rug,w,1,d,0,0.3,0)},
-  plant:function(g,m){Cy(g,m.dark,13,10,26,0,0,0,10);[[0,52,0,26],[-10,42,6,17],[11,44,-5,16]].forEach(function(c){var s=new T.Mesh(new T.IcosahedronGeometry(c[3],2),m.green);s.position.set(c[0],c[1],c[2]);s.castShadow=true;s.receiveShadow=false;g.add(s)})},
-  lamp:function(g,m){Cy(g,m.dark,14,14,3,0,0,0,12);Cy(g,m.dark,1.5,1.5,150,0,3,0,6);Cy(g,m.lampshade,17,24,30,0,150,0,16)},
-  tub:function(g,m,w,d){B(g,m.white,w,55,d,0,0,0);B(g,m.top,w-14,1,d-14,0,55,0);Cy(g,m.dark,2,2,16,w/2-14,55,0,6)},
+  rug:function(g,m,w,d){B(g,m.rug2,w,1,d,0,0.3,0);B(g,m.rug,w-18,1.2,d-18,0,0.3,0)},
+  plant:function(g,m){Cy(g,m.pot,15,11,30,0,0,0,18);Cy(g,m.dark,13.5,13.5,1,0,29.5,0,18);Cy(g,m.wood2,1.6,2.2,44,0,30,0,8);
+    leaves(g,m,[[0,92,0,24],[-14,78,8,17],[15,80,-6,16],[4,70,-14,14],[-6,104,-4,15],[10,98,10,13]])},
+  lamp:function(g,m){Cy(g,m.dark,14,14,2.5,0,0,0,20);Cy(g,m.steel,1.3,1.3,150,0,2.5,0,8);Cy(g,m.lampshade,17,24,30,0,150,0,20)},
+  tub:function(g,m,w,d){R(g,m.white,w,56,d,0,0,0,12);R(g,m.ksplash,w-14,1,d-14,0,55.5,0,8);
+    Cy(g,m.steel,1.6,1.6,18,w/2-12,56,0,8);B(g,m.steel,12,2.2,2.2,w/2-17,72,0)},
   toilet:function(g,m,w,d){
     /* אחורה = -z (הקיר). מיכל, בסיס, קערה אליפטית, מושב ומכסה, וכפתור שטיפה */
-    B(g,m.white,38,40,17,0,42,-d/2+9);B(g,m.dark,10,1.5,5,0,82,-d/2+9);
+    R(g,m.white,38,40,17,0,42,-d/2+9,3);B(g,m.steel,10,1.5,5,0,82,-d/2+9);
     B(g,m.white,28,42,18,0,0,-d/2+12);
     var bowl=Cy(g,m.white,17,13,40,0,0,2,28);bowl.scale.z=1.35;
     var seat=Cy(g,m.top,18.5,18.5,3,0,40,2,28);seat.scale.z=1.35;
@@ -384,14 +470,19 @@ var BUILD={
   shower:function(g,m,w,d){
     B(g,m.white,w,5,d,0,0,0);
     var s1=B(g,m.sglass,w,200,1.5,0,5,d/2-1);var s2=B(g,m.sglass,1.5,200,d,w/2-1,5,0);s1.castShadow=false;s2.castShadow=false;
-    B(g,m.dark,w,3,2.5,0,203,d/2-1);B(g,m.dark,2.5,3,d,w/2-1,203,0);
-    Cy(g,m.dark,1.2,1.2,150,-w/2+8,5,-d/2+8,6);Cy(g,m.dark,8,8,2,-w/2+8,152,-d/2+14,16);
+    B(g,m.steel,w,3,2.5,0,203,d/2-1);B(g,m.steel,2.5,3,d,w/2-1,203,0);
+    Cy(g,m.steel,1.2,1.2,150,-w/2+8,5,-d/2+8,6);Cy(g,m.steel,8,8,2,-w/2+8,152,-d/2+14,16);
   },
-  sink:function(g,m,w,d){B(g,m.case,w,80,d,0,0,0);B(g,m.white,w,4,d,0,80,0);B(g,m.dark,38,1,28,0,84,3);Cy(g,m.dark,1.5,1.5,14,0,84,-d/2+6,6)},
-  osofa:function(g,m,w,d){BUILD.sofa(g,Object.assign({},m,{fabric:m.wood,accent:m.white}),w,d)},
-  lounger:function(g,m,w,d){B(g,m.wood,w,22,d,0,0,0);B(g,m.white,w-6,7,d-6,0,22,0);var b=B(g,m.white,w-6,7,70,0,38,-d/2+18);b.rotation.x=-0.75},
+  sink:function(g,m,w,d){
+    /* ארון תלוי מעץ, משטח, כיור מונח, ברז ומראה */
+    W(g,m.wood,w,50,d-3,0,30,-1.5);B(g,m.dark,w-6,.8,.8,0,55,d/2-2.6);R(g,m.white,w+2,4,d,0,80,0,1.5);
+    var bs=Cy(g,m.white,15,11,9,0,84,3,24);bs.scale.z=.82;var hole=Cy(g,m.ksplash,12.5,12.5,.5,0,92.8,3,24);hole.scale.z=.82;
+    Cy(g,m.steel,1.3,1.3,20,0,84,-d/2+5,8);B(g,m.steel,2,2,11,0,103,-d/2+10);
+    B(g,m.dark,w-4,74,1.2,0,112,-d/2+.6);B(g,m.mirror,w-7,71,.6,0,113.5,-d/2+1.4)},
+  osofa:function(g,m,w,d){BUILD.sofa(g,Object.assign({},m,{fabric:m.wood,cushion:m.white,accent:m.accent}),w,d)},
+  lounger:function(g,m,w,d){W(g,m.wood,w,22,d,0,0,0);R(g,m.white,w-6,7,d-6,0,22,0,3);var b=R(g,m.white,w-6,7,70,0,38,-d/2+18,3);b.rotation.x=-0.75},
   umbrella:function(g,m,w){Cy(g,m.dark,2.5,2.5,230,0,0,0,8);Cy(g,m.white,3,w/2,30,0,205,0,20);Cy(g,m.accent,w/2.05,w/2.05,.6,0,206,0,20)},
-  planter:function(g,m,w,d){B(g,m.dark,w,45,d,0,0,0);for(var i=0;i<4;i++){var s=new T.Mesh(new T.IcosahedronGeometry(20,2),m.green);s.position.set(-w/2+w*(i+.5)/4,62,0);s.castShadow=true;s.receiveShadow=false;g.add(s)}}
+  planter:function(g,m,w,d){B(g,m.dark,w,45,d,0,0,0);var L=[];for(var i=0;i<4;i++)L.push([-w/2+w*(i+.5)/4,62+(i%2)*4,0,19]);leaves(g,m,L)}
 };
 function person(g,m,h,sw){
   var legH=h*.47,torsoH=h*.31,headR=h*.066,neck=h*.03,lw=sw*.15;
@@ -403,9 +494,17 @@ function person(g,m,h,sw){
 }
 BUILD.personM=function(g,m){person(g,m,178,50)};BUILD.personF=function(g,m){person(g,m,165,42)};BUILD.child=function(g,m){person(g,m,125,32)};
 function bed(g,m,w,d,n){
-  B(g,m.wood,w,26,d,0,0,0);B(g,m.white,w-6,20,d-12,0,26,5);B(g,m.fabric,w-4,6,d*.6,0,46,d*.18);
-  var pw=n===2?w/2-14:w-30;for(var i=0;i<n;i++)B(g,m.white,pw,12,38,n===2?(i?1:-1)*(w/4):0,46,-d/2+30);
-  B(g,m.accent,w+8,88,8,0,0,-d/2-3);
+  legs(g,m.wood2,w,d,7,6,2.4,1.8,0);
+  W(g,m.wood,w+4,20,d+4,0,7,0);                                   /* מסגרת */
+  R(g,m.white,w-2,20,d-6,0,27,3,6);                                /* מזרן */
+  R(g,m.fabric,w+3,9,d*.6,0,44,d*.2,4);                            /* שמיכה */
+  R(g,m.white,w+3,5,18,0,49,d*.2-d*.3+9,2.5);                      /* קיפול הסדין */
+  R(g,m.accent,w+4,2.6,46,0,53,d/2-44,1.2);                        /* כיסוי לרגלי המיטה */
+  var pw=n===2?w/2-12:w-26;
+  for(var i=0;i<n;i++){var x=n===2?(i?1:-1)*(w/4):0;
+    var p=R(g,m.white,pw,13,40,x,47,-d/2+27,6);p.rotation.x=.3;
+    var q=R(g,m.accent,pw*.62,11,28,x,49,-d/2+50,5);q.rotation.x=.45}
+  R(g,m.accent,w+10,105,9,0,0,-d/2-4.5,4);                          /* גב מרופד */
 }
 function buildFurn(f){
   var def=CAT[f.t],w=f.w||def.w,d=f.d||def.d,g=new T.Group();
