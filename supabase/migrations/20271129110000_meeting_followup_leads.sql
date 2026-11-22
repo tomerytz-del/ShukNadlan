@@ -190,14 +190,15 @@ begin
                         where x.item_id = r.i_id and x.status = 'sent'
                           and x.kind in ('reminder','reminder_day'));
       if not v_skip then
-        insert into public.notifications (agent_id, type, title, body, related_agenda_item_id)
+        insert into public.notifications (agent_id, type, title, body, related_agenda_item_id, suppress_push)
         values (
           r.agent_id,
           'agenda_reminder',
           left('⏳ ' || coalesce(r.full_name, 'הלקוח/ה') || ' עוד לא אישר/ה הגעה', 200),
           left(concat_ws(' · ', r.title, public.agent_agenda_when_text(r.due_at),
                          'התזכורת יצאה ולא נענתה - כדאי להתקשר'), 400),
-          r.i_id);
+          r.i_id,
+          false);
         update public.agent_agenda_client_messages
            set status = 'sent', sent_at = now()
          where id = r.id;
@@ -292,7 +293,7 @@ begin
     else                   '📆 ' || coalesce(v_item.client_name, 'הלקוח/ה') || ' מבקש/ת מועד אחר ' || v_kind
   end;
 
-  insert into public.notifications (agent_id, type, title, body, related_agenda_item_id)
+  insert into public.notifications (agent_id, type, title, body, related_agenda_item_id, suppress_push)
   values (
     v_item.agent_id,
     'agenda_reminder',
@@ -304,7 +305,8 @@ begin
              when 'canceled'   then 'הפריט בוטל ביומן. לקביעת מועד חדש - לחזור ללקוח/ה'
              when 'reschedule' then 'הפגישה עדיין ביומן. כדאי לחזור ללקוח/ה ולתאם'
            end), 400),
-    v_item.id);
+    v_item.id,
+    false);
 
   return jsonb_build_object('ok', true, 'item_id', v_item.id, 'agent_id', v_item.agent_id);
 end;
@@ -362,7 +364,7 @@ begin
     else               '👎 ' || v_name || ': הנכס לא בשבילו/ה'
   end;
 
-  insert into public.notifications (agent_id, type, title, body, related_agenda_item_id)
+  insert into public.notifications (agent_id, type, title, body, related_agenda_item_id, suppress_push)
   values (
     v_item.agent_id,
     'agenda_reminder',
@@ -374,7 +376,8 @@ begin
              when v_item.client_id is null then 'נפתחה משימה לשלוח נכסים אחרים'
              else 'נפתחה משימה לשלוח נכסים אחרים - אפשר לבקש מגבריאלה מיניסייט'
            end), 400),
-    v_item.id);
+    v_item.id,
+    false);
 
   perform public.agent_agenda_add_auto(
     v_item.agent_id,
