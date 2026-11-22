@@ -179,6 +179,7 @@ function envFor(kind){
 var cutPlane=new T.Plane(new T.Vector3(0,-1,0),130);
 
 var world=new T.Group();scene.add(world);
+var CUT_H=125,edgeGroup=null;
 var wallGroup,floorGroup,furnGroup,labelGroup,lampGroup,ceilGroup,planMesh,boxes=[],floorMeshes=[],furnMap={};
 var texCache={};
 var aoTex=null;
@@ -393,7 +394,7 @@ function placeFurn(g,f){g.position.set(f.x*S.scale,0,f.y*S.scale);g.rotation.y=-
 function dispose(g){if(!g)return;g.traverse(function(o){if(o.geometry)o.geometry.dispose()});world.remove(g)}
 var selBox=null;
 function rebuild(){
-  [wallGroup,floorGroup,furnGroup,labelGroup,lampGroup,ceilGroup].forEach(dispose);
+  [wallGroup,floorGroup,furnGroup,labelGroup,lampGroup,ceilGroup,edgeGroup].forEach(dispose);
   if(planMesh){world.remove(planMesh);planMesh=null}
   if(selBox){world.remove(selBox);selBox=null}
   boxes=[];floorMeshes=[];furnMap={};
@@ -414,6 +415,7 @@ function rebuild(){
   MODEL.walls.forEach(function(w){addWall(wallGroup,w)});
   MODEL.solids.forEach(function(q){box(wallGroup,MATS.core,q[0]*s,q[2]*s,0,H,q[1]*s,q[3]*s,true)});
   world.add(wallGroup);
+  buildCutEdges();
   /* ריהוט */
   furnGroup=new T.Group();
   FURN.forEach(function(f){var g=buildFurn(f);furnMap[f.id]=g;furnGroup.add(g)});
@@ -447,8 +449,38 @@ function makeLabel(text,x,z){
   var t=new T.CanvasTexture(cv);t.encoding=T.sRGBEncoding;var sp=new T.Sprite(new T.SpriteMaterial({map:t,depthTest:false,transparent:true}));
   sp.scale.set(tw*0.62,52*0.62,1);sp.position.set(x,45,z);sp.renderOrder=5;return sp;
 }
+/* ראש הקיר החתוך: משטח בגוון כהה מעט וקו מתאר כהה. בלי זה קיר לבן על רצפה בהירה
+   נבלע בזוויות מסוימות, ולא ברור איפה הקיר נגמר (תומר, 22.11.2026) */
+function buildCutEdges(){
+  edgeGroup=new T.Group();
+  var wc=new T.Color().copy(MATS.wall.color);
+  /* המתאר הוא גאומטריה ולא קו: קו של פיקסל אחד נעלם במסך צפוף. משטח כהה בגודל הקיר,
+     ומעליו משטח בגוון הקיר שקטן ב-EDGE מכל צד. הקו הדק נשאר כרצפה למבט רחוק */
+  var EDGE=3;
+  var capM=new T.MeshBasicMaterial({color:wc.clone().multiplyScalar(.74)});
+  var rimM=new T.MeshBasicMaterial({color:0x1d2529});
+  var lineM=new T.LineBasicMaterial({color:0x1d2529});
+  var pts=[];
+  var flat=function(w,d,mat,x,y,z){var c=new T.Mesh(new T.PlaneGeometry(w,d),mat);c.rotation.x=-Math.PI/2;c.position.set(x,y,z);edgeGroup.add(c)};
+  wallGroup.traverse(function(m){
+    if(!m.isMesh||(m.material!==MATS.wall&&m.material!==MATS.core))return;
+    /* במרחב של world (ס"מ) */
+    var gp=m.geometry.parameters,ps=m.position;
+    if(ps.y-gp.height/2>CUT_H-1||ps.y+gp.height/2<CUT_H+1)return;
+    var x1=ps.x-gp.width/2,x2=ps.x+gp.width/2,z1=ps.z-gp.depth/2,z2=ps.z+gp.depth/2,y=CUT_H+.3;
+    if(x2-x1<1||z2-z1<1)return;
+    flat(x2-x1,z2-z1,rimM,(x1+x2)/2,CUT_H,(z1+z2)/2);
+    if(x2-x1>2*EDGE+1&&z2-z1>2*EDGE+1)flat(x2-x1-2*EDGE,z2-z1-2*EDGE,capM,(x1+x2)/2,CUT_H+.15,(z1+z2)/2);
+    pts.push(x1,y,z1,x2,y,z1, x2,y,z1,x2,y,z2, x2,y,z2,x1,y,z2, x1,y,z2,x1,y,z1);
+  });
+  var g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pts,3));
+  edgeGroup.add(new T.LineSegments(g,lineM));
+  edgeGroup.visible=S.cut&&S.mode==='drone';
+  world.add(edgeGroup);
+}
 function applyCut(){
-  cutPlane.constant=S.cut&&S.mode==='drone'?125:100000;
+  cutPlane.constant=S.cut&&S.mode==='drone'?CUT_H:100000;
+  if(edgeGroup)edgeGroup.visible=S.cut&&S.mode==='drone';
   ceilGroup.visible=true;
 }
 
@@ -532,7 +564,7 @@ function stepTween(now){
   var k=clamp((now-tw.t0)/tw.dur,0,1),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
   camera.position.lerpVectors(tw.p0,tw.to.p,e);camera.quaternion.slerpQuaternions(tw.q0,tw.to.q,e);
   camera.fov=tw.f0+(tw.to.fov-tw.f0)*e;camera.updateProjectionMatrix();
-  if(S.mode==='drone'&&tw.v.mode==='fp'&&k>.15)cutPlane.constant=100000;
+  if(S.mode==='drone'&&tw.v.mode==='fp'&&k>.15){cutPlane.constant=100000;if(edgeGroup)edgeGroup.visible=false}
   if(k>=1){var v=tw.v;tw=null;commitView(v)}
 }
 var hintT=null;

@@ -49,6 +49,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   --stage:#cfd8dc; --hud:rgba(248,250,250,.92); --shadow:0 2px 10px rgba(10,30,36,.18);
   --font:'Heebo',system-ui,sans-serif; --display:'Rubik','Heebo',system-ui,sans-serif;
 }
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a1e; --panel:#152329; --ink:#e4eef0; --muted:#97aab1; --line:#27393f;
+  --accent:#3fb6c0; --accent-ink:#06191c; --sun:#f0b24a; --chip:#1d3037; --danger:#ef8c7d;
+  --stage:#1a2b31; --hud:rgba(21,35,41,.92); --shadow:0 2px 10px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a1e; --panel:#152329; --ink:#e4eef0; --muted:#97aab1; --line:#27393f;
+  --accent:#3fb6c0; --accent-ink:#06191c; --sun:#f0b24a; --chip:#1d3037; --danger:#ef8c7d;
+  --stage:#1a2b31; --hud:rgba(21,35,41,.92); --shadow:0 2px 10px rgba(0,0,0,.5); color-scheme:dark}
 html,body{height:100%}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;margin:0;overflow:hidden}
@@ -164,9 +172,6 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
   .grab i{width:38px;height:4px;border-radius:2px;background:var(--line)}
   .grab span{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .head{display:none}
-  /* לעורך: שם הדגם, הפרסום ומצב השמירה נכנסים למגירה הפתוחה */
-  .app:not(.viewer).sheet-open .head{display:block;padding:6px 16px 8px;border-bottom:0}
-  .head p{display:none}
   .tabs{border-bottom:0;padding:0 8px 4px;justify-content:space-around}
   .tab{padding:9px 12px;font-size:14px}
   .body{max-height:0;padding-block:0;overflow:hidden;transition:max-height .28s ease,padding .28s ease}
@@ -174,11 +179,6 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
   .sheet-open .tabs{border-bottom:1px solid var(--line)}
   .sheet-open .body{max-height:min(52dvh,460px);overflow:auto;padding-block:14px 18px}
   .sheet-open .disc{display:block}
-  /* הסגנונות בשורה אחת שנגללת: המגירה נשארת נמוכה, והשינוי נראה בסיור בזמן הבחירה */
-  .styles{display:flex;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;scroll-snap-type:x proximity}
-  .styles::-webkit-scrollbar{display:none}
-  .style{flex:0 0 136px;scroll-snap-align:start}
-  .style small{display:none}
   .seg button,.tg{padding:8px 10px;font-size:13px}
   .info{bottom:calc(var(--sheet) + 10px);max-width:calc(100% - 96px);padding:7px 10px}
   .info span+span{display:none}
@@ -206,8 +206,7 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
 .spin{width:28px;height:28px;border:3px solid var(--chip);border-top-color:var(--accent);border-radius:50%;margin:30px auto 10px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .center{text-align:center;color:var(--muted)}
-a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
-a.btn.pri{color:var(--accent-ink)}
+a.btn{text-decoration:none;display:inline-block}
 .btn[disabled]{opacity:.55;cursor:default}
 </style>
 </head>
