@@ -144,6 +144,12 @@ test("mirrorModel: היפוך כפול מחזיר את המקור, והיפוך 
   assert.deepEqual(m.solids, [[200, 440, 300, 520]]);
   assert.deepEqual(mirrorModel(m), model);
   assert.equal(mirrorSettings({ north: -35, scale: 1 }).north, 35);
+  // הצפון נשאר בטווח, ומראה של מראה אינו מסומן כמראה
+  assert.equal(mirrorSettings({ north: -180 }).north, -180);
+  const once = mirrorSettings({ north: 10 });
+  assert.equal(once.mirrored, true);
+  assert.equal(mirrorSettings(once).mirrored, false);
+  assert.equal(mirrorSettings(once).north, 10);
 });
 
 test("mirrorModel: סיבוב ריהוט מתהפך ומידות נשמרות", () => {
@@ -151,6 +157,24 @@ test("mirrorModel: סיבוב ריהוט מתהפך ומידות נשמרות", 
   model.furniture = [["sofa", 300, 200, 90, 250], ["bed2", 700, 200, 0]];
   const m = mirrorModel(model);
   assert.deepEqual(m.furniture, [["sofa", 700, 200, 270, 250], ["bed2", 300, 200, 0]]);
+});
+
+test("buildModel: פתח שבא אחרי פתח שנזרק נבדק מול האחרון שנשמר", () => {
+  const s = sample();
+  s.walls[0].openings = [
+    { kind: "window", x1: 200, y1: 100, x2: 400, y2: 100 },
+    { kind: "window", x1: 250, y1: 100, x2: 300, y2: 100 },
+    { kind: "door", x1: 320, y1: 100, x2: 380, y2: 100 },
+    { kind: "door", x1: 500, y1: 100, x2: 560, y2: 100 },
+  ];
+  assert.deepEqual(buildModel(s, W, H).model.walls[0].o, [["w", 200, 400], ["d", 500, 560]]);
+});
+
+test("buildModel: שטח שנקרא שגוי נופל לרוחב הדלת, לא לברירת המחדל", () => {
+  // תמונה גדולה ושטח של 16 מ"ר: קנה מידה של 0.18 ס"מ לפיקסל, מחוץ לטווח הסביר
+  const s = sample(); s.dimensions = []; (s as { apartment_sqm: number | null }).apartment_sqm = 16;
+  const r = buildModel(s, 4000, 3200);
+  assert.equal(r.settings.scale_source, "door");
 });
 
 test("isPlanModel: מודל שנבנה עובר, jsonb שנערך ונשבר לא", () => {
@@ -165,13 +189,13 @@ test("imageSize: PNG, JPEG ו-WebP מהכותרת, וקובץ שאינו תמו�
   const pad = (a: number[]) => Uint8Array.from([...a, ...new Array(40).fill(0)]);
   // PNG 1600x1354
   const png = pad([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0x06, 0x40, 0, 0, 0x05, 0x4a]);
-  assert.deepEqual(imageSize(png), { w: 1600, h: 1354 });
+  assert.deepEqual(imageSize(png), { w: 1600, h: 1354, mime: "image/png" });
   // JPEG: מקטע APP0 באורך 16 ואז SOF0 עם גובה 1354 ורוחב 1600
   const jpg = pad([0xff, 0xd8, 0xff, 0xe0, 0, 16, ...new Array(14).fill(0), 0xff, 0xc0, 0, 17, 8, 0x05, 0x4a, 0x06, 0x40]);
-  assert.deepEqual(imageSize(jpg), { w: 1600, h: 1354 });
+  assert.deepEqual(imageSize(jpg), { w: 1600, h: 1354, mime: "image/jpeg" });
   // WebP מורחב (VP8X): רוחב וגובה פחות אחת, 24 ביט little-endian
   const webp = pad([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, 0, 0, 0, 0, 0x3f, 0x06, 0, 0x49, 0x05, 0]);
-  assert.deepEqual(imageSize(webp), { w: 1600, h: 1354 });
+  assert.deepEqual(imageSize(webp), { w: 1600, h: 1354, mime: "image/webp" });
   assert.equal(imageSize(pad([1, 2, 3, 4])), null);
   assert.equal(imageSize(Uint8Array.from([0xff, 0xd8])), null);
 });

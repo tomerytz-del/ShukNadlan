@@ -123,21 +123,21 @@ export function validImageSize(w: number, h: number): boolean {
  * מהבייטים ולא מהדפדפן: מודל הראייה מחזיר קואורדינטות ביחס לקובץ שראה, ומידות שגויות
  * מהלקוח היו מעוותות כל קיר בלי שום שגיאה.
  */
-export function imageSize(b: Uint8Array): { w: number; h: number } | null {
+export function imageSize(b: Uint8Array): { w: number; h: number; mime: "image/png" | "image/jpeg" | "image/webp" } | null {
   const u16 = (i: number) => (b[i] << 8) | b[i + 1];
   const u32 = (i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
   const le16 = (i: number) => b[i] | (b[i + 1] << 8);
   const le24 = (i: number) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
   if (b.length < 30) return null;
   // PNG: החתימה, ואז IHDR עם רוחב וגובה
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { w: u32(16), h: u32(20) };
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { w: u32(16), h: u32(20), mime: "image/png" };
   // JPEG: עוברים על המקטעים עד SOF (C0-CF, חוץ מ-C4, C8, CC)
   if (b[0] === 0xff && b[1] === 0xd8) {
     let i = 2;
     while (i + 9 < b.length) {
       if (b[i] !== 0xff) { i++; continue; }
       const m = b[i + 1];
-      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u16(i + 7), h: u16(i + 5) };
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u16(i + 7), h: u16(i + 5), mime: "image/jpeg" };
       if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
       i += 2 + u16(i + 2);
     }
@@ -146,11 +146,12 @@ export function imageSize(b: Uint8Array): { w: number; h: number } | null {
   // WebP: RIFF....WEBP ואז VP8 (lossy), VP8L (lossless) או VP8X (extended)
   if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) {
     const tag = String.fromCharCode(b[12], b[13], b[14], b[15]);
-    if (tag === "VP8X") return { w: le24(24) + 1, h: le24(27) + 1 };
-    if (tag === "VP8 ") return { w: le16(26) & 0x3fff, h: le16(28) & 0x3fff };
+    const mime = "image/webp" as const;
+    if (tag === "VP8X") return { w: le24(24) + 1, h: le24(27) + 1, mime };
+    if (tag === "VP8 ") return { w: le16(26) & 0x3fff, h: le16(28) & 0x3fff, mime };
     if (tag === "VP8L") {
       const v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24);
-      return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 };
+      return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1, mime };
     }
   }
   return null;
@@ -247,7 +248,9 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
         os.push([k === "door" ? "d" : k === "sliding" ? "s" : "w", from, to]);
       }
       os.sort((p, q) => p[1] - q[1]);
-      const clean = os.filter((o, i) => i === 0 || o[1] >= os[i - 1][2]);
+      // מול הפתח האחרון **שנשמר**, לא מול הקודם ברשימה: פתח שבא אחרי אחד שנזרק נבדק מול מה שבאמת נשאר
+      const clean: Opening[] = [];
+      for (const o of os) if (!clean.length || o[1] >= clean[clean.length - 1][2]) clean.push(o);
       if (clean.length) wall.o = clean;
     }
     walls.push(wall);
@@ -273,23 +276,27 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     const ratio = cm / px;
     if (ratio > 0.2 && ratio < 12) ratios.push(ratio);
   }
-  let scale = 0;
+  // כל מקור נבדק בטווח לפני שהוא מתקבל: שטח שנקרא שגוי (1,200 במקום 120) נופל לרוחב הדלת, לא לברירת המחדל
+  const sane = (v: number) => v > 0.2 && v < 12;
+  let scale = 1.5;
   let scaleSource: PlanSettings["scale_source"] = "default";
+  const doors = walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d").map((o) => o[2] - o[1]));
+  const px2 = rooms.filter((r) => !r.bal && !r.svc)
+    .reduce((s, r) => s + (r.r[0][2] - r.r[0][0]) * (r.r[0][3] - r.r[0][1]), 0);
+  const byArea = declaredArea !== null && declaredArea > 15 && declaredArea < 1500 && px2 > 0
+    ? Math.sqrt(declaredArea * 10000 / px2) : 0;
+  const byDoor = doors.length ? 85 / median(doors) : 0;
   if (ratios.length) {
     scale = median(ratios);
     scaleSource = "dimensions";
     if (ratios.length >= 2 && Math.max(...ratios) / Math.min(...ratios) > 1.25) checks.push({ code: "scale_inconsistent" });
-  } else if (declaredArea !== null && declaredArea > 15 && declaredArea < 1500) {
-    const px2 = rooms.filter((r) => !r.bal && !r.svc)
-      .reduce((s, r) => s + (r.r[0][2] - r.r[0][0]) * (r.r[0][3] - r.r[0][1]), 0);
-    if (px2 > 0) { scale = Math.sqrt(declaredArea * 10000 / px2); scaleSource = "area"; }
+  } else if (sane(byArea)) {
+    scale = byArea;
+    scaleSource = "area";
+  } else if (sane(byDoor)) {
+    scale = byDoor;
+    scaleSource = "door";
   }
-  if (!scale) {
-    const doors = walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d").map((o) => o[2] - o[1]));
-    if (doors.length) { scale = 85 / median(doors); scaleSource = "door"; }
-  }
-  // האיפוס נחוץ: ענף השטח או הדלת יכול לקבוע מקור ועדיין לתת ערך מחוץ לטווח
-  if (!(scale > 0.2 && scale < 12)) { scale = 1.5; scaleSource = "default"; }
   if (scaleSource !== "dimensions") checks.push({ code: "scale_estimated", source: scaleSource });
 
   const northRaw = num(raw.north_deg);
@@ -367,7 +374,12 @@ export function mirrorModel(m: PlanModel): PlanModel {
   };
 }
 
-/** היפוך של הגדרות שתלויות בכיוון: הצפון מתהפך יחד עם התוכנית. */
-export function mirrorSettings<T extends { north?: number }>(s: T): T {
-  return typeof s.north === "number" ? { ...s, north: -s.north } : { ...s };
+/**
+ * היפוך של הגדרות שתלויות בכיוון: הצפון מתהפך יחד עם התוכנית (ונשאר בטווח -180 עד 179),
+ * והדגל mirrored מתחלף: מראה של מראה חוזר לכיוון המקורי.
+ */
+export function mirrorSettings<T extends { north?: number; mirrored?: boolean }>(s: T): T {
+  const out = { ...s, mirrored: !s.mirrored };
+  if (typeof s.north === "number") out.north = norm360(-s.north + 180) - 180;
+  return out;
 }

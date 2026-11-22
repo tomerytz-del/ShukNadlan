@@ -13,7 +13,7 @@ import {
 // דגם דירה תלת-ממדי: רכישה, קריאת התוכנית והיפוך מראה (docs/plan-3d-tour.md)
 //
 // ‏POST עם JWT של סוכן/ת או של יזם. שלוש פעולות:
-//   create   { owner_kind, name, project_id?, image_base64, image_mime }
+//   create   { owner_kind, name, project_id?, image_base64 }
 //   mirror   { owner_kind, source_model_id, name? }
 //   plan_url { model_id }   - כתובת חתומה לתוכנית המקור, לבעלים בלבד
 //
@@ -70,10 +70,11 @@ async function readPlan(apiKey: string, mime: string, b64: string, agentId: stri
   let res: Response;
   try {
     res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${PLAN_MODEL}:generateContent?key=${apiKey}`,
+      // המפתח בכותרת ולא בכתובת: הודעת שגיאה של fetch כוללת את הכתובת המלאה, והיא נכתבת ללוג
+      `https://generativelanguage.googleapis.com/v1beta/models/${PLAN_MODEL}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         signal: AbortSignal.timeout(READ_TIMEOUT_MS),
         body: JSON.stringify({
           contents: [{ parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: PLAN_READ_PROMPT }] }],
@@ -133,10 +134,16 @@ async function completeModel(sb: Sb, modelId: string, model: unknown, settings: 
  *              ואין מה להחזיר: זו הצלחה. בלי המצב הזה היינו מבטיחים החזר שה-cron לא ייתן.
  *   unknown  - ההחזר לא אושר אחרי שני ניסיונות (הפונקציה אידמפוטנטית). ה-cron יחזיר.
  */
-async function failAndRespond(sb: Sb, charged: Charged, code: string, reason: string, status: number): Promise<Response> {
+async function failAndRespond(sb: Sb, charged: Charged, code: string, status: number, sourcePath?: string): Promise<Response> {
+  // התוכנית שעלתה לדגם שלא נוצר אינה נשמרת אצלנו. מאמץ בלבד: כישלון כאן אינו מעכב את ההחזר
+  if (sourcePath) {
+    const { error } = await sb.storage.from(BUCKET).remove([sourcePath]);
+    if (error) console.error("plan-model: remove source", charged.modelId, error.message);
+  }
   let refunded: number | null = null;
   for (let attempt = 0; attempt < 2 && refunded === null; attempt++) {
-    const { data, error } = await sb.rpc("fail_plan_model", { p_model_id: charged.modelId, p_reason: reason.slice(0, 300) });
+    // ‏refund_reason נקרא על ידי הבעלים (RLS): נכתב בו קוד בלבד, לא טקסט שגיאה גולמי
+    const { data, error } = await sb.rpc("fail_plan_model", { p_model_id: charged.modelId, p_reason: code });
     if (!error && data?.success) refunded = Number(data.refunded ?? 0);
     else if (!error && data?.error === "already_ready") return json({ ok: true, model_id: charged.modelId, ...charged.receipt });
     else console.error("plan-model: fail_plan_model", charged.modelId, attempt, error?.message ?? data?.error);
@@ -144,9 +151,10 @@ async function failAndRespond(sb: Sb, charged: Charged, code: string, reason: st
   const what = code === "plan_unreadable"
     ? "לא הצלחנו לקרוא את התוכנית. כדאי להעלות תמונה חדה וישרה של תוכנית דירה אחת."
     : "יצירת הדגם נכשלה.";
+  // ‏0 = fail_plan_model כבר החזירה קודם (ניסיון ראשון שתשובתו אבדה, או ה-cron): הכסף חזר, וצריך לומר את זה
   const money = refunded === null
     ? " החיוב יוחזר לארנק אוטומטית בתוך חצי שעה."
-    : refunded > 0 ? ` ₪${refunded} הוחזרו לארנק.` : "";
+    : refunded > 0 ? ` ₪${refunded} הוחזרו לארנק.` : " החיוב כבר הוחזר לארנק.";
   return json({ error: code, detail: what + money, refunded, refund_pending: refunded === null }, status);
 }
 
@@ -213,7 +221,8 @@ Deno.serve(async (req: Request) => {
     if (!head) return json({ error: "not_found" }, 404);
 
     const charged = await startModel(supabase, {
-      p_owner_kind: kind, p_owner_id: ownerId, p_name: name || `${head.name} (מראה)`,
+      // השם במסד עד 120 תווים: מקצרים את המקור לפני הסיומת
+      p_owner_kind: kind, p_owner_id: ownerId, p_name: name || `${String(head.name).slice(0, 110)} (מראה)`,
       p_project_id: kind === "developer" ? head.project_id : null, p_mirror_of: sourceId,
     });
     if (charged instanceof Response) return charged;
@@ -224,13 +233,13 @@ Deno.serve(async (req: Request) => {
       if (srcErr) throw new Error(`source: ${srcErr.message}`);
       // הבעלים עורך/ת את model מהדפדפן, ולכן לא סומכים על המבנה לפני שהופכים אותו
       if (!isPlanModel(src.model)) throw new Error("source model is malformed");
-      const settings = { ...mirrorSettings((src.settings ?? {}) as { north?: number }), mirrored: true };
+      const settings = mirrorSettings((src.settings ?? {}) as { north?: number; mirrored?: boolean });
       // תבניות התאורה אינן תלויות בכיוון ועוברות כמו שהן. זוויות הצפייה כן, ולכן נשמרות מחדש בעורך
       await completeModel(supabase, charged.modelId, mirrorModel(src.model), settings, src.lights ?? []);
       return json({ ok: true, model_id: charged.modelId, ...charged.receipt });
     } catch (e) {
       console.error("plan-model: mirror", charged.modelId, errText(e));
-      return failAndRespond(supabase, charged, "plan_mirror_failed", `mirror: ${errText(e)}`, 500);
+      return failAndRespond(supabase, charged, "plan_mirror_failed", 500);
     }
   }
 
@@ -240,10 +249,8 @@ Deno.serve(async (req: Request) => {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return json({ error: "gemini_not_configured" }, 500);
 
-  const mime = typeof body.image_mime === "string" ? body.image_mime : "";
   const b64 = typeof body.image_base64 === "string" ? body.image_base64.replace(/^data:[^,]*,/, "") : "";
   if (!name || !b64) return json({ error: "missing_fields" }, 400);
-  if (!MIME_EXT[mime]) return json({ error: "bad_image_type", detail: "אפשר להעלות תמונת JPG, PNG או WebP." }, 400);
   if (b64.length > MAX_B64) return json({ error: "image_too_large", detail: "התמונה גדולה מדי. עד 6MB." }, 400);
   let bytes: Uint8Array;
   try {
@@ -251,8 +258,10 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: "bad_image_type", detail: "קובץ התמונה אינו תקין." }, 400);
   }
+  // הסוג והמידות מהבייטים, לא ממה שהדפדפן הצהיר: קובץ ששמו שונה היה מחויב ואז נדחה אצל Gemini
   const size = imageSize(bytes);
-  if (!size) return json({ error: "bad_image_type", detail: "קובץ התמונה אינו תקין." }, 400);
+  if (!size) return json({ error: "bad_image_type", detail: "אפשר להעלות תמונת JPG, PNG או WebP." }, 400);
+  const mime = size.mime;
   if (!validImageSize(size.w, size.h)) {
     return json({ error: "bad_image_size", detail: "התמונה קטנה או גדולה מדי. הרוחב והגובה בין 200 ל-8,000 פיקסלים." }, 400);
   }
@@ -264,8 +273,8 @@ Deno.serve(async (req: Request) => {
   if (charged instanceof Response) return charged;
 
   // מכאן הכסף כבר ירד: כל יציאה בלי דגם מוכן עוברת בהחזר
+  const path = `${kind}/${ownerId}/${charged.modelId}.${MIME_EXT[mime]}`;
   try {
-    const path = `${kind}/${ownerId}/${charged.modelId}.${MIME_EXT[mime]}`;
     const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
     if (upErr) throw new Error(`upload: ${upErr.message}`);
     const { data: marked, error: markErr } = await supabase.rpc("mark_plan_model_reading", {
@@ -280,6 +289,6 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const code = e instanceof PlanReadError ? e.code : "plan_read_failed";
     console.error("plan-model: create", charged.modelId, code, errText(e));
-    return failAndRespond(supabase, charged, code, `${code}: ${errText(e)}`, code === "plan_unreadable" ? 422 : 502);
+    return failAndRespond(supabase, charged, code, code === "plan_unreadable" ? 422 : 502, path);
   }
 });

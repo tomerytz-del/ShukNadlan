@@ -240,7 +240,9 @@ create policy "plan_model_charges owner read" on public.plan_model_charges
 -- ‏revoke all קודם: ברירת המחדל של Supabase נותנת ל-authenticated הרשאה ישירה על הכול,
 -- וגרנט חלקי אחריה משאיר INSERT ו-TRUNCATE (הסקיל new-migration, כלל 4א)
 revoke all on table public.plan_models from public, anon, authenticated;
-grant select on table public.plan_models to anon;
+-- הצופה האנונימי מקבל רק מה שהסיור צריך. חיוב, מונה הדמיות, בעלים ונתיב התוכנית אינם שלו
+grant select (id, name, status, published, project_id, model, settings, views, lights, updated_at)
+  on table public.plan_models to anon;
 grant select on table public.plan_models to authenticated;
 grant update (name, model, settings, views, lights, published) on table public.plan_models to authenticated;
 grant select, insert, update, delete on table public.plan_models to service_role;
