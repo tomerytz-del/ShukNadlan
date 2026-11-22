@@ -99,7 +99,6 @@ async function openModel(){
   if(+st.declared_balcony_sqm>0)sub.push('מרפסת '+st.declared_balcony_sqm+' מ"ר');
   $('mSub').textContent=sub.join(', ');
   $('grabTxt').textContent=m.name+' · הדמיה להמחשה בלבד';
-  $('nowSub').textContent=m.name+' · הדמיה להמחשה בלבד';
   if(mine&&!edit){
     var a=document.createElement('a');a.className='back';a.href='/tour3d?m='+encodeURIComponent(m.id)+'&edit=1';a.textContent='עריכת הסיור';
     $('mSub').after(a);

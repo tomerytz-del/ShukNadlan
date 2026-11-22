@@ -746,7 +746,7 @@ function rebuild(){
   wallGroup=new T.Group();
   MODEL.walls.forEach(function(w){addWall(wallGroup,w)});
   MODEL.solids.forEach(function(q){box(wallGroup,MATS.core,q[0]*s,q[2]*s,0,H,q[1]*s,q[3]*s,true)});
-  wetTiles(wallGroup);
+  wetTiles(wallGroup);collectWindows();
   if(STYLES[S.style].flat)wallOutlines(wallGroup);
   world.add(wallGroup);
   buildCutEdges();
@@ -770,7 +770,7 @@ function rebuild(){
   world.add(planMesh);
   }
   var c=center();sun.target.position.set(c.x,0,c.z);
-  applyCut();updateSun();refreshLists();
+  applyCut();ceilShadow();updateSun();refreshLists();
   if(selId&&furnMap[selId])showSel();
 }
 var labelFont='500 30px Heebo, Rubik, sans-serif';
@@ -804,10 +804,10 @@ function buildCutEdges(){
     var top=ps.y+gp.height/2,L;
     if(S.cut){if(ps.y-gp.height/2>CUT_H-1||top<CUT_H+1)return;L=CUT_H}
     else{if(top<S.ceil-1)return;L=top+.1}
-    var x1=ps.x-gp.width/2,x2=ps.x+gp.width/2,z1=ps.z-gp.depth/2,z2=ps.z+gp.depth/2,y=L+.3;
+    var x1=ps.x-gp.width/2,x2=ps.x+gp.width/2,z1=ps.z-gp.depth/2,z2=ps.z+gp.depth/2,y=L+2.2;
     if(x2-x1<1||z2-z1<1)return;
-    flat(x2-x1,z2-z1,rimM,(x1+x2)/2,L,(z1+z2)/2);
-    if(x2-x1>2*EDGE+1&&z2-z1>2*EDGE+1)flat(x2-x1-2*EDGE,z2-z1-2*EDGE,capM,(x1+x2)/2,L+.15,(z1+z2)/2);
+    flat(x2-x1,z2-z1,rimM,(x1+x2)/2,L+.6,(z1+z2)/2);
+    if(x2-x1>2*EDGE+1&&z2-z1>2*EDGE+1)flat(x2-x1-2*EDGE,z2-z1-2*EDGE,capM,(x1+x2)/2,L+1.8,(z1+z2)/2);   /* מרווח של ס"מ: פחות מזה מהבהב בפסים במבט רחוק (z-fighting) */
     pts.push(x1,y,z1,x2,y,z1, x2,y,z1,x2,y,z2, x2,y,z2,x1,y,z2, x1,y,z2,x1,y,z1);
   });
   var g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pts,3));
@@ -825,6 +825,34 @@ function applyCut(){
 /* ================= שמש ותאורה ================= */
 var lastSun={el:30,az:180};
 function mixC(a,b,t){return new T.Color(a).lerp(new T.Color(b),clamp(t,0,1))}
+/* קרני שמש: אלומה שקופה מכל חלון שפונה לשמש אל כתם האור שלו על הרצפה. בלי זה רואים רק את
+   הכתם, ובמבט ראשון לא מרגישים מאיפה האור בא (תומר, 22.11.2026). WINS נבנה ב-rebuild */
+var WINS=[],beamMesh=null;
+function collectWindows(){
+  WINS=[];var s=S.scale;
+  var inside=function(x,y){return MODEL.rooms.some(function(r){return !r.bal&&r.r.some(function(q){return x>q[0]&&x<q[2]&&y>q[1]&&y<q[3]})})};
+  MODEL.walls.forEach(function(w){if(w.t!=='ext')return;var hz=w.h!==undefined,c=hz?w.h:w.v;
+    (w.o||[]).forEach(function(o){if(o[0]!=='w'&&o[0]!=='s')return;var m=(o[1]+o[2])/2;
+      var a=hz?inside(m,c+14):inside(c+14,m),b=hz?inside(m,c-14):inside(c-14,m);if(a===b)return;
+      var y0=o[0]==='w'?S.sill:2,y1=o[0]==='w'?S.sill+S.winH:S.doorH;
+      /* n: הנורמל פנימה. הקרן נכנסת רק כשהאור נע בכיוון הזה */
+      WINS.push({hz:hz,c:c*s,a:o[1]*s,b:o[2]*s,y0:y0,y1:y1,n:a?1:-1})})});
+}
+function sunBeams(L,warm){
+  if(beamMesh){world.remove(beamMesh);beamMesh.geometry.dispose();beamMesh=null}
+  if(!L||!WINS.length)return;
+  var pos=[],idx=[],MAXD=520;
+  WINS.forEach(function(w){
+    var into=(w.hz?L.z:L.x)*w.n;if(into<.12)return;
+    var P=[[w.a,w.y1],[w.b,w.y1],[w.b,w.y0],[w.a,w.y0]].map(function(e){return w.hz?[e[0],e[1],w.c]:[w.c,e[1],e[0]]});
+    var Q=P.map(function(v){var t=v[1]/(-L.y),h=Math.hypot(L.x,L.z)*t;if(h>MAXD)t*=MAXD/h;return [v[0]+L.x*t,Math.max(1.5,v[1]+L.y*t),v[2]+L.z*t]});
+    var b=pos.length/3;P.concat(Q).forEach(function(v){pos.push(v[0],v[1],v[2])});
+    [[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]].forEach(function(f){idx.push(b+f[0],b+f[1],b+f[2],b+f[0],b+f[2],b+f[3])})});
+  if(!pos.length)return;
+  var g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(idx);
+  beamMesh=new T.Mesh(g,new T.MeshBasicMaterial({color:mixC(0xffb066,0xfff1cf,warm),transparent:true,opacity:.055,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide,fog:false}));
+  beamMesh.renderOrder=4;world.add(beamMesh);
+}
 function updateSun(){
   var ll=CITIES[S.city]||CITIES['עפולה'];
   var p=sunPos(ll[0],ll[1],S.date,S.time);lastSun=p;
@@ -834,15 +862,17 @@ function updateSun(){
   sun.target.position.set(c.x,0,c.z);
   var up=clamp(Math.sin(el)*3,0,1);
   sun.visible=p.el>0.3;
-  sun.intensity=0.9*Math.pow(clamp(Math.sin(el),0,1),0.45);
+  /* שמש חזקה ביחס למילוי: כתמי האור שנכנסים מהחלונות הם מה שמרגישים כשמזיזים את השעה */
+  sun.intensity=1.9*Math.pow(clamp(Math.sin(el),0,1),0.45);
   sun.color.copy(mixC(0xff9a4d,0xfff4e0,clamp(p.el/22,0,1)));
   var dayT=clamp((p.el+6)/14,0,1);
   /* מילוי אחיד חזק: בלי זה קיר מוצל וקיר מואר נראים כשני צבעים שונים */
-  hemi.intensity=0.08+0.2*dayT;amb.intensity=0.05+0.36*dayT;
+  hemi.intensity=0.08+0.2*dayT;amb.intensity=0.05+0.27*dayT;
   hemi.color.copy(mixC(0x2a3a5c,0xdfeeff,dayT));
   var sky=mixC('#0d1626','#cfe3ee',dayT);
   if(p.el>-4&&p.el<10)sky.lerp(new T.Color('#f0c79a'),0.45*(1-Math.abs(p.el-3)/7));
   scene.background=sky;
+  sunBeams(p.el>2?new T.Vector3(-dx*Math.cos(el),-Math.sin(el),-dz*Math.cos(el)):null,clamp(p.el/22,0,1));
   var ek=p.el>8?'day':p.el>-3?'dusk':'night';try{var ev=envFor(ek);if(scene.environment!==ev)scene.environment=ev}catch(err){scene.environment=null}
   renderer.toneMappingExposure=p.el>8?0.95:p.el>-3?0.9:0.85;
   ground.material.color.copy(mixC('#161d1c','#b9c3bf',dayT).convertSRGBToLinear());
@@ -897,10 +927,14 @@ function commitView(v){
   S.mode=v.mode;if(v.mode==='fp')S.fp=Object.assign({},v.fp);else S.drone=Object.assign({},v.drone);
   syncMode();applyCut();applyCamera();
 }
+/* התקרה מטילה צל רק במבט ראשון. במבט מלמעלה היא שקופה, ואם היא מטילה צל כל הדירה אפורה
+   ושטוחה והשמש לא מורגשת; בלי הצל שלה הקירות מטילים צללים שזזים עם השעה */
+function ceilShadow(){if(ceilGroup)ceilGroup.children.forEach(function(c){c.castShadow=S.mode==='fp'})}
 function syncMode(){
   $('mDrone').setAttribute('aria-pressed',S.mode==='drone');$('mFp').setAttribute('aria-pressed',S.mode==='fp');
   labelGroup.visible=S.labels&&S.mode==='drone';
   $('stage').dataset.mode=S.mode;
+  ceilShadow();
   if(S.mode==='fp'){try{canvas.focus({preventScroll:true})}catch(e){}}else{if(document.pointerLockElement)document.exitPointerLock();if(marker)marker.visible=false}
   $('joy').classList.toggle('on',S.mode==='fp'&&matchMedia('(pointer:coarse)').matches);
   showHint();
@@ -1355,7 +1389,8 @@ var nowT=0,nowTxt='';
 function nowLabel(t){
   if(t-nowT<250)return;nowT=t;var txt=OPTS.title||'';
   if(S.mode==='fp'){var x=S.fp.x/S.scale,y=S.fp.z/S.scale,r=MODEL.rooms.filter(function(r){return r.r.some(function(q){return x>=q[0]&&x<=q[2]&&y>=q[1]&&y<=q[3]})})[0];if(r)txt=r.name}
-  if(txt!==nowTxt){nowTxt=txt;$('nowRoom').textContent=txt}
+  if(txt!==nowTxt){nowTxt=txt;$('nowRoom').textContent=txt;
+    $('nowSub').textContent=(S.mode==='fp'&&OPTS.title?OPTS.title+' · ':'')+'הדמיה להמחשה בלבד'}
 }
 function drawMini(){
   if(S.mode!=='fp')return;
