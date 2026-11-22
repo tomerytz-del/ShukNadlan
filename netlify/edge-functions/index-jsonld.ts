@@ -15,6 +15,18 @@ const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
+/* ‏שוק ברירת המחדל של /agencies כשאין בחירה שמורה. סורק מגיע בלי
+   localStorage, ו-CityContext נופל ל-afula-emek (assets/markets.js). */
+const DEFAULT_MARKET = "afula-emek";
+/* ‏משרד ההדגמה. הדף אינו מסנן לפי מזהה; הוא נופל גם כי אין בו סוכן/ת וגם
+   כי העיר שלו אינה בשוק. כאן הוא יורד במפורש, גם אם שני אלה ישתנו. */
+const DEMO_AGENCY_ID = "cf863e10-c25d-41ed-8b22-d6899a56e95d";
+const DEMO_AGENCY_SLUG = "demo-office-play-review";
+/* ‏אותן תקרות כמו agencies.html: חברי צוות לסינון "יש מישהו פעיל" (1,000)
+   ואזורי פעילות (2,000). ערי השוק נקראות בעמודים, כמו MarketScope.spec. */
+const STAFF_LIMIT = 1000;
+const MARKET_MEMBER_LIMIT = 2000;
+const CITY_PAGE = 1000;
 
 type Row = Record<string, unknown>;
 
@@ -49,7 +61,8 @@ const PAGES: Page[] = [
     name: "משרדי תיווך בעמק יזרעאל",
     aboutCity: false,
     about: { "@type": "AdministrativeArea", name: "עמק יזרעאל" },
-    query: "agencies?select=slug,name&slug=not.is.null&order=name.asc&limit=1000",
+    /* ‏לא נקרא: הרשימה נבנית ב-loadDefaultMarketAgencies, באותו סינון של הדף. */
+    query: "",
     href: (row) => `/agency?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.name || "").trim(),
     itemType: "RealEstateAgent",
@@ -148,6 +161,116 @@ async function rowsOf(query: string): Promise<{ ok: true; rows: Row[]; total: nu
   }
 }
 
+function stringsOf(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((s) => typeof s === "string" && s.length > 0) as string[];
+}
+
+function isDemoOffice(row: Row): boolean {
+  return String(row.id || "") === DEMO_AGENCY_ID || String(row.slug || "") === DEMO_AGENCY_SLUG;
+}
+
+/* ‏MarketScope.inMarket לשוק ברירת המחדל: exclude של ערי שוק אחר, ומשרד
+   שאחד מחבריו בחר את afula-emek נכנס גם אם העיר שלו במקום אחר. בלי spec
+   (רשימת הערים האחרות ריקה) אין סינון עיר, כמו ב-spec() של הדף. */
+function inDefaultMarket(
+  exclude: Set<string> | null,
+  cityId: unknown,
+  slugs: string[],
+): boolean {
+  if (slugs.includes(DEFAULT_MARKET)) return true;
+  if (!exclude) return true;
+  if (cityId == null || cityId === "") return true;
+  return !exclude.has(String(cityId));
+}
+
+/* ‏אותו סדר כמו agencies.html: קודם "יש סוכן/ת פעיל/ה" כשהשליפה שלמה
+   (פחות מ-STAFF_LIMIT), ואז inMarket. כשל בשליפת הצוות (staff === null)
+   אינו מסנן, כמו allSettled שנכשל. כשל באזורי הפעילות (marketMembers === null)
+   משאיר רק את עיר המשרד, כמו ה-catch של memberMarkets. */
+export function filterDefaultMarketOffices(
+  offices: Row[],
+  cities: Row[],
+  staff: Row[] | null,
+  marketMembers: Row[] | null,
+): Row[] {
+  const excludeIds = cities
+    .filter((c) => c.market_slug !== DEFAULT_MARKET && c.city_id)
+    .map((c) => String(c.city_id));
+  const exclude = excludeIds.length ? new Set(excludeIds) : null;
+  const slugsByAgency = new Map<string, string[]>();
+  for (const member of marketMembers || []) {
+    const slugs = stringsOf(member.service_markets);
+    if (!slugs.length || !member.agency_id) continue;
+    const id = String(member.agency_id);
+    const cur = slugsByAgency.get(id) || [];
+    for (const slug of slugs) if (!cur.includes(slug)) cur.push(slug);
+    slugsByAgency.set(id, cur);
+  }
+  const membersComplete = staff !== null && staff.length < STAFF_LIMIT;
+  const staffed = new Set(
+    (staff || [])
+      .filter((m) => m.active !== false && m.agency_id)
+      .map((m) => String(m.agency_id)),
+  );
+  return offices.filter((office) => {
+    if (isDemoOffice(office)) return false;
+    if (membersComplete && !staffed.has(String(office.id || ""))) return false;
+    const slugs = slugsByAgency.get(String(office.id || "")) || [];
+    return inDefaultMarket(exclude, office.city_id, slugs);
+  });
+}
+
+async function rest(path: string): Promise<Row[] | undefined> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return Array.isArray(data) ? data as Row[] : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ‏עמודי market_cities_public, כמו MarketScope.spec: PostgREST חותך ב-1,000. */
+async function marketCities(): Promise<Row[] | undefined> {
+  const all: Row[] = [];
+  for (let offset = 0; offset < CITY_PAGE * 20; offset += CITY_PAGE) {
+    const page = await rest(
+      `market_cities_public?select=city_id,market_slug&limit=${CITY_PAGE}&offset=${offset}`,
+    );
+    if (!page) return undefined;
+    all.push(...page);
+    if (page.length < CITY_PAGE) return all;
+  }
+  return all;
+}
+
+/* ‏כשל בשליפת המשרדים או במיפוי הערים: אין רשימה. לא מפרסמים את כל המשרדים
+   תחת שם האזור, ולא שומרים את זה במטמון (הקריא ב-handler). */
+async function loadDefaultMarketAgencies(): Promise<{ ok: true; rows: Row[]; total: number } | { ok: false }> {
+  const [offices, staff, marketMembers, cities] = await Promise.all([
+    rest("agencies?select=id,slug,name,city_id&slug=not.is.null&order=name.asc&limit=1000"),
+    rest(`agency_members_public?select=agency_id,role,phone_e164,active&limit=${STAFF_LIMIT}`),
+    rest(`agency_members_public?select=id,agency_id,service_markets&limit=${MARKET_MEMBER_LIMIT}`),
+    marketCities(),
+  ]);
+  if (!offices || !cities) return { ok: false };
+  const rows = filterDefaultMarketOffices(offices, cities, staff ?? null, marketMembers ?? null);
+  return { ok: true, rows, total: rows.length };
+}
+
 function graph(page: Page, rows: Row[], total: number): Record<string, unknown> {
   const url = `${SITE}${page.path}`;
   const items: Record<string, unknown>[] = [];
@@ -216,7 +339,7 @@ export default async function handler(request: Request, context: Context) {
   const passthrough = () => new Response(html, { status: res.status, headers });
   if (html.includes("CollectionPage")) return passthrough();
 
-  const got = await rowsOf(page.query);
+  const got = page.path === "/agencies" ? await loadDefaultMarketAgencies() : await rowsOf(page.query);
   if (!got.ok) return passthrough();
 
   const json = JSON.stringify(graph(page, got.rows, got.total)).replace(/</g, "\\u003c");
