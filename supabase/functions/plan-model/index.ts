@@ -3,16 +3,17 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/projects.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { geminiRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { base64ToBytes } from "../_shared/visualization.ts";
 import {
-  buildModel, mirrorModel, mirrorSettings, parsePlanReading, PLAN_READ_PROMPT, PlanReadError,
-  type PlanModel,
+  buildModel, imageSize, isPlanModel, mirrorModel, mirrorSettings, parsePlanReading, PLAN_READ_PROMPT,
+  PlanReadError, validImageSize,
 } from "../_shared/plan-model.ts";
 
 // ============================================================================
 // דגם דירה תלת-ממדי: רכישה, קריאת התוכנית והיפוך מראה (docs/plan-3d-tour.md)
 //
 // ‏POST עם JWT של סוכן/ת או של יזם. שלוש פעולות:
-//   create   { owner_kind, name, project_id?, image_base64, image_mime, img_w, img_h }
+//   create   { owner_kind, name, project_id?, image_base64, image_mime }
 //   mirror   { owner_kind, source_model_id, name? }
 //   plan_url { model_id }   - כתובת חתומה לתוכנית המקור, לבעלים בלבד
 //
@@ -21,14 +22,17 @@ import {
 //      והזכאות (סוכן/ת: Elite; יזם: חשבון פעיל) נקבעים במסד, לא כאן ולא בדפדפן.
 //   2. קריאת התוכנית במודל ראייה ובניית המודל.
 //   3. כל כישלון אחרי החיוב מחזיר את הכסף ב-fail_plan_model, והתשובה אומרת מה קרה
-//      לכסף. אם גם ההחזר נכשל, plan_models_refund_stuck (cron) מחזיר בתוך חצי שעה,
+//      לכסף. אם ההחזר לא אושר, plan_models_refund_stuck (cron) מחזיר בתוך חצי שעה,
 //      והתשובה אומרת את זה ולא "לא בוצע חיוב".
 //
 // מה שנבדק **לפני** החיוב: שהמפתח של Gemini מוגדר, שהתמונה תקינה ושהבעלים מזוהה.
 // כישלון שאפשר לדעת עליו מראש אינו סיבה לחייב ולהחזיר.
 //
-// המודל שנוצר הוא טיוטה: הוא נשמר לא מפורסם (published = false), והבעלים מתקן/ת
-// ומפרסם/ת בעורך. warnings חוזרות ללקוח כדי שהעורך יציג מה דורש בדיקה.
+// מידות התמונה נקראות מהבייטים (imageSize), לא מהדפדפן: מודל הראייה מחזיר קואורדינטות
+// ביחס לקובץ שראה.
+//
+// המודל שנוצר הוא טיוטה: הוא נשמר לא מפורסם, והבעלים מתקן/ת ומפרסם/ת בעורך.
+// ‏settings.checks (קודים) נשמרים עם הדגם, כדי שהעורך יציג מה דורש בדיקה גם אחרי רענון.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -41,6 +45,10 @@ const MIME_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "pn
 // ‏base64 של כ-6MB. תוכנית דירה סרוקה היא מאות KB; מעבר לזה זו לא תוכנית אחת
 const MAX_B64 = 8_000_000;
 const READ_TIMEOUT_MS = 100_000;
+// תשובת start_plan_model שאינה הצלחה -> סטטוס HTTP. הגוף עובר כמו שהוא (כולל required_tier ו-detail)
+const START_STATUS: Record<string, number> = {
+  tier_required: 403, not_your_project: 403, mirror_source_invalid: 403, insufficient_balance: 402,
+};
 
 type OwnerKind = "agent" | "developer";
 
@@ -58,9 +66,7 @@ async function resolveOwner(authed: Sb, kind: OwnerKind): Promise<string | null>
 }
 
 /** קריאת התוכנית במודל הראייה. זורק PlanReadError עם קוד שהמסך יודע לתרגם. */
-async function readPlan(
-  apiKey: string, mime: string, b64: string, ids: { agent_id: string | null },
-): Promise<Record<string, unknown>> {
+async function readPlan(apiKey: string, mime: string, b64: string, agentId: string | null): Promise<Record<string, unknown>> {
   let res: Response;
   try {
     res = await fetch(
@@ -86,7 +92,7 @@ async function readPlan(
   }
   const out = await res.json();
   const row = geminiRow("plan_read", PLAN_MODEL, out?.usageMetadata);
-  row.agent_id = ids.agent_id;
+  row.agent_id = agentId;
   logAiUsage(row);
   // כל החלקים ולא parts[0]: מודל חושב מחזיר לפעמים חלק של מחשבה לפני התשובה
   const text = (out?.candidates?.[0]?.content?.parts ?? [])
@@ -99,20 +105,42 @@ async function readPlan(
   return parsePlanReading(text);
 }
 
-/**
- * החזר אחרי כישלון. מנסה פעמיים (הפונקציה במסד אידמפוטנטית). null = ההחזר לא אושר,
- * וה-cron יחזיר; הקורא חייב לומר את זה למשתמש/ת ולא להציג הצלחה.
- */
-async function refund(sb: Sb, modelId: string, reason: string): Promise<number | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const { data, error } = await sb.rpc("fail_plan_model", { p_model_id: modelId, p_reason: reason.slice(0, 300) });
-    if (!error && data?.success) return Number(data.refunded ?? 0);
-    console.error("plan-model: fail_plan_model", modelId, attempt, error?.message ?? data?.error);
-  }
-  return null;
+type Charged = { modelId: string; receipt: Record<string, unknown> };
+
+/** החיוב ויצירת הדגם. מחזיר Response כשהמסד סירב (מסלול, יתרה, בעלות), ואז לא ירד כסף. */
+async function startModel(sb: Sb, args: Record<string, unknown>): Promise<Charged | Response> {
+  const { data: start, error } = await sb.rpc("start_plan_model", args);
+  if (error) return json({ error: "db_error" }, 500);
+  if (!start?.success) return json(start ?? { error: "db_error" }, START_STATUS[String(start?.error ?? "")] ?? 400);
+  return {
+    modelId: String(start.model_id),
+    receipt: { amount_charged: start.amount_charged, renders_included: start.renders_included, balance: start.balance },
+  };
 }
 
-function failedResponse(code: string, refunded: number | null, status: number) {
+/** שמירת המודל ופתיחת הדגם. זורק כשהמסד לא אישר. */
+async function completeModel(sb: Sb, modelId: string, model: unknown, settings: unknown, lights: unknown = null) {
+  const { data, error } = await sb.rpc("complete_plan_model", {
+    p_model_id: modelId, p_model: model, p_settings: settings, p_lights: lights,
+  });
+  if (error || !data?.success) throw new Error(error?.message ?? String(data?.error ?? "complete failed"));
+}
+
+/**
+ * אחרי כישלון: מחזירים את הכסף, ואומרים מה קרה לו. שלושה מצבים, ולא שניים:
+ *   refunded - fail_plan_model אישרה, והסכום בתשובה.
+ *   ready    - הדגם דווקא הושלם (complete_plan_model נכנסה והתשובה שלה אבדה). אין החזר
+ *              ואין מה להחזיר: זו הצלחה. בלי המצב הזה היינו מבטיחים החזר שה-cron לא ייתן.
+ *   unknown  - ההחזר לא אושר אחרי שני ניסיונות (הפונקציה אידמפוטנטית). ה-cron יחזיר.
+ */
+async function failAndRespond(sb: Sb, charged: Charged, code: string, reason: string, status: number): Promise<Response> {
+  let refunded: number | null = null;
+  for (let attempt = 0; attempt < 2 && refunded === null; attempt++) {
+    const { data, error } = await sb.rpc("fail_plan_model", { p_model_id: charged.modelId, p_reason: reason.slice(0, 300) });
+    if (!error && data?.success) refunded = Number(data.refunded ?? 0);
+    else if (!error && data?.error === "already_ready") return json({ ok: true, model_id: charged.modelId, ...charged.receipt });
+    else console.error("plan-model: fail_plan_model", charged.modelId, attempt, error?.message ?? data?.error);
+  }
   const what = code === "plan_unreadable"
     ? "לא הצלחנו לקרוא את התוכנית. כדאי להעלות תמונה חדה וישרה של תוכנית דירה אחת."
     : "יצירת הדגם נכשלה.";
@@ -122,13 +150,7 @@ function failedResponse(code: string, refunded: number | null, status: number) {
   return json({ error: code, detail: what + money, refunded, refund_pending: refunded === null }, status);
 }
 
-/** תשובת start_plan_model שאינה הצלחה -> סטטוס HTTP. הגוף עובר כמו שהוא (כולל required_tier ו-detail). */
-function startErrorStatus(code: string): number {
-  if (code === "tier_required") return 403;
-  if (code === "insufficient_balance") return 402;
-  if (code === "not_your_project" || code === "mirror_source_invalid") return 403;
-  return 400;
-}
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
@@ -137,32 +159,33 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "unauthorized" }, 401);
 
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
-
+  // הזיהוי לפני קריאת הגוף: בקשה בלי הרשאה אינה סיבה לפענח 8MB
   const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authed.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
   const mfa = await mfaGate(authHeader);
   if (mfa) return json({ error: mfa.error }, mfa.status);
 
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
+
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const action = typeof body.action === "string" ? body.action : "";
 
   // ---------------------------------------------------------------------
-  // כתובת חתומה לתוכנית המקור: לבעלים בלבד, לשעה. הדלי פרטי, כי תוכנית שלא
-  // פורסמה היא חומר של היזם ולא של הציבור.
+  // כתובת חתומה לתוכנית המקור, לשעה. השורה נקראת **בהרשאת הקורא/ת**: ה-RLS (בעלים,
+  // או דגם שפורסם) הוא הבדיקה, ולא השוואה שנכתבה כאן שוב. דגם שפורסם נקרא גם למי
+  // שאינו הבעלים, ולכן נדרש גם שהקורא/ת הוא הבעלים. הדלי פרטי.
   // ---------------------------------------------------------------------
   if (action === "plan_url") {
     const modelId = typeof body.model_id === "string" ? body.model_id : "";
     if (!modelId) return json({ error: "missing_fields" }, 400);
-    const { data: m, error } = await supabase.from("plan_models")
+    const { data: m, error } = await authed.from("plan_models")
       .select("id, owner_kind, agent_id, developer_id, source_plan_path").eq("id", modelId).maybeSingle();
     if (error) return json({ error: "db_error" }, 500);
-    if (!m) return json({ error: "not_found" }, 404);
+    if (!m?.source_plan_path) return json({ error: "not_found" }, 404);
     const me = await resolveOwner(authed, m.owner_kind as OwnerKind);
-    if (!me || me !== (m.owner_kind === "agent" ? m.agent_id : m.developer_id)) return json({ error: "forbidden" }, 403);
-    if (!m.source_plan_path) return json({ error: "not_found" }, 404);
+    if (!me || me !== (m.agent_id ?? m.developer_id)) return json({ error: "forbidden" }, 403);
     const { data: signed, error: signErr } = await supabase.storage.from(BUCKET).createSignedUrl(m.source_plan_path, 3600);
     if (signErr || !signed?.signedUrl) return json({ error: "db_error" }, 500);
     return json({ ok: true, url: signed.signedUrl });
@@ -178,40 +201,36 @@ Deno.serve(async (req: Request) => {
 
   // ---------------------------------------------------------------------
   // דגם מהופך מראה: דגם נוסף, נרכש בנפרד. אין קריאה למודל ראייה, רק היפוך של
-  // דגם מוכן של אותו בעלים (הבדיקה במסד, ב-start_plan_model).
+  // דגם מוכן של אותו בעלים (הבדיקה במסד, ב-start_plan_model). העמודות הכבדות
+  // נשלפות רק אחרי שהחיוב אושר, כדי שסירוב (מסלול, יתרה) לא ישלם על מגה-בייט.
   // ---------------------------------------------------------------------
   if (action === "mirror") {
     const sourceId = typeof body.source_model_id === "string" ? body.source_model_id : "";
     if (!sourceId) return json({ error: "missing_fields" }, 400);
-    const { data: src, error: srcErr } = await supabase.from("plan_models")
-      .select("id, name, status, model, settings, lights, project_id").eq("id", sourceId).maybeSingle();
-    if (srcErr) return json({ error: "db_error" }, 500);
-    if (!src) return json({ error: "not_found" }, 404);
+    const { data: head, error: headErr } = await supabase.from("plan_models")
+      .select("id, name, project_id").eq("id", sourceId).maybeSingle();
+    if (headErr) return json({ error: "db_error" }, 500);
+    if (!head) return json({ error: "not_found" }, 404);
 
-    const { data: start, error: startErr } = await supabase.rpc("start_plan_model", {
-      p_owner_kind: kind, p_owner_id: ownerId, p_name: name || `${src.name} (מראה)`,
-      p_project_id: kind === "developer" ? src.project_id : null, p_mirror_of: sourceId,
+    const charged = await startModel(supabase, {
+      p_owner_kind: kind, p_owner_id: ownerId, p_name: name || `${head.name} (מראה)`,
+      p_project_id: kind === "developer" ? head.project_id : null, p_mirror_of: sourceId,
     });
-    if (startErr) return json({ error: "db_error" }, 500);
-    if (!start?.success) return json(start ?? { error: "db_error" }, startErrorStatus(String(start?.error ?? "")));
-    const modelId = String(start.model_id);
+    if (charged instanceof Response) return charged;
 
     try {
-      const mirrored = mirrorModel(src.model as PlanModel);
+      const { data: src, error: srcErr } = await supabase.from("plan_models")
+        .select("model, settings, lights").eq("id", sourceId).single();
+      if (srcErr) throw new Error(`source: ${srcErr.message}`);
+      // הבעלים עורך/ת את model מהדפדפן, ולכן לא סומכים על המבנה לפני שהופכים אותו
+      if (!isPlanModel(src.model)) throw new Error("source model is malformed");
       const settings = { ...mirrorSettings((src.settings ?? {}) as { north?: number }), mirrored: true };
-      const { data: done, error: doneErr } = await supabase.rpc("complete_plan_model", {
-        p_model_id: modelId, p_model: mirrored, p_settings: settings,
-      });
-      if (doneErr || !done?.success) throw new Error(doneErr?.message ?? String(done?.error ?? "complete failed"));
       // תבניות התאורה אינן תלויות בכיוון ועוברות כמו שהן. זוויות הצפייה כן, ולכן נשמרות מחדש בעורך
-      await supabase.from("plan_models").update({ lights: src.lights ?? [] }).eq("id", modelId);
-      return json({
-        ok: true, model_id: modelId, amount_charged: start.amount_charged,
-        renders_included: start.renders_included, balance: start.balance,
-      });
+      await completeModel(supabase, charged.modelId, mirrorModel(src.model), settings, src.lights ?? []);
+      return json({ ok: true, model_id: charged.modelId, ...charged.receipt });
     } catch (e) {
-      console.error("plan-model: mirror", modelId, e instanceof Error ? e.message : e);
-      return failedResponse("plan_mirror_failed", await refund(supabase, modelId, "mirror failed"), 500);
+      console.error("plan-model: mirror", charged.modelId, errText(e));
+      return failAndRespond(supabase, charged, "plan_mirror_failed", `mirror: ${errText(e)}`, 500);
     }
   }
 
@@ -223,54 +242,44 @@ Deno.serve(async (req: Request) => {
 
   const mime = typeof body.image_mime === "string" ? body.image_mime : "";
   const b64 = typeof body.image_base64 === "string" ? body.image_base64.replace(/^data:[^,]*,/, "") : "";
-  const imgW = Number(body.img_w), imgH = Number(body.img_h);
   if (!name || !b64) return json({ error: "missing_fields" }, 400);
   if (!MIME_EXT[mime]) return json({ error: "bad_image_type", detail: "אפשר להעלות תמונת JPG, PNG או WebP." }, 400);
   if (b64.length > MAX_B64) return json({ error: "image_too_large", detail: "התמונה גדולה מדי. עד 6MB." }, 400);
-  if (!(imgW >= 200 && imgW <= 8000 && imgH >= 200 && imgH <= 8000)) {
-    return json({ error: "bad_image_size", detail: "גודל התמונה אינו תקין." }, 400);
-  }
   let bytes: Uint8Array;
   try {
-    bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    bytes = base64ToBytes(b64);
   } catch {
     return json({ error: "bad_image_type", detail: "קובץ התמונה אינו תקין." }, 400);
   }
+  const size = imageSize(bytes);
+  if (!size) return json({ error: "bad_image_type", detail: "קובץ התמונה אינו תקין." }, 400);
+  if (!validImageSize(size.w, size.h)) {
+    return json({ error: "bad_image_size", detail: "התמונה קטנה או גדולה מדי. הרוחב והגובה בין 200 ל-8,000 פיקסלים." }, 400);
+  }
   const projectId = typeof body.project_id === "string" && body.project_id ? body.project_id : null;
 
-  const { data: start, error: startErr } = await supabase.rpc("start_plan_model", {
+  const charged = await startModel(supabase, {
     p_owner_kind: kind, p_owner_id: ownerId, p_name: name, p_project_id: projectId, p_mirror_of: null,
   });
-  if (startErr) return json({ error: "db_error" }, 500);
-  if (!start?.success) return json(start ?? { error: "db_error" }, startErrorStatus(String(start?.error ?? "")));
-  const modelId = String(start.model_id);
+  if (charged instanceof Response) return charged;
 
   // מכאן הכסף כבר ירד: כל יציאה בלי דגם מוכן עוברת בהחזר
-  let code = "plan_read_failed";
   try {
-    const path = `${kind}/${ownerId}/${modelId}.${MIME_EXT[mime]}`;
+    const path = `${kind}/${ownerId}/${charged.modelId}.${MIME_EXT[mime]}`;
     const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
     if (upErr) throw new Error(`upload: ${upErr.message}`);
-    const { error: markErr } = await supabase.from("plan_models")
-      .update({ status: "reading", source_plan_path: path }).eq("id", modelId);
-    if (markErr) throw new Error(`mark reading: ${markErr.message}`);
-
-    const reading = await readPlan(apiKey, mime, b64, { agent_id: kind === "agent" ? ownerId : null });
-    const built = buildModel(reading, imgW, imgH);
-
-    const { data: done, error: doneErr } = await supabase.rpc("complete_plan_model", {
-      p_model_id: modelId, p_model: built.model, p_settings: built.settings,
+    const { data: marked, error: markErr } = await supabase.rpc("mark_plan_model_reading", {
+      p_model_id: charged.modelId, p_source_plan_path: path,
     });
-    if (doneErr || !done?.success) throw new Error(doneErr?.message ?? String(done?.error ?? "complete failed"));
+    if (markErr || !marked?.success) throw new Error(`mark reading: ${markErr?.message ?? marked?.error}`);
 
-    return json({
-      ok: true, model_id: modelId, warnings: built.warnings, settings: built.settings,
-      amount_charged: start.amount_charged, renders_included: start.renders_included, balance: start.balance,
-    });
+    const reading = await readPlan(apiKey, mime, b64, kind === "agent" ? ownerId : null);
+    const built = buildModel(reading, size.w, size.h);
+    await completeModel(supabase, charged.modelId, built.model, built.settings);
+    return json({ ok: true, model_id: charged.modelId, settings: built.settings, ...charged.receipt });
   } catch (e) {
-    if (e instanceof PlanReadError) code = e.code;
-    console.error("plan-model: create", modelId, code, e instanceof Error ? e.message : e);
-    return failedResponse(code, await refund(supabase, modelId, `${code}: ${e instanceof Error ? e.message : String(e)}`),
-      code === "plan_unreadable" ? 422 : 502);
+    const code = e instanceof PlanReadError ? e.code : "plan_read_failed";
+    console.error("plan-model: create", charged.modelId, code, errText(e));
+    return failAndRespond(supabase, charged, code, `${code}: ${errText(e)}`, code === "plan_unreadable" ? 422 : 502);
   }
 });

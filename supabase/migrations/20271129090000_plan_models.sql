@@ -39,9 +39,10 @@
 --
 -- עמודות שקובעות כסף ובעלות (`owner_kind`, `agent_id`, `developer_id`, `status`,
 -- `amount_charged`, `renders_*`, `project_id`, `source_plan_path`, `mirrored_from`)
--- ננעלות בטריגר ולא בתנאי ב-policy (הסקיל new-migration, כלל 7): policies
--- מתחברים ב-OR, ו-policy הבא שייכתב היה פותח אותן מחדש. מה שהבעלים רשאי/ת
--- לשנות: שם, הגדרות, המודל (עריכת קירות וריהוט), זוויות, תאורה ופרסום.
+-- ננעלות פעמיים. **הרשאת update היא לפי עמודות** (שם, מודל, הגדרות, זוויות, תאורה
+-- ופרסום בלבד), כך שעמודה שתתווסף בשלבים הבאים נעולה כברירת מחדל ולא פתוחה עד
+-- שמישהו ייזכר. והטריגר הוא הגיבוי (הסקיל new-migration, כלל 7): הוא גם חוסם עריכה
+-- של דגם שאינו ready, כי complete_plan_model הייתה דורסת אותה.
 --
 -- ## מה לא נמחק
 --
@@ -125,8 +126,9 @@ comment on table public.plan_models is
 create index if not exists plan_models_agent_idx     on public.plan_models (agent_id)     where agent_id is not null;
 create index if not exists plan_models_developer_idx on public.plan_models (developer_id) where developer_id is not null;
 create index if not exists plan_models_project_idx   on public.plan_models (project_id)   where project_id is not null;
--- הצופה קורא רק דגם שפורסם
-create index if not exists plan_models_published_idx on public.plan_models (id) where published;
+-- דגם פתוח (שולם ועוד לא הושלם): כמעט תמיד ריק, ומשרת את ה-cron שמחזיר דגם תקוע
+create index if not exists plan_models_open_idx on public.plan_models (created_at)
+  where status in ('draft', 'reading');
 
 -- ---------------------------------------------------------------------------
 -- 3. שורת החיוב: מה שנגבה בפועל. ההחזר נעשה לפיה
@@ -166,6 +168,12 @@ begin
   new.updated_at := now();
   if current_user not in ('authenticated', 'anon') then
     return new;
+  end if;
+
+  -- דגם שעוד נקרא (או שנכשל והוחזר) אינו נערך: complete_plan_model הייתה דורסת את העריכה
+  if old.status <> 'ready' then
+    raise exception 'אפשר לערוך את הדגם רק אחרי שהוא מוכן'
+      using errcode = '42501';
   end if;
 
   if new.owner_kind       is distinct from old.owner_kind
@@ -214,11 +222,8 @@ create policy "plan_models public read" on public.plan_models
 drop policy if exists "plan_models owner update" on public.plan_models;
 create policy "plan_models owner update" on public.plan_models
   for update to authenticated
+  -- בלי with check: ב-update הוא יורש את using, ושני עותקים של אותו תנאי הם שניים שיתפצלו
   using (
-    agent_id = (select public.current_agent_id())
-    or developer_id = (select public.current_developer_id())
-  )
-  with check (
     agent_id = (select public.current_agent_id())
     or developer_id = (select public.current_developer_id())
   );
@@ -236,7 +241,8 @@ create policy "plan_model_charges owner read" on public.plan_model_charges
 -- וגרנט חלקי אחריה משאיר INSERT ו-TRUNCATE (הסקיל new-migration, כלל 4א)
 revoke all on table public.plan_models from public, anon, authenticated;
 grant select on table public.plan_models to anon;
-grant select, update on table public.plan_models to authenticated;
+grant select on table public.plan_models to authenticated;
+grant update (name, model, settings, views, lights, published) on table public.plan_models to authenticated;
 grant select, insert, update, delete on table public.plan_models to service_role;
 
 revoke all on table public.plan_model_charges from public, anon, authenticated;
@@ -246,7 +252,7 @@ grant select, insert, update, delete on table public.plan_model_charges to servi
 -- ---------------------------------------------------------------------------
 -- 6. זכאות לרכישה
 --
--- ‏service_role בלבד: מקבלת מזהה בעלים. סוכן/ת: Elite פעיל, כמו property_virtual_tour_eligible.
+-- ‏service_role בלבד: מקבלת מזהה בעלים. סוכן/ת: Elite פעיל, דרך property_virtual_tour_eligible.
 -- יזם: חשבון פעיל (suspended נחסם), בלי מסלול, כי ליזמים אין Elite.
 -- ---------------------------------------------------------------------------
 create or replace function public.plan_model_eligible(p_owner_kind text, p_owner_id uuid)
@@ -257,12 +263,8 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_owner_kind = 'agent' then exists (
-      select 1 from public.agency_members m
-       where m.id = p_owner_id
-         and m.tier = 'premium'
-         and m.active = true
-         and m.billing_status = 'active')
+    -- אותה הגדרה של "Elite בפועל" כמו סיור 360, ולא עותק שלה
+    when p_owner_kind = 'agent' then public.property_virtual_tour_eligible(p_owner_id)
     when p_owner_kind = 'developer' then exists (
       select 1 from public.developers d
        where d.id = p_owner_id and d.status = 'active')
@@ -289,6 +291,8 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_agent    uuid := case when p_owner_kind = 'agent' then p_owner_id end;
+  v_dev      uuid := case when p_owner_kind = 'developer' then p_owner_id end;
   v_price    numeric;
   v_included integer;
   v_balance  numeric;
@@ -320,18 +324,14 @@ begin
   end if;
   if p_mirror_of is not null and not exists (
     select 1 from public.plan_models
-     where id = p_mirror_of and status = 'ready' and owner_kind = p_owner_kind
-       and ((p_owner_kind = 'agent' and agent_id = p_owner_id)
-         or (p_owner_kind = 'developer' and developer_id = p_owner_id))) then
+     where id = p_mirror_of and status = 'ready'
+       and agent_id is not distinct from v_agent
+       and developer_id is not distinct from v_dev) then
     return jsonb_build_object('error', 'mirror_source_invalid');
   end if;
 
-  select coalesce(value, 49) into v_price
-    from public.pricing_config where key = 'plan_model_price';
-  v_price := coalesce(v_price, 49);
-  select coalesce(value, 20) into v_included
-    from public.pricing_config where key = 'plan_model_included_renders';
-  v_included := coalesce(v_included, 20);
+  v_price    := coalesce((select value from public.pricing_config where key = 'plan_model_price'), 49);
+  v_included := coalesce((select value from public.pricing_config where key = 'plan_model_included_renders'), 20);
 
   -- הניכוי עצמו הוא התנאי (credit_balance >= מחיר), לא רק בדיקה לפניו
   if p_owner_kind = 'agent' then
@@ -354,18 +354,12 @@ begin
     owner_kind, agent_id, developer_id, project_id, name, mirrored_from,
     renders_included, amount_charged
   ) values (
-    p_owner_kind,
-    case when p_owner_kind = 'agent' then p_owner_id end,
-    case when p_owner_kind = 'developer' then p_owner_id end,
+    p_owner_kind, v_agent, v_dev,
     p_project_id, btrim(p_name), p_mirror_of, v_included, v_price
   ) returning id into v_id;
 
   insert into public.plan_model_charges (model_id, owner_kind, agent_id, developer_id, amount)
-  values (
-    v_id, p_owner_kind,
-    case when p_owner_kind = 'agent' then p_owner_id end,
-    case when p_owner_kind = 'developer' then p_owner_id end,
-    v_price);
+  values (v_id, p_owner_kind, v_agent, v_dev, v_price);
 
   return jsonb_build_object(
     'success', true, 'model_id', v_id, 'amount_charged', v_price,
@@ -382,11 +376,40 @@ grant execute on function public.start_plan_model(text, uuid, text, uuid, uuid) 
 -- ‏fail_plan_model: מחזירה את מה שנגבה לפי שורת החיוב. אידמפוטנטית (שורה שכבר
 -- refunded לא מזוכה שוב). לא מחזירה דגם ready: אותו כבר שילמו עליו וקיבלו.
 -- ‏complete_plan_model: שומרת את המודל ופותחת אותו. לא דורסת דגם שכבר ready.
+-- ‏mark_plan_model_reading: התוכנית עלתה והקריאה התחילה. כל שינוי סטטוס עובר בפונקציה,
+-- באותה נעילת שורה, ולא ב-update גולמי מה-Edge Function.
 -- ---------------------------------------------------------------------------
+create or replace function public.mark_plan_model_reading(p_model_id uuid, p_source_plan_path text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_status text;
+begin
+  select status into v_status from public.plan_models where id = p_model_id for update;
+  if not found then
+    return jsonb_build_object('error', 'model_not_found');
+  end if;
+  if v_status <> 'draft' then
+    return jsonb_build_object('error', 'bad_status', 'status', v_status);
+  end if;
+  update public.plan_models
+     set status = 'reading', source_plan_path = p_source_plan_path
+   where id = p_model_id;
+  return jsonb_build_object('success', true);
+end;
+$$;
+
+revoke all on function public.mark_plan_model_reading(uuid, text) from public, anon, authenticated;
+grant execute on function public.mark_plan_model_reading(uuid, text) to service_role;
+
 create or replace function public.complete_plan_model(
   p_model_id uuid,
   p_model    jsonb,
-  p_settings jsonb default '{}'::jsonb
+  p_settings jsonb default '{}'::jsonb,
+  p_lights   jsonb default null
 )
 returns jsonb
 language plpgsql
@@ -408,14 +431,15 @@ begin
   end if;
 
   update public.plan_models
-     set status = 'ready', model = p_model, settings = coalesce(p_settings, '{}'::jsonb)
+     set status = 'ready', model = p_model, settings = coalesce(p_settings, '{}'::jsonb),
+         lights = coalesce(p_lights, lights)
    where id = p_model_id;
   return jsonb_build_object('success', true);
 end;
 $$;
 
-revoke all on function public.complete_plan_model(uuid, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.complete_plan_model(uuid, jsonb, jsonb) to service_role;
+revoke all on function public.complete_plan_model(uuid, jsonb, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.complete_plan_model(uuid, jsonb, jsonb, jsonb) to service_role;
 
 create or replace function public.fail_plan_model(p_model_id uuid, p_reason text default null)
 returns jsonb
@@ -491,14 +515,14 @@ begin
     return jsonb_build_object('error', 'not_found');
   end if;
 
-  select coalesce(value, 49) into v_price from public.pricing_config where key = 'plan_model_price';
-  select coalesce(value, 20) into v_included from public.pricing_config where key = 'plan_model_included_renders';
+  v_price    := coalesce((select value from public.pricing_config where key = 'plan_model_price'), 49);
+  v_included := coalesce((select value from public.pricing_config where key = 'plan_model_included_renders'), 20);
 
   return jsonb_build_object(
     'eligible', public.plan_model_eligible(p_owner_kind, v_id),
     'required_tier', case when p_owner_kind = 'agent' then 'premium' else null end,
-    'price', coalesce(v_price, 49),
-    'renders_included', coalesce(v_included, 20),
+    'price', v_price,
+    'renders_included', v_included,
     'balance', coalesce(v_balance, 0));
 end;
 $$;

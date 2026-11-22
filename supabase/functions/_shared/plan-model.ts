@@ -2,15 +2,18 @@
 // plan-model.ts - מקריאת תוכנית דירה למודל של הסיור התלת-ממדי (docs/plan-3d-tour.md)
 //
 // קוד טהור: בלי רשת ובלי מסד, כדי שהבדיקה (scripts/plan_model_test.ts) תרוץ ב-node.
-// שלושה דברים:
 //   1. PLAN_READ_PROMPT - מה מבקשים ממודל הראייה, ובאיזה מבנה.
 //   2. buildModel() - מהתשובה שלו למודל שהצופה קורא. **המודל הוא טיוטה**: מודל ראייה
 //      טועה בקואורדינטות, ולכן כל ערך נבדק, נחתך לגבולות התמונה, ומה שלא ברור נזרק
-//      ונרשם ב-warnings ולא מנוחש. הבעלים מתקן/ת בעורך לפני פרסום.
+//      ונרשם ב-checks ולא מנוחש. הבעלים מתקן/ת בעורך לפני פרסום.
 //   3. mirrorModel() - דגם מהופך מראה (דגם נוסף, נרכש בנפרד).
+//   4. imageSize() - מידות התמונה מהבייטים עצמם, לא ממה שהדפדפן דיווח.
 //
 // מבנה המודל זהה למה שהצופה מצפה לו: קואורדינטות בפיקסלים של תמונת התוכנית,
 // וקנה המידה (ס"מ לפיקסל) ב-settings.scale.
+//
+// ‏checks הם **קודים ולא משפטים**: הם נשמרים ב-settings, והעורך (שלב ד') מנסח אותם.
+// משפט בעברית שנוצר כאן היה חי רק בתשובה אחת ונעלם ברענון.
 // ============================================================================
 
 export type Rect = [number, number, number, number];
@@ -30,15 +33,21 @@ export type PlanModel = {
   furniture: Furn[];
 };
 
+export type PlanCheck =
+  | { code: "rooms_dropped"; n: number }
+  | { code: "diagonal_walls"; n: number }
+  | { code: "scale_estimated"; source: "area" | "door" | "default" }
+  | { code: "scale_inconsistent" }
+  | { code: "no_north" };
+
 export type PlanSettings = {
   scale: number;
   scale_source: "dimensions" | "area" | "door" | "default";
   north: number;
   declared_area_sqm: number | null;
   declared_balcony_sqm: number | null;
+  checks: PlanCheck[];
 };
-
-export type BuildResult = { model: PlanModel; settings: PlanSettings; warnings: string[] };
 
 export class PlanReadError extends Error {
   code: string;
@@ -66,8 +75,6 @@ const ROOM_KINDS: Record<string, { name: string; f: Room["f"]; nc?: 1; bal?: 1; 
   other: { name: "חלל", f: "tile" },
 };
 
-export const PLAN_ROOM_KINDS = Object.keys(ROOM_KINDS);
-
 export const PLAN_READ_PROMPT =
   "זוהי תוכנית אדריכלית של דירה אחת (מבט מלמעלה). חלץ ממנה את מבנה הדירה והחזר JSON בלבד, בלי טקסט נוסף.\n" +
   "כל הקואורדינטות מנורמלות לטווח 0 עד 1000: x משמאל לימין, y מלמעלה למטה, ביחס לתמונה כולה.\n" +
@@ -82,7 +89,7 @@ export const PLAN_READ_PROMPT =
   '  "apartment_sqm": null,\n' +
   '  "balcony_sqm": null\n' +
   "}\n" +
-  `kind של חדר הוא אחד מ: ${PLAN_ROOM_KINDS.join(", ")}.\n` +
+  `kind של חדר הוא אחד מ: ${Object.keys(ROOM_KINDS).join(", ")}.\n` +
   "כללים:\n" +
   "1. rooms: מלבן לכל חלל, לפי הפנים של הקירות. חלל פתוח אחד (סלון, מטבח ופינת אוכל בלי קיר ביניהם) הוא חדר אחד מסוג living.\n" +
   "2. walls: קו לאורך מרכז כל קיר, מקצה לקצה. exterior לקיר חיצוני עבה, interior למחיצה פנימית, railing למעקה מרפסת. רק קירות שמצוירים בתוכנית.\n" +
@@ -104,6 +111,51 @@ const median = (xs: number[]): number => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+const norm360 = (deg: number) => ((deg % 360) + 360) % 360;
+
+/** גבולות הגודל של תמונת תוכנית. נבדק לפני החיוב (ב-Edge Function) וגם ב-buildModel. */
+export function validImageSize(w: number, h: number): boolean {
+  return w >= 200 && w <= 8000 && h >= 200 && h <= 8000;
+}
+
+/**
+ * מידות התמונה מהכותרת של הקובץ (PNG, JPEG, WebP). null אם לא זוהה.
+ * מהבייטים ולא מהדפדפן: מודל הראייה מחזיר קואורדינטות ביחס לקובץ שראה, ומידות שגויות
+ * מהלקוח היו מעוותות כל קיר בלי שום שגיאה.
+ */
+export function imageSize(b: Uint8Array): { w: number; h: number } | null {
+  const u16 = (i: number) => (b[i] << 8) | b[i + 1];
+  const u32 = (i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+  const le16 = (i: number) => b[i] | (b[i + 1] << 8);
+  const le24 = (i: number) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
+  if (b.length < 30) return null;
+  // PNG: החתימה, ואז IHDR עם רוחב וגובה
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { w: u32(16), h: u32(20) };
+  // JPEG: עוברים על המקטעים עד SOF (C0-CF, חוץ מ-C4, C8, CC)
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u16(i + 7), h: u16(i + 5) };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + u16(i + 2);
+    }
+    return null;
+  }
+  // WebP: RIFF....WEBP ואז VP8 (lossy), VP8L (lossless) או VP8X (extended)
+  if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) {
+    const tag = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (tag === "VP8X") return { w: le24(24) + 1, h: le24(27) + 1 };
+    if (tag === "VP8 ") return { w: le16(26) & 0x3fff, h: le16(28) & 0x3fff };
+    if (tag === "VP8L") {
+      const v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24);
+      return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 };
+    }
+  }
+  return null;
+}
+
 /** מוציא JSON מתשובת המודל: גם כשהוא עטוף ב-```json, וגם כשיש טקסט לפניו. */
 export function parsePlanReading(text: string): Record<string, unknown> {
   const t = String(text ?? "").trim();
@@ -120,15 +172,17 @@ export function parsePlanReading(text: string): Record<string, unknown> {
 
 type Box = { x1: number; y1: number; x2: number; y2: number };
 
-/** ארבע קואורדינטות מנורמלות (0-1000) לפיקסלים, חתוכות לגבולות התמונה. null אם חסר מספר. */
+/** ארבע קואורדינטות מנורמלות (0-1000) לפיקסלים: חתוכות לגבולות התמונה ומסודרות (x1<=x2, y1<=y2). null אם חסר מספר. */
 function boxPx(o: unknown, W: number, H: number): Box | null {
   const r = (o ?? {}) as Record<string, unknown>;
   const x1 = num(r.x1), y1 = num(r.y1), x2 = num(r.x2), y2 = num(r.y2);
   if (x1 === null || y1 === null || x2 === null || y2 === null) return null;
-  const cx = (v: number) => Math.round(Math.min(1000, Math.max(0, v)) / 1000 * W);
-  const cy = (v: number) => Math.round(Math.min(1000, Math.max(0, v)) / 1000 * H);
-  return { x1: cx(x1), y1: cy(y1), x2: cx(x2), y2: cy(y2) };
+  const px = (v: number, size: number) => Math.round(Math.min(1000, Math.max(0, v)) / 1000 * size);
+  const ax = px(x1, W), bx = px(x2, W), ay = px(y1, H), by = px(y2, H);
+  return { x1: Math.min(ax, bx), y1: Math.min(ay, by), x2: Math.max(ax, bx), y2: Math.max(ay, by) };
 }
+
+const list = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
 
 const MAX_ROOMS = 40, MAX_WALLS = 220, MAX_OPENINGS = 12, MAX_SOLIDS = 8;
 
@@ -136,96 +190,82 @@ const MAX_ROOMS = 40, MAX_WALLS = 220, MAX_OPENINGS = 12, MAX_SOLIDS = 8;
  * מתשובת מודל הראייה למודל של הצופה.
  * זורק PlanReadError כשאין מה לבנות (פחות משני חדרים או פחות משלושה קירות).
  */
-export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number): BuildResult {
+export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number): { model: PlanModel; settings: PlanSettings } {
   const W = Math.round(imgW), H = Math.round(imgH);
-  if (!(W >= 200 && W <= 8000 && H >= 200 && H <= 8000)) {
-    throw new PlanReadError("bad_image_size", "גודל התמונה אינו תקין");
-  }
-  const warnings: string[] = [];
+  if (!validImageSize(W, H)) throw new PlanReadError("bad_image_size", "גודל התמונה אינו תקין");
+  const checks: PlanCheck[] = [];
   const minSide = Math.max(6, Math.round(Math.min(W, H) * 0.012));
+  const bigEnough = (b: Box) => b.x2 - b.x1 >= minSide && b.y2 - b.y1 >= minSide;
 
   // ---- חדרים ----
   const rooms: Room[] = [];
   const labels: [string, number, number][] = [];
   const lamps: [number, number][] = [];
   const counts: Record<string, number> = {};
-  for (const r of (Array.isArray(raw.rooms) ? raw.rooms : []).slice(0, MAX_ROOMS)) {
+  let dropped = 0;
+  for (const r of list(raw.rooms, MAX_ROOMS)) {
     const b = boxPx(r, W, H);
-    if (!b) { warnings.push("חדר בלי קואורדינטות הושמט"); continue; }
-    const x1 = Math.min(b.x1, b.x2), x2 = Math.max(b.x1, b.x2), y1 = Math.min(b.y1, b.y2), y2 = Math.max(b.y1, b.y2);
-    if (x2 - x1 < minSide || y2 - y1 < minSide) { warnings.push("חדר קטן מדי הושמט"); continue; }
+    if (!b || !bigEnough(b)) { dropped++; continue; }
     const rr = r as Record<string, unknown>;
-    const kindRaw = typeof rr.kind === "string" ? rr.kind : "other";
-    const kind = ROOM_KINDS[kindRaw] ? kindRaw : "other";
-    const def = ROOM_KINDS[kind];
+    const kind = typeof rr.kind === "string" && ROOM_KINDS[rr.kind] ? rr.kind : "other";
+    const { name: defName, ...flags } = ROOM_KINDS[kind];
     const given = typeof rr.name === "string" ? rr.name.trim().slice(0, 40) : "";
     counts[kind] = (counts[kind] ?? 0) + 1;
-    const room: Room = { id: `${kind}${counts[kind]}`, name: given || def.name, f: def.f, r: [[x1, y1, x2, y2]] };
-    if (def.nc) room.nc = 1;
-    if (def.bal) room.bal = 1;
-    if (def.svc) room.svc = 1;
+    const room: Room = { id: `${kind}${counts[kind]}`, name: given || defName, r: [[b.x1, b.y1, b.x2, b.y2]], ...flags };
     rooms.push(room);
-    const cx = Math.round((x1 + x2) / 2), cy = Math.round((y1 + y2) / 2);
+    const cx = Math.round((b.x1 + b.x2) / 2), cy = Math.round((b.y1 + b.y2) / 2);
     labels.push([room.name, cx, cy]);
-    if (!def.nc) lamps.push([cx, cy]);
+    if (!room.nc) lamps.push([cx, cy]);
   }
+  if (dropped) checks.push({ code: "rooms_dropped", n: dropped });
   if (rooms.length < 2) throw new PlanReadError("plan_unreadable", "לא זוהו חדרים בתוכנית");
 
   // ---- קירות ופתחים: רק קירות ישרים (אופקי או אנכי). אלכסון נזרק ונספר ----
   const walls: Wall[] = [];
   let diagonal = 0;
-  for (const w of (Array.isArray(raw.walls) ? raw.walls : []).slice(0, MAX_WALLS)) {
+  for (const w of list(raw.walls, MAX_WALLS)) {
     const b = boxPx(w, W, H);
     if (!b) continue;
-    const dx = Math.abs(b.x2 - b.x1), dy = Math.abs(b.y2 - b.y1);
+    const dx = b.x2 - b.x1, dy = b.y2 - b.y1;
     if (Math.max(dx, dy) < minSide) continue;
     const ww = w as Record<string, unknown>;
     const t: Wall["t"] = ww.kind === "exterior" ? "ext" : ww.kind === "railing" ? "rail" : "int";
-    const horiz = dy <= dx * 0.15, vert = dx <= dy * 0.15;
-    if (!horiz && !vert) { diagonal++; continue; }
-    const lo = horiz ? Math.min(b.x1, b.x2) : Math.min(b.y1, b.y2);
-    const hi = horiz ? Math.max(b.x1, b.x2) : Math.max(b.y1, b.y2);
+    const horiz = dy <= dx * 0.15;
+    if (!horiz && dx > dy * 0.15) { diagonal++; continue; }
+    const lo = horiz ? b.x1 : b.y1, hi = horiz ? b.x2 : b.y2;
     const line = Math.round(horiz ? (b.y1 + b.y2) / 2 : (b.x1 + b.x2) / 2);
     const wall: Wall = horiz ? { h: line, a: lo, b: hi, t } : { v: line, a: lo, b: hi, t };
     // פתחים: מוטלים על ציר הקיר, נחתכים לאורכו, ממוינים ובלי חפיפה. במעקה אין פתחים
     if (t !== "rail") {
       const os: Opening[] = [];
-      for (const o of (Array.isArray(ww.openings) ? ww.openings : []).slice(0, MAX_OPENINGS)) {
+      for (const o of list(ww.openings, MAX_OPENINGS)) {
         const ob = boxPx(o, W, H);
         if (!ob) continue;
-        const from = Math.max(lo, horiz ? Math.min(ob.x1, ob.x2) : Math.min(ob.y1, ob.y2));
-        const to = Math.min(hi, horiz ? Math.max(ob.x1, ob.x2) : Math.max(ob.y1, ob.y2));
+        const from = Math.max(lo, horiz ? ob.x1 : ob.y1), to = Math.min(hi, horiz ? ob.x2 : ob.y2);
         if (to - from < Math.max(4, minSide / 2)) continue;
         const k = (o as Record<string, unknown>).kind;
         os.push([k === "door" ? "d" : k === "sliding" ? "s" : "w", from, to]);
       }
       os.sort((p, q) => p[1] - q[1]);
-      const clean: Opening[] = [];
-      for (const o of os) {
-        const last = clean[clean.length - 1];
-        if (last && o[1] < last[2]) continue;
-        clean.push(o);
-      }
+      const clean = os.filter((o, i) => i === 0 || o[1] >= os[i - 1][2]);
       if (clean.length) wall.o = clean;
     }
     walls.push(wall);
   }
-  if (diagonal) warnings.push(`${diagonal} קירות אלכסוניים לא נכנסו למודל ויש להוסיף אותם ידנית`);
+  if (diagonal) checks.push({ code: "diagonal_walls", n: diagonal });
   if (walls.length < 3) throw new PlanReadError("plan_unreadable", "לא זוהו קירות בתוכנית");
 
   // ---- גרעין הבניין ----
   const solids: Rect[] = [];
-  for (const c of (Array.isArray(raw.core) ? raw.core : []).slice(0, MAX_SOLIDS)) {
+  for (const c of list(raw.core, MAX_SOLIDS)) {
     const b = boxPx(c, W, H);
-    if (!b) continue;
-    const x1 = Math.min(b.x1, b.x2), x2 = Math.max(b.x1, b.x2), y1 = Math.min(b.y1, b.y2), y2 = Math.max(b.y1, b.y2);
-    if (x2 - x1 >= minSide && y2 - y1 >= minSide) solids.push([x1, y1, x2, y2]);
+    if (b && bigEnough(b)) solids.push([b.x1, b.y1, b.x2, b.y2]);
   }
 
-  // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל עם אזהרה ----
+  // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל ----
   const declaredArea = num(raw.apartment_sqm), declaredBalcony = num(raw.balcony_sqm);
   const ratios: number[] = [];
-  for (const d of (Array.isArray(raw.dimensions) ? raw.dimensions : []).slice(0, 8)) {
+  for (const d of list(raw.dimensions, 8)) {
     const cm = num((d as Record<string, unknown>)?.cm), b = boxPx(d, W, H);
     if (cm === null || !b || cm < 30 || cm > 3000) continue;
     const px = Math.hypot(b.x2 - b.x1, b.y2 - b.y1);
@@ -238,8 +278,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   if (ratios.length) {
     scale = median(ratios);
     scaleSource = "dimensions";
-    const spread = Math.max(...ratios) / Math.min(...ratios);
-    if (ratios.length >= 2 && spread > 1.25) warnings.push("המידות הכתובות בתוכנית אינן עקביות. יש לכייל את קנה המידה ידנית");
+    if (ratios.length >= 2 && Math.max(...ratios) / Math.min(...ratios) > 1.25) checks.push({ code: "scale_inconsistent" });
   } else if (declaredArea !== null && declaredArea > 15 && declaredArea < 1500) {
     const px2 = rooms.filter((r) => !r.bal && !r.svc)
       .reduce((s, r) => s + (r.r[0][2] - r.r[0][0]) * (r.r[0][3] - r.r[0][1]), 0);
@@ -249,27 +288,25 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     const doors = walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d").map((o) => o[2] - o[1]));
     if (doors.length) { scale = 85 / median(doors); scaleSource = "door"; }
   }
-  if (!(scale > 0.2 && scale < 12)) {
-    scale = 1.5;
-    scaleSource = "default";
-  }
-  if (scaleSource !== "dimensions") warnings.push("לא נמצאו מידות כתובות בתוכנית. קנה המידה משוער ויש לכייל אותו לפי מידה ידועה");
+  // האיפוס נחוץ: ענף השטח או הדלת יכול לקבוע מקור ועדיין לתת ערך מחוץ לטווח
+  if (!(scale > 0.2 && scale < 12)) { scale = 1.5; scaleSource = "default"; }
+  if (scaleSource !== "dimensions") checks.push({ code: "scale_estimated", source: scaleSource });
 
   const northRaw = num(raw.north_deg);
-  const north = northRaw === null ? 0 : Math.round(((northRaw + 180) % 360 + 360) % 360 - 180);
-  if (northRaw === null) warnings.push("לא נמצא חץ צפון בתוכנית. יש להזין את כיוון הצפון");
+  if (northRaw === null) checks.push({ code: "no_north" });
 
-  const model: PlanModel = { imgW: W, imgH: H, rooms, solids, walls, labels, lamps, furniture: autoFurnish(rooms, scale) };
+  // בלי קנה מידה אמיתי אין לדעת אם מיטה נכנסת לחדר: לא מרהטים על ברירת מחדל
+  const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale);
   return {
-    model,
+    model: { imgW: W, imgH: H, rooms, solids, walls, labels, lamps, furniture },
     settings: {
       scale: Math.round(scale * 1000) / 1000,
       scale_source: scaleSource,
-      north,
+      north: northRaw === null ? 0 : Math.round(norm360(northRaw + 180) - 180),
       declared_area_sqm: declaredArea !== null && declaredArea > 0 ? declaredArea : null,
       declared_balcony_sqm: declaredBalcony !== null && declaredBalcony > 0 ? declaredBalcony : null,
+      checks,
     },
-    warnings,
   };
 }
 
@@ -297,15 +334,25 @@ export function autoFurnish(rooms: Room[], scale: number): Furn[] {
   return out;
 }
 
+/**
+ * האם ה-jsonb שנקרא מהמסד הוא מודל שאפשר להפוך. הבעלים עורך/ת את `model` מהדפדפן,
+ * ולכן קריאה בשרת אינה סומכת על המבנה (כמו שדף הנכס אינו סומך על scenes של סיור 360).
+ */
+export function isPlanModel(m: unknown): m is PlanModel {
+  const o = m as Record<string, unknown> | null;
+  return !!o && typeof o === "object" && validImageSize(Number(o.imgW), Number(o.imgH)) &&
+    ["rooms", "solids", "walls", "labels", "lamps", "furniture"].every((k) => Array.isArray(o[k]));
+}
+
 /** דגם מהופך מראה: היפוך על ציר אנכי (שמאל-ימין). */
 export function mirrorModel(m: PlanModel): PlanModel {
-  const W = m.imgW;
-  const fx = (x: number) => W - x;
+  const fx = (x: number) => m.imgW - x;
+  const flipRect = (q: Rect): Rect => [fx(q[2]), q[1], fx(q[0]), q[3]];
   return {
     imgW: m.imgW,
     imgH: m.imgH,
-    rooms: m.rooms.map((r) => ({ ...r, r: r.r.map((q) => [fx(q[2]), q[1], fx(q[0]), q[3]] as Rect) })),
-    solids: m.solids.map((q) => [fx(q[2]), q[1], fx(q[0]), q[3]] as Rect),
+    rooms: m.rooms.map((r) => ({ ...r, r: r.r.map(flipRect) })),
+    solids: m.solids.map(flipRect),
     walls: m.walls.map((w) => {
       if (w.v !== undefined) return { ...w, v: fx(w.v) };
       // קיר אופקי: הקצוות והפתחים מתהפכים על ציר ה-x, והסדר נשמר עולה
@@ -316,12 +363,7 @@ export function mirrorModel(m: PlanModel): PlanModel {
     }),
     labels: m.labels.map((l) => [l[0], fx(l[1]), l[2]] as [string, number, number]),
     lamps: m.lamps.map((l) => [fx(l[0]), l[1]] as [number, number]),
-    furniture: m.furniture.map((f) => {
-      const out: Furn = [f[0], fx(f[1]), f[2], ((360 - f[3]) % 360 + 360) % 360];
-      if (f[4] !== undefined) out.push(f[4]);
-      if (f[5] !== undefined) out.push(f[5]);
-      return out;
-    }),
+    furniture: m.furniture.map((f) => [f[0], fx(f[1]), f[2], norm360(360 - f[3]), ...f.slice(4)] as Furn),
   };
 }
 

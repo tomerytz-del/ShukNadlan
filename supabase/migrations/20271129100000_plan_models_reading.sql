@@ -19,7 +19,8 @@
 --    מ-10: קריאת תוכנית אורכת עד כשתי דקות, והחזר לדגם שעוד נקרא היה מחזיר כסף
 --    על דגם שמיד אחר כך נפתח.
 -- 3. ‏cron כל 10 דקות, **בלי HTTP**: הפונקציה רצה במסד עצמו. התנאי `where exists`
---    מונע 144 הרצות ריקות ביום כשאין דגם פתוח.
+--    נשען על האינדקס החלקי plan_models_open_idx (כמעט תמיד ריק), כך שהרצה בלי דגם
+--    פתוח היא בדיקה אחת ולא סריקה של הטבלה.
 --
 -- הקובץ אידמפוטנטי.
 -- ============================================================================
@@ -53,8 +54,9 @@ begin
   for v_row in
     select id from public.plan_models
      where status in ('draft', 'reading')
-       and updated_at < now() - make_interval(mins => greatest(coalesce(p_minutes, 30), 10))
-     order by updated_at
+       -- created_at ולא updated_at: השעון של ההחזר אינו זז, ונשען על plan_models_open_idx
+       and created_at < now() - make_interval(mins => greatest(coalesce(p_minutes, 30), 10))
+     order by created_at
      limit 200
        for update skip locked
   loop
