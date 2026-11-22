@@ -65,14 +65,15 @@ export async function leadFollowupPlan(
         "לחפש אותו ב-list_leads ולא להמציא מזהה.",
     };
   }
-  const name = String(lead.raw_name || "").trim() || "הליד";
+  // ליד נעול: בלי שם. ‏list_leads קורא מ-leads_masked בדיוק כדי שהשם המלא לא יגיע לצ'אט.
   if (lead.status !== "unlocked") {
     return {
       notify: false,
-      note: `${name} עוד נעול/ה ב"הלידים שלי", ואין לי גישה לטלפון שלו/ה, ולכן לא יישלחו אישור ותזכורת. ` +
+      note: "הליד עוד נעול ב\"הלידים שלי\", ואין לי גישה לשם ולטלפון שלו/ה, ולכן לא יישלחו אישור ותזכורת. " +
         "אחרי שהליד נפתח אפשר agenda_update עם notify_client.",
     };
   }
+  const name = String(lead.raw_name || "").trim() || "הליד";
 
   let ok = sendable(lead.raw_phone);
   const given = String(phoneInput ?? "").trim();

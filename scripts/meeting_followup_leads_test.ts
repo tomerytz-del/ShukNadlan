@@ -125,6 +125,7 @@ await test("ליד נעול: לא שולחים וגם לא כותבים, גם כ
   const { sb, calls } = fakeSb(locked);
   const plan = await leadFollowupPlan(sb, "agent-1", locked, "0501234567");
   assert(plan.notify === false, "ליד נעול אינו נשלח");
+  assert(!(plan.note || "").includes("דנה"), "ההערה על ליד נעול אינה כוללת את שמו");
   assert(!calls.some((c) => c.op === "update"), "אסור לכתוב לליד נעול");
 });
 

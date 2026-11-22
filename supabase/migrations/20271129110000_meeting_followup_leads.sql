@@ -368,10 +368,11 @@ begin
     'agenda_reminder',
     left(v_title, 200),
     left(concat_ws(' · ', v_item.title,
-           case p_feedback
-             when 'liked'      then 'נפתחה משימה לחזור עם הצעה'
-             when 'unsure'     then 'נפתחה משימה לחזור ולשמוע מה מעכב'
-             else                   'נפתחה משימה לשלוח נכסים אחרים - אפשר לבקש מגבריאלה מיניסייט'
+           case
+             when p_feedback = 'liked'  then 'נפתחה משימה לחזור עם הצעה'
+             when p_feedback = 'unsure' then 'נפתחה משימה לחזור ולשמוע מה מעכב'
+             when v_item.client_id is null then 'נפתחה משימה לשלוח נכסים אחרים'
+             else 'נפתחה משימה לשלוח נכסים אחרים - אפשר לבקש מגבריאלה מיניסייט'
            end), 400),
     v_item.id);
 
@@ -386,7 +387,7 @@ begin
       else               'לשלוח ל' || v_name || ' נכסים אחרים'
     end,
     concat_ws(E'\n', 'בעקבות: ' || v_item.title,
-      case when p_feedback = 'liked' then null
+      case when p_feedback = 'liked' or v_item.client_id is null then null
            else 'אפשר לכתוב לגבריאלה "תשלחי ל' || v_name || ' נכסים דומים" - היא תבנה מיניסייט.' end),
     public.agent_agenda_business_time(now() + interval '1 hour'),
     case when p_feedback = 'liked' then 'high' else 'normal' end,

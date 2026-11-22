@@ -9774,7 +9774,7 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
   if (leadIds.length) {
     const { data } = await ctx.supabase
       .from("leads").select("id, raw_name")
-      .eq("agent_id", ctx.agent.id).in("id", leadIds);
+      .eq("agent_id", ctx.agent.id).eq("status", "unlocked").in("id", leadIds);
     (data || []).forEach((l) => l.raw_name && names.set(l.id, l.raw_name));
   }
   // מה הלקוח/ה קיבל/ה וענה/תה על הפגישה. שאילתה נפרדת ולא חלק מ-AGENDA_SELECT:
@@ -9952,7 +9952,7 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   // רק כשאין client_id: ל-agent_agenda_contact לקוח/ה גובר/ת, ואם הכרטיס נמחק
   // (on delete set null) פריט שנושא את שניהם היה עובר בשקט לטלפון של הליד.
   const leadRef = await leadRefFrom(ctx, input.lead_id);
-  if (leadRef?.row && !row.client_id) row.lead_id = leadRef.row.id;
+  if (leadRef?.row?.status === "unlocked" && !row.client_id) row.lead_id = leadRef.row.id;
 
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
   // עם לקוח/ה מהקובץ או ליד, ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
@@ -10266,8 +10266,12 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
       if (!leadRef?.row) {
         return { ok: false, error: "lead_not_found", guidance: "הליד לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש אותו ב-list_leads ולא להמציא מזהה." };
       }
-      // לא קושרים ליד לפריט שיש לו לקוח/ה (ראו agenda_add).
-      if (!current.client_id) patch.lead_id = leadRef.row.id;
+      if (current.lead_id && current.lead_id !== leadRef.row.id) {
+        return { ok: false, error: "lead_already_linked", guidance:
+          "הפגישה כבר מקושרת לליד אחר, וההודעות כבר יצאו אליו/ה. לבטל אותה (agenda_update cancel) ולקבוע פגישה חדשה עם הליד הנכון." };
+      }
+      // לא קושרים ליד לפריט שיש לו לקוח/ה (ראו agenda_add), ולא ליד נעול.
+      if (!current.client_id && leadRef.row.status === "unlocked") patch.lead_id = leadRef.row.id;
     }
     if (typeof input.notify_client === "boolean") {
       if (input.notify_client) {
