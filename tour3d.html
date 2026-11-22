@@ -119,10 +119,6 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
 .info{position:absolute;inset-inline-start:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:var(--hud);border-radius:8px;box-shadow:var(--shadow);padding:8px 11px;font-size:12.5px;display:flex;gap:12px;align-items:center;z-index:2;max-width:calc(100% - 140px)}
 .info b{font-weight:500;font-variant-numeric:tabular-nums}
 #compass{position:absolute;inset-inline-end:max(10px,env(safe-area-inset-right,0px));bottom:10px;width:92px;height:92px;z-index:2;background:var(--hud);border-radius:50%;box-shadow:var(--shadow)}
-/* direction:ltr - בלי זה הרשת מתהפכת ב-RTL, והחץ שמאלה יושב מימין (תומר, 22.11.2026) */
-.dpad{position:absolute;direction:ltr;left:max(14px,env(safe-area-inset-left,0px));bottom:116px;display:none;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:4px;z-index:3}
-.dpad.on{display:grid}
-.dpad button{border:0;border-radius:10px;background:var(--hud);box-shadow:var(--shadow);font-size:18px;cursor:pointer;touch-action:none;user-select:none}
 .hint{position:absolute;inset-inline:0;top:56px;margin:auto;width:max-content;max-width:calc(100% - 24px);background:var(--hud);padding:6px 12px;border-radius:999px;box-shadow:var(--shadow);font-size:12.5px;z-index:2;pointer-events:none;transition:opacity .4s}
 .disc{font-size:11.5px;color:var(--muted);line-height:1.5;padding:10px 16px;border-top:1px solid var(--line);flex:none}
 [data-mode="drone"] .fpOnly{display:none!important}
@@ -195,8 +191,6 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
   /* במבט ראשון: רק מה שצריך כדי ללכת. המפה מראה כיוון, ולכן המצפן ושורת השמש יורדים */
   [data-mode="fp"] .info,[data-mode="fp"] #compass{display:none}
   .mini{width:118px;height:102px;bottom:calc(var(--sheet) + 12px)}
-  .dpad{bottom:calc(var(--sheet) + 14px);grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:5px}
-  .dpad button{opacity:.9}
   .legend{display:none!important}
 }
 @media (prefers-reduced-motion:reduce){.body{transition:none}}
@@ -219,7 +213,6 @@ a.btn{text-decoration:none;display:inline-block}
 .btn[disabled]{opacity:.55;cursor:default}
 
 /* ===== ג'ויסטיק: עיגול אחד במקום ארבעה חצים ===== */
-.dpad{display:none!important}
 .joy{position:absolute;display:none;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(var(--sheet,0px) + 16px);width:116px;height:116px;border-radius:50%;
   border:1.5px solid rgba(255,255,255,.5);background:rgba(13,27,32,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:3;touch-action:none;user-select:none}
 .joy.on{display:block}
@@ -386,8 +379,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="timeRow"><div><div class="timeBig" id="timeBig"></div><span class="note" id="sunDesc"></span></div></div>
           <div class="f"><label for="time" id="timeLbl">שעה</label><input id="time" type="range" min="0" max="24" step="0.05"></div>
           <div class="chips"><button class="btn sm" id="play" type="button">הפעלת יום</button>
-            <button class="btn sm" data-q="8">בוקר</button><button class="btn sm" data-q="12.5">צהריים</button>
-            <button class="btn sm" data-q="16">אחה"צ</button><button class="btn sm" data-q="sunset">שקיעה</button></div>
+            <button class="btn sm" data-time="8">בוקר</button><button class="btn sm" data-time="12.5">צהריים</button>
+            <button class="btn sm" data-time="16">אחה"צ</button><button class="btn sm" data-time="sunset">שקיעה</button></div>
           <table id="sunTbl"></table>
         </div>
         <div class="grp"><h3>תאורת פנים</h3>
@@ -472,10 +465,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="legend fpOnly" id="legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>הליכה</span><span>גרירה בעכבר: הסתכלות</span><span>לחיצה על הרצפה: מעבר לשם</span><span>גלגלת: קדימה ואחורה</span><span><kbd>Shift</kbd>מהר</span><span><kbd>Q</kbd><kbd>E</kbd>סיבוב</span></div>
     <div class="mini fpOnly" id="mini" title="מפת הדירה. לחיצה מעבירה אליך לשם"><canvas id="miniC" width="352" height="304"></canvas></div>
     <div class="joy" id="joy" role="group" aria-label="הליכה. גררו את העיגול לכיוון הרצוי"><i id="joyKnob"></i></div>
-    <div class="dpad" id="dpad">
-      <span></span><button data-k="f" aria-label="קדימה">&#9650;</button><span></span>
-      <button data-k="l" aria-label="פנייה שמאלה">&#9664;</button><button data-k="b" aria-label="אחורה">&#9660;</button><button data-k="r" aria-label="פנייה ימינה">&#9654;</button>
-    </div>
   </div>
 </div>
 

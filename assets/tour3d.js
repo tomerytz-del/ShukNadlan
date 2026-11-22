@@ -48,6 +48,9 @@ function heText(e){
   if(code&&CODE_TEXT[code])return CODE_TEXT[code];
   return window.FriendlyError?FriendlyError.text(e):'משהו השתבש. נסו שוב בעוד רגע.';
 }
+function tourUrl(id,edit){return '/tour3d?m='+encodeURIComponent(id)+(edit?'&edit=1':'')}
+/* ברירת המחדל רק עד שהמחיר מגיע מ-plan_model_quote; המחיר האמיתי ב-pricing_config */
+function priceOf(q){return +(q&&q.price)||49}
 function money(n){return '₪'+(Math.round(+n*100)/100).toLocaleString('he-IL')}
 function show(html){homeBody.innerHTML=html}
 function fail(text,linkHtml){show('<div class="card"><p class="msg bad">'+esc(text)+'</p>'+(linkHtml||'')+'</div>')}
@@ -72,6 +75,8 @@ function loadScript(list,i){
 
 /* ================= צופה ועורך ================= */
 async function openModel(){
+  /* Three.js יורד במקביל לקריאת הדגם, לא אחריה */
+  var threeP=loadScript(THREE_SRC,0);threeP.catch(function(){});
   var r=await sb.from('plan_models').select(COLS).eq('id',MID).maybeSingle();
   if(r.error)return fail(heText(r.error));
   var m=r.data;
@@ -90,7 +95,7 @@ async function openModel(){
   var edit=mine&&WANT_EDIT;
   var planUrl='';
   if(edit){try{planUrl=(await callFn({action:'plan_url',model_id:m.id})).url||''}catch(e){/* בלי תוכנית מקור העורך עובד, רק בלי שכבת ההשוואה */}}
-  try{await loadScript(THREE_SRC,0)}catch(e){return fail('הסיור לא נטען. בדקו את החיבור לרשת ורעננו.')}
+  try{await threeP}catch(e){return fail('הסיור לא נטען. בדקו את החיבור לרשת ורעננו.')}
 
   var st=m.settings||{};
   document.title=m.name+' | סיור תלת-ממדי | שוק נדל״ן';
@@ -100,7 +105,7 @@ async function openModel(){
   $('mSub').textContent=sub.join(', ');
   $('grabTxt').textContent=m.name+' · הדמיה להמחשה בלבד';
   if(mine&&!edit){
-    var a=document.createElement('a');a.className='back';a.href='/tour3d?m='+encodeURIComponent(m.id)+'&edit=1';a.textContent='עריכת הסיור';
+    var a=document.createElement('a');a.className='back';a.href=tourUrl(m.id,true);a.textContent='עריכת הסיור';
     $('mSub').after(a);
   }
   $('home').hidden=true;$('app').hidden=false;
@@ -123,7 +128,7 @@ async function openModel(){
       this.disabled=false;
     });
     $('shareBtn').addEventListener('click',function(){
-      var url=location.origin+'/tour3d?m='+encodeURIComponent(m.id);
+      var url=location.origin+tourUrl(m.id);
       (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(function(){saveState('הקישור הועתק.')},function(){saveState(url)});
     });
   }
@@ -183,7 +188,7 @@ async function openHome(){
 
   function kind(){return $('nKind')?$('nKind').value:kinds[0]}
   function quoteUi(){
-    var k=kind(),q=quotes[k]||{},price=+q.price||49,bal=+q.balance||0,html='';
+    var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
       html='<p class="msg"><b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק. כולל '+(+q.renders_included||20)+' הדמיות. היתרה בארנק: '+money(bal)+'.</p>';
@@ -193,7 +198,7 @@ async function openHome(){
     $('nOkLbl').textContent='אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה';
     $('nOk').checked=false;gate();
   }
-  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=(+q.price||49)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
+  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
   if($('nKind'))$('nKind').addEventListener('change',quoteUi);
   quoteUi();
@@ -207,17 +212,17 @@ async function openHome(){
     try{
       var b64=await new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'')};fr.onerror=no;fr.readAsDataURL(file)});
       var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64});
-      location.href='/tour3d?m='+encodeURIComponent(d.model_id)+'&edit=1';
+      location.href=tourUrl(d.model_id,true);
     }catch(e){msg(out,heText(e),true);btn.disabled=false}
   });
   homeBody.addEventListener('click',async function(e){
     var b=e.target.closest('[data-mirror]');if(!b)return;
     var q=quotes[b.dataset.kind]||{},out=$('listMsg');
-    if(!confirm('תמונת מראה היא דגם נוסף, בחיוב של '+money(+q.price||49)+' מהארנק. להמשיך?'))return;
+    if(!confirm('תמונת מראה היא דגם נוסף, בחיוב של '+moneypriceOf(q)+' מהארנק. להמשיך?'))return;
     b.disabled=true;msg(out,'יוצרים את תמונת המראה...');
     try{
       var d=await callFn({action:'mirror',owner_kind:b.dataset.kind,source_model_id:b.dataset.mirror});
-      location.href='/tour3d?m='+encodeURIComponent(d.model_id)+'&edit=1';
+      location.href=tourUrl(d.model_id,true);
     }catch(err){msg(out,heText(err),true);b.disabled=false}
   });
 }

@@ -176,6 +176,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 var COARSE=matchMedia('(pointer:coarse)').matches;
 renderer.outputEncoding=T.sRGBEncoding;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+/* מפת הצל (2048 בטלפון) מצוירת רק כשמשהו שמטיל צל השתנה, לא בכל פריים: זה רוב העבודה של
+   הכרטיס הגרפי כשעומדים במקום. מי שמזיז מטיל צל או את השמש קורא ל-shadowDirty() */
+renderer.shadowMap.autoUpdate=false;
+function shadowDirty(){renderer.shadowMap.needsUpdate=true}
 function lin(c){return new T.Color(c).convertSRGBToLinear()}
 renderer.localClippingEnabled=true;
 var scene=new T.Scene();scene.background=new T.Color('#cfe3ee');
@@ -221,6 +225,8 @@ function aoStrip(g,x0,z0,x1,z1,ox,oz){
   var m=new T.Mesh(geo,aoMat);m.renderOrder=1;g.add(m);
 }
 var blobTex=null;
+var blobM=null;
+function blobMat(){return blobM||(blobM=new T.MeshBasicMaterial({map:blobTexture(),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}))}
 function blobTexture(){
   if(blobTex)return blobTex;var cv=document.createElement('canvas');cv.width=cv.height=64;var g=cv.getContext('2d'),gr=g.createRadialGradient(32,32,6,32,32,32);
   gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.6,'rgba(0,0,0,.25)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);
@@ -265,6 +271,8 @@ function texCm(spec){return spec.k==='plank'?100:spec.k==='stone'?120:spec.k==='
 
 var MATS;
 function buildMats(){
+  /* החומרים של הבנייה הקודמת משתחררים (הטקסטורות במטמון ונשארות): בלי זה כל שינוי צבע דלף כ-45 חומרים */
+  var old=MATS||{};Object.keys(old).concat(Object.keys(old.fx||{})).forEach(function(k){var m=old[k]||(old.fx||{})[k];if(m&&m.isMaterial)m.dispose()});
   var st=STYLES[S.style];MATS={};var wc=S.mat.wall;
   var mk=function(c,r,o){return new T.MeshStandardMaterial(Object.assign({color:lin(c),roughness:r==null?.85:r,envMapIntensity:.3},o||{}))};
   MATS.wall=mk(wc,.95,{side:T.DoubleSide,clippingPlanes:[cutPlane]});
@@ -539,7 +547,8 @@ var BUILD={
     else if(k==='modern_luxury'){W(g,m.marble,w,4,d,0,34,0);CORNERS.forEach(function(c){B(g,m.metal,2.5,34,2.5,c[0]*(w/2-4),0,c[1]*(d/2-4))});
       B(g,m.metal,w-8,2,2,0,0,d/2-4);B(g,m.metal,w-8,2,2,0,0,-d/2+4);B(g,m.metal,2,2,d-8,w/2-4,0,0);B(g,m.metal,2,2,d-8,-w/2+4,0,0)}
     else{W(g,m.wood,w,3.5,d,0,36,0);W(g,m.wood,w-16,2,d-16,0,13,0);legs(g,m.wood2,w,d,36,6,1.8,1.2,.08)}
-    var top=k==='modern_clean'?38:k==='mediterranean_white'?38:k==='modern_luxury'?38:39.5;
+    /* גובה פני השולחן, לספרים ולקערה */
+    var top={modern_clean:38,mediterranean_white:38,modern_luxury:38}[k]||39.5;
     books(g,m,-w*.2,top,0,.2);Cy(g,m.pot,10,6,6,w*.22,top,-2,20)},
   coffeeR:function(g,m,w){
     var k=m.sk,r=w/2;
@@ -714,7 +723,7 @@ function bed(g,m,w,d,n){
 function buildFurn(f){
   var def=CAT[f.t],w=f.w||def.w,d=f.d||def.d,g=new T.Group();
   BUILD[f.t](g,MATS.fx,w,d);
-  if(f.t!=='rug'&&f.t!=='umbrella'){var bl=new T.Mesh(new T.PlaneGeometry(w*1.25+16,d*1.25+16),new T.MeshBasicMaterial({map:blobTexture(),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+  if(f.t!=='rug'&&f.t!=='umbrella'){var bl=new T.Mesh(new T.PlaneGeometry(w*1.25+16,d*1.25+16),blobMat());
     bl.rotation.x=-Math.PI/2;bl.position.y=.45;bl.renderOrder=1;g.add(bl)}
   g.userData.fid=f.id;g.userData.w=w;g.userData.d=d;
   g.traverse(function(o){if(o.isMesh)o.userData.fid=f.id});
@@ -749,7 +758,6 @@ function rebuild(){
   wetTiles(wallGroup);collectWindows();
   if(STYLES[S.style].flat)wallOutlines(wallGroup);
   world.add(wallGroup);
-  buildCutEdges();
   /* ריהוט */
   furnGroup=new T.Group();
   FURN.forEach(function(f){var g=buildFurn(f);furnMap[f.id]=g;furnGroup.add(g)});
@@ -770,7 +778,7 @@ function rebuild(){
   world.add(planMesh);
   }
   var c=center();sun.target.position.set(c.x,0,c.z);
-  applyCut();ceilShadow();updateSun();refreshLists();
+  applyCut();ceilShadow();updateSun();refreshLists();shadowDirty();
   if(selId&&furnMap[selId])showSel();
 }
 var labelFont='500 30px Heebo, Rubik, sans-serif';
@@ -827,7 +835,7 @@ var lastSun={el:30,az:180};
 function mixC(a,b,t){return new T.Color(a).lerp(new T.Color(b),clamp(t,0,1))}
 /* קרני שמש: אלומה שקופה מכל חלון שפונה לשמש אל כתם האור שלו על הרצפה. בלי זה רואים רק את
    הכתם, ובמבט ראשון לא מרגישים מאיפה האור בא (תומר, 22.11.2026). WINS נבנה ב-rebuild */
-var WINS=[],beamMesh=null;
+var WINS=[],beamMesh=null,beamMat=new T.MeshBasicMaterial({transparent:true,opacity:.055,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide,fog:false});
 function collectWindows(){
   WINS=[];var s=S.scale;
   var inside=function(x,y){return MODEL.rooms.some(function(r){return !r.bal&&r.r.some(function(q){return x>q[0]&&x<q[2]&&y>q[1]&&y<q[3]})})};
@@ -850,7 +858,7 @@ function sunBeams(L,warm){
     [[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]].forEach(function(f){idx.push(b+f[0],b+f[1],b+f[2],b+f[0],b+f[2],b+f[3])})});
   if(!pos.length)return;
   var g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(idx);
-  beamMesh=new T.Mesh(g,new T.MeshBasicMaterial({color:mixC(0xffb066,0xfff1cf,warm),transparent:true,opacity:.055,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide,fog:false}));
+  beamMat.color.copy(mixC(0xffb066,0xfff1cf,warm));beamMesh=new T.Mesh(g,beamMat);
   beamMesh.renderOrder=4;world.add(beamMesh);
 }
 function updateSun(){
@@ -871,7 +879,7 @@ function updateSun(){
   hemi.color.copy(mixC(0x2a3a5c,0xdfeeff,dayT));
   var sky=mixC('#0d1626','#cfe3ee',dayT);
   if(p.el>-4&&p.el<10)sky.lerp(new T.Color('#f0c79a'),0.45*(1-Math.abs(p.el-3)/7));
-  scene.background=sky;
+  scene.background=sky;shadowDirty();
   sunBeams(p.el>2?new T.Vector3(-dx*Math.cos(el),-Math.sin(el),-dz*Math.cos(el)):null,clamp(p.el/22,0,1));
   var ek=p.el>8?'day':p.el>-3?'dusk':'night';try{var ev=envFor(ek);if(scene.environment!==ev)scene.environment=ev}catch(err){scene.environment=null}
   renderer.toneMappingExposure=p.el>8?0.95:p.el>-3?0.9:0.85;
@@ -921,7 +929,6 @@ function goView(v,quick){
   if(quick){commitView(v);return}
   tw={t0:performance.now(),dur:900,p0:camera.position.clone(),q0:camera.quaternion.clone(),f0:camera.fov,to:to,v:v};
   if(v.mode==='fp')labelGroup.visible=false;
-  $('dpad').classList.remove('on');
 }
 function commitView(v){
   S.mode=v.mode;if(v.mode==='fp')S.fp=Object.assign({},v.fp);else S.drone=Object.assign({},v.drone);
@@ -929,7 +936,7 @@ function commitView(v){
 }
 /* התקרה מטילה צל רק במבט ראשון. במבט מלמעלה היא שקופה, ואם היא מטילה צל כל הדירה אפורה
    ושטוחה והשמש לא מורגשת; בלי הצל שלה הקירות מטילים צללים שזזים עם השעה */
-function ceilShadow(){if(ceilGroup)ceilGroup.children.forEach(function(c){c.castShadow=S.mode==='fp'})}
+function ceilShadow(){if(ceilGroup)ceilGroup.children.forEach(function(c){c.castShadow=S.mode==='fp'});shadowDirty()}
 function syncMode(){
   $('mDrone').setAttribute('aria-pressed',S.mode==='drone');$('mFp').setAttribute('aria-pressed',S.mode==='fp');
   labelGroup.visible=S.labels&&S.mode==='drone';
@@ -963,8 +970,7 @@ var ptrs=new Map(),drag=null,keys={};
 var ray=new T.Raycaster(),ndc=new T.Vector2();
 function setNdc(e){var r=canvas.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1))}
 function pickFurn(e){setNdc(e);ray.setFromCamera(ndc,camera);var h=ray.intersectObjects(furnGroup.children,true);
-  for(var i=0;i<h.length;i++){var id=h[i].object.userData.fid;if(id&&!(CATF(id)==='rug'&&h.length>1&&i<h.length-1))return {id:id,pt:h[i].point}}return null}
-function CATF(id){var f=FURN.filter(function(x){return x.id===id})[0];return f&&f.t}
+  for(var i=0;i<h.length;i++){var id=h[i].object.userData.fid;if(id&&!((getF(id)||{}).t==='rug'&&h.length>1&&i<h.length-1))return {id:id,pt:h[i].point}}return null}
 function groundPt(e){setNdc(e);ray.setFromCamera(ndc,camera);var pl=new T.Plane(new T.Vector3(0,1,0),0),p=new T.Vector3();return ray.ray.intersectPlane(pl,p)?p:null}
 canvas.addEventListener('contextmenu',function(e){e.preventDefault()});
 canvas.addEventListener('pointerdown',function(e){
@@ -1045,7 +1051,7 @@ window.addEventListener('keydown',function(e){
 });
 window.addEventListener('keyup',function(e){keys[e.code]=false;keys.shift=e.shiftKey});
 window.addEventListener('blur',function(){keys={}});
-var pad={},joy={f:0,t:0};
+var joy={f:0,t:0};
 /* ג'ויסטיק: גוררים את העיגול. למעלה ולמטה הליכה, ימינה ושמאלה פנייה. אזור מת קטן במרכז */
 (function(){
   var el=$('joy'),kn=$('joyKnob'),id=null,R=38;
@@ -1057,10 +1063,6 @@ var pad={},joy={f:0,t:0};
   el.addEventListener('pointermove',function(e){if(e.pointerId===id)set(e)});
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
 })();
-Array.prototype.forEach.call($('dpad').querySelectorAll('button'),function(b){
-  var k=b.dataset.k;b.addEventListener('pointerdown',function(e){e.preventDefault();pad[k]=true;b.setPointerCapture(e.pointerId)});
-  var up=function(){pad[k]=false};b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up)});
-
 /* ---- הליכה והתנגשות ---- */
 var PR=24;
 function resolve(x,z){
@@ -1081,9 +1083,9 @@ function goTo(x,z){
 }
 function walk(dt){
   var f=S.fp,sp=(keys.shift?300:170)*dt,mv=0,st=0,tr=0;
-  if(keys.KeyW||keys.ArrowUp||pad.f)mv+=1;if(keys.KeyS||keys.ArrowDown||pad.b)mv-=1;
+  if(keys.KeyW||keys.ArrowUp)mv+=1;if(keys.KeyS||keys.ArrowDown)mv-=1;
   if(keys.KeyD)st+=1;if(keys.KeyA)st-=1;
-  if(keys.KeyE||keys.ArrowRight||pad.r)tr+=1;if(keys.KeyQ||keys.ArrowLeft||pad.l)tr-=1;
+  if(keys.KeyE||keys.ArrowRight)tr+=1;if(keys.KeyQ||keys.ArrowLeft)tr-=1;
   mv+=joy.f;tr+=joy.t;   /* הג'ויסטיק אנלוגי: דחיפה קלה היא הליכה איטית */
   if(tr)f.yaw+=tr*1.5*dt;
   if(mv||st){S.fpGoal=null;
@@ -1102,6 +1104,7 @@ function walk(dt){
 
 /* ================= מצפן ================= */
 function drawCompass(){
+  if(!EDIT)return;   /* בצופה המצפן מוסתר */
   var fwd=new T.Vector3();camera.getWorldDirection(fwd);
   var angF=Math.atan2(fwd.x,-fwd.z),rotN=deg(rad(S.north)-angF),rotS=deg(rad(S.north+lastSun.az)-angF);
   $('compass').innerHTML='<circle r="42" fill="none" stroke="currentColor" opacity=".25"/>'+
@@ -1147,13 +1150,14 @@ $('furnList').addEventListener('click',function(e){var x=e.target.dataset&&e.tar
 
 /* ================= שמירה ================= */
 var saveT=null;
-function dirty(){clearTimeout(saveT);saveT=setTimeout(save,400)}
+function dirty(){shadowDirty();clearTimeout(saveT);saveT=setTimeout(save,400)}
 /* מה שנשמר: בלי תאריך, שעה ומנורות (מצב של צפייה, לא של הדגם). שדות שהמנוע אינו מכיר
    (scale_source, checks, declared_*, mirrored) עוברים כמו שהם */
 function settingsOut(){var o=Object.assign({},SETTINGS);['scale','ceil','wExt','wInt','sill','winH','doorH','north','city','style','labels','mat'].forEach(function(k){o[k]=S[k]});return o}
 function furnOut(){return FURN.filter(function(f){return !f.auto}).map(function(f){var a=[f.t,Math.round(f.x),Math.round(f.y),Math.round(f.rot)||0];if(f.w||f.d)a.push(Math.round(f.w)||0);if(f.d)a.push(Math.round(f.d));return a})}
 function dataOut(){return {v:1,settings:settingsOut(),furniture:FURN,views:VIEWS,lights:LIGHTS}}
-function save(){if(EDIT&&OPTS.onSave)OPTS.onSave({settings:settingsOut(),furniture:furnOut(),views:VIEWS,lights:LIGHTS})}
+function payload(){return {settings:settingsOut(),furniture:furnOut(),views:VIEWS,lights:LIGHTS}}
+function save(){if(EDIT&&OPTS.onSave)OPTS.onSave(payload())}
 function load(o){
   if(!o)return false;
   if(o.settings)Object.keys(o.settings).forEach(function(k){if(k in S&&k!=='date'&&k!=='mat')S[k]=o.settings[k]});
@@ -1218,8 +1222,7 @@ $('styles').addEventListener('click',function(e){var b=e.target.closest('.style'
 $('tgCut').addEventListener('click',function(){S.cut=!S.cut;this.setAttribute('aria-pressed',S.cut);applyCut()});
 $('tgPlan').addEventListener('click',function(){S.plan=!S.plan;this.setAttribute('aria-pressed',S.plan);if(planMesh)planMesh.visible=S.plan});
 $('tgPlan').hidden=!PLAN_IMG;
-$('mDrone').addEventListener('click',function(){if(S.mode==='drone')return;var c=center(),d=S.drone;
-  goView({mode:'drone',drone:{az:d.az,pol:d.pol,rad:d.rad,tx:d.tx||c.x,tz:d.tz||c.z}})});
+$('mDrone').addEventListener('click',function(){if(S.mode!=='drone')goView(curDroneView())});
 $('mFp').addEventListener('click',function(){if(S.mode==='fp')return;
   var f=S.fp;if(!f.x&&!f.z){f=startFp()}goView({mode:'fp',fp:f})});
 $('addF').addEventListener('click',addFurn);
@@ -1251,8 +1254,8 @@ document.addEventListener('fullscreenchange',function(){if(!document.fullscreenE
 /* זמן: מקשי קיצור והפעלת יום */
 var playing=false,playT=0;
 $('play').addEventListener('click',function(){playing=!playing;this.textContent=playing?'עצירה':'הפעלת יום';playT=performance.now()});
-document.querySelectorAll('[data-q]').forEach(function(b){b.addEventListener('click',function(){
-  var ll=CITIES[S.city],d=sunDay(ll[0],ll[1],S.date),q=b.dataset.q;
+document.querySelectorAll('[data-time]').forEach(function(b){b.addEventListener('click',function(){
+  var ll=CITIES[S.city],d=sunDay(ll[0],ll[1],S.date),q=b.dataset.time;
   S.time=q==='sunset'?Math.max(0,(d.set||18)-0.35):+q;playing=false;$('play').textContent='הפעלת יום';updateSun();dirty()})});
 
 /* זוויות ותבניות */
@@ -1362,19 +1365,19 @@ function syncMat(){
   ZONES.forEach(function(z){var sp=S.mat.fl[z[0]];$('fk_'+z[0]).value=sp.k;$('fc_'+z[0]).value=sp.a})
 }
 var rbT=null;
-function matChanged(src){
-  /* בחירה מהירה (מטבח, ריצוף מוכן) אינה נוגעת בקירות: הריצופים המוכנים נבחרו כך שייבדלו מקיר
-     בהיר בגוון ובטקסטורה, והפנל הכהה מפריד. שינוי קיר שהמשתמש/ת לא ביקש/ה נקרא כתקלה (תומר, 22.11.2026).
-     כלל הניגוד נשאר לעורך, כשבוחרים צבע חופשי לקיר או לרצפה */
-  var n=(src==='kitchen'||src==='quick')?'':ensureContrast(src);var el=$('contrastNote');el.hidden=!n;el.textContent=n;
-  syncMat();clearTimeout(rbT);rbT=setTimeout(function(){rebuild();dirty()},140);
+/* matApply: מציירים מחדש. matChanged: קודם אוכפים ניגוד בין קיר לרצפה, ורק בעורך, כשבוחרים צבע חופשי.
+   בחירה מהירה (מטבח, ריצוף מוכן) קוראת ל-matApply ואינה נוגעת בקירות: שינוי קיר שלא ביקשו נקרא
+   כתקלה (תומר, 22.11.2026) */
+function matApply(){$('contrastNote').hidden=true;syncMat();clearTimeout(rbT);rbT=setTimeout(function(){rebuild();dirty()},140)}
+function matChanged(zone){
+  var n=ensureContrast(zone);matApply();var el=$('contrastNote');el.hidden=!n;el.textContent=n;
 }
 $('wallColor').addEventListener('input',function(){S.mat.wall=baseWall=this.value;matChanged('wall')});
-$('kitSw').addEventListener('click',function(e){var b=e.target.closest('.swb');if(!b)return;S.mat.kitchen=b.dataset.c;matChanged('kitchen')});
-$('kitColor').addEventListener('input',function(){S.mat.kitchen=this.value;matChanged('kitchen')});
+$('kitSw').addEventListener('click',function(e){var b=e.target.closest('.swb');if(!b)return;S.mat.kitchen=b.dataset.c;matApply()});
+$('kitColor').addEventListener('input',function(){S.mat.kitchen=this.value;matApply()});
 $('floorSw').addEventListener('click',function(e){var b=e.target.closest('.flb');if(!b)return;var c=FLOOR_SW[+b.dataset.i];
   /* ריצוף אחד לכל הדירה חוץ מהחדרים הרטובים והמרפסת */
-  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');if(baseWall)S.mat.wall=baseWall;matChanged('quick')});
+  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');if(baseWall)S.mat.wall=baseWall;matApply()});
 $('floorBox').addEventListener('input',function(e){var z=e.target.dataset.z;if(!z)return;var sp=S.mat.fl[z];
   if(e.target.type==='color')S.mat.fl[z]=mkSpec(sp.k,e.target.value,z);
   else S.mat.fl[z]=mkSpec(e.target.value,sp.a,z);
@@ -1392,8 +1395,11 @@ function nowLabel(t){
   if(txt!==nowTxt){nowTxt=txt;$('nowRoom').textContent=txt;
     $('nowSub').textContent=(S.mode==='fp'&&OPTS.title?OPTS.title+' · ':'')+'הדמיה להמחשה בלבד'}
 }
+var miniKey='';
 function drawMini(){
   if(S.mode!=='fp')return;
+  var g0=S.fpGoal,key=[S.fp.x|0,S.fp.z|0,S.fp.yaw.toFixed(2),g0?g0.x|0:'',g0?g0.z|0:'',planImg.complete,miniC.width].join();
+  if(key===miniKey)return;miniKey=key;
   var W=miniC.width,H=miniC.height,k=Math.min(W/MM.w,H/MM.h);
   mctx.fillStyle='#fff';mctx.fillRect(0,0,W,H);
   if(planImg.complete&&planImg.naturalWidth){var sx=planImg.naturalWidth/MODEL.imgW;mctx.drawImage(planImg,MM.x0*sx,MM.y0*sx,MM.w*sx,MM.h*sx,0,0,MM.w*k,MM.h*k)}
@@ -1472,9 +1478,8 @@ function init(){
   marker.rotation.x=-Math.PI/2;marker.renderOrder=8;marker.visible=false;scene.add(marker);
   syncInputs();syncMat();fillChips();rebuild();selTools();resize();syncMode();applyCamera();
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){rebuild()});
-  if(OPTS.debug)window.__p3d={togglePerson:togglePerson,scene:scene,renderer:renderer,sun:sun,hemi:hemi,S:S,ensureContrast:ensureContrast,styleMat:styleMat,hslOf:hslOf,STYLES:STYLES,matChanged:matChanged,syncMat:syncMat,goTo:goTo,goView:goView,commitView:commitView,VIEWS:VIEWS,rebuild:rebuild,setStyle:function(k){S.style=k;S.mat=styleMat(k);syncMat();fillStyles();rebuild()},updateSun:updateSun};
   requestAnimationFrame(loop);
 }
 init();
-return {data:function(){return {settings:settingsOut(),furniture:furnOut(),views:VIEWS,lights:LIGHTS}}};
+return {data:payload};
 }};
