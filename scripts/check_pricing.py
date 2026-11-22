@@ -80,6 +80,10 @@ PRICES = {
     'office_price_tier2':                339,
     'office_price_tier3_min_agents':     11,
     'office_price_tier3':                299,
+    # סיור תלת-ממדי (20271129090000): ₪49 לדגם דירה לפני מע"מ, מהארנק, ו-20 הדמיות כלולות לדגם.
+    # עוד אין מקום תצוגה ב-DISPLAY: שורת pricing.html נכנסת עם הממשק (שלב ה' ב-docs/plan-3d-tour.md).
+    'plan_model_price':                  49,
+    'plan_model_included_renders':       20,
 }
 
 # ------------------------------------------------------------- התצוגה
