@@ -53,7 +53,7 @@ var STYLES={
     f:{fabric:'#a9adb2',wood:'#c2a06f',dark:'#2f3237',accent:'#4b5560',case:'#f2f2f0',top:'#f7f7f5',rug:'#8e939a',green:'#5d8a58',white:'#f3f3f1'},lamp:0xfff0d8,sw:['#f0f0ee','#aeb2b4','#a87c4f']},
   mediterranean_white:{label:'ים תיכוני לבן',sub:'לבן, אבן בהירה ותכלת ים',wall:'#fcfbf7',
     fl:{tile:['stone','#d3c9b4'],wood:['plank','#c9b088'],wet:['tile','#9fbdcd',20],deck:['plank','#a77f4f']},
-    f:{fabric:'#efe9dd',wood:'#c9a877',dark:'#3b3a38',accent:'#3f84ad',case:'#f8f6f0',top:'#f4f1ea',rug:'#e6dcc8',green:'#4f8a4b',white:'#fbfaf6'},lamp:0xfff1d9,sw:['#fcfbf7','#d3c9b4','#3f84ad']},
+    f:{fabric:'#cdc3ae',wood:'#c9a877',dark:'#3b3a38',accent:'#3f84ad',case:'#f8f6f0',top:'#f4f1ea',rug:'#e6dcc8',green:'#4f8a4b',white:'#fbfaf6'},lamp:0xfff1d9,sw:['#fcfbf7','#d3c9b4','#3f84ad']},
   warm_scandi:{label:'סקנדינבי חם',sub:'עץ בהיר, טקסטיל חם וחרדל',wall:'#f5efe5',
     fl:{tile:['plank','#c9a06a'],wood:['plank','#c9a06a'],wet:['tile','#c4bdae',30],deck:['plank','#9c774b']},
     f:{fabric:'#cdb99d',wood:'#dcb887',dark:'#3a352f',accent:'#c98a3c',case:'#efe3cf',top:'#e8d9bf',rug:'#e9dfce',green:'#6b8f5b',white:'#f6f1e8'},lamp:0xffe6c0,sw:['#f5efe5','#c9a06a','#c98a3c']},
@@ -260,7 +260,8 @@ function buildMats(){
   MATS.fx.tvscreen=mk('#0b0c0e',.12,{metalness:.2,envMapIntensity:1});
   /* חומרי הריהוט. ב"בסיס" הכול נשאר אפור ובלי טקסטורה */
   var F=st.f;
-  MATS.fx.cushion=mk(mixC(F.fabric,'#ffffff',.2),.95);
+  /* הכריות נבדלות מגוף הספה: בבד בהיר הן כהות מעט, בבד כהה בהירות. ספה לבנה על קיר לבן נבלעה (תומר, 22.11.2026) */
+  MATS.fx.cushion=mk(hslOf(F.fabric).l>.7?shade(F.fabric,.9):mixC(F.fabric,'#ffffff',.2),.95);
   MATS.fx.rug2=mk(shade(F.rug,.86),.95);
   MATS.fx.green2=mk(shade(F.green,.7),.9);
   MATS.fx.mirror=mk(st.flat?'#c4c1ba':'#cfd9dd',.05,{metalness:.9,envMapIntensity:1.4});
