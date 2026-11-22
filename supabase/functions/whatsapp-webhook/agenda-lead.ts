@@ -8,6 +8,8 @@
 //
 // בקובץ נפרד מ-agent.ts כדי שהבדיקה תרוץ בלי לטעון את כל העוזרת.
 
+import { phoneE164 } from "../_shared/projects.ts";
+
 export type OwnLead = {
   id: string;
   raw_name: string | null;
@@ -20,10 +22,20 @@ export type FollowupPlan = { notify: boolean; note?: string };
 // deno-lint-ignore no-explicit-any
 export type LeadSb = { from: (table: string) => any };
 
-const MIN_PHONE_DIGITS = 9;
+/**
+ * האם `meeting-client` ישלח למספר הזה. אותה נורמליזציה של השולח (phoneE164), כדי
+ * שהבוט לא יגיד "נשלח" על מספר שהשולח ידחה כ-no_phone.
+ */
+function sendable(value: unknown): boolean {
+  return phoneE164(typeof value === "string" ? value : null) !== null;
+}
 
-function digitsOf(value: unknown): string {
-  return String(value ?? "").replace(/\D/g, "");
+/**
+ * מספר שהסוכן/ת אמר/ה: ספרות ומפרידים בלבד. "050-123-4567 או 052-111-2222" ו"בית 12, 050123456"
+ * יש בהם מספיק ספרות, ולכן הבדיקה לבדה אינה מספיקה.
+ */
+function dictatedPhoneOk(value: string): boolean {
+  return /^[\d\s\-+().]+$/.test(value) && sendable(value);
 }
 
 /** הליד של הסוכן/ת הזה/זו בלבד. ליד של אחר/ת, או שאינו קיים - null. */
@@ -62,10 +74,10 @@ export async function leadFollowupPlan(
     };
   }
 
-  let digits = digitsOf(lead.raw_phone);
+  let ok = sendable(lead.raw_phone);
   const given = String(phoneInput ?? "").trim();
-  if (digits.length < MIN_PHONE_DIGITS && given) {
-    if (digitsOf(given).length < MIN_PHONE_DIGITS) {
+  if (!ok && given) {
+    if (!dictatedPhoneOk(given)) {
       return {
         notify: false,
         note: "המספר שנמסר אינו מספר טלפון תקין, ולכן לא יישלחו אישור ותזכורת. " +
@@ -81,10 +93,10 @@ export async function leadFollowupPlan(
         note: "לא הצלחתי לשמור את המספר בליד, ולכן לא יישלחו אישור ותזכורת. אפשר לנסות שוב.",
       };
     }
-    digits = digitsOf(given);
+    ok = true;
   }
 
-  if (digits.length < MIN_PHONE_DIGITS) {
+  if (!ok) {
     return {
       notify: false,
       note: `ל${name} אין טלפון ב"הלידים שלי", ולכן לא יישלחו אישור ותזכורת. ` +

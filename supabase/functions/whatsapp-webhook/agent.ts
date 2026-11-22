@@ -9769,6 +9769,14 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
       .eq("agent_id", ctx.agent.id).in("id", clientIds);
     (data || []).forEach((c) => names.set(c.id, c.phone ? `${c.full_name} (${c.phone})` : c.full_name));
   }
+  // פגישה שקשורה רק לליד: השם מהליד (רק של הסוכן/ת הזה/זו), כמו אצל לקוח/ה.
+  const leadIds = [...new Set(rows.filter((r) => !r.client_id).map((r) => r.lead_id).filter(Boolean))] as string[];
+  if (leadIds.length) {
+    const { data } = await ctx.supabase
+      .from("leads").select("id, raw_name")
+      .eq("agent_id", ctx.agent.id).in("id", leadIds);
+    (data || []).forEach((l) => l.raw_name && names.set(l.id, l.raw_name));
+  }
   // מה הלקוח/ה קיבל/ה וענה/תה על הפגישה. שאילתה נפרדת ולא חלק מ-AGENDA_SELECT:
   // העמודות נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תפיל את היומן.
   const followups = new Map<string, { notify: boolean; response: string | null; feedback: string | null }>();
@@ -9800,7 +9808,7 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
     high_priority: r.priority === "high" || undefined,
     status: r.status,
     location: r.location || undefined,
-    client: r.client_id ? names.get(String(r.client_id)) : undefined,
+    client: names.get(String(r.client_id || r.lead_id || "")),
     notes: r.notes || undefined,
     automatic: r.source === "system" || undefined,
     client_followup: followups.get(String(r.id))?.notify
@@ -9941,8 +9949,10 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
 
   // ליד מ"הלידים שלי": הפגישה נקשרת אליו (lead_id), וגם נשלח לו הפולואפ כשיש לו
   // טלפון. הקישור רק לליד של הסוכן/ת הזה/זו.
+  // רק כשאין client_id: ל-agent_agenda_contact לקוח/ה גובר/ת, ואם הכרטיס נמחק
+  // (on delete set null) פריט שנושא את שניהם היה עובר בשקט לטלפון של הליד.
   const leadRef = await leadRefFrom(ctx, input.lead_id);
-  if (leadRef?.row) row.lead_id = leadRef.row.id;
+  if (leadRef?.row && !row.client_id) row.lead_id = leadRef.row.id;
 
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
   // עם לקוח/ה מהקובץ או ליד, ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
@@ -10252,7 +10262,13 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
     const leadRef = input.lead_id || input.notify_client === true
       ? await leadRefFrom(ctx, input.lead_id || current.lead_id)
       : null;
-    if (input.lead_id && leadRef?.row) patch.lead_id = leadRef.row.id;
+    if (input.lead_id) {
+      if (!leadRef?.row) {
+        return { ok: false, error: "lead_not_found", guidance: "הליד לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש אותו ב-list_leads ולא להמציא מזהה." };
+      }
+      // לא קושרים ליד לפריט שיש לו לקוח/ה (ראו agenda_add).
+      if (!current.client_id) patch.lead_id = leadRef.row.id;
+    }
     if (typeof input.notify_client === "boolean") {
       if (input.notify_client) {
         const plan = await clientFollowupPlan(ctx, String(patch.kind || current.kind),

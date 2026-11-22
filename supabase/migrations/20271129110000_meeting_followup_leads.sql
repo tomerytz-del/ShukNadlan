@@ -400,3 +400,29 @@ $$;
 
 revoke all on function public.agent_agenda_client_feedback(text, text) from public, anon, authenticated;
 grant execute on function public.agent_agenda_client_feedback(text, text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 5. פריטים שנשמרו לפני שהמיגרציה רצה
+--
+-- הבוט עולה לפני המיגרציה: פריט עם lead_id ו-client_notify שנשמר בין שני
+-- הרגעים לא נכנס לתור (הטריגר הישן דרש client_id), ועדכון שאינו משנה ערך אינו
+-- יוצר לו אישור. מכבים ומדליקים רק פריטים פתוחים ועתידיים שאין להם אף הודעה
+-- בתור, כך שההרצה חוזרת בלי לשלוח עדכון כפול למי שכבר קיבל/ה.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_ids uuid[];
+begin
+  select coalesce(array_agg(i.id), '{}') into v_ids
+    from public.agent_agenda_items i
+   where i.client_notify
+     and i.client_id is null
+     and i.lead_id is not null
+     and i.status = 'open'
+     and i.due_at > now()
+     and i.kind in ('meeting','showing','signing')
+     and not exists (select 1 from public.agent_agenda_client_messages m where m.item_id = i.id);
+  update public.agent_agenda_items set client_notify = false where id = any (v_ids);
+  update public.agent_agenda_items set client_notify = true  where id = any (v_ids);
+end;
+$$;

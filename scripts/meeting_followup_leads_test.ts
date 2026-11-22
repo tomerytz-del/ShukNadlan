@@ -86,6 +86,33 @@ await test("מספר לא תקין לא נשמר ולא נשלח אליו", asyn
   assert(!calls.some((c) => c.op === "update"), "אסור לשמור מספר לא תקין");
 });
 
+await test("מספר שנאמר עם טקסט או עם שני מספרים לא נשמר, גם כשיש בו מספיק ספרות", async () => {
+  for (const bad of ["0501234567 או 0521234567", "בית 12, 050123456", "050-123-4567 ו-052-111-2222"]) {
+    const noPhone = { ...LEAD, raw_phone: null };
+    const { sb, calls } = fakeSb(noPhone);
+    const plan = await leadFollowupPlan(sb, "agent-1", noPhone, bad);
+    assert(plan.notify === false, `"${bad}" אינו מספר אחד`);
+    assert(!calls.some((c) => c.op === "update"), `"${bad}" אסור שיישמר`);
+  }
+});
+
+await test("טלפון שמור שהשולח ידחה נחשב חסר: שואלים מספר במקום להגיד 'נשלח'", async () => {
+  const junk = { ...LEAD, raw_phone: "אין" };
+  const { sb } = fakeSb(junk);
+  const plan = await leadFollowupPlan(sb, "agent-1", junk, undefined);
+  assert(plan.notify === false && /מה המספר/.test(plan.note || ""), "צריך לבקש מספר");
+});
+
+await test("מספר בפורמטים מקובלים נשמר", async () => {
+  for (const good of ["050-123-4567", "+972 50 123 4567", "(03) 123-4567"]) {
+    const noPhone = { ...LEAD, raw_phone: null };
+    const { sb, calls } = fakeSb(noPhone);
+    const plan = await leadFollowupPlan(sb, "agent-1", noPhone, good);
+    assert(plan.notify === true, `"${good}" צריך להתקבל`);
+    assert(calls.some((c) => c.op === "update"), `"${good}" צריך להישמר`);
+  }
+});
+
 await test("כשל בשמירת המספר: לא שולחים", async () => {
   const noPhone = { ...LEAD, raw_phone: null };
   const { sb } = fakeSb(noPhone, { message: "boom" });
@@ -116,6 +143,8 @@ await test("המיגרציה: ליד נלקח רק כשהוא של הסוכן/ת
   assert(/p_client_id is null/.test(sql), "לקוח/ה גובר/ת על ליד");
   assert(/lead_id, due_at/.test(sql), "העמודה lead_id חייבת להפעיל את הטריגר");
   assert(/v_item\.lead_id\);/.test(sql), "המשימה האוטומטית אחרי משוב נקשרת לליד");
+  assert(/not exists \(select 1 from public\.agent_agenda_client_messages m where m\.item_id = i\.id\)/.test(sql),
+    "ה-backfill חייב להיות אידמפוטנטי: רק פריט בלי הודעות בתור");
 });
 
 if (failed) {
