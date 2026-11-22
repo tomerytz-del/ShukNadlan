@@ -73,7 +73,7 @@ var CITIES={
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 var S={scale:1.56,ceil:270,wExt:22,wInt:10,sill:90,winH:130,doorH:210,
   north:0,city:'עפולה',date:todayStr(),time:11,lamps:'auto',style:'modern_clean',
-  mat:null,fpGoal:null,mode:'drone',cut:true,plan:false,labels:true,edit:false,
+  mat:null,fpGoal:null,mode:'drone',cut:false,plan:false,labels:true,edit:false,
   drone:{az:0.25,pol:0.85,rad:2700,tx:0,tz:0},fp:{x:0,z:0,yaw:0,pitch:0}};
 var FURN=[];var VIEWS=[];var LIGHTS=[];var selId=null;var uid=1;
 
@@ -466,21 +466,25 @@ function buildCutEdges(){
     if(!m.isMesh||(m.material!==MATS.wall&&m.material!==MATS.core))return;
     /* במרחב של world (ס"מ) */
     var gp=m.geometry.parameters,ps=m.position;
-    if(ps.y-gp.height/2>CUT_H-1||ps.y+gp.height/2<CUT_H+1)return;
-    var x1=ps.x-gp.width/2,x2=ps.x+gp.width/2,z1=ps.z-gp.depth/2,z2=ps.z+gp.depth/2,y=CUT_H+.3;
+    /* חתוך: המתאר בגובה החיתוך. שלם: בראש הקיר, ורק לקירות שמגיעים לתקרה (לא לאדני חלונות) */
+    var top=ps.y+gp.height/2,L;
+    if(S.cut){if(ps.y-gp.height/2>CUT_H-1||top<CUT_H+1)return;L=CUT_H}
+    else{if(top<S.ceil-1)return;L=top+.1}
+    var x1=ps.x-gp.width/2,x2=ps.x+gp.width/2,z1=ps.z-gp.depth/2,z2=ps.z+gp.depth/2,y=L+.3;
     if(x2-x1<1||z2-z1<1)return;
-    flat(x2-x1,z2-z1,rimM,(x1+x2)/2,CUT_H,(z1+z2)/2);
-    if(x2-x1>2*EDGE+1&&z2-z1>2*EDGE+1)flat(x2-x1-2*EDGE,z2-z1-2*EDGE,capM,(x1+x2)/2,CUT_H+.15,(z1+z2)/2);
+    flat(x2-x1,z2-z1,rimM,(x1+x2)/2,L,(z1+z2)/2);
+    if(x2-x1>2*EDGE+1&&z2-z1>2*EDGE+1)flat(x2-x1-2*EDGE,z2-z1-2*EDGE,capM,(x1+x2)/2,L+.15,(z1+z2)/2);
     pts.push(x1,y,z1,x2,y,z1, x2,y,z1,x2,y,z2, x2,y,z2,x1,y,z2, x1,y,z2,x1,y,z1);
   });
   var g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pts,3));
   edgeGroup.add(new T.LineSegments(g,lineM));
-  edgeGroup.visible=S.cut&&S.mode==='drone';
+  edgeGroup.visible=S.mode==='drone';
   world.add(edgeGroup);
 }
 function applyCut(){
   cutPlane.constant=S.cut&&S.mode==='drone'?CUT_H:100000;
-  if(edgeGroup)edgeGroup.visible=S.cut&&S.mode==='drone';
+  /* המתאר יושב בגובה אחר בכל מצב, ולכן נבנה מחדש (כמה עשרות משטחים) */
+  if(wallGroup&&MATS.wall){dispose(edgeGroup);buildCutEdges()}
   ceilGroup.visible=true;
 }
 
