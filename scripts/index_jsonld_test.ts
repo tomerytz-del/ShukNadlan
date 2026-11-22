@@ -58,6 +58,10 @@ const agencyGraph = JSON.parse(agencies.match(/<script type="application\/ld\+js
 const agencyItem = agencyGraph["@graph"][2].itemListElement[0];
 check("משרד הוא RealEstateAgent", agencyItem.item["@type"] === "RealEstateAgent"
   && agencyItem.item.url === "https://shuknadlan.co.il/agency?slug=" + encodeURIComponent("office"));
+const agencyPage = agencyGraph["@graph"][0] as { name?: string; about?: { "@type"?: string; name?: string } };
+check("שם המשרדים הוא האזור", agencyPage.name === "משרדי תיווך בעמק יזרעאל"
+  && agencyPage.about?.["@type"] === "AdministrativeArea"
+  && agencyPage.about?.name === "עמק יזרעאל");
 
 const present = HTML.replace("</head>", '<script type="application/ld+json">{"@type":"CollectionPage"}</script></head>');
 const again = await handler(new Request("https://shuknadlan.co.il/agents"), {

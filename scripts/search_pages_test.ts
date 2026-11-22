@@ -467,8 +467,6 @@ for (const [name, url] of UNTOUCHED) {
   const bare = await serve("/?deal=sale");
   const folded: [string, string][] = [
     ["חדרים שאינם ברשימה", "/?deal=sale&rooms=2"],
-    ["4 חדרים", "/?deal=sale&rooms=4&utm_source=google&gclid=abc"],
-    ["5 חדרים", "/?deal=sale&rooms=5"],
     ["מחיר מהרשימה", "/?deal=sale&maxPrice=1500000"],
     ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
     ["עמוד ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
@@ -485,10 +483,27 @@ for (const [name, url] of UNTOUCHED) {
   }
   const rooms3 = await serve("/?deal=sale&rooms=3&gclid=abc&utm_source=google");
   const garden = await serve("/?deal=sale&ptype=" + encodeURIComponent("דירת גן"));
+  const rooms4 = await serve("/?deal=sale&rooms=4&utm_source=google&gclid=abc");
+  const rooms5 = await serve("/?deal=sale&rooms=5");
+  const rooms4city = await serve("/?rooms=4&deal=sale&city=" + encodeURIComponent("עפולה"));
+  const page4 = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=4")!;
+  const page5 = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=5")!;
   check(
     "3 חדרים ודירת גן נשארים על הדף שלהם",
     rooms3.canonical === `${SITE}/afula/דירות-3-חדרים` && garden.canonical.endsWith("/afula/דירות-גן"),
     JSON.stringify({ rooms3: rooms3.canonical, garden: garden.canonical }),
+  );
+  check(
+    "4 ו-5 חדרים מצביעים לדף שלהם, בלי לשנות את כותרת הסינון",
+    rooms4.canonical === `${SITE}/afula/דירות-4-חדרים`
+      && rooms5.canonical === `${SITE}/afula/דירות-5-חדרים`
+      && rooms4city.canonical === `${SITE}/afula/דירות-4-חדרים`
+      && rooms4.h1 === page4.title
+      && rooms5.h1 === page5.title
+      && rooms4city.h1 === "דירות 4 חדרים למכירה בעפולה"
+      && !String(rooms4.canonical).includes("gclid")
+      && !String(rooms4.canonical).includes("utm"),
+    JSON.stringify({ rooms4: rooms4.canonical, rooms5: rooms5.canonical, h1: rooms4.h1, city: rooms4city.h1 }),
   );
   const rent = await serve("/?deal=rent&rooms=3&utm_source=google&gclid=abc");
   const rentPage = SEARCH_PAGES.find((p) => p.query === "deal=rent&rooms=3")!;

@@ -26,6 +26,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
@@ -53,6 +54,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
@@ -144,6 +146,9 @@ jobs:
 
       - name: תקציר התראות של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
+
+      - name: סדר תבניות, 131049 ותקציר לסוכנים
+        run: node --experimental-strip-types scripts/wa_agent_notify_priority_test.ts
 
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
