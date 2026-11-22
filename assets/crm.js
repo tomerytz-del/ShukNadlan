@@ -3459,10 +3459,10 @@ async function loadNeighborhoodsAdmin(){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   loadNeighborhoodCityOptions();
   hoodImportInit();
-  let { data, error } = await fetchAllPages((a, b) => sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name').order('id').range(a, b));
+  let { data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name').order('id'));
   // ‏is_industrial (‏20270430090000) - בדקה שלפני המיגרציה הרשימה נטענת בלעדיה
   if (error && /is_industrial/.test(error.message || '')){
-    ({ data, error } = await fetchAllPages((a, b) => sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name').order('id').range(a, b)));
+    ({ data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name').order('id')));
   }
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
@@ -7905,32 +7905,15 @@ let allNeighborhoods = [];
 let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
-/* ‏PostgREST חותך ב-1,000 שורות בשקט, ובטבלה יותר מזה (1,640 ב-22.11.2026).
-   שאילתה אחת ממוינת לפי שם הפילה את סוף האלף-בית, למשל "רובע יזרעאל" בעפולה.
-   לכן קוראים בעמודים, עם id כמפתח מיון שני כדי שהעמודים לא יחפפו. */
-/* ‏build(from, to) מחזירה שאילתה עם range(from, to) והמיון היציב שלה. */
-async function fetchAllPages(build){
-  const PAGE = 1000, rows = [];
-  for (let from = 0; ; from += PAGE){
-    const { data, error } = await build(from, from + PAGE - 1);
-    if (error) return { data: null, error };
-    rows.push(...(data || []));
-    if (!data || data.length < PAGE) break;
-  }
-  return { data: rows, error: null };
-}
-
-async function fetchAllNeighborhoods(){
-  const { data, error } = await fetchAllPages((a, b) => sb.from('neighborhoods')
-    .select('id, city, name, city_id, is_planned, is_industrial')
-    .order('name').order('id').range(a, b));
-  if (error) throw error;
-  return data;
-}
-
+/* ‏PostgREST חותך ב-1,000 שורות בשקט, ובטבלה יותר מזה (1,640 ב-22.11.2026):
+   שאילתה אחת ממוינת לפי שם הפילה את סוף האלף-בית ("רובע יזרעאל" בעפולה).
+   לכן `fetchAllPages` (למטה), ועם id כמפתח מיון אחרון כדי שהעמודים לא יחפפו. */
 async function loadAllNeighborhoods(){
   const [hoods, { data: mc }] = await Promise.all([
-    fetchAllNeighborhoods().catch(err => { console.warn('neighborhoods load failed', err); return []; }),
+    fetchAllPages(() => sb.from('neighborhoods')
+      .select('id, city, name, city_id, is_planned, is_industrial')
+      .order('name').order('id'))
+      .then(r => { if (r.error) console.warn('neighborhoods load failed', r.error); return r.data || []; }),
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
@@ -22884,7 +22867,7 @@ const SS_DEAL_LABELS = { sale:'מחפש/ת לקנייה', rent:'מחפש/ת לש
 
 async function loadSavedSearchHoods(){
   if (savedSearchHoods.size) return;
-  const { data } = await fetchAllPages((a, b) => sb.from('neighborhoods').select('id, name').order('id').range(a, b));
+  const { data } = await fetchAllPages(() => sb.from('neighborhoods').select('id, name').order('id'));
   (data || []).forEach(n => savedSearchHoods.set(n.id, n.name));
 }
 
