@@ -30,7 +30,8 @@
 | `supabase/functions/meeting-client/index.ts` | שליחה מהתור, דף הפגישה (`view`/`respond`/`feedback`) וקובץ ה-‎`.ics`‎ |
 | `supabase/functions/_shared/meeting-client.ts` | שליחה ל-Meta (תבנית / טקסט / כפתורים), ה-payload של הכפתורים והתשובות ללקוח/ה |
 | `supabase/functions/whatsapp-webhook/index.ts` | לחיצה על כפתור, **לפני** זיהוי הסוכן/ת והבוט הציבורי |
-| `supabase/functions/whatsapp-webhook/agent.ts` | `notify_client` ב-`agenda_add` / `agenda_update`, ו-`client_followup` בתשובה וב-`agenda_list` |
+| `supabase/functions/whatsapp-webhook/agent.ts` | `notify_client` ב-`agenda_add` / `agenda_update`, ו-`client_followup` בתשובה וב-`agenda_list`; `lead_id` ו-`lead_phone` לליד מ"הלידים שלי" |
+| `supabase/functions/whatsapp-webhook/agenda-lead.ts`, `supabase/migrations/20271130110000_meeting_followup_leads.sql` | ליד כאיש קשר: הלוגיקה בבוט, ו-`agent_agenda_contact` במסד |
 | `meeting.html`, `assets/meeting.js` | הדף ללקוח/ה |
 | `crm.html`, `assets/crm.js` | התיבה "📲 לשלוח ללקוח/ה" בטופס היומן, הכפתור "📲 לשלוח ללקוח/ה" על פגישה קיימת, התגים (אישור / משוב), האזהרה בביטול, והמתג של המשימה האוטומטית |
 
@@ -51,6 +52,32 @@
 
 הטריגר יושב על הטבלה, ולכן **הזזה או ביטול מכל מקום** של פגישה דלוקה
 מעדכנים את הלקוח/ה, ותיבת האישור של "ביטול" ב-CRM אומרת זאת.
+
+### ליד מ"הלידים שלי", בלי כרטיס לקוח/ה
+
+פגישה עם איש קשר שרשום רק ב"הלידים שלי" (`leads`) מקבלת את אותו אישור, אותן
+תזכורות ואותו משוב, באותו נוסח. הבוט קובע אותה עם `lead_id` (מ-`list_leads`)
+במקום `client_id`, והפגישה נקשרת לליד (`agent_agenda_items.lead_id`), כך
+שהמשימה האוטומטית אחרי משוב נקשרת אליו גם היא.
+
+- **מי איש הקשר:** `agent_agenda_contact(agent_id, client_id, lead_id)`.
+  לקוח/ה גובר/ת, ואם אין - הליד. הפונקציה משמשת את `claim`, `respond` ו-`feedback`.
+- **ליד נעול אינו נשלח:** הטלפון נלקח רק כש-`leads.status = 'unlocked'` ורק
+  כשהליד של אותו/ה סוכן/ת (`leads_masked` מסתיר ליד נעול, ושליחה אליו עוקפת
+  את הנעילה). ליד נעול או בלי טלפון מחזיר טלפון ריק, והשורה נרשמת `no_phone`.
+- **ליד בלי טלפון:** גבריאלה שואלת את הסוכן/ת מה המספר ואינה מנחשת. אחרי
+  שנאמר - `agenda_update` עם `lead_phone` ו-`notify_client`. המספר נשמר על
+  הליד של הסוכן/ת עצמו/ה (רק ליד פתוח, ורק מספר ש-`phoneE164` מקבל, כלומר אותו מספר שהשולח ישלח אליו; ספרות ומפרידים בלבד), והשליחה
+  יוצאת מהסבב הבא של התור.
+- **כרטיס לקוח/ה אינו נפתח לבד.** הלוגיקה בבוט ב-`whatsapp-webhook/agenda-lead.ts`,
+  והבדיקה ב-`scripts/meeting_followup_leads_test.ts`.
+- **ההתראות והמשוב** מציגים את שם הליד, והמשימה "לחזור ל..." מקושרת ל-`lead_id`.
+  ללא רמז למיניסייט, כי מיניסייט נבנה מכרטיס לקוח/ה.
+- **שם ליד נעול אינו מוצג** בבוט ובדף (`list_leads` קורא מ-`leads_masked` מאותה סיבה), והפגישה אינה נקשרת אליו.
+- **פגישה שכבר מקושרת לליד אינה משויכת לליד אחר:** ההודעות כבר יצאו לראשון.
+- **מה לא נבדק מול Meta:** מספר קווי (למשל 03-...) עובר את `phoneE164` ויוצא `failed` בשליחה, לא `no_phone`.
+- **לא כלול:** תצוגת סטטוס הפגישה בכרטיס הליד ב-CRM. הקישור קיים (`lead_id`),
+  והתצוגה בכרטיס עוד לא נכתבה.
 
 ### תור יוצא, ולמה
 
