@@ -135,11 +135,6 @@ async function completeModel(sb: Sb, modelId: string, model: unknown, settings: 
  *   unknown  - ההחזר לא אושר אחרי שני ניסיונות (הפונקציה אידמפוטנטית). ה-cron יחזיר.
  */
 async function failAndRespond(sb: Sb, charged: Charged, code: string, status: number, sourcePath?: string): Promise<Response> {
-  // התוכנית שעלתה לדגם שלא נוצר אינה נשמרת אצלנו. מאמץ בלבד: כישלון כאן אינו מעכב את ההחזר
-  if (sourcePath) {
-    const { error } = await sb.storage.from(BUCKET).remove([sourcePath]);
-    if (error) console.error("plan-model: remove source", charged.modelId, error.message);
-  }
   let refunded: number | null = null;
   for (let attempt = 0; attempt < 2 && refunded === null; attempt++) {
     // ‏refund_reason נקרא על ידי הבעלים (RLS): נכתב בו קוד בלבד, לא טקסט שגיאה גולמי
@@ -147,6 +142,13 @@ async function failAndRespond(sb: Sb, charged: Charged, code: string, status: nu
     if (!error && data?.success) refunded = Number(data.refunded ?? 0);
     else if (!error && data?.error === "already_ready") return json({ ok: true, model_id: charged.modelId, ...charged.receipt });
     else console.error("plan-model: fail_plan_model", charged.modelId, attempt, error?.message ?? data?.error);
+  }
+  // התוכנית של דגם שלא נוצר אינה נשמרת אצלנו. נמחקת **רק אחרי שההחזר אושר**: עד אז ייתכן שהדגם
+  // דווקא מוכן (already_ready, למעלה) וצריך את התוכנית שלו, וכשההחזר לא אושר לא נוגעים בדבר.
+  // מאמץ בלבד: כישלון במחיקה אינו משנה את התשובה
+  if (refunded !== null && sourcePath) {
+    const { error } = await sb.storage.from(BUCKET).remove([sourcePath]);
+    if (error) console.error("plan-model: remove source", charged.modelId, error.message);
   }
   const what = code === "plan_unreadable"
     ? "לא הצלחנו לקרוא את התוכנית. כדאי להעלות תמונה חדה וישרה של תוכנית דירה אחת."
@@ -181,19 +183,20 @@ Deno.serve(async (req: Request) => {
   const action = typeof body.action === "string" ? body.action : "";
 
   // ---------------------------------------------------------------------
-  // כתובת חתומה לתוכנית המקור, לשעה. השורה נקראת **בהרשאת הקורא/ת**: ה-RLS (בעלים,
-  // או דגם שפורסם) הוא הבדיקה, ולא השוואה שנכתבה כאן שוב. דגם שפורסם נקרא גם למי
-  // שאינו הבעלים, ולכן נדרש גם שהקורא/ת הוא הבעלים. הדלי פרטי.
+  // כתובת חתומה לתוכנית המקור, לשעה, לבעלים בלבד. השורה נקראת ב-service_role: עמודות
+  // הבעלות והנתיב אינן פתוחות ל-authenticated (דגם שפורסם נקרא לכל מחובר/ת), ולכן
+  // הבעלות נבדקת כאן מול current_agent_id / current_developer_id. הדלי פרטי.
   // ---------------------------------------------------------------------
   if (action === "plan_url") {
     const modelId = typeof body.model_id === "string" ? body.model_id : "";
     if (!modelId) return json({ error: "missing_fields" }, 400);
-    const { data: m, error } = await authed.from("plan_models")
+    const { data: m, error } = await supabase.from("plan_models")
       .select("id, owner_kind, agent_id, developer_id, source_plan_path").eq("id", modelId).maybeSingle();
     if (error) return json({ error: "db_error" }, 500);
-    if (!m?.source_plan_path) return json({ error: "not_found" }, 404);
+    if (!m) return json({ error: "not_found" }, 404);
     const me = await resolveOwner(authed, m.owner_kind as OwnerKind);
     if (!me || me !== (m.agent_id ?? m.developer_id)) return json({ error: "forbidden" }, 403);
+    if (!m.source_plan_path) return json({ error: "not_found" }, 404);
     const { data: signed, error: signErr } = await supabase.storage.from(BUCKET).createSignedUrl(m.source_plan_path, 3600);
     if (signErr || !signed?.signedUrl) return json({ error: "db_error" }, 500);
     return json({ ok: true, url: signed.signedUrl });

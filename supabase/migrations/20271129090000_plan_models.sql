@@ -240,16 +240,59 @@ create policy "plan_model_charges owner read" on public.plan_model_charges
 -- ‏revoke all קודם: ברירת המחדל של Supabase נותנת ל-authenticated הרשאה ישירה על הכול,
 -- וגרנט חלקי אחריה משאיר INSERT ו-TRUNCATE (הסקיל new-migration, כלל 4א)
 revoke all on table public.plan_models from public, anon, authenticated;
--- הצופה האנונימי מקבל רק מה שהסיור צריך. חיוב, מונה הדמיות, בעלים ונתיב התוכנית אינם שלו
+-- הצופה מקבל רק מה שהסיור צריך: חיוב, מונה הדמיות, בעלים ונתיב התוכנית אינם שלו. **גם מחובר/ת**:
+-- ה-policy "public read" פותח דגם שפורסם לכל authenticated, והרשאת עמודות היא לפי תפקיד ולא לפי שורה,
+-- ולכן select על כל העמודות היה נותן לכל סוכן/ת מחובר/ת את החיוב והבעלים של דגמים של אחרים.
+-- הבעלים קורא/ת את העמודות הפרטיות של הדגמים שלו/ה דרך my_plan_models() (למטה).
 grant select (id, name, status, published, project_id, model, settings, views, lights, updated_at)
-  on table public.plan_models to anon;
-grant select on table public.plan_models to authenticated;
+  on table public.plan_models to anon, authenticated;
 grant update (name, model, settings, views, lights, published) on table public.plan_models to authenticated;
 grant select, insert, update, delete on table public.plan_models to service_role;
 
 revoke all on table public.plan_model_charges from public, anon, authenticated;
 grant select on table public.plan_model_charges to authenticated;
 grant select, insert, update, delete on table public.plan_model_charges to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 5א. הדגמים שלי, עם העמודות הפרטיות
+--
+-- ‏SECURITY DEFINER כי ל-authenticated אין select על העמודות האלה בטבלה. המזהה מה-JWT
+-- (current_agent_id / current_developer_id), ולכן אין פרמטר ואין דרך לשאול על אחר/ת.
+-- בלי model, views ו-lights: זו רשימה, והמודל (עד 800KB) נקרא מהטבלה לדגם אחד כשפותחים אותו.
+-- ‏has_source_plan ולא הנתיב עצמו: הכתובת החתומה ניתנת רק דרך plan-model (plan_url).
+-- ---------------------------------------------------------------------------
+create or replace function public.my_plan_models()
+returns table (
+  id               uuid,
+  owner_kind       text,
+  project_id       uuid,
+  name             text,
+  status           text,
+  published        boolean,
+  mirrored_from    uuid,
+  has_source_plan  boolean,
+  renders_included integer,
+  renders_used     integer,
+  amount_charged   numeric,
+  created_at       timestamptz,
+  updated_at       timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.id, m.owner_kind, m.project_id, m.name, m.status, m.published, m.mirrored_from,
+         m.source_plan_path is not null, m.renders_included, m.renders_used, m.amount_charged,
+         m.created_at, m.updated_at
+    from public.plan_models m
+   where m.agent_id = (select public.current_agent_id())
+      or m.developer_id = (select public.current_developer_id())
+   order by m.created_at desc;
+$$;
+
+revoke all on function public.my_plan_models() from public, anon;
+grant execute on function public.my_plan_models() to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 6. זכאות לרכישה
