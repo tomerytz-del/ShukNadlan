@@ -57,9 +57,9 @@ var STYLES={
   warm_scandi:{label:'סקנדינבי חם',sub:'עץ בהיר, טקסטיל חם וחרדל',wall:'#f5efe5',
     fl:{tile:['plank','#c9a06a'],wood:['plank','#c9a06a'],wet:['tile','#c4bdae',30],deck:['plank','#9c774b']},
     f:{fabric:'#cdb99d',wood:'#dcb887',dark:'#3a352f',accent:'#c98a3c',case:'#efe3cf',top:'#e8d9bf',rug:'#e9dfce',green:'#6b8f5b',white:'#f6f1e8'},lamp:0xffe6c0,sw:['#f5efe5','#c9a06a','#c98a3c']},
-  modern_luxury:{label:'יוקרתי',sub:'שיש, אגוז, קירות אפורי חום ופליז',wall:'#9a9082',
+  modern_luxury:{label:'יוקרתי',sub:'שיש, אגוז, קטיפה ופליז',wall:'#f2efe9',
     fl:{tile:['marble','#ebe7df'],wood:['plank','#5b3d2a'],wet:['marble','#34373b'],deck:['plank','#6b5a49']},
-    f:{fabric:'#2d3441',wood:'#5b3d2a',dark:'#1d1f23',accent:'#b8924a',case:'#3a3a3c',top:'#ebe7df',rug:'#8d867a',green:'#44703f',white:'#eeebe5'},lamp:0xffd9a0,sw:['#9a9082','#ebe7df','#b8924a']}
+    f:{fabric:'#2d3441',wood:'#5b3d2a',dark:'#1d1f23',accent:'#b8924a',case:'#3a3a3c',top:'#ebe7df',rug:'#8d867a',green:'#44703f',white:'#eeebe5'},lamp:0xffd9a0,sw:['#f2efe9','#2d3441','#b8924a']}
 };
 var STYLE_KEYS=['base','modern_clean','mediterranean_white','warm_scandi','modern_luxury'];
 
@@ -1309,7 +1309,10 @@ function syncMat(){
 }
 var rbT=null;
 function matChanged(src){
-  var n=src==='kitchen'?'':ensureContrast(src);var el=$('contrastNote');el.hidden=!n;el.textContent=n;
+  /* בחירה מהירה (מטבח, ריצוף מוכן) אינה נוגעת בקירות: הריצופים המוכנים נבחרו כך שייבדלו מקיר
+     בהיר בגוון ובטקסטורה, והפנל הכהה מפריד. שינוי קיר שהמשתמש/ת לא ביקש/ה נקרא כתקלה (תומר, 22.11.2026).
+     כלל הניגוד נשאר לעורך, כשבוחרים צבע חופשי לקיר או לרצפה */
+  var n=(src==='kitchen'||src==='quick')?'':ensureContrast(src);var el=$('contrastNote');el.hidden=!n;el.textContent=n;
   syncMat();clearTimeout(rbT);rbT=setTimeout(function(){rebuild();dirty()},140);
 }
 $('wallColor').addEventListener('input',function(){S.mat.wall=baseWall=this.value;matChanged('wall')});
@@ -1317,7 +1320,7 @@ $('kitSw').addEventListener('click',function(e){var b=e.target.closest('.swb');i
 $('kitColor').addEventListener('input',function(){S.mat.kitchen=this.value;matChanged('kitchen')});
 $('floorSw').addEventListener('click',function(e){var b=e.target.closest('.flb');if(!b)return;var c=FLOOR_SW[+b.dataset.i];
   /* ריצוף אחד לכל הדירה חוץ מהחדרים הרטובים והמרפסת */
-  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');if(baseWall)S.mat.wall=baseWall;matChanged('floor')});
+  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');if(baseWall)S.mat.wall=baseWall;matChanged('quick')});
 $('floorBox').addEventListener('input',function(e){var z=e.target.dataset.z;if(!z)return;var sp=S.mat.fl[z];
   if(e.target.type==='color')S.mat.fl[z]=mkSpec(sp.k,e.target.value,z);
   else S.mat.fl[z]=mkSpec(e.target.value,sp.a,z);
