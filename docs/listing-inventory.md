@@ -153,8 +153,10 @@ select public.listing_inventory_sync('yad2', 'עפולה', '[...]'::jsonb);
 ועברו 30 יום מ-`lead_offered_at`. מודעה עם `removed_at` לא מוצעת.
 
 ההתראה לא נשלחת מכאן. `scraped_lead_add` קורא ל-`scraped_lead_notify_demand`,
-ותקרת `madlan_notify_daily_cap` (מדלן ויד2 יחד) קובעת כמה מהן נדחפות.
-השאר נשארות באתר (`push_site_only`). שעות השקט ותקרת התבניות נשארות
+ותקרת המקור קובעת כמה מהן נדחפות: `madlan_notify_daily_cap` למדלן ו-
+`yad2_notify_daily_cap` ליד2 (ברירת מחדל 5 לכל אחד, מאז חצות בישראל,
+רק שורות עם `push_site_only = false`). מקור אחד אינו ממלא את התקרה של
+השני. השאר נשארות באתר (`push_site_only`). שעות השקט ותקרת התבניות נשארות
 ב-`notification-push`. גוף ההתראה על מודעה כזו הוא מיקום, חדרים, שטח,
 קומה ומחיר, בלי טלפון ובלי משפט על פניה לבעלים. הקישור למודעה הוא
 כפתור (`action_url`), לא שורה בטקסט.
