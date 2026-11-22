@@ -18,6 +18,7 @@
 
 export type AiFeature =
   | "gabriela_agent"
+  | "gabriela_agent_limited"
   | "gabriela_public"
   | "gabriela_agent_warm"
   | "gabriela_public_warm"
