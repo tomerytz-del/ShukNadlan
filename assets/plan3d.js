@@ -248,7 +248,8 @@ function buildMats(){
   MATS.wall=mk(wc,.95,{side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.scr=MATS.wall;
   MATS.trim=mk(shade(wc,.68),.7,{clippingPlanes:[cutPlane]});
-  MATS.core=mk(shade(wc,.82),.95,{side:T.DoubleSide,clippingPlanes:[cutPlane]});
+  /* הליבה באותו גוון של הקירות: גוון כהה יותר נקרא כ"קיר בצבע אחר" (תומר, 22.11.2026) */
+  MATS.core=mk(wc,.95,{side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.rail=new T.MeshStandardMaterial({color:lin(0xaed0e0),roughness:.05,metalness:.1,envMapIntensity:1.2,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.glass=new T.MeshStandardMaterial({color:lin(0x9fc4d8),roughness:.03,metalness:.1,envMapIntensity:1.4,transparent:true,opacity:.22,depthWrite:false,side:T.DoubleSide,clippingPlanes:[cutPlane]});
   MATS.frame=new T.MeshStandardMaterial({color:lin(st.flat?0xc9c6bf:0x30343a),roughness:.45,metalness:.3,clippingPlanes:[cutPlane]});
@@ -257,6 +258,12 @@ function buildMats(){
   MATS.fx.lampshade=mk('#fff3dc',.9,{emissive:lin('#ffe2a8'),emissiveIntensity:.35});
   MATS.fx.sglass=new T.MeshStandardMaterial({color:lin(0xbfe0ea),roughness:.04,transparent:true,opacity:.2,envMapIntensity:1.3,depthWrite:false,side:T.DoubleSide});MATS.fx.pLeg=mk('#3b4047',.85);MATS.fx.pTop=mk('#2f7f86',.8);MATS.fx.pSkin=mk('#c8a98f',.7);
   MATS.fx.tvscreen=mk('#0b0c0e',.12,{metalness:.2,envMapIntensity:1});
+  /* מטבח: חזיתות בגוון שנבדל מהקיר, משטח בהיר, ונירוסטה. ארון לבן על קיר לבן נראה כגוש אחד
+     (תומר, 22.11.2026). הגוונים לפי סגנון; ב"בסיס" הם אפורים, כמו כל השאר */
+  var K=KITCHEN[S.style]||KITCHEN.modern_clean;
+  MATS.fx.kcase=mk(K[0],.7);MATS.fx.ktop=mk(K[1],.25);MATS.fx.ksplash=mk(K[2],.35);
+  MATS.fx.steel=mk(st.flat?'#b9b6af':'#b4babf',.3,{metalness:.7,envMapIntensity:1});
+  MATS.fx.hob=mk(st.flat?'#a8a59e':'#111315',.12,{metalness:.2,envMapIntensity:1});
 }
 function floorMat(kind,w,d){
   var spec=S.mat.fl[kind];
@@ -314,6 +321,16 @@ function addWall(g,w){
 /* ---- ריהוט ---- */
 function B(g,mat,w,h,d,x,y,z){var m=new T.Mesh(new T.BoxGeometry(w,h,d),mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m}
 function Cy(g,mat,rt,rb,h,x,y,z,seg){var m=new T.Mesh(new T.CylinderGeometry(rt,rb,h,seg||16),mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m}
+/* חזיתות, משטח וחיפוי המטבח לכל סגנון: [חזית, משטח, חיפוי קיר] */
+var KITCHEN={base:['#c4c1ba','#aaa79f','#d2cfc8'],modern_clean:['#7f878e','#f4f4f2','#dfe3e4'],mediterranean_white:['#3f84ad','#f6f3ec','#e3edf1'],
+  warm_scandi:['#c39f6c','#f6f1e8','#ece3d2'],modern_luxury:['#2f3033','#ebe7df','#8f8672']};
+/* שורת ארונות: גוף, פסי דלתות וידיות. y0 תחתית, h גובה, z חזית */
+function cabRow(g,m,w,h,d,y0,zc,handleTop){
+  B(g,m.kcase,w,h,d,0,y0,zc);
+  var n=Math.max(2,Math.round(w/60)),zf=zc+d/2;
+  for(var i=1;i<n;i++)B(g,m.dark,1,h-4,.8,-w/2+w*i/n,y0+2,zf);
+  for(var j=0;j<n;j++)B(g,m.steel,Math.min(26,w/n-14),1.6,2.4,-w/2+w*(j+.5)/n,handleTop?y0+h-9:y0+7,zf+1.2);
+}
 var BUILD={
   bed2:function(g,m,w,d){bed(g,m,w,d,2)},bed1:function(g,m,w,d){bed(g,m,w,d,1)},
   sofa:function(g,m,w,d){
@@ -337,10 +354,21 @@ var BUILD={
   desk:function(g,m,w,d){B(g,m.wood,w,4,d,0,72,0);B(g,m.wood,4,72,d-4,-w/2+3,0,0);B(g,m.wood,4,72,d-4,w/2-3,0,0);
     B(g,m.dark,56,32,3,0,78,-d/2+14);B(g,m.dark,8,10,6,0,76,-d/2+14)},
   tv:function(g,m,w,d){B(g,m.case,w,46,d,0,0,0);B(g,m.tvscreen,Math.min(w*.62,150),82,4,0,96,-d/2+3)},
-  island:function(g,m,w,d){B(g,m.case,w,88,d,0,0,0);B(g,m.top,w+4,4,d+8,0,88,0);
-    for(var i=0;i<2;i++)Cy(g,m.dark,2,2,70,-w*.2+i*w*.4,0,d/2+20,8)},
-  kitchen:function(g,m,w,d){B(g,m.case,w,86,d,0,0,0);B(g,m.top,w,4,d+2,0,86,1);B(g,m.dark,58,1,48,-w*.22,90,0);B(g,m.dark,52,1,38,w*.18,90,0);
-    B(g,m.case,w,70,34,0,150,-d/2+17);var n=Math.max(2,Math.round(w/60));for(var i=1;i<n;i++)B(g,m.dark,1,66,1,-w/2+w*i/n,152,-d/2+34.5)},
+  island:function(g,m,w,d){
+    B(g,m.dark,w-8,10,d-10,0,0,0);cabRow(g,m,w,78,d,10,0,true);B(g,m.ktop,w+6,4,d+26,0,88,10);
+    for(var i=0;i<3;i++){var sx=-w*.3+i*w*.3;Cy(g,m.steel,2,2,62,sx,0,d/2+34,8);Cy(g,m.wood,17,17,5,sx,62,d/2+34,18);Cy(g,m.steel,14,14,1.5,sx,0,d/2+34,16)}},
+  kitchen:function(g,m,w,d){
+    /* תחתונים: צוקל שקוע, ארונות, משטח עם בליטה */
+    B(g,m.dark,w,10,d-6,0,0,-3);cabRow(g,m,w,76,d,10,0,true);B(g,m.ktop,w,4,d+3,0,86,1.5);
+    /* חיפוי קיר בין המשטח לעליונים, ועליונים */
+    B(g,m.ksplash,w,60,1.5,0,90,-d/2+.8);cabRow(g,m,w,72,35,150,-d/2+17.5,false);
+    /* כיריים: זכוכית שחורה וארבע להבות */
+    var hx=-w*.24;B(g,m.hob,60,1,50,hx,90,0);
+    [[-14,-11],[14,-11],[-14,12],[14,12]].forEach(function(c){Cy(g,m.steel,8,8,.6,hx+c[0],91,c[1],20)});
+    /* כיור נירוסטה וברז */
+    var sx=w*.2;B(g,m.steel,56,1,42,sx,90,2);B(g,m.dark,48,.6,34,sx,91,2);
+    Cy(g,m.steel,1.6,1.6,30,sx,90,-d/2+8,8);B(g,m.steel,2.4,2.4,18,sx,119,-d/2+16);
+  },
   rug:function(g,m,w,d){B(g,m.rug,w,1,d,0,0.3,0)},
   plant:function(g,m){Cy(g,m.dark,13,10,26,0,0,0,10);[[0,52,0,26],[-10,42,6,17],[11,44,-5,16]].forEach(function(c){var s=new T.Mesh(new T.IcosahedronGeometry(c[3],2),m.green);s.position.set(c[0],c[1],c[2]);s.castShadow=true;s.receiveShadow=false;g.add(s)})},
   lamp:function(g,m){Cy(g,m.dark,14,14,3,0,0,0,12);Cy(g,m.dark,1.5,1.5,150,0,3,0,6);Cy(g,m.lampshade,17,24,30,0,150,0,16)},
@@ -503,7 +531,8 @@ function updateSun(){
   sun.intensity=0.9*Math.pow(clamp(Math.sin(el),0,1),0.45);
   sun.color.copy(mixC(0xff9a4d,0xfff4e0,clamp(p.el/22,0,1)));
   var dayT=clamp((p.el+6)/14,0,1);
-  hemi.intensity=0.08+0.26*dayT;amb.intensity=0.03+0.1*dayT;
+  /* מילוי אחיד חזק: בלי זה קיר מוצל וקיר מואר נראים כשני צבעים שונים */
+  hemi.intensity=0.08+0.2*dayT;amb.intensity=0.05+0.36*dayT;
   hemi.color.copy(mixC(0x2a3a5c,0xdfeeff,dayT));
   var sky=mixC('#0d1626','#cfe3ee',dayT);
   if(p.el>-4&&p.el<10)sky.lerp(new T.Color('#f0c79a'),0.45*(1-Math.abs(p.el-3)/7));
