@@ -65,6 +65,38 @@
       },
       /* דירות למכירה - לא במקום שלושת הסוגים. flats כמו ?deal=sale (בלי בית ומגרש). */
       extra: [
+        /* נוסח דפי 4 ו-5 חדרים. מקור אחד: h1, description, benefit, intro, crumbHere.
+           ה-title הוא h1 + " | שוק נדל״ן". בלי מספר מודעות ובלי שם משווק. */
+        {
+          slug: "דירות-4-חדרים",
+          what: "דירות 4 חדרים",
+          hero: "דירות-3-חדרים",
+          h1: "דירות 4 חדרים למכירה בעפולה",
+          benefit: "ממשרדי התיווך ויועצי הנדל״ן באזור.",
+          description: "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.",
+          intro: "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור. בכל מודעה מופיעים המחיר, הגודל, הקומה והתמונות, ואפשר לפנות ישירות למשווק.",
+          property_type: null,
+          rooms: 4,
+          schema: "collection",
+          crumbName: "דירות למכירה בעפולה",
+          crumbPath: "/afula/דירות-למכירה",
+          crumbHere: "דירות 4 חדרים",
+        },
+        {
+          slug: "דירות-5-חדרים",
+          what: "דירות 5 חדרים",
+          hero: "דירות-3-חדרים",
+          h1: "דירות 5 חדרים למכירה בעפולה",
+          benefit: "ממשרדי התיווך ויועצי הנדל״ן באזור.",
+          description: "דירות 5 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.",
+          intro: "דירות 5 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור. בכל מודעה מופיעים המחיר, הגודל, הקומה והתמונות, ואפשר לפנות ישירות למשווק.",
+          property_type: null,
+          rooms: 5,
+          schema: "collection",
+          crumbName: "דירות למכירה בעפולה",
+          crumbPath: "/afula/דירות-למכירה",
+          crumbHere: "דירות 5 חדרים",
+        },
         /* הסוגים וסוג העסקה נבנים ב-withStock מהמלאי הפעיל, לא מהטקסט הזה. */
         {
           slug: "נדלן-מסחרי",
@@ -286,6 +318,8 @@
         ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
         ["/afula/דירות-למכירה", "דירות למכירה בעפולה"],
         ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
+        ["/afula/דירות-4-חדרים", "דירות 4 חדרים למכירה בעפולה"],
+        ["/afula/דירות-5-חדרים", "דירות 5 חדרים למכירה בעפולה"],
         ["/afula/נדלן-מסחרי", "נדל״ן מסחרי בעפולה"],
         ["/afula/מתווכים", "מתווכים בעפולה"],
       ],
@@ -367,6 +401,8 @@
       market: c.market,
       faqs: t.faqs || null,
       collection: c.ld === "collection" || t.collection === true,
+      /* collection מקודד את ה-URL. schema משאיר את הכתובת הגלויה של עפולה. */
+      schema: t.schema || null,
       hero: t.hero || null,
       placeName: c.name,
       category: t.category || null,
@@ -374,6 +410,7 @@
       dynamicStock: t.dynamicStock === true,
       crumbName: t.crumbName || null,
       crumbPath: t.crumbPath || null,
+      crumbHere: t.crumbHere || null,
     };
   }
 
@@ -635,6 +672,20 @@
 
   function allHref(page) { return searchHref(page, null); }
 
+  function isRoomSilo(page) {
+    return !!page && (page.rooms === 3 || page.rooms === 4 || page.rooms === 5);
+  }
+
+  /* צ'יפ חדרים בדף חדרים מצביע לדף הנחיתה של אותה עיר, אם יש כזה. */
+  function roomSiloPath(page, rooms) {
+    if (!isRoomSilo(page)) return "";
+    for (var i = 0; i < PAGES.length; i++) {
+      var other = PAGES[i];
+      if (other.city === page.city && other.rooms === rooms && other.path !== page.path) return other.path;
+    }
+    return "";
+  }
+
   function chip(href, label, current) {
     return '<a href="' + escapeHtml(href) + '"' + (current ? ' aria-current="page"' : "") + ">" + label + "</a>";
   }
@@ -655,13 +706,16 @@
     html += chip(searchHref(page, { maxPrice: "1500000" }), "<span>עד</span>" + bdi("1.5") + "<span>מיליון</span>", false);
     html += chip(searchHref(page, { maxPrice: "2500000" }), "<span>עד</span>" + bdi("2.5") + "<span>מיליון</span>", false);
     html += chip(searchHref(page, { minPrice: "2500000" }), "<span>מ-</span>" + bdi("2.5") + "<span>מיליון</span>", false);
-    /* בדף 3 חדרים אין צ'יפ שמסמן את העמוד עצמו. במקומו שכונות. */
-    var rooms = page.rooms === 3 ? [4, 5] : [3, 4, 5];
+    /* בדף חדרים אין צ'יפ שמסמן את העמוד עצמו. במקומו שכונות. */
+    var roomPage = isRoomSilo(page);
+    var rooms = [3, 4, 5];
     for (var i = 0; i < rooms.length; i++) {
       var r = rooms[i];
-      html += chip(searchHref(page, { rooms: String(r) }), bdi(String(r)) + "<span>חדרים</span>", false);
+      if (roomPage && r === page.rooms) continue;
+      var href = roomSiloPath(page, r) || searchHref(page, { rooms: String(r) });
+      html += chip(href, bdi(String(r)) + "<span>חדרים</span>", false);
     }
-    if (page.rooms === 3) {
+    if (roomPage) {
       var c = cityOf(page);
       var near = c.near || [];
       for (var h = 0; h < near.length; h++) {
@@ -989,8 +1043,9 @@
     if (page.slug === "דירות-גן") {
       return n === 1 ? "דירת גן למכירה " + at : "דירות גן למכירה " + at;
     }
-    if (page.rooms === 3) {
-      return n === 1 ? "דירת 3 חדרים למכירה " + at : "דירות 3 חדרים למכירה " + at;
+    if (page.rooms != null) {
+      var word = n === 1 ? "דירת " : "דירות ";
+      return word + page.rooms + " חדרים למכירה " + at;
     }
     if (page.slug === "דירות-למכירה") {
       return n === 1 ? "דירה למכירה " + at : "דירות למכירה " + at;
@@ -1501,7 +1556,8 @@
 
   function collectionJson(page, rows, site) {
     var c = cityOf(page);
-    var url = publicUrl(site, page.path);
+    /* collection מקודד. דף חדרים בעפולה נשאר בכתובת הגלויה, כמו 3 חדרים. */
+    var url = page.collection ? publicUrl(site, page.path) : (site + page.path);
     var list = listOf(rows);
     var qa = faqs(page);
     var main = [];
@@ -1532,7 +1588,7 @@
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
             { "@type": "ListItem", position: 2, name: page.crumbName || c.homeLabel || c.name, item: site + (page.crumbPath || c.home) },
-            { "@type": "ListItem", position: 3, name: page.h1, item: url },
+            { "@type": "ListItem", position: 3, name: page.crumbHere || page.h1, item: url },
           ],
         },
         { "@type": "FAQPage", mainEntity: main },
@@ -1561,7 +1617,7 @@
   }
 
   function jsonLd(page, rows, site) {
-    if (page && page.collection) return collectionJson(page, rows, site);
+    if (page && (page.collection || page.schema === "collection")) return collectionJson(page, rows, site);
     var url = site + page.path;
     var list = listOf(rows);
     var web = {
