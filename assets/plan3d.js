@@ -349,19 +349,36 @@ function wetTiles(g){
    נראה במבט ראשון כמשטח אחד, ואין איפה שהקיר נגמר (תומר, 22.11.2026).
    הקו הוא תיבה דקה (2.2 ס"מ) ולא LineSegments, שהוא פיקסל אחד ונעלם בטלפון; כולן מופע אחד (InstancedMesh) */
 function wallOutlines(g){
-  var t=2.2,list=[];
+  /* E: מרחק נקודות הבדיקה מהקצה. 6 ס"מ, כדי שגם מדרגה של כמה ס"מ בין קיר לגוש ליבה (אי-דיוק
+     של המודל, לא פינה) תיחשב תפר. קטן מעובי קיר פנימי, אחרת קצה של קיר דק ייעלם */
+  var t=2.2,E=6,STEP=14,list=[],bx=[];
   g.children.forEach(function(m){
     if(!m.isMesh||(m.material!==MATS.wall&&m.material!==MATS.core&&m.material!==MATS.trim))return;
-    var gp=m.geometry.parameters,p=m.position,w=gp.width,h=gp.height,d=gp.depth,i,j;
-    for(i=-1;i<=1;i+=2)for(j=-1;j<=1;j+=2){
-      list.push([p.x,p.y+i*h/2,p.z+j*d/2,w+t,t,t]);
-      list.push([p.x+i*w/2,p.y,p.z+j*d/2,t,h+t,t]);
-      list.push([p.x+i*w/2,p.y+j*h/2,p.z,t,t,d+t])}
-  });
-  var im=new T.InstancedMesh(new T.BoxGeometry(1,1,1),new T.MeshBasicMaterial({color:0x14181b,clippingPlanes:[cutPlane]}),list.length);
+    var gp=m.geometry.parameters,p=m.position;
+    bx.push([p.x-gp.width/2,p.x+gp.width/2,p.y-gp.height/2,p.y+gp.height/2,p.z-gp.depth/2,p.z+gp.depth/2])});
+  /* קצה אמיתי מול תפר: קיר נבנה מכמה תיבות (משני צדי פתח, מעל משקוף, במפגש עם הליבה), והקצה
+     המשותף שלהן באמצע קיר ישר אינו קצה. בודקים ארבע נקודות סביב הקצה: שתיים סמוכות בתוך החומר
+     הן משטח ישר (תפר), ארבע הן פנים הקיר. הקצה נבדק בקטעים, כי חלקו יכול להיות תפר וחלקו פינה */
+  var inAny=function(near,x,y,z){for(var i=0;i<near.length;i++){var b=near[i];if(x>b[0]&&x<b[1]&&y>b[2]&&y<b[3]&&z>b[4]&&z<b[5])return true}return false};
+  var edge=function(ax,c1,c2,lo,hi){
+    /* ax: 0 לאורך x, 1 לאורך y, 2 לאורך z. c1,c2: שתי הקואורדינטות האחרות, בסדר (x,y,z) בלי ax */
+    var near=bx.filter(function(b){var o=[0,1,2].filter(function(k){return k!==ax});
+      return b[o[0]*2]<c1+E+1&&b[o[0]*2+1]>c1-E-1&&b[o[1]*2]<c2+E+1&&b[o[1]*2+1]>c2-E-1&&b[ax*2]<hi&&b[ax*2+1]>lo});
+    var n=Math.max(1,Math.ceil((hi-lo)/STEP)),st=(hi-lo)/n,run=null,i,k;
+    var P=function(u,d1,d2){return ax===0?inAny(near,u,c1+d1,c2+d2):ax===1?inAny(near,c1+d1,u,c2+d2):inAny(near,c1+d1,c2+d2,u)};
+    var flush=function(){if(!run)return;var L=run[1]-run[0],m=(run[0]+run[1])/2;
+      list.push(ax===0?[m,c1,c2,L+t,t,t]:ax===1?[c1,m,c2,t,L+t,t]:[c1,c2,m,t,t,L+t]);run=null};
+    for(i=0;i<n;i++){var u=lo+st*(i+.5),a=P(u,E,E),b=P(u,E,-E),c=P(u,-E,-E),d=P(u,-E,E);k=a+b+c+d;
+      var real=k===1||k===3||(k===2&&((a&&c)||(b&&d)));
+      if(real){if(run)run[1]=lo+st*(i+1);else run=[lo+st*i,lo+st*(i+1)]}else flush()}
+    flush();
+  };
+  bx.forEach(function(b){[0,1].forEach(function(i){[0,1].forEach(function(j){
+    edge(0,b[2+i],b[4+j],b[0],b[1]);edge(1,b[i],b[4+j],b[2],b[3]);edge(2,b[i],b[2+j],b[4],b[5])})})});
+  var im=new T.InstancedMesh(new T.BoxGeometry(1,1,1),new T.MeshBasicMaterial({color:0x14181b,clippingPlanes:[cutPlane]}),Math.max(1,list.length));
   var M=new T.Matrix4(),q=new T.Quaternion(),v=new T.Vector3(),sc=new T.Vector3();
   list.forEach(function(e,k){M.compose(v.set(e[0],e[1],e[2]),q,sc.set(e[3],e[4],e[5]));im.setMatrixAt(k,M)});
-  im.instanceMatrix.needsUpdate=true;im.frustumCulled=false;g.add(im);
+  im.count=list.length;im.instanceMatrix.needsUpdate=true;im.frustumCulled=false;g.add(im);
 }
 function addWall(g,w){
   var s=S.scale,H=S.ceil,rail=w.t==='rail';
@@ -1094,7 +1111,7 @@ function load(o){
   if(!o)return false;
   if(o.settings)Object.keys(o.settings).forEach(function(k){if(k in S&&k!=='date'&&k!=='mat')S[k]=o.settings[k]});
   if(!STYLES[S.style])S.style='modern_clean';
-  S.mat=(o.settings&&validMat(o.settings.mat))||styleMat(S.style);
+  S.mat=(o.settings&&validMat(o.settings.mat))||styleMat(S.style);baseWall=S.mat.wall;
   if(Array.isArray(o.furniture)&&o.furniture.every(function(f){return CAT[f.t]})){FURN=o.furniture.map(function(f){return {id:'f'+(uid++),t:f.t,x:+f.x,y:+f.y,rot:+f.rot||0,w:+f.w||0,d:+f.d||0}})}
   if(Array.isArray(o.views))VIEWS=o.views;if(Array.isArray(o.lights))LIGHTS=o.lights;
   return true;
@@ -1150,7 +1167,7 @@ $('lamps').addEventListener('change',function(){S.lamps=this.value;updateSun();d
 $('labels').addEventListener('change',function(){S.labels=this.checked;labelGroup.visible=S.labels&&S.mode==='drone';dirty()});
 $('edit').addEventListener('change',function(){S.edit=this.checked;if(!S.edit)selectF(null);else if(S.mode!=='drone')goView(curDroneView())});
 function curDroneView(){var c=center();return {mode:'drone',drone:{az:S.drone.az,pol:S.drone.pol,rad:S.drone.rad,tx:S.drone.tx||c.x,tz:S.drone.tz||c.z}}}
-$('styles').addEventListener('click',function(e){var b=e.target.closest('.style');if(!b)return;S.style=b.dataset.k;S.mat=styleMat(S.style);syncMat();$('contrastNote').hidden=true;fillStyles();rebuild();dirty()});
+$('styles').addEventListener('click',function(e){var b=e.target.closest('.style');if(!b)return;S.style=b.dataset.k;S.mat=styleMat(S.style);baseWall=S.mat.wall;syncMat();$('contrastNote').hidden=true;fillStyles();rebuild();dirty()});
 $('tgCut').addEventListener('click',function(){S.cut=!S.cut;this.setAttribute('aria-pressed',S.cut);applyCut()});
 $('tgPlan').addEventListener('click',function(){S.plan=!S.plan;this.setAttribute('aria-pressed',S.plan);if(planMesh)planMesh.visible=S.plan});
 $('tgPlan').hidden=!PLAN_IMG;
@@ -1220,10 +1237,10 @@ $('impJson').addEventListener('click',function(){try{var o=JSON.parse($('json').
 /* ================= צבעים, חומרים והבחנה בין קיר לרצפה ================= */
 var ZONES=[['tile','ריצוף ראשי: סלון, מסדרונות, מחסן'],['wood','חדרי שינה וממ"ד'],['wet','חדרים רטובים'],['deck','מרפסת']];
 var TEXKINDS=[['tile','אריחי פורצלן'],['plank','פרקט או עץ'],['stone','אבן'],['marble','שיש'],['concrete','בטון מוחלק'],['flat','חלק, בלי טקסטורה']];
-var HEX=/^#[0-9a-fA-F]{6}$/, MIN_DL=0.15;
+var HEX=/^#[0-9a-fA-F]{6}$/, MIN_DL=0.1;
 function hslOf(hex){var o={};new T.Color(hex).getHSL(o);return o}
 function hexHSL(h,sat,l){return '#'+new T.Color().setHSL(h,sat,clamp(l,.04,.98)).getHexString()}
-function withL(hex,l){var o=hslOf(hex);return hexHSL(o.h,o.s,l)}
+function withL(hex,l,maxS){var o=hslOf(hex);return hexHSL(o.h,maxS==null?o.s:Math.min(o.s,maxS),l)}
 function mkSpec(k,a,zone,cell){
   var dark=hslOf(a).l<.4,sp={k:k,a:a,c:cell||(zone==='wet'?30:60)};
   var d={tile:[.95,.78],plank:[.9,.7],stone:[.94,.8],marble:[.88,.6],concrete:[.96,.9],flat:[1,1]}[k]||[.95,.78];
@@ -1231,6 +1248,9 @@ function mkSpec(k,a,zone,cell){
   if(dark&&(k==='marble')){sp.j=withL(a,.55);sp.b=withL(a,.3)}
   return sp;
 }
+/* צבע הקיר שנבחר (בסגנון או ביד). תיקון הניגוד מתחיל ממנו בכל בחירת ריצוף, כדי שקיר שהוכהה
+   בגלל ריצוף אחד יחזור לעצמו כשבוחרים ריצוף אחר */
+var baseWall=null;
 function styleMat(key){var st=STYLES[key],m={wall:st.wall,fl:{}};
   ['tile','wood','wet','deck'].forEach(function(z){var f=st.fl[z];m.fl[z]=mkSpec(f[0],f[1],z,f[2])});return m}
 function validMat(m){
@@ -1243,7 +1263,8 @@ function validMat(m){
 }
 /* ensureContrast: הקיר והרצפה (ראשי, שינה, רטוב) חייבים להיות שונים בבהירות. מי שלא שונה הוא מה שהמשתמש/ת לא נגע/ה בו */
 function ensureContrast(changed){
-  var zs=['tile','wood','wet'],note='';var wl=hslOf(S.mat.wall).l;
+  /* בלי החדרים הרטובים: שם הקיר מחופה קרמיקה (wetTiles), והריצוף שם אינו סיבה להכהות את כל הדירה */
+  var zs=['tile','wood'],note='';var wl=hslOf(S.mat.wall).l;
   var bad=zs.filter(function(z){return Math.abs(hslOf(S.mat.fl[z].a).l-wl)<MIN_DL});
   if(!bad.length)return '';
   if(changed==='wall'){
@@ -1254,9 +1275,15 @@ function ensureContrast(changed){
   }else{
     var ls=zs.map(function(z){return hslOf(S.mat.fl[z].a).l});
     var lighter=wl>=(ls.reduce(function(a,b){return a+b},0)/ls.length);
-    var target=lighter?Math.max.apply(null,ls)+MIN_DL+.01:Math.min.apply(null,ls)-MIN_DL-.01;
-    if(target>.98||target<.04)target=lighter?Math.min.apply(null,ls)-MIN_DL-.01:Math.max.apply(null,ls)+MIN_DL+.01;
-    S.mat.wall=withL(S.mat.wall,clamp(target,.04,.98));
+    /* הגוון הקרוב ביותר לקיר הנוכחי שרחוק מספיק מכל הרצפות: קיר בהיר נשאר בהיר ככל האפשר.
+       קודם הקיר קפץ אל מתחת לרצפה הכהה ביותר, וריצוף שיש בהיר הפך קירות לבנים לאפור כהה */
+    var ok=function(l){return ls.every(function(x){return Math.abs(x-l)>=MIN_DL+.005})},target=null,st;
+    for(st=0;st<95&&target==null;st++){var up=wl+st*.01,dn=wl-st*.01;
+      if(lighter){if(up<=.98&&ok(up))target=up;else if(dn>=.04&&ok(dn))target=dn}
+      else{if(dn>=.04&&ok(dn))target=dn;else if(up<=.98&&ok(up))target=up}}
+    if(target==null)target=lighter?.98:.04;
+    /* הרוויה מוגבלת: לבן חמים (#fcfbf7) שמכהים אותו באותה רוויה יוצא חרדל, לא אפור (תומר, 22.11.2026) */
+    S.mat.wall=withL(S.mat.wall,clamp(target,.04,.98),.1);
     note='הקירות היו קרובים מדי בגוון לרצפה, ולכן שינינו את גוון הקירות כדי שיהיה קל להבדיל.';
   }
   return note;
@@ -1282,20 +1309,20 @@ function syncMat(){
 }
 var rbT=null;
 function matChanged(src){
-  var n=ensureContrast(src);var el=$('contrastNote');el.hidden=!n;el.textContent=n;
+  var n=src==='kitchen'?'':ensureContrast(src);var el=$('contrastNote');el.hidden=!n;el.textContent=n;
   syncMat();clearTimeout(rbT);rbT=setTimeout(function(){rebuild();dirty()},140);
 }
-$('wallColor').addEventListener('input',function(){S.mat.wall=this.value;matChanged('wall')});
+$('wallColor').addEventListener('input',function(){S.mat.wall=baseWall=this.value;matChanged('wall')});
 $('kitSw').addEventListener('click',function(e){var b=e.target.closest('.swb');if(!b)return;S.mat.kitchen=b.dataset.c;matChanged('kitchen')});
 $('kitColor').addEventListener('input',function(){S.mat.kitchen=this.value;matChanged('kitchen')});
 $('floorSw').addEventListener('click',function(e){var b=e.target.closest('.flb');if(!b)return;var c=FLOOR_SW[+b.dataset.i];
   /* ריצוף אחד לכל הדירה חוץ מהחדרים הרטובים והמרפסת */
-  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');matChanged('floor')});
+  S.mat.fl.tile=mkSpec(c[1],c[2],'tile');S.mat.fl.wood=mkSpec(c[1],c[2],'wood');if(baseWall)S.mat.wall=baseWall;matChanged('floor')});
 $('floorBox').addEventListener('input',function(e){var z=e.target.dataset.z;if(!z)return;var sp=S.mat.fl[z];
   if(e.target.type==='color')S.mat.fl[z]=mkSpec(sp.k,e.target.value,z);
   else S.mat.fl[z]=mkSpec(e.target.value,sp.a,z);
   matChanged(z)});
-$('matReset').addEventListener('click',function(){S.mat=styleMat(S.style);syncMat();$('contrastNote').hidden=true;rebuild();dirty()});
+$('matReset').addEventListener('click',function(){S.mat=styleMat(S.style);baseWall=S.mat.wall;syncMat();$('contrastNote').hidden=true;rebuild();dirty()});
 
 /* ================= מיני-מפה במבט ראשון ================= */
 var planImg=new Image();if(PLAN_IMG){planImg.crossOrigin='anonymous';planImg.src=PLAN_IMG}
