@@ -76,7 +76,10 @@
           description: "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.",
           intro: "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור. בכל מודעה מופיעים המחיר, הגודל, הקומה והתמונות, ואפשר לפנות ישירות למשווק.",
           property_type: null,
+          /* 4 ו-4.5, כמו סינון הבית. לא 5. */
           rooms: 4,
+          roomsMin: 4,
+          roomsMax: 5,
           schema: "collection",
           crumbName: "דירות למכירה בעפולה",
           crumbPath: "/afula/דירות-למכירה",
@@ -84,18 +87,20 @@
         },
         {
           slug: "דירות-5-חדרים",
-          what: "דירות 5 חדרים",
+          what: "דירות 5 חדרים ומעלה",
           hero: "דירות-3-חדרים",
-          h1: "דירות 5 חדרים למכירה בעפולה",
+          h1: "דירות 5 חדרים ומעלה למכירה בעפולה",
           benefit: "ממשרדי התיווך ויועצי הנדל״ן באזור.",
-          description: "דירות 5 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.",
-          intro: "דירות 5 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור. בכל מודעה מופיעים המחיר, הגודל, הקומה והתמונות, ואפשר לפנות ישירות למשווק.",
+          description: "דירות 5 חדרים ומעלה למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.",
+          intro: "דירות 5 חדרים ומעלה למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור. בכל מודעה מופיעים המחיר, הגודל, הקומה והתמונות, ואפשר לפנות ישירות למשווק.",
           property_type: null,
+          /* 5 ומעלה, כמו צ'יפ 5 חד׳ ובורר החדרים. */
           rooms: 5,
+          roomsMin: 5,
           schema: "collection",
           crumbName: "דירות למכירה בעפולה",
           crumbPath: "/afula/דירות-למכירה",
-          crumbHere: "דירות 5 חדרים",
+          crumbHere: "דירות 5 חדרים ומעלה",
         },
         /* הסוגים וסוג העסקה נבנים ב-withStock מהמלאי הפעיל, לא מהטקסט הזה. */
         {
@@ -319,7 +324,7 @@
         ["/afula/דירות-למכירה", "דירות למכירה בעפולה"],
         ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
         ["/afula/דירות-4-חדרים", "דירות 4 חדרים למכירה בעפולה"],
-        ["/afula/דירות-5-חדרים", "דירות 5 חדרים למכירה בעפולה"],
+        ["/afula/דירות-5-חדרים", "דירות 5 חדרים ומעלה למכירה בעפולה"],
         ["/afula/נדלן-מסחרי", "נדל״ן מסחרי בעפולה"],
         ["/afula/מתווכים", "מתווכים בעפולה"],
       ],
@@ -394,6 +399,8 @@
       property_type: t.property_type || null,
       property_types: t.property_types || null,
       rooms: t.rooms == null ? null : t.rooms,
+      roomsMin: t.roomsMin == null ? null : t.roomsMin,
+      roomsMax: t.roomsMax == null ? null : t.roomsMax,
       city: c.slug,
       cityName: c.name,
       names: c.names || null,
@@ -515,7 +522,10 @@
     if (page.property_types && page.property_types.length) {
       parts.push("property_type=in." + pgIn(page.property_types));
     } else if (page.property_type) parts.push("property_type=eq." + encodeURIComponent(page.property_type));
-    if (page.rooms != null) parts.push("rooms=eq." + encodeURIComponent(String(page.rooms)));
+    /* טווח גובר על שוויון: 4 הוא 4 עד לפני 5, 5 הוא 5 ומעלה. 3 נשאר שוויון. */
+    if (page.roomsMin != null) parts.push("rooms=gte." + encodeURIComponent(String(page.roomsMin)));
+    if (page.roomsMax != null) parts.push("rooms=lt." + encodeURIComponent(String(page.roomsMax)));
+    else if (page.roomsMin == null && page.rooms != null) parts.push("rooms=eq." + encodeURIComponent(String(page.rooms)));
     return parts.join("&");
   }
 
@@ -1045,7 +1055,8 @@
     }
     if (page.rooms != null) {
       var word = n === 1 ? "דירת " : "דירות ";
-      return word + page.rooms + " חדרים למכירה " + at;
+      var up = page.roomsMin != null && page.roomsMax == null ? " ומעלה" : "";
+      return word + page.rooms + " חדרים" + up + " למכירה " + at;
     }
     if (page.slug === "דירות-למכירה") {
       return n === 1 ? "דירה למכירה " + at : "דירות למכירה " + at;

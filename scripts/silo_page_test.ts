@@ -261,13 +261,16 @@ resetLastGood();
   check("3 חדרים: צ'יפ 4 ו-5 אל דף הנחיתה", filters.includes('href="/afula/דירות-4-חדרים"')
     && filters.includes('href="/afula/דירות-5-חדרים"')
     && !filters.includes("rooms=4") && !filters.includes("rooms=5"));
+  check("3 חדרים נשאר שוויון", urls.some((u) => u.includes("/properties?") && u.includes("rooms=eq.3") && !u.includes("rooms=gte.")));
 }
 
 {
   const DESC4 = "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.";
-  const DESC5 = DESC4.replace("4 חדרים", "5 חדרים");
+  const DESC5 = "דירות 5 חדרים ומעלה למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.";
   const row4 = { ...ROWS[0], id: "r4", title: "דירה", property_type: "דירה", rooms: 4, price: 980000 };
   for (const [n, desc] of [[4, DESC4], [5, DESC5]] as [number, string][]) {
+    const heading = n === 5 ? "דירות 5 חדרים ומעלה למכירה בעפולה" : `דירות ${n} חדרים למכירה בעפולה`;
+    const crumb = n === 5 ? "דירות 5 חדרים ומעלה" : `דירות ${n} חדרים`;
     const path = "/afula/" + encodeURIComponent(`דירות-${n}-חדרים`);
     const canon = `${SITE}/afula/דירות-${n}-חדרים`;
     const res = await run(SITE + path, 200, [{ ...row4, id: "r" + n, rooms: n }]);
@@ -279,26 +282,29 @@ resetLastGood();
     const crumbs = (graph?.["@graph"] || []).find((b) => b["@type"] === "BreadcrumbList") as { itemListElement?: { name: string; item: string }[] } | undefined;
     const visible = (html.split('class="land-crumbs"')[1] || "").split("</ol>")[0];
     check(`${n} חדרים: כותרת, H1 ותיאור`, res.status === 200
-      && html.includes(`<title>דירות ${n} חדרים למכירה בעפולה | שוק נדל״ן</title>`)
-      && html.includes(`<h1 id="siloH1">דירות ${n} חדרים למכירה בעפולה</h1>`)
+      && html.includes(`<title>${heading} | שוק נדל״ן</title>`)
+      && html.includes(`<h1 id="siloH1">${heading}</h1>`)
       && html.includes(`content="${desc}"`)
       && !html.includes("noindex"));
     check(`${n} חדרים: canonical עצמי`, html.includes(`<link rel="canonical" href="${canon}">`));
     check(`${n} חדרים: CollectionPage`, gtypes.join(",") === "CollectionPage,BreadcrumbList,FAQPage"
       && blocks.some((b) => b["@type"] === "ItemList")
       && !blocks.some((b) => b["@type"] === "WebPage")
-      && pageLd?.url === canon && pageLd?.name === `דירות ${n} חדרים למכירה בעפולה` && pageLd?.description === desc);
+      && pageLd?.url === canon && pageLd?.name === heading && pageLd?.description === desc);
     check(`${n} חדרים: פירורים`, crumbs?.itemListElement?.[0]?.name === "דף הבית"
       && crumbs?.itemListElement?.[0]?.item === SITE + "/"
       && crumbs?.itemListElement?.[1]?.name === "דירות למכירה בעפולה"
       && crumbs?.itemListElement?.[1]?.item === SITE + "/afula/דירות-למכירה"
-      && crumbs?.itemListElement?.[2]?.name === `דירות ${n} חדרים`
+      && crumbs?.itemListElement?.[2]?.name === crumb
       && crumbs?.itemListElement?.[2]?.item === canon
       && visible.includes('href="/"')
       && visible.includes('href="/afula/דירות-למכירה" id="landCityCrumb">דירות למכירה בעפולה')
-      && visible.includes(`<span id="siloCrumb">דירות ${n} חדרים</span>`));
+      && visible.includes(`<span id="siloCrumb">${crumb}</span>`));
+    const roomQuery = n === 5
+      ? (u: string) => u.includes("rooms=gte.5") && !u.includes("rooms=eq.") && !u.includes("rooms=lt.")
+      : (u: string) => u.includes("rooms=gte.4") && u.includes("rooms=lt.5") && !u.includes("rooms=eq.");
     check(`${n} חדרים: שאילתה לפי חדרים`, urls.some((u) => u.includes("/properties?")
-      && u.includes("rooms=eq." + n)
+      && roomQuery(u)
       && u.includes("city=eq." + encodeURIComponent("עפולה"))
       && u.includes("deal_type=eq.sale")));
     const shown = [
@@ -313,7 +319,7 @@ resetLastGood();
     ].join("\n");
     check(`${n} חדרים: בלי מקף ארוך ובלי שם`, !/[—–]/.test(shown)
       && !shown.includes("תומר") && !shown.includes("3134355")
-      && html.includes(`property="og:title" content="דירות ${n} חדרים למכירה בעפולה | שוק נדל״ן"`));
+      && html.includes(`property="og:title" content="${heading} | שוק נדל״ן"`));
     const other = n === 4 ? 5 : 3;
     const filters = (html.split('aria-label="סינון מהיר"')[1] || "").split("</nav>")[0];
     check(`${n} חדרים: בלי צ'יפ עצמי, עם אח`, !filters.includes(`<bdi>${n}</bdi>`)
