@@ -10019,6 +10019,15 @@ async function leadRefFrom(ctx: ToolContext, value: unknown): Promise<LeadRef | 
   return { id, row: await fetchOwnLead(ctx.supabase, ctx.agent.id, id) };
 }
 
+/** הנוסח לסוכן/ת אחרי שהוחלט לשלוח: אותו נוסח ללקוח/ה ולליד. */
+function followupSentNote(name: string, kind: string, due: string): string {
+  const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
+    ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
+  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
+  return `ל${name} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
+    "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback;
+}
+
 async function clientFollowupPlan(
   ctx: ToolContext,
   kind: string,
@@ -10034,15 +10043,7 @@ async function clientFollowupPlan(
   if (!clientId && leadRef) {
     const plan = await leadFollowupPlan(ctx.supabase, ctx.agent.id, leadRef.row, leadPhone);
     if (!plan.notify) return plan;
-    const name = String(leadRef.row?.raw_name || "").trim() || "הליד";
-    const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
-      ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
-    const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
-    return {
-      notify: true,
-      note: `ל${name} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
-        "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback,
-    };
+    return { notify: true, note: followupSentNote(String(leadRef.row?.raw_name || "").trim() || "הליד", kind, due) };
   }
   const { data: client } = await ctx.supabase
     .from("agent_clients").select("full_name, phone")
@@ -10055,14 +10056,7 @@ async function clientFollowupPlan(
         "אם תוסיף/י טלפון (update_client) ואז agenda_update עם notify_client - הם יישלחו.",
     };
   }
-  const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
-    ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
-  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
-  return {
-    notify: true,
-    note: `ל${client?.full_name || "לקוח/ה"} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
-      "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback,
-  };
+  return { notify: true, note: followupSentNote(client?.full_name || "לקוח/ה", kind, due) };
 }
 
 /**
@@ -10254,9 +10248,10 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
     const remind = agendaRemind(input);
     if (remind !== undefined) patch.remind_before = remind;
     // ליד מ"הלידים שלי": קישור הפגישה אליו, או הליד שכבר מקושר אליה.
-    const leadRef = input.lead_id
-      ? await leadRefFrom(ctx, input.lead_id)
-      : current.lead_id ? await leadRefFrom(ctx, current.lead_id) : null;
+    // הליד נשלף רק כשצריך: כשקושרים ליד, או כשמבקשים לשלוח.
+    const leadRef = input.lead_id || input.notify_client === true
+      ? await leadRefFrom(ctx, input.lead_id || current.lead_id)
+      : null;
     if (input.lead_id && leadRef?.row) patch.lead_id = leadRef.row.id;
     if (typeof input.notify_client === "boolean") {
       if (input.notify_client) {
