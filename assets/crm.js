@@ -7905,9 +7905,26 @@ let allNeighborhoods = [];
 let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
+/* ‏PostgREST חותך ב-1,000 שורות בשקט, ובטבלה יותר מזה (1,640 ב-22.11.2026).
+   שאילתה אחת ממוינת לפי שם הפילה את סוף האלף-בית, למשל "רובע יזרעאל" בעפולה.
+   לכן קוראים בעמודים, עם id כמפתח מיון שני כדי שהעמודים לא יחפפו. */
+async function fetchAllNeighborhoods(){
+  const PAGE = 1000, rows = [];
+  for (let from = 0; ; from += PAGE){
+    const { data, error } = await sb.from('neighborhoods')
+      .select('id, city, name, city_id, is_planned, is_industrial')
+      .order('name').order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
+  return rows;
+}
+
 async function loadAllNeighborhoods(){
-  const [{ data: hoods }, { data: mc }] = await Promise.all([
-    sb.from('neighborhoods').select('id, city, name, city_id, is_planned, is_industrial').order('name'),
+  const [hoods, { data: mc }] = await Promise.all([
+    fetchAllNeighborhoods().catch(err => { console.warn('neighborhoods load failed', err); return []; }),
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
