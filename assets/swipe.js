@@ -649,6 +649,7 @@
       'onerror="this.parentNode.classList.add(\'sw-av-ini\');this.parentNode.textContent=' + esc(JSON.stringify(initials(adv.name))) + '"></span>';
   }
 
+  var SWIPE_MAX = 2000;
   function load() {
     if (!window.supabase) return Promise.resolve([]);
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -660,13 +661,26 @@
       .then(function (r) { articles = (r && r.data) || []; }, function () {});
     return specP.then(function (spec) {
       mspec = spec;
-      var q = sb.from('properties').select(COLS).eq('status', 'active');
-      if (window.MarketScope) q = MarketScope.apply(q, spec);
-      return q.order('is_promoted', { ascending: false }).order('created_at', { ascending: false }).limit(300);
+      /* הסינון כאן בצד הלקוח, ולכן מה שלא נטען לא יופיע לעולם לגולש/ת שסינן/ה.
+         עמוד ראשון של 300 (כמו קודם, בלי עיכוב לכרטיס הראשון), ואם הוא מלא - ממשיכים
+         בעמודים עד שהנכסים נגמרים (תקרת ביטחון 2,000). id כמפתח מיון אחרון כדי שהעמודים לא יחפפו. */
+      var PAGE = 300, MAX = SWIPE_MAX, all = [];
+      function page(from) {
+        var q = sb.from('properties').select(COLS).eq('status', 'active');
+        if (window.MarketScope) q = MarketScope.apply(q, spec);
+        return q.order('is_promoted', { ascending: false }).order('created_at', { ascending: false }).order('id')
+          .range(from, from + PAGE - 1).then(function (r) {
+            if (!r || r.error) { console.warn('swipe: טעינת עמוד נכסים נכשלה, החפיסה חלקית (' + all.length + ')', r && r.error); return all; }
+            var d = r.data || [];
+            all = all.concat(d);
+            if (d.length < PAGE || all.length >= MAX) return all;
+            return page(from + PAGE);
+          });
+      }
+      return page(0);
     }).then(function (res) {
-      var rows = (res && !res.error && res.data) || [];
-      // ‏R8 C.9: מעל 300 נכסים פעילים, מה שלא נטען לא יופיע לעולם כ"עוד לא נראה"
-      if (rows.length === 300) console.warn('swipe: נטענו 300 נכסים - ייתכן שיש עוד שלא נטענו');
+      var rows = res || [];
+      if (rows.length >= SWIPE_MAX) console.warn('swipe: נטענו ' + SWIPE_MAX + ' נכסים - ייתכן שיש עוד שלא נטענו');
       // סבב 5 §1: בלי נכסים מעיר של שוק אחר (שדה נחום, נוף הגליל...) - הסינון בשרת עוד לא חל על אנונימיים
       if (window.MarketScope && MarketScope.keepRows) rows = MarketScope.keepRows(rows, mspec);
       var ids = rows.map(function (p) { return p.agent_id; }).filter(Boolean)

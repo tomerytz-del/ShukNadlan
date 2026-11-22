@@ -3459,10 +3459,10 @@ async function loadNeighborhoodsAdmin(){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   loadNeighborhoodCityOptions();
   hoodImportInit();
-  let { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name');
+  let { data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name').order('id'));
   // ‏is_industrial (‏20270430090000) - בדקה שלפני המיגרציה הרשימה נטענת בלעדיה
   if (error && /is_industrial/.test(error.message || '')){
-    ({ data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name'));
+    ({ data, error } = await fetchAllPages(() => sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name').order('id')));
   }
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
@@ -7905,9 +7905,15 @@ let allNeighborhoods = [];
 let neighborhoodById = new Map();
 let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
+/* ‏PostgREST חותך ב-1,000 שורות בשקט, ובטבלה יותר מזה (1,640 ב-22.11.2026):
+   שאילתה אחת ממוינת לפי שם הפילה את סוף האלף-בית ("רובע יזרעאל" בעפולה).
+   לכן `fetchAllPages` (למטה), ועם id כמפתח מיון אחרון כדי שהעמודים לא יחפפו. */
 async function loadAllNeighborhoods(){
-  const [{ data: hoods }, { data: mc }] = await Promise.all([
-    sb.from('neighborhoods').select('id, city, name, city_id, is_planned, is_industrial').order('name'),
+  const [hoods, { data: mc }] = await Promise.all([
+    fetchAllPages(() => sb.from('neighborhoods')
+      .select('id, city, name, city_id, is_planned, is_industrial')
+      .order('name').order('id'))
+      .then(r => { if (r.error) console.warn('neighborhoods load failed', r.error); return r.data || []; }),
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
@@ -22861,7 +22867,7 @@ const SS_DEAL_LABELS = { sale:'מחפש/ת לקנייה', rent:'מחפש/ת לש
 
 async function loadSavedSearchHoods(){
   if (savedSearchHoods.size) return;
-  const { data } = await sb.from('neighborhoods').select('id, name');
+  const { data } = await fetchAllPages(() => sb.from('neighborhoods').select('id, name').order('id'));
   (data || []).forEach(n => savedSearchHoods.set(n.id, n.name));
 }
 

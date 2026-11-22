@@ -4639,7 +4639,17 @@ async function loadNeighborhoods(){
   if (!sb) return [];
   try{
   const [{ data, error }, spec, aliasRes, groupRes] = await Promise.all([
-      sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned'),
+      /* PostgREST חותך ב-1,000 שורות ובטבלה יותר: קוראים בעמודים */
+      (async () => {
+        const all = [];
+        for (let from = 0; ; from += 1000){
+          const r = await sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned').order('id').range(from, from + 999);
+          if (r.error) return { data: null, error: r.error };
+          all.push(...(r.data || []));
+          if (!r.data || r.data.length < 1000) break;
+        }
+        return { data: all, error: null };
+      })(),
       marketFilterSpec(),
       /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
          ששם שגולש/ת מקליד/ה יזוהה כאן ושם אותו דבר (‏docs/search-core.md).
