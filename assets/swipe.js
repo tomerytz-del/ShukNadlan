@@ -672,7 +672,7 @@
           .range(from, from + PAGE - 1).then(function (r) {
             if (!r || r.error) { console.warn('swipe: טעינת עמוד נכסים נכשלה, החפיסה חלקית (' + all.length + ')', r && r.error); return all; }
             var d = r.data || [];
-            all = all.concat(d);
+            all = all.concat(d.slice(0, MAX - all.length));   // התקרה נבדקת לפני ההוספה, לא אחריה
             if (d.length < PAGE || all.length >= MAX) return all;
             return page(from + PAGE);
           });

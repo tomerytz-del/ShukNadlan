@@ -4644,7 +4644,12 @@ async function loadNeighborhoods(){
         const all = [];
         for (let from = 0; ; from += 1000){
           const r = await sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned').order('id').range(from, from + 999);
-          if (r.error) return { data: null, error: r.error };
+          if (r.error){
+            // עמוד מאוחר שנכשל לא מפיל את מה שכבר נטען (רשימה חלקית עדיפה על ריקה)
+            if (!all.length) return { data: null, error: r.error };
+            console.warn('neighborhoods: עמוד נכשל, הרשימה חלקית', r.error);
+            break;
+          }
           all.push(...(r.data || []));
           if (!r.data || r.data.length < 1000) break;
         }

@@ -262,7 +262,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
     // docs/whatsapp-deep-links.md
     const plan = screenBundle(reminderScreens(), () => null);
     const path = plan.kind === "single" ? plan.path
-      : plan.kind === "list" ? plan.allPath
+      : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
       : "/crm?goto=accNotifPrefs";
     payload = utilityTemplateMessage({
       to,

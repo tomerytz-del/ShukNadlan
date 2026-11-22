@@ -1,0 +1,38 @@
+name: מצולעים משוערים לשכונות
+
+# ‏scripts/hood_polygons.py בונה מצולע לשכונה ש-GovMap אינה מכירה, מפיני
+# העסקאות, ומחליט מה כינוי. כשל בו שקט: מצולע שחופף מצולע קיים מוחק שיוך
+# קיים (neighborhood_for_city_point מחזירה null לנקודה בשני מצולעים), והדף
+# נראה תקין. הבדיקה רצה על נתונים מלאכותיים, בלי מסד. docs/market-opening-runbook.md.
+# ‏shapely מותקן כאן ולא ב-requirements.txt, שמשרת את מנועי ה-Actions.
+
+on:
+  pull_request:
+    paths:
+      - "scripts/hood_polygons.py"
+      - "scripts/hood_polygons_test.py"
+      - ".github/workflows/hood_polygons.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/hood_polygons.py"
+      - "scripts/hood_polygons_test.py"
+      - ".github/workflows/hood_polygons.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: התקנת shapely בסביבה נפרדת
+        run: |
+          python3 -m venv /tmp/hood-venv
+          /tmp/hood-venv/bin/pip install --quiet shapely==2.2.0
+
+      - name: מצולעים וכינויים
+        run: /tmp/hood-venv/bin/python scripts/hood_polygons_test.py
