@@ -49,6 +49,9 @@ type Page = {
   cityName: string;
   cityId: string;
   market: string;
+  crumbName?: string | null;
+  crumbPath?: string | null;
+  crumbHere?: string | null;
 };
 
 type City = { slug: string; name: string; home: string };
@@ -291,6 +294,9 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   /* מחליפים את ה-preload של העמק שבמעטפת, כדי שהדפדפן לא ימשוך גם אותו. */
   const preload = S.heroPreload(view);
   const benefit = view.benefit || view.description;
+  const midHref = view.crumbHere ? (view.crumbPath || city.home) : city.home;
+  const midName = view.crumbHere ? (view.crumbName || city.name) : city.name;
+  const hereName = view.crumbHere || view.h1;
   const compact = !!S.isCommercial?.(page);
   const count = compact ? "0" : extras.counted && Number(extras.total) > 0
     ? String(extras.total)
@@ -305,8 +311,8 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace(/(<h1 id="siloH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(view.h1)}${b}`)
     .replace(/(<p class="land-benefit" id="siloBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(benefit)}${b}`)
     .replace(/(<a\b[^>]*\bid="landCityCrumb"[^>]*)(>)[\s\S]*?(<\/a>)/, (_m, open, gt, close) =>
-      `${String(open).replace(/\bhref="[^"]*"/, `href="${attr(city.home)}"`)}${gt}${text(city.name)}${close}`)
-    .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(view.h1)}${b}`)
+      `${String(open).replace(/\bhref="[^"]*"/, `href="${attr(midHref)}"`)}${gt}${text(midName)}${close}`)
+    .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(hereName)}${b}`)
     .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${S.chipsHtml(view, rows, extras)}</div>`)
     .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${S.updatedHtml(rows)}</p>`)
     .replace(/(<a\b[^>]*\bid="landAll"[^>]*)(>)/, (_m, open, end) => {
@@ -405,11 +411,15 @@ export const config: Config = {
     "/afula/בתים-פרטיים",
     "/afula/דירות-גן",
     "/afula/דירות-3-חדרים",
+    "/afula/דירות-4-חדרים",
+    "/afula/דירות-5-חדרים",
     "/afula/דירות-למכירה",
     "/afula/נדלן-מסחרי",
     "/afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
+    "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-4-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
+    "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-5-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94",
     "/afula/%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99",
     "/haifa/*",

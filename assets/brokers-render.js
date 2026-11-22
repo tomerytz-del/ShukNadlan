@@ -39,6 +39,13 @@
       cityId: "fa3283cc-37bd-4042-9185-8a45059f133a", home: "/nof-hagalil-migdal", homeLabel: "נוף הגליל ומגדל העמק" },
   ];
   var BENEFIT = "משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.";
+  /* ‏נוסח עפולה בלבד, במקום אחד. הכותרת והתיאור מוזרקים ל-<title> ול-meta
+     (וגם ל-WebPage.description). ערים אחרות נשארות על h1 + " | שוק נדל״ן".
+     בלי מקף ארוך ובלי ספירת מודעות. בדף אין טלפון, וואטסאפ או אימייל,
+     ולכן התיאור לא מבטיח "פרטי קשר". */
+  var AFULA_TITLE = "מתווכים בעפולה: משרדי התיווך והנכסים שהם משווקים";
+  var AFULA_DESCRIPTION = "מתווכים בעפולה: משרדי התיווך ויועצי הנדל״ן הפעילים בעיר, הנכסים שכל משרד משווק כרגע, ומעבר לדף המשרד.";
+  var AFULA_REGION_OFFICES = "משרדי תיווך בעמק יזרעאל";
   var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
   var TYPES = [
     ["בתים-פרטיים", "בתים פרטיים"],
@@ -52,7 +59,12 @@
     for (var i = 0; i < TYPES.length; i++) {
       also.push(["/" + c.slug + "/" + TYPES[i][0], TYPES[i][1] + " למכירה " + at]);
     }
-    return {
+    /* 4 ו-5 חדרים קיימים רק בעפולה. עיר אחרת לא מקבלת קישור לדף שאין לה. */
+    if (c.slug === "afula") {
+      also.push(["/afula/דירות-4-חדרים", "דירות 4 חדרים למכירה בעפולה"]);
+      also.push(["/afula/דירות-5-חדרים", "דירות 5 חדרים ומעלה למכירה בעפולה"]);
+    }
+    var page = {
       path: "/" + c.slug + "/מתווכים",
       h1: "מתווכים " + at,
       benefit: BENEFIT,
@@ -67,6 +79,12 @@
       homeLabel: c.homeLabel,
       also: also,
     };
+    if (c.slug === "afula") {
+      page.title = AFULA_TITLE;
+      page.description = AFULA_DESCRIPTION;
+      page.regionOffices = AFULA_REGION_OFFICES;
+    }
+    return page;
   }
 
   var PAGES = [];
@@ -218,9 +236,16 @@
 
   function seo(page) {
     var p = pg(page);
+    var offices = p.regionOffices
+      ? '<a href="/agencies">' + escapeHtml(p.regionOffices) + "</a>"
+      : '<a href="/agencies">כל משרדי התיווך</a>';
+    var agents = '<a href="/agents">כל המתווכים</a>';
+    var directory = p.regionOffices
+      ? "להשוואה בכל האזור: " + offices + ". " + agents + " באתר. "
+      : offices + " ו-" + agents + " באתר. ";
     return '<section class="land-seo"><h2>על הרשימה</h2><p>' + escapeHtml(p.intro) + "</p>"
       + "<p>הרשימה היא משרדים שמשרתים את " + escapeHtml(p.cityName) + " ושמתווך/ת בהם עם רישיון בתוקף. לכל משרד ולכל מתווך/ת יש דף משלו, עם המלאי והדירוג. "
-      + '<a href="/agencies">כל משרדי התיווך</a> ו-<a href="/agents">כל המתווכים</a> באתר. '
+      + directory
       + '<a href="/deals/' + p.city + '">עסקאות ' + escapeHtml(p.at) + '</a> ו-<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
@@ -366,6 +391,9 @@
     updatedHtml: updatedHtml,
     jsonLd: jsonLd,
     scripts: scripts,
-    fullTitle: function (page) { return pg(page).h1 + " | שוק נדל״ן"; },
+    fullTitle: function (page) {
+      var p = pg(page);
+      return (p.title || p.h1) + " | שוק נדל״ן";
+    },
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

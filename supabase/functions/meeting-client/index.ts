@@ -9,6 +9,7 @@ import {
   reminderTemplateConfigured, respondToMeeting, sendButtonsTemplate, sendButtonsText, sendLinkButton,
   sendMeetingTemplate, sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
 } from "../_shared/meeting-client.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
 
 // ============================================================================
 // פולואפ ללקוח/ה על פגישה שנקבעה דרך גבריאלה — meeting.html ↔ כאן ↔
@@ -129,7 +130,7 @@ Deno.serve(async (req: Request) => {
 async function loadMeeting(supabase: SupabaseClient, token: string): Promise<Row | null | "error"> {
   const { data: item, error } = await supabase
     .from("agent_agenda_items")
-    .select("id, kind, title, due_at, ends_at, location, status, client_notify, client_response, client_feedback, client_id, agent_id, updated_at")
+    .select("id, kind, title, due_at, ends_at, location, status, client_notify, client_response, client_feedback, client_id, lead_id, agent_id, updated_at")
     .eq("client_token", token)
     .maybeSingle();
   if (error) return "error";
@@ -139,8 +140,11 @@ async function loadMeeting(supabase: SupabaseClient, token: string): Promise<Row
     supabase.from("agency_members")
       .select("display_name, photo_url, phone, slug, agencies!agency_members_agency_id_fkey(name, logo_url)")
       .eq("id", item.agent_id).maybeSingle(),
-    item.client_id
-      ? supabase.from("agent_clients").select("full_name").eq("id", item.client_id).maybeSingle()
+    // לקוח/ה או ליד, מאותה פונקציה שהתור משתמש בה (ליד נעול או של אחר/ת - בלי שם)
+    item.client_id || item.lead_id
+      ? supabase.rpc("agent_agenda_contact", {
+        p_agent_id: item.agent_id, p_client_id: item.client_id, p_lead_id: item.lead_id,
+      }).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   return { item, agent: agent || {}, client: client || {} };
@@ -323,8 +327,8 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
     return status;
   };
 
-  const to = phoneE164(row.client_phone);
-  if (!to) return await done("no_phone", null, "אין ללקוח/ה מספר טלפון תקין בכרטיס");
+  const to = clientPhoneE164(row.client_phone);
+  if (!to) return await done("no_phone", null, "אין לאיש הקשר מספר טלפון תקין");
   if (!waConfigured()) return await done("failed", null, "WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID לא מוגדרים");
 
   // שלוש צורות: אישור/עדכון/ביטול (כפתור לדף), תזכורת (אישור/ביטול/מועד אחר), משוב
@@ -380,6 +384,14 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
     await supabase.from("whatsapp_messages").insert({
       direction: "out", wa_phone: to, msg_type: mode, body: line.slice(0, 2000), error: err.message.slice(0, 500),
     });
+    if (err.code === WA_OPTED_OUT) {
+      // הנמען/ת ביקש/ה מ-Meta להפסיק: מבטלים את כל מה שממתין לאותו מספר, לא רק
+      // את השורה הזו. כשל כאן אינו משנה את סטטוס השורה הנוכחית.
+      const { error: stopErr } = await supabase.rpc("agent_agenda_client_opt_out_phone", {
+        p_message_id: row.message_id,
+      });
+      if (stopErr) console.error("meeting opt-out cancel failed", stopErr.message);
+    }
     return await done(err.code === WA_OPTED_OUT ? "opted_out" : "failed", mode, err.message);
   }
 }

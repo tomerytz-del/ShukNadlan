@@ -192,8 +192,10 @@ type ExtraPage = {
   market: string;
 };
 const siloPages = (globalThis as unknown as { ShukSilo: { pages: ExtraPage[] } }).ShukSilo.pages;
+/* ‏6 חדרים אינו דף אמיתי. 4 חדרים כבר ב-sitemap הסטטי, והבדיקה
+   בודקת שורה שנכנסת מהמסד ולא שורה שכבר בקובץ. */
 const liveExtra: ExtraPage = {
-  path: "/afula/דירות-4-חדרים",
+  path: "/afula/דירות-6-חדרים",
   property_type: null,
   rooms: 4,
   cityName: "עפולה",
@@ -213,7 +215,7 @@ const hiddenExtra: ExtraPage = {
   cityName: "חיפה",
   market: "haifa",
 };
-const FOUR = "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-4-%D7%97%D7%93%D7%A8%D7%99%D7%9D";
+const FOUR = "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-6-%D7%97%D7%93%D7%A8%D7%99%D7%9D";
 const NINE = "%D7%93%D7%99%D7%A8%D7%95%D7%AA-9-%D7%97%D7%93%D7%A8%D7%99%D7%9D";
 const withHaifa = {
   status: 200,
@@ -246,7 +248,7 @@ try {
 
   const already =
     STATIC.replace("</urlset>",
-      `  <url>\n    <loc>https://shuknadlan.co.il/afula/דירות-4-חדרים</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n</urlset>\n`);
+      `  <url>\n    <loc>https://shuknadlan.co.il/afula/דירות-6-חדרים</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n</urlset>\n`);
   install(DEALS_ROW, withHaifa);
   const kept = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
     next: async () => new Response(already, { headers: { "content-type": "application/xml" } }),
