@@ -37,6 +37,7 @@ on:
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
       - "scripts/street_alias_test.ts"
+      - "scripts/plan_model_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -63,6 +64,7 @@ on:
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
       - "scripts/street_alias_test.ts"
+      - "scripts/plan_model_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -183,3 +185,7 @@ jobs:
       # ומה שאינו מוכר נופל לברירת המחדל של הקורא.
       - name: מקורות ליד
         run: node --experimental-strip-types scripts/lead_source_test.ts
+
+      # קריאת תוכנית דירה לסיור התלת-ממדי: המרה למודל, קנה מידה והיפוך מראה (docs/plan-3d-tour.md)
+      - name: דגם דירה תלת-ממדי
+        run: node --experimental-strip-types scripts/plan_model_test.ts
