@@ -18,10 +18,14 @@ const FETCH_TIMEOUT_MS = 2500;
 
 type Row = Record<string, unknown>;
 
+type About = { "@type": string; name: string };
+
 type Page = {
   path: string;
   name: string;
   aboutCity: boolean;
+  /* ‏כשהדף אינו על עיר אחת. השם חייב להופיע ב-H1. */
+  about?: About;
   query: string;
   href: (row: Row) => string;
   label: (row: Row) => string;
@@ -42,8 +46,9 @@ const PAGES: Page[] = [
   },
   {
     path: "/agencies",
-    name: "משרדי התיווך",
-    aboutCity: true,
+    name: "משרדי תיווך בעמק יזרעאל",
+    aboutCity: false,
+    about: { "@type": "AdministrativeArea", name: "עמק יזרעאל" },
     query: "agencies?select=slug,name&slug=not.is.null&order=name.asc&limit=1000",
     href: (row) => `/agency?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.name || "").trim(),
@@ -180,6 +185,7 @@ function graph(page: Page, rows: Row[], total: number): Record<string, unknown> 
     mainEntity: { "@id": `${url}#list` },
   };
   if (page.aboutCity) collection.about = { "@type": "City", name: "עפולה" };
+  else if (page.about) collection.about = page.about;
   return {
     "@context": "https://schema.org",
     "@graph": [

@@ -77,6 +77,11 @@ function blocks(html: string): Record<string, unknown>[] {
   const crumbs = ld.find((b) => b["@type"] === "BreadcrumbList") as { itemListElement: unknown[] } | undefined;
   check("200", res.status === 200);
   check("H1", html.includes("מתווכים בעפולה</h1>"));
+  const afulaTitle = "<title>מתווכים בעפולה: משרדי התיווך והנכסים שהם משווקים | שוק נדל״ן</title>";
+  check("כותרת עפולה", html.includes(afulaTitle));
+  check("גיבוי סטטי זהה לכותרת", PAGE.includes(afulaTitle));
+  const metaDesc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  check("תיאור בלי פרטי קשר", metaDesc.endsWith("ומעבר לדף המשרד.") && !metaDesc.includes("פרטי קשר"));
   check("canonical", html.includes(`href="${CANON}"`));
   check("משרד ומתווך", html.includes("/agency?slug=adel") && html.includes("/agent?slug=dana"));
   check("ספירה", html.includes('<bdi>4</bdi><span class="land-sp"> </span>נכסים פעילים'));
@@ -103,6 +108,10 @@ function blocks(html: string): Record<string, unknown>[] {
     && list.itemListElement[0].item["@type"].includes("RealEstateAgent"));
   check("מקום ללוגו", html.includes('width="48"') && html.includes('height="48"'));
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">עפולה</a>"));
+  const web = ld.find((b) => b["@type"] === "WebPage") as { name?: string; description?: string } | undefined;
+  check("JSON-LD תואם ל-H1 ולתיאור", web?.name === "מתווכים בעפולה"
+    && web.description === "מתווכים בעפולה: משרדי התיווך ויועצי הנדל״ן הפעילים בעיר, הנכסים שכל משרד משווק כרגע, ומעבר לדף המשרד.");
+  check("קישור לאזור", body.includes('<a href="/agencies">משרדי תיווך בעמק יזרעאל</a>'));
 }
 
 resetLastGood();
