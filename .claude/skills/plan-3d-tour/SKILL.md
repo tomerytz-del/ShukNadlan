@@ -1,6 +1,6 @@
 ---
 name: plan-3d-tour
-description: הסיור התלת-ממדי מתוכנית דירה בריפו של שוק נדל״ן - plan_models / plan_model_charges, start_plan_model / mark_plan_model_reading / complete_plan_model / fail_plan_model, plan_model_quote / my_plan_models, ה-Edge Function plan-model (create, mirror, plan_url), _shared/plan-model.ts (PLAN_READ_PROMPT, buildModel, mirrorModel, imageSize), הדלי plan-sources וכלי המדידה scripts/plan_wall_audit.py. Use when a 3D tour looks wrong against the floor plan (walls shifted, rooms too big, missing or extra walls), when changing the plan-reading prompt or the vision model (GEMINI_PLAN_MODEL), when adding a column to plan_models, when touching the ₪49 charge or its refund, when a user paid and the model never arrived, when adding the viewer or editor to a page, or when someone proposes letting the browser insert a model, write the price, or select * from plan_models.
+description: הסיור התלת-ממדי מתוכנית דירה בריפו של שוק נדל״ן - plan_models / plan_model_charges, start_plan_model / mark_plan_model_reading / complete_plan_model / fail_plan_model, plan_model_quote / my_plan_models, ה-Edge Function plan-model (create, mirror, plan_url), _shared/plan-model.ts (PLAN_READ_PROMPT, buildModel, mirrorModel, imageSize), הדלי plan-sources וכלי המדידה scripts/plan_wall_audit.py. Use when a 3D tour looks wrong against the floor plan (walls shifted, rooms too big, missing or extra walls), when changing the plan-reading prompt or the vision model (GEMINI_PLAN_MODEL), when adding a column to plan_models, when touching the ₪49 charge or its refund, when a user paid and the model never arrived, when adding the viewer or editor to a page, when changing assets/plan3d.js or tour3d.html (furniture builders, styles, sun and light, the floating dock and trays, the joystick, wall outlines), or when someone proposes letting the browser insert a model, write the price, or select * from plan_models.
 ---
 
 # הסיור התלת-ממדי
@@ -104,6 +104,8 @@ python3 scripts/plan_wall_audit.py plan.jpg model.json --out diff.png
 * **הצופה לעולם אינו מפעיל Gemini ואינו משלם.** הוא רואה הדמיות שהבעלים כבר יצר/ה.
 * **הקירות והרצפה תמיד בגוונים שונים** (פער בהירות של 0.1 לפחות; התיקון האוטומטי מזיז את הקיר לגוון הקרוב ביותר שעומד בפער, ומגביל רוויה כדי שלבן חמים לא יהפוך לחרדל), גם כשהבעלים
   בוחר/ת צבעים: הדרישה של תומר, אחרי שסגנון לבן נראה כמשטח אחד.
+* **הקירות לבנים בכל סגנון** (החלטת תומר, 22.11.2026). הסגנון נבדל בריצוף, בריהוט ובמטבח,
+  לא בצבע הקיר; הבעלים יכול/ה לשנות קיר בעורך.
 * **ראש הקיר מקבל מתאר כהה בשני המצבים** (`buildCutEdges`): בגובה החיתוך כשהקירות חתוכים,
   ובראש הקיר כשהם שלמים. **הסיור נפתח בקירות שלמים** (`cut:false`, החלטת תומר 22.11.2026).
   קיר לבן על רצפה בהירה נבלע במבט מלמעלה. המתאר הוא גאומטריה (משטח כהה ומעליו משטח קטן ב-3 ס"מ מכל צד), לא `LineSegments`
@@ -127,8 +129,9 @@ python3 scripts/plan_wall_audit.py plan.jpg model.json --out diff.png
   סניטריים לבנים על קיר לבן לא נראו. החיפוי נבנה מהקירות ומגושי הליבה שעל גבול החדר, ומדלג על פתחים.
 * **ב"בסיס" כל קצוות הקירות מקבלים קו מתאר** (`wallOutlines`): רצפה, תקרה, פינות ופתחים. דגם
   לבן בלי צבעים הוא משטח אחד במבט ראשון. גם כאן תיבות דקות (InstancedMesh אחד), לא קו של פיקסל.
-* **בנייד הכפתורים שעל הבמה אינם עולים זה על זה.** במה צרה מקבלת שורת מצב מבט למעלה ומתחתיה
-  שורת כלים אחת שנגללת לצדדים; כפתור חדש על הבמה נכנס לשורה הזו ולא לפינה משלו. בודקים
+* **בנייד הכפתורים שעל הבמה אינם עולים זה על זה.** בעורך, במה צרה מקבלת שורת מצב מבט למעלה
+  ומתחתיה שורת כלים אחת שנגללת לצדדים; כפתור חדש על הבמה נכנס לשורה הזו ולא לפינה משלו. בודקים
+  (גם בצופה, אחרי כל רכיב חדש)
   ב-360 וב-390 פיקסלים, בשני מצבי המבט, ובמדידה: `getBoundingClientRect` של כל רכיב על הבמה,
   וחיתוך בין כל זוג. בעין על צילום אחד זה מתפספס (שישה כפתורים עלו על מתג המבט ועל הרמז).
 * **בצופה הסיור הוא המסך כולו, והפקדים צפים** (`.app.viewer`, בכל רוחב): סרגל תחתון עם ארבע
