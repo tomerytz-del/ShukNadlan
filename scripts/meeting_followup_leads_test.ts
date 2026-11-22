@@ -1,8 +1,10 @@
 // אישור ותזכורת לפגישה עם ליד מ"הלידים שלי": מתי שולחים, מתי שואלים טלפון, ומתי לא.
 //   node --experimental-strip-types scripts/meeting_followup_leads_test.ts
 import { readFileSync } from "node:fs";
-import { fetchOwnLead, leadFollowupPlan, type OwnLead, saveLeadPhone } from "../supabase/functions/whatsapp-webhook/agenda-lead.ts";
-import { agentStopNotification, isMeetingOptOutText } from "../supabase/functions/whatsapp-webhook/meeting-optout.ts";
+import { fetchOwnLead, isNumberBlocked, leadFollowupPlan, type OwnLead, saveLeadPhone } from "../supabase/functions/whatsapp-webhook/agenda-lead.ts";
+import {
+  agentStopNotification, isMeetingOptOutText, meetingStopCustomerReply, stopNotificationCreatedAt,
+} from "../supabase/functions/whatsapp-webhook/meeting-optout.ts";
 
 let failed = 0;
 async function test(name: string, fn: () => void | Promise<void>) {
@@ -149,12 +151,51 @@ await test("בקשת הסרה: מילים נפוצות מתאימות, ומשפ�
   }
 });
 
-await test("התראת העצירה לסוכן/ת: שם איש הקשר וכותרת, בלי טלפון", () => {
+await test("התראת העצירה לסוכן/ת: הנוסח המאושר, בלי טלפון", () => {
   const n = agentStopNotification({ item_id: "i", agent_id: "a", title: "סיור בהרצל 12", due_at: null,
     contact_name: "דנה לוי", cancelled: 3 }, "יום שלישי 14.10 בשעה 17:00");
-  assert(n.title.includes("דנה לוי"), "הכותרת כוללת את השם");
-  assert(n.body.includes("סיור בהרצל 12") && n.body.includes("בוטלו"), "הגוף כולל את הפגישה ואת הביטול");
+  assert(n.title === "🚫 דנה לוי לא רוצה לקבל עוד הודעות על הפגישה ב-יום שלישי 14.10 בשעה 17:00.", `כותרת: ${n.title}`);
+  assert(n.body === "התזכורות נעצרו. כדאי לברר איתו אם הפגישה עדיין עומדת.", `גוף: ${n.body}`);
   assert(!/\d{9}/.test(n.title + n.body), "בלי מספר טלפון");
+});
+
+await test("התשובה לנמען/ת: הנוסח המאושר ביחיד וברבים", () => {
+  assert(meetingStopCustomerReply(1) === "בסדר, לא נשלח לך עוד הודעות על הפגישה הזו 🙏", "יחיד");
+  assert(meetingStopCustomerReply(2) === "בסדר, לא נשלח לך עוד הודעות על הפגישות שנקבעו 🙏", "רבים");
+  assert(meetingStopCustomerReply(5) === meetingStopCustomerReply(2), "כל מה שמעל אחת - ברבים");
+});
+
+await test("תזמון ההתראה: עוקפים שקט רק לפגישה ב-12 השעות הקרובות", () => {
+  const now = new Date("2026-11-22T22:00:00Z");
+  const hours = (h: number) => new Date(now.getTime() + h * 3600_000).toISOString();
+  assert(stopNotificationCreatedAt(hours(2), now, 30) === now.toISOString(), "פגישה בעוד שעתיים: עכשיו");
+  assert(stopNotificationCreatedAt(hours(12), now, 30) === now.toISOString(), "בדיוק 12 שעות: עכשיו");
+  const late = new Date(now.getTime() - 31 * 60_000).toISOString();
+  assert(stopNotificationCreatedAt(hours(13), now, 30) === late, "בעוד 13 שעות: ישנה, ממתינה לסוף השקט");
+  assert(stopNotificationCreatedAt(hours(-3), now, 30) === late, "פגישה שכבר התחילה: ממתינה");
+  assert(stopNotificationCreatedAt(null, now, 30) === late, "בלי מועד: ממתינה");
+  assert(stopNotificationCreatedAt(hours(20), now, 45) === new Date(now.getTime() - 46 * 60_000).toISOString(),
+    "הסף נגזר מ-notif_push_urgent_fresh_minutes");
+});
+
+await test("מספר חסום (131050): נחסם גם בפורמט כתיבה אחר, ומספר אחר לא", async () => {
+  const mk = (blocked: string[]) => ({
+    from() {
+      let want = "";
+      const chain = {
+        select() { return chain; },
+        eq(_c: string, v: string) { want = v; return chain; },
+        maybeSingle() { return Promise.resolve({ data: blocked.includes(want) ? { phone_e164: want } : null }); },
+      };
+      return chain;
+    },
+  });
+  const sb = mk(["972501234567"]);
+  assert(await isNumberBlocked(sb, "050-123-4567"), "אותו מספר בפורמט מקומי");
+  assert(await isNumberBlocked(sb, "+972 50 123 4567"), "אותו מספר עם קידומת");
+  assert(!(await isNumberBlocked(sb, "0507654321")), "מספר אחר");
+  assert(!(await isNumberBlocked(sb, "אין")), "ערך שאינו מספר");
+  assert(!(await isNumberBlocked(sb, null)), "בלי מספר");
 });
 
 await test("המיגרציה: חשבון הדגמה, עצירה לפי טלפון, וכיבוי הפריט אחרי סימון השורות", () => {
@@ -165,6 +206,12 @@ await test("המיגרציה: חשבון הדגמה, עצירה לפי טלפו�
   assert(/not public\.agent_agenda_is_demo\(p_agent_id\)/.test(sql), "agent_agenda_contact מדלגת על הדגמה");
   assert(/v_demo := public\.agent_agenda_is_demo\(r\.agent_id\)/.test(sql), "claim מדלגת על הדגמה");
   assert(/'demo_account'/.test(sql), "סיבת הדילוג נרשמת");
+  assert(!/i\.status = 'open'/.test(sql.slice(sql.indexOf("agent_agenda_client_stop(p_phone"))), "העצירה אינה מסננת לפי status");
+  assert(!/i\.due_at > now\(\)/.test(sql.slice(sql.indexOf("agent_agenda_client_stop(p_phone"))), "העצירה אינה מסננת לפי מועד");
+  assert(/when d ~ '\^0\[0-9\]\{9\}\$'\s+then '972'/.test(sql), "972 רק למספר ישראלי (0 ואחריו 9 ספרות)");
+  assert(/create table if not exists public\.whatsapp_optouts/.test(sql), "טבלת החסימות");
+  assert(/insert into public\.whatsapp_optouts/.test(sql), "131050 רושם חסימה");
+  assert(/v_blocked/.test(sql) && /'number_blocked'/.test(sql), "claim מדלגת על מספר חסום");
   const mark = sql.indexOf("set status = 'opted_out'");
   const off = sql.indexOf("set client_notify = false");
   assert(mark > 0 && off > mark, "קודם מסמנים את השורות opted_out ורק אחר כך מכבים את הפריט (הטריגר מוחק pending)");

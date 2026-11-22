@@ -1,7 +1,9 @@
 // הצד של ההרצה: מסד, התראה לסוכן/ת ותשובה לנמען/ת. הטקסטים והזיהוי ב-meeting-optout.ts.
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { kickNotificationPush, meetingWhenText } from "../_shared/meeting-client.ts";
-import { agentStopNotification, MEETING_STOP_CUSTOMER_REPLY, type StoppedItem } from "./meeting-optout.ts";
+import {
+  agentStopNotification, meetingStopCustomerReply, stopNotificationCreatedAt, type StoppedItem,
+} from "./meeting-optout.ts";
 
 /**
  * "הסר" מנמען/ת של פולואפ פגישה. מחזירה true רק אם נעצרה לפחות פגישה אחת, כלומר
@@ -22,8 +24,14 @@ export async function stopMeetingFollowups(
   const items = (data || []) as StoppedItem[];
   if (!items.length) return false;
 
-  // התראה אחת לכל פגישה שנעצרה, בקריאה אחת. suppress_push מפורש: הסוכן/ת צריך/ה לשמוע
-  // על זה גם כשהוא/היא לא מסתכל/ת.
+  // כמה זמן התראת agenda_reminder נחשבת "טרייה" ועוקפת שקט (ברירת מחדל 30). כשל בקריאה אינו מונע את ההתראה.
+  const { data: cfg } = await supabase.from("pricing_config").select("value")
+    .eq("key", "notif_push_urgent_fresh_minutes").maybeSingle();
+  const freshMinutes = Number.parseInt(String(cfg?.value ?? ""), 10) || 30;
+  const now = new Date();
+
+  // התראה אחת לכל פגישה שנעצרה, בקריאה אחת. suppress_push מפורש: הסוכן/ת צריך/ה לשמוע על
+  // זה גם כשהוא/היא לא מסתכל/ת. עקיפת השקט רק לפגישה ב-12 השעות הקרובות (created_at).
   const { error: insErr } = await supabase.from("notifications").insert(items.map((item) => {
     const note = agentStopNotification(item, item.due_at ? meetingWhenText(item.due_at) : "");
     return {
@@ -33,10 +41,11 @@ export async function stopMeetingFollowups(
       body: note.body,
       related_agenda_item_id: item.item_id,
       suppress_push: false,
+      created_at: stopNotificationCreatedAt(item.due_at, now, freshMinutes),
     };
   }));
   if (insErr) console.error("meeting stop notification failed", insErr.message);
   await kickNotificationPush();
-  await reply(MEETING_STOP_CUSTOMER_REPLY);
+  await reply(meetingStopCustomerReply(items.length));
   return true;
 }

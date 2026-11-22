@@ -116,3 +116,16 @@ export async function saveLeadPhone(sb: LeadSb, agentId: string, leadId: string,
     .eq("id", leadId).eq("agent_id", agentId).eq("status", "unlocked");
   return !error;
 }
+
+/** הנוסח לסוכן/ת כשהמספר חסום. */
+export const NUMBER_BLOCKED_NOTE =
+  "המספר הזה ביקש לא לקבל הודעות מהעסק, ולכן לא יישלחו אישור ותזכורת על הפגישה. " +
+  "הוא יקבל הודעות שוב רק אחרי שיכתוב לנו בעצמו. כדאי לתאם איתו ישירות.";
+
+/** האם המספר ב-whatsapp_optouts (קיבל 131050). כשל בקריאה אינו חוסם: הסבב במסד חוסם ממילא. */
+export async function isNumberBlocked(sb: LeadSb, phone: unknown): Promise<boolean> {
+  const e164 = phoneE164(typeof phone === "string" ? phone : null);
+  if (!e164) return false;
+  const { data } = await sb.from("whatsapp_optouts").select("phone_e164").eq("phone_e164", e164).maybeSingle();
+  return !!data;
+}

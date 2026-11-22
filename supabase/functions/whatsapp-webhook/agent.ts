@@ -234,7 +234,9 @@ import {
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
 import { answerLeadImport, runLeadImport } from "./lead-import.ts";
-import { fetchOwnLead, leadFollowupPlan, type OwnLead, saveLeadPhone } from "./agenda-lead.ts";
+import {
+  fetchOwnLead, isNumberBlocked, leadFollowupPlan, NUMBER_BLOCKED_NOTE, type OwnLead, saveLeadPhone,
+} from "./agenda-lead.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -10089,6 +10091,9 @@ async function clientFollowupPlan(
   if (!clientId && leadRef) {
     const plan = await leadFollowupPlan(ctx.supabase, ctx.agent.id, leadRef.row, leadPhone);
     if (!plan.notify) return plan;
+    if (await isNumberBlocked(ctx.supabase, plan.phoneToSave || leadRef.row?.raw_phone)) {
+      return { notify: false, note: NUMBER_BLOCKED_NOTE };
+    }
     return {
       notify: true,
       note: followupSentNote(String(leadRef.row?.raw_name || "").trim() || "הליד", kind, due),
@@ -10106,6 +10111,7 @@ async function clientFollowupPlan(
         "אם תוסיף/י טלפון (update_client) ואז agenda_update עם notify_client - הם יישלחו.",
     };
   }
+  if (await isNumberBlocked(ctx.supabase, client?.phone)) return { notify: false, note: NUMBER_BLOCKED_NOTE };
   return { notify: true, note: followupSentNote(client?.full_name || "לקוח/ה", kind, due) };
 }
 
