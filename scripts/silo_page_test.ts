@@ -258,6 +258,74 @@ resetLastGood();
     && html.includes("<summary>מאיפה המודעות בעמוד הזה?</summary><p>" + sourceA + "</p>")
     && html.includes("<summary>" + priceQ + "</summary><p>" + priceA + "</p>")
     && !html.includes("האם המחיר שמופיע הוא המחיר הסופי?"));
+  check("3 חדרים: צ'יפ 4 ו-5 אל דף הנחיתה", filters.includes('href="/afula/דירות-4-חדרים"')
+    && filters.includes('href="/afula/דירות-5-חדרים"')
+    && !filters.includes("rooms=4") && !filters.includes("rooms=5"));
+  check("3 חדרים נשאר שוויון", urls.some((u) => u.includes("/properties?") && u.includes("rooms=eq.3") && !u.includes("rooms=gte.")));
+}
+
+{
+  const DESC4 = "דירות 4 חדרים למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.";
+  const DESC5 = "דירות 5 חדרים ומעלה למכירה בעפולה ממשרדי התיווך ויועצי הנדל״ן באזור: מחיר, גודל, קומה ותמונות, ופנייה ישירה למשווק.";
+  const row4 = { ...ROWS[0], id: "r4", title: "דירה", property_type: "דירה", rooms: 4, price: 980000 };
+  for (const [n, desc] of [[4, DESC4], [5, DESC5]] as [number, string][]) {
+    const heading = n === 5 ? "דירות 5 חדרים ומעלה למכירה בעפולה" : `דירות ${n} חדרים למכירה בעפולה`;
+    const crumb = n === 5 ? "דירות 5 חדרים ומעלה" : `דירות ${n} חדרים`;
+    const path = "/afula/" + encodeURIComponent(`דירות-${n}-חדרים`);
+    const canon = `${SITE}/afula/דירות-${n}-חדרים`;
+    const res = await run(SITE + path, 200, [{ ...row4, id: "r" + n, rooms: n }]);
+    const html = await res.text();
+    const blocks = ldBlocks(html);
+    const graph = blocks.find((b) => Array.isArray(b["@graph"])) as { "@graph": Record<string, unknown>[] } | undefined;
+    const gtypes = (graph?.["@graph"] || []).map((b) => b["@type"]);
+    const pageLd = (graph?.["@graph"] || []).find((b) => b["@type"] === "CollectionPage") as { url?: string; name?: string; description?: string } | undefined;
+    const crumbs = (graph?.["@graph"] || []).find((b) => b["@type"] === "BreadcrumbList") as { itemListElement?: { name: string; item: string }[] } | undefined;
+    const visible = (html.split('class="land-crumbs"')[1] || "").split("</ol>")[0];
+    check(`${n} חדרים: כותרת, H1 ותיאור`, res.status === 200
+      && html.includes(`<title>${heading} | שוק נדל״ן</title>`)
+      && html.includes(`<h1 id="siloH1">${heading}</h1>`)
+      && html.includes(`content="${desc}"`)
+      && !html.includes("noindex"));
+    check(`${n} חדרים: canonical עצמי`, html.includes(`<link rel="canonical" href="${canon}">`));
+    check(`${n} חדרים: CollectionPage`, gtypes.join(",") === "CollectionPage,BreadcrumbList,FAQPage"
+      && blocks.some((b) => b["@type"] === "ItemList")
+      && !blocks.some((b) => b["@type"] === "WebPage")
+      && pageLd?.url === canon && pageLd?.name === heading && pageLd?.description === desc);
+    check(`${n} חדרים: פירורים`, crumbs?.itemListElement?.[0]?.name === "דף הבית"
+      && crumbs?.itemListElement?.[0]?.item === SITE + "/"
+      && crumbs?.itemListElement?.[1]?.name === "דירות למכירה בעפולה"
+      && crumbs?.itemListElement?.[1]?.item === SITE + "/afula/דירות-למכירה"
+      && crumbs?.itemListElement?.[2]?.name === crumb
+      && crumbs?.itemListElement?.[2]?.item === canon
+      && visible.includes('href="/"')
+      && visible.includes('href="/afula/דירות-למכירה" id="landCityCrumb">דירות למכירה בעפולה')
+      && visible.includes(`<span id="siloCrumb">${crumb}</span>`));
+    const roomQuery = n === 5
+      ? (u: string) => u.includes("rooms=gte.5") && !u.includes("rooms=eq.") && !u.includes("rooms=lt.")
+      : (u: string) => u.includes("rooms=gte.4") && u.includes("rooms=lt.5") && !u.includes("rooms=eq.");
+    check(`${n} חדרים: שאילתה לפי חדרים`, urls.some((u) => u.includes("/properties?")
+      && roomQuery(u)
+      && u.includes("city=eq." + encodeURIComponent("עפולה"))
+      && u.includes("deal_type=eq.sale")));
+    const shown = [
+      (html.match(/<title>[^<]*<\/title>/) || [""])[0],
+      (html.match(/<meta name="description" content="[^"]*"/) || [""])[0],
+      (html.match(/<meta property="og:title" content="[^"]*"/) || [""])[0],
+      (html.match(/<meta property="og:description" content="[^"]*"/) || [""])[0],
+      (html.match(/<h1 id="siloH1">[\s\S]*?<\/h1>/) || [""])[0],
+      (html.match(/<p class="land-benefit"[\s\S]*?<\/p>/) || [""])[0],
+      visible,
+      (html.split('id="siloBody"')[1] || "").split("<!--/silo-->")[0],
+    ].join("\n");
+    check(`${n} חדרים: בלי מקף ארוך ובלי שם`, !/[—–]/.test(shown)
+      && !shown.includes("תומר") && !shown.includes("3134355")
+      && html.includes(`property="og:title" content="${heading} | שוק נדל״ן"`));
+    const other = n === 4 ? 5 : 3;
+    const filters = (html.split('aria-label="סינון מהיר"')[1] || "").split("</nav>")[0];
+    check(`${n} חדרים: בלי צ'יפ עצמי, עם אח`, !filters.includes(`<bdi>${n}</bdi>`)
+      && filters.includes(`/afula/דירות-${other}-חדרים`)
+      && filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
+  }
 }
 
 {
