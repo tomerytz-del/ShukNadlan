@@ -218,7 +218,7 @@ async function openHome(){
   homeBody.addEventListener('click',async function(e){
     var b=e.target.closest('[data-mirror]');if(!b)return;
     var q=quotes[b.dataset.kind]||{},out=$('listMsg');
-    if(!confirm('תמונת מראה היא דגם נוסף, בחיוב של '+moneypriceOf(q)+' מהארנק. להמשיך?'))return;
+    if(!confirm('תמונת מראה היא דגם נוסף, בחיוב של '+money(priceOf(q))+' מהארנק. להמשיך?'))return;
     b.disabled=true;msg(out,'יוצרים את תמונת המראה...');
     try{
       var d=await callFn({action:'mirror',owner_kind:b.dataset.kind,source_model_id:b.dataset.mirror});
