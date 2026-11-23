@@ -149,7 +149,7 @@ Edge Function (שלב ב')            מסד
 | --- | --- | --- |
 | ג' | `plan_model_renders` והפקת הדמיות (Gemini) | משתמשים ב-`_shared/visualization.ts`; מונה אחד לדגם; 20 הדמיות; החזר על כישלון |
 | ד' | הצופה בדפי הנכס והפרויקט, העורך ב-CRM, גבריאלה | `plan_model_id` על `properties` ועל `project_unit_types` (דגמי הדירות שבפרויקט), עם טריגר בעלות; כפתור בלבד מגבריאלה |
-| ה' | שורה ב-`COMPARE` של `pricing.html`, ב-`GATES` של `check_tier_gates.py`, ו-`docs/pricing-and-tiers.md` | הגייט הוא `plan_model_eligible`. השורה נכנסת **עם הממשק**, לא לפניו |
+| ה' | שורה ב-`COMPARE` של `pricing.html`, ב-`GATES` של `check_tier_gates.py`, ו-`docs/pricing-and-tiers.md` | **נכנס יחד עם הדף `/tour3d`** (23.11.2026) |
 
 ## מבנה `model`
 
