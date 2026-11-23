@@ -3,6 +3,14 @@ import os, sys, json
 from PIL import Image, ImageDraw
 src=sys.argv[1]; name=os.path.splitext(os.path.basename(src))[0]; OUT=os.path.join(os.environ.get('PLAN_OUT','/tmp/plan_cv'),name); d=json.load(open(OUT+'.cv.json')); SZ=max(d['W'],d['H']); TH=d.get('thick',7); T=round(SZ*0.011); GAP=round(SZ*0.16)
 segs=[('h',l,a,b,th) for l,a,b,th in d['h']]+[('v',l,a,b,th) for l,a,b,th in d['v']]
+# עובי הקיר החיצוני = העובי השכיח (לפי אורך) בין הקטעים העבים. מחיצה היא בערך חצי ממנו, וקו של 1-2 פיקסלים
+# הוא רהיט, מעקה או חלון: בחמש התוכניות יש פער ריק בין שתי הקבוצות, ולכן הסף נגזר מהתוכנית ולא קבוע
+_w={}
+for s_ in segs:
+    if s_[4]>=TH: _w[int(s_[4])]=_w.get(int(s_[4]),0)+s_[3]-s_[2]
+EXT=max(_w,key=_w.get) if _w else TH
+WALL=max(3,round(EXT*0.3))
+lines=[s_ for s_ in segs if s_[4]<WALL]; segs=[s_ for s_ in segs if s_[4]>=WALL]
 def touch(p,q):
     if p[0]==q[0]:   # מקבילים: אותו קו בקירוב וחפיפה או נגיעה בקצה
         # אותו קו: מחוברים גם דרך פתח (חלון, דלת) עד GAP פיקסלים. רק קטעים באותו עובי בקירוב, כדי שרהיט דק לא ייצמד לקיר עבה
@@ -25,13 +33,13 @@ big=max(thick(c) for c in comp.values())
 good=[c for c in comp.values() if thick(c)>=max(SZ*0.055,0.08*big)]
 best=[i for c in good for i in c]
 keep=[segs[i] for i in best]
-print(name,'segments',len(segs),'components',len(comp),'kept',len(keep),'len kept',round(score(best)),'of',round(sum(s[3]-s[2] for s in segs)))
-json.dump(keep,open(OUT+'.walls.json','w'))
+print(name,'ext',EXT,'wall>=',WALL,'lines',len(lines),'segments',len(segs),'components',len(comp),'kept',len(keep),'len kept',round(score(best)),'of',round(sum(s[3]-s[2] for s in segs)))
+json.dump({'walls':keep,'lines':lines,'ext':EXT},open(OUT+'.walls.json','w'))
 im=Image.open(src).convert('RGB'); im=Image.blend(im,Image.new('RGB',im.size,(255,255,255)),.6); dr=ImageDraw.Draw(im)
-for k,l,a,b,th in segs:
+for k,l,a,b,th in segs+lines:
     if (k,l,a,b,th) in keep: continue
-    dr.line([a,l,b,l] if k=='h' else [l,a,l,b],fill=(170,170,170),width=2)
+    dr.line([a,l,b,l] if k=='h' else [l,a,l,b],fill=(120,200,120),width=1)
 for k,l,a,b,th in keep:
-    col=(220,30,30) if th>=TH else (30,90,230)
+    col=(220,30,30) if th>=EXT*0.75 else (30,90,230)
     dr.line([a,l,b,l] if k=='h' else [l,a,l,b],fill=col,width=3)
 im.resize((im.width*3//2,im.height*3//2)).save(OUT+'.walls.png')
