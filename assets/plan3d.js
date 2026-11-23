@@ -78,7 +78,7 @@ var S={scale:1.56,ceil:270,wExt:22,wInt:10,sill:90,winH:130,doorH:210,
 var FURN=[];var VIEWS=[];var LIGHTS=[];var selId=null;var uid=1;
 
 /* סוג ריהוט שאינו בקטלוג נזרק: המודל נערך מהדפדפן ונקרא מהמסד, ושורה כזו הפילה את בניית הרשימה */
-function resetFurn(){FURN=MODEL.furniture.filter(function(a){return Array.isArray(a)&&CAT[a[0]]}).map(function(a){return {id:'f'+(uid++),t:a[0],x:a[1],y:a[2],rot:a[3]||0,w:a[4]||0,d:a[5]||0}})}
+function resetFurn(){FURN=MODEL.furniture.filter(function(a){return Array.isArray(a)&&Object.prototype.hasOwnProperty.call(CAT,a[0])}).map(function(a){return {id:'f'+(uid++),t:a[0],x:a[1],y:a[2],rot:a[3]||0,w:a[4]||0,d:a[5]||0}})}
 function center(){return {x:(BOUNDS.x1+BOUNDS.x2)/2*S.scale,z:(BOUNDS.y1+BOUNDS.y2)/2*S.scale}}
 function span(){return Math.max(BOUNDS.x2-BOUNDS.x1,BOUNDS.y2-BOUNDS.y1)*S.scale}
 /* נקודת מבט ראשון בחדר: מרכז החדר, עם הפנים למרכז הדירה */

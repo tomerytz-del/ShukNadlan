@@ -255,4 +255,36 @@ test("buildModel: מידה כתובה שסותרת את השטח הכתוב נד
   assert.ok(settings.checks.some((c) => c.code === "scale_inconsistent"));
 });
 
+test("buildModel: רווח בעובי קיר בין חדרים אינו משאיר אותם אטומים", () => {
+  // מרווחים של 25 פיקסלים (מעל tol): בלי בליעת הרווח יצאו 12 קירות חיצוניים ואף דלת
+  const raw = {
+    rooms: [{ kind: "living", x1: 100, y1: 100, x2: 500, y2: 900 }, { kind: "mamad", x1: 525, y1: 100, x2: 900, y2: 450 },
+      { kind: "bedroom", x1: 525, y1: 475, x2: 900, y2: 900 }],
+    walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 900, y2: 100 }, { kind: "exterior", x1: 900, y1: 100, x2: 900, y2: 900 },
+      { kind: "exterior", x1: 100, y1: 900, x2: 900, y2: 900 }, { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 900 }],
+    apartment_sqm: 90,
+  };
+  const { model } = buildModel(raw, 1000, 1000);
+  assert.ok(model.walls.some((w) => w.t === "int"));
+  assert.equal(model.walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d")).length, 2);
+});
+
+test("buildModel: ויטרינה של חדר אל המרפסת אינה פוטרת אותו מדלת אל הדירה, והתוויות לפי החדרים שנשארו", () => {
+  const raw = {
+    rooms: [{ kind: "living", x1: 100, y1: 100, x2: 600, y2: 500 }, { kind: "bedroom", x1: 600, y1: 100, x2: 900, y2: 500 },
+      { kind: "balcony", x1: 600, y1: 500, x2: 900, y2: 700 }, { kind: "kitchen", x1: 100, y1: 100, x2: 600, y2: 500 }],
+    walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 900, y2: 100 },
+      { kind: "exterior", x1: 600, y1: 500, x2: 900, y2: 500, openings: [{ kind: "sliding", x1: 650, y1: 500, x2: 850, y2: 500 }] },
+      { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 500 }],
+    apartment_sqm: 60,
+  };
+  const { model, settings } = buildModel(raw, 1000, 1000);
+  const inner = model.walls.find((w) => w.t === "int" && w.v === 600)!;
+  assert.ok((inner.o ?? []).some((o) => o[0] === "d"), "דלת בין חדר השינה לסלון");
+  // שני חדרים באותו מלבן: אחד ירד, נספר, ואין לו תווית או מנורה יתומה
+  assert.equal(model.rooms.length, 3);
+  assert.equal(model.labels.length, 3);
+  assert.deepEqual(settings.checks.find((c) => c.code === "rooms_dropped"), { code: "rooms_dropped", n: 1 });
+});
+
 console.log(`✓ ${passed} בדיקות של plan-model עברו`);

@@ -216,7 +216,11 @@ function snapLines(vals: number[], tol: number): Map<number, number> {
 function roomGrid(rooms: Room[], tol: number): Grid {
   const mx = snapLines(rooms.flatMap((r) => [r.r[0][0], r.r[0][2]]), tol);
   const my = snapLines(rooms.flatMap((r) => [r.r[0][1], r.r[0][3]]), tol);
-  const rects = rooms.map((r) => [mx.get(r.r[0][0])!, my.get(r.r[0][1])!, mx.get(r.r[0][2])!, my.get(r.r[0][3])!]);
+  // חדר צר ששני הקצוות שלו התאחדו לקו אחד היה נעלם: לו משאירים את הקואורדינטות המקוריות בציר הזה
+  const rects = rooms.map((r) => {
+    const q = r.r[0], x1 = mx.get(q[0])!, x2 = mx.get(q[2])!, y1 = my.get(q[1])!, y2 = my.get(q[3])!;
+    return [x1 < x2 ? x1 : q[0], y1 < y2 ? y1 : q[1], x1 < x2 ? x2 : q[2], y1 < y2 ? y2 : q[3]];
+  });
   const uniq = (a: number[]) => [...new Set(a)].sort((p, q) => p - q);
   const xs = uniq(rects.flatMap((q) => [q[0], q[2]])), ys = uniq(rects.flatMap((q) => [q[1], q[3]]));
   const area = (q: number[]) => (q[2] - q[0]) * (q[3] - q[1]);
@@ -228,6 +232,15 @@ function roomGrid(rooms: Room[], tol: number): Grid {
     });
     return best;
   }));
+  // רווח בעובי קיר בין שני חדרים (עד 3×tol) שלא התאחד בהצמדה: התא הריק עובר לשכן, כדי שהחדרים
+  // ייגעו זה בזה ויהיה ביניהם קיר אחד עם דלת, ולא שני קירות חיצוניים עם חלל אטום ביניהם
+  const thin = 3 * tol;
+  for (let j = 0; j < own.length; j++) for (let i = 1; i < own[j].length - 1; i++) {
+    if (own[j][i] < 0 && xs[i + 1] - xs[i] <= thin && own[j][i - 1] >= 0 && own[j][i + 1] >= 0) own[j][i] = own[j][i - 1];
+  }
+  for (let j = 1; j < own.length - 1; j++) for (let i = 0; i < own[j].length; i++) {
+    if (own[j][i] < 0 && ys[j + 1] - ys[j] <= thin && own[j - 1][i] >= 0 && own[j + 1][i] >= 0) own[j][i] = own[j - 1][i];
+  }
   return { xs, ys, own };
 }
 
@@ -268,7 +281,9 @@ export function inferWalls(rooms: Room[], read: Wall[], g: Grid, tol: number, sc
           cur = horiz ? { h: line, a: along[c], b: along[c + 1], t } : { v: line, a: along[c], b: along[c + 1], t };
           walls.push(cur);
         } else cur.b = along[c + 1];
-        segs.push({ A, B, a: along[c], b: along[c + 1], wall: cur });
+        const last = segs[segs.length - 1];
+        if (last && last.wall === cur && last.A === A && last.B === B && last.b === along[c]) last.b = along[c + 1];
+        else segs.push({ A, B, a: along[c], b: along[c + 1], wall: cur });
       }
     });
   };
@@ -299,13 +314,16 @@ export function inferWalls(rooms: Room[], read: Wall[], g: Grid, tol: number, sc
   rooms.forEach((r, k) => {
     if (k === hub || areas[k] === 0) return;
     const mine = segs.filter((sg) => touches(sg, k) && sg.wall.t !== "rail");
-    if (mine.some((sg) => opens(sg, r.bal ? "ds" : "ds") && (r.bal ? rm(other(sg, k)) : other(sg, k) >= 0))) return;
-    // חדר: דלת אל המרחב המרכזי, ואם אינו גובל בו, אל השכן הפנימי הארוך ביותר. מרפסת: ויטרינה אל חדר
-    const toRooms = mine.filter((sg) => rm(other(sg, k)));
+    // פתח נחשב רק אם הוא מוביל לחדר: ויטרינה של חדר שינה אל המרפסת אינה כניסה לחדר
+    if (mine.some((sg) => opens(sg, "ds") && rm(other(sg, k)))) return;
+    // חדר: דלת אל המרחב המרכזי, ואם אין שם מקום, אל השכן עם הגבול הארוך ביותר. מרפסת: ויטרינה אל חדר.
+    // פתח צר מ-60 ס"מ אינו דלת: מנסים את הגבול הבא
+    const want = r.bal ? slidePx : doorPx, minPx = Math.max(8, Math.round(60 / scale));
+    const fits = (x: Seg) => x.b - x.a - 8 >= minPx;
+    const toRooms = mine.filter((x) => rm(other(x, k)) && fits(x));
     const sg = longest(toRooms.filter((x) => other(x, k) === hub)) ?? longest(toRooms);
     if (!sg) return;
-    const len = sg.b - sg.a, want = r.bal ? slidePx : doorPx, w = Math.min(want, len - 8);
-    if (w < 8) return;
+    const len = sg.b - sg.a, w = Math.min(want, len - 8);
     const from = r.bal ? Math.round(sg.a + (len - w) / 2) : Math.round(sg.a + Math.min(12, (len - w) / 2));
     add(sg.wall, [r.bal ? "s" : "d", from, from + w]);
   });
@@ -460,8 +478,21 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   if (walls.filter((w) => w.t === "int").length < Math.max(1, Math.floor(inner / 2))) {
     const inf = inferWalls(rooms, walls, grid, tol, scale);
     if (inf.walls.length >= 3 && inf.rooms.length >= 2) {
+      // חדר שנבלע כולו בחדרים קטנים ממנו ירד: נספר, והתוויות והמנורות נבנות מהחדרים שנשארו
+      const gone = rooms.length - inf.rooms.length;
+      if (gone) {
+        const prev = checks.find((c) => c.code === "rooms_dropped");
+        if (prev && prev.code === "rooms_dropped") prev.n += gone; else checks.push({ code: "rooms_dropped", n: gone });
+      }
       rooms = inf.rooms;
       walls = inf.walls;
+      labels.length = 0;
+      lamps.length = 0;
+      for (const r of rooms) {
+        const q = r.r[0], cx = Math.round((q[0] + q[2]) / 2), cy = Math.round((q[1] + q[3]) / 2);
+        labels.push([r.name, cx, cy]);
+        if (!r.nc) lamps.push([cx, cy]);
+      }
       checks.push({ code: "walls_inferred" });
     }
   }

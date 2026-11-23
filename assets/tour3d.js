@@ -191,7 +191,7 @@ async function openHome(){
     '</div>');
 
   function kind(){return $('nKind')?$('nKind').value:kinds[0]}
-  function quoteUi(){
+  function quoteUi(keep){
     var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
@@ -200,11 +200,11 @@ async function openHome(){
     }
     $('quoteBox').innerHTML=html;
     $('nOkLbl').textContent='אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה';
-    $('nOk').checked=false;gate();
+    if(!keep)$('nOk').checked=false;gate();
   }
   function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
-  if($('nKind'))$('nKind').addEventListener('change',quoteUi);
+  if($('nKind'))$('nKind').addEventListener('change',function(){quoteUi()});
   quoteUi();
   /* חזרה מטעינת ארנק (?topup=). success אינו הוכחה שהכסף נכנס, רק שדף התשלום החזיר לכאן:
      היתרה נקראת מחדש כמה פעמים עד שהיא גדלה, והפרמטרים יוצאים מהכתובת */
@@ -218,7 +218,7 @@ async function openHome(){
       msg(note,'התשלום התקבל. מעדכנים את היתרה...');
       var poll=async function(){
         var r=await sb.rpc('plan_model_quote',{p_owner_kind:k0});
-        if(!r.error&&r.data){quotes[k0]=r.data;quoteUi()}
+        if(!r.error&&r.data){quotes[k0]=r.data;quoteUi(true)}   /* בלי לאפס את תיבת האישור שהמשתמש/ת כבר סימן/ה */
         if((+(quotes[k0]||{}).balance||0)>before||(+(quotes[k0]||{}).balance||0)>=priceOf(quotes[k0]))return msg(note,'הארנק נטען. אפשר ליצור את הסיור.');
         if(++tries<8)setTimeout(poll,3000);else msg(note,'היתרה עוד לא התעדכנה. רעננו את הדף בעוד דקה.');
       };
