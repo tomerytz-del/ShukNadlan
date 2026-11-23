@@ -38,6 +38,7 @@ declare
   v_rooms    numeric;
   v_dup      record;
   v_active   boolean;
+  v_details  text;
 begin
   select m.active into v_active from public.agency_members m where m.id = p_agent_id;
   if v_active is not true then
@@ -54,6 +55,10 @@ begin
   if l.status <> 'unlocked' then
     return jsonb_build_object('success', false, 'error', 'locked');
   end if;
+  -- ארכיון הוא שלב סופי (docs/lead-card.md): ליד שהוצא מהעבודה אינו נערך
+  if exists (select 1 from public.lead_archives a where a.lead_id = l.id) then
+    return jsonb_build_object('success', false, 'error', 'archived');
+  end if;
 
   v_name  := l.raw_name;
   v_phone := l.raw_phone;
@@ -66,6 +71,10 @@ begin
   end if;
   if v_name is null and v_phone is null then
     return jsonb_build_object('success', false, 'error', 'name_or_phone_required');
+  end if;
+  -- טלפון שאינו מספר (קצר מדי, או בלי ספרות) לא נשמר: הוא לא ייתפס בכפילות ולא יישלח אליו כלום
+  if p ? 'phone' and v_phone is not null and public.normalize_msisdn(v_phone) is null then
+    return jsonb_build_object('success', false, 'error', 'bad_phone');
   end if;
 
   if p ? 'rooms' then
@@ -88,6 +97,23 @@ begin
 
   if not (p ?| array['full_name', 'phone', 'city', 'deal_type', 'property_type', 'rooms', 'notes', 'details']) then
     return jsonb_build_object('success', false, 'error', 'nothing_to_update');
+  end if;
+
+  -- שורת פרטי הנכס: ‏`details` מחליפה אותה כולה. שינוי חדרים בלבד מעדכן רק את הקטע "N חדרים"
+  -- שבה (agent_lead_add כתבה אותו), כדי שהכרטיס לא יסתור את עצמו.
+  v_details := l.property_details;
+  if p ? 'details' then
+    v_details := left(nullif(btrim(p ->> 'details'), ''), 500);
+  elsif p ? 'rooms' then
+    if v_details ~ '(^| · )[0-9]+(\.[0-9]+)? חדרים( · |$)' then
+      select nullif(string_agg(case when t.s ~ '^[0-9]+(\.[0-9]+)? חדרים$'
+                                    then case when v_rooms is null then null else trim_scale(v_rooms)::text || ' חדרים' end
+                                    else t.s end, ' · ' order by t.ord), '')
+        into v_details
+        from unnest(string_to_array(v_details, ' · ')) with ordinality as t(s, ord);
+    elsif v_rooms is not null then
+      v_details := concat_ws(' · ', v_details, trim_scale(v_rooms)::text || ' חדרים');
+    end if;
   end if;
 
   -- כפילות: רק כשהטלפון באמת משתנה למספר אחר
@@ -122,7 +148,7 @@ begin
     deal_type        = case when p ? 'deal_type' then nullif(btrim(p ->> 'deal_type'), '') else deal_type end,
     property_type    = case when p ? 'property_type' then left(nullif(btrim(p ->> 'property_type'), ''), 60) else property_type end,
     raw_message      = case when p ? 'notes' then left(nullif(btrim(p ->> 'notes'), ''), 4000) else raw_message end,
-    property_details = case when p ? 'details' then left(nullif(btrim(p ->> 'details'), ''), 500) else property_details end
+    property_details = v_details
    where id = l.id;
 
   select coalesce(array_agg(k order by k), '{}') into v_changed

@@ -67,6 +67,10 @@ export function leadUpdateReply(data: unknown): LeadUpdateReply {
       };
     case "locked":
       return { ok: false, error: "locked", guidance: "הליד עוד נעול, ואי אפשר לערוך אותו. אחרי שייפתח אפשר." };
+    case "archived":
+      return { ok: false, error: "archived", guidance: "הליד בארכיון, ואי אפשר לערוך אותו. אפשר להחזיר אותו מהארכיון ב-CRM." };
+    case "bad_phone":
+      return { ok: false, error: "bad_phone", guidance: "זה לא נראה כמו מספר טלפון (קצר מדי, או בלי ספרות). לבקש מהסוכן/ת מספר מלא, ולא לנחש." };
     case "name_or_phone_required":
       return { ok: false, error: "name_or_phone_required", guidance: "אי אפשר לנקות גם את השם וגם את הטלפון: אחד מהם חייב להישאר." };
     case "bad_rooms":

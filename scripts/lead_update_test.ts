@@ -50,8 +50,8 @@ test("כפילות: ok true (תוצאה נכונה, לא כשל כלי), ולא 
 });
 
 test("כל קוד שגיאה של המסד מתורגם להנחיה, ושגיאה לא מוכרת היא update_failed", () => {
-  for (const code of ["lead_not_found", "not_editable", "locked", "name_or_phone_required", "bad_rooms",
-    "bad_deal_type", "nothing_to_update"]) {
+  for (const code of ["lead_not_found", "not_editable", "locked", "archived", "bad_phone", "name_or_phone_required",
+    "bad_rooms", "bad_deal_type", "nothing_to_update"]) {
     const r = leadUpdateReply({ success: false, error: code }) as { ok: boolean; error: string; guidance?: string };
     assert(r.ok === false && r.error === code && !!r.guidance, `${code}: ${JSON.stringify(r)}`);
   }
@@ -75,6 +75,26 @@ test("הכלי: בסכמה כל השדות שהמודל יכול לשלוח, ו�
   assert(/case "update_lead": return await toolUpdateLead\(ctx, input\)/.test(agent), "dispatch");
   assert(/p_agent_id: ctx\.agent\.id/.test(agent.slice(agent.indexOf("async function toolUpdateLead"))),
     "ה-RPC חייב לקבל את הסוכן/ת מההקשר ולא מהמודל");
+});
+
+test("list_leads: חיפוש לפי שם, מצב עריכה בלי כפתורי CRM, והשורה הקיימת ו-source חוזרים למודל", () => {
+  const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
+  const start = agent.indexOf("async function toolListLeads");
+  const body = agent.slice(start, agent.indexOf("async function toolListNotifications", start));
+  assert(/property_details/.test(body) && /details: l\.property_details/.test(body), "details חייב להגיע למודל (update_lead מחליף אותו כולו)");
+  assert(/source: l\.source/.test(body), "source (agent_entered) חייב להגיע למודל");
+  assert(/input\.query/.test(body) && /display_name\.ilike/.test(body), "חיפוש לפי שם");
+  assert(/&& !forEdit/.test(body), "for_edit לא שולח כפתורי CRM");
+  assert(/replace\(\/\[,\(\)\*%/.test(body), "ניקוי תווים של מסנן ה-or");
+  const tool = agent.slice(agent.indexOf('name: "update_lead"'), agent.indexOf('name: "open_demand_leads"'));
+  assert(/details ו-notes מחליפים את הקיים כולו/.test(tool), "התיאור אומר שהם מחליפים");
+});
+
+test("המיגרציה: ארכיון וטלפון לא תקין נדחים, ושינוי חדרים מעדכן את הקטע בשורת הפרטים", () => {
+  const sql = read("supabase/migrations/20271201100000_agent_lead_update.sql");
+  assert(/'archived'/.test(sql) && /lead_archives/.test(sql), "ארכיון");
+  assert(/'bad_phone'/.test(sql) && /normalize_msisdn\(v_phone\) is null/.test(sql), "טלפון לא תקין");
+  assert(/חדרים\$'/.test(sql) && /v_details/.test(sql), "סנכרון חדרים בשורת הפרטים");
 });
 
 test("update_lead אינו בתור המייל (טקסט של אחרים) וכן ב-MUTATING_TOOLS", () => {
