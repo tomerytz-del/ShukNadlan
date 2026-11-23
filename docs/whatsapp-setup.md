@@ -686,6 +686,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 |---|---|
 | `list_leads` | הלידים של הסוכן/ת, דרך `leads_masked` — ליד סגור נשאר מוסתר |
 | `add_lead` | "ליד חדש ..." שהסוכן/ת כותב/ת: שורה ב-`leads` (`agent_lead_add`), לא כרטיס לקוח. פתוח, בלי חיוב, והתראה בפעמון בלבד |
+| `update_lead` | תיקון ליד שכבר נשמר (`agent_lead_update`): שם, טלפון, עיר, סוג עסקה/נכס, חדרים, הערות. רק ליד שהסוכן/ת הזין/ה (`agent_entered`), פתוח ושלו/ה; כפילות טלפון = `duplicate`. לא ב-`EMAIL_TOOLS`. `docs/leads-unified.md` |
 | `import_leads_file` · `lead_import_answer` | קובץ Excel/CSV של לידים: כל שורה שלמה נכנסת בנפרד ל-`leads`, ועל כל שורה עם חסר (טלפון, שם, סוג) גבריאלה שואלת אחת-אחת. `docs/leads-unified.md` |
 | `list_notifications` | מה ממתין בפעמון |
 | `whatsapp_alerts` | הדלקה/כיבוי של סוגי ההתראה שיוצאים בוואטסאפ |
