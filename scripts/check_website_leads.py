@@ -43,6 +43,10 @@ def main() -> int:
     signup = (ROOT / "agency-signup.html").read_text(encoding="utf-8")
     if "if (res.ok && data.success) trackOfficeSignup();" not in signup:
         problems.append("agency-signup.html: sign_up אינו נדחף רק אחרי הצלחה.")
+    if "eventCallback" not in signup or "eventTimeout = 800" not in signup or "setTimeout(finish, 800)" not in signup:
+        problems.append("agency-signup.html: ההפניה ל-CRM אינה מחכה ל-eventCallback עם תקרת 800ms.")
+    if "trackOfficeSignup(function(){ location.replace('/crm'); })" not in signup:
+        problems.append("agency-signup.html: ההפניה ל-CRM אינה בתוך ה-callback של sign_up.")
     call = re.search(r"shukTrack\(\s*'sign_up'\s*,\s*\{([^}]*)\}\s*\)", signup)
     push = re.search(r"dataLayer\.push\(\s*\{([^}]*)\}\s*\)", signup)
     blob = " ".join(x.group(1) for x in (call, push) if x)
@@ -70,6 +74,9 @@ def main() -> int:
                 problems.append(f"{migs[0].name}: {fn} לא הוגדר מחדש בלי משרדי הדגמה.")
         if "is_platform_admin)," not in sql.replace(" ", ""):
             problems.append(f"{migs[0].name}: ספירת מנהלי הפלטפורמה השתנתה.")
+        compact = re.sub(r"\s+", "", sql)
+        if "beforeinsertorupdate" not in compact or "tg_op='INSERT'" not in compact or "new.is_demo:=false" not in compact:
+            problems.append(f"{migs[0].name}: is_demo אינו נכפה ל-false בהכנסה של תפקיד שאינו service_role.")
 
     if problems:
         print("✗ לידים באתר")

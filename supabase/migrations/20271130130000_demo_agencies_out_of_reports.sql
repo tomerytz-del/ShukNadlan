@@ -19,8 +19,8 @@
 --
 -- זרעי בדיקה מקומיים ב-scripts/*_setup.sql אינם משרדים בפרודקשן, ולא
 -- מסומנים כאן. אין שינוי בגישה למשרד ההדגמה ואין שינוי בתצוגה שלו באתר.
--- העמודה נעולה בפני עדכון מהדפדפן: רק service_role והתפקידים של המיגרציה
--- משנים אותה, כדי שמנהל/ת משרד לא יוכל/תוכל להוציא את המשרד מהדוחות.
+-- העמודה נעולה בפני כתיבה מהדפדפן, בהכנסה ובעדכון: רק service_role
+-- והתפקידים של המיגרציה משנים אותה. בהכנסה של תפקיד אחר היא נכפית ל-false.
 -- ============================================================================
 
 alter table public.agencies
@@ -98,8 +98,9 @@ grant execute on function public.agent_is_demo(uuid) to service_role;
 grant execute on function public.property_is_demo(uuid) to service_role;
 grant execute on function public.lead_is_demo(uuid, uuid, uuid) to service_role;
 
--- העמודה לא זזה בעדכון מהדפדפן. service_role והמיגרציה כן כותבים אותה
--- (אותו כלל כמו protect_agency_ethics_fields).
+-- העמודה לא זזה בכתיבה מהדפדפן. service_role, postgres והמיגרציה כן
+-- כותבים אותה (אותו כלל כמו protect_agency_ethics_fields). בהכנסה של
+-- תפקיד אחר is_demo נכפה ל-false, כדי שאי אפשר לסמן משרד כהדגמה.
 create or replace function public.protect_agency_is_demo()
 returns trigger
 language plpgsql
@@ -110,7 +111,9 @@ begin
      or auth.role() = 'service_role' then
     return new;
   end if;
-  if tg_op = 'UPDATE' then
+  if tg_op = 'INSERT' then
+    new.is_demo := false;
+  elsif tg_op = 'UPDATE' then
     new.is_demo := old.is_demo;
   end if;
   return new;
@@ -118,14 +121,14 @@ end;
 $$;
 
 comment on function public.protect_agency_is_demo() is
-  'נועל את agencies.is_demo בפני עדכון מהדפדפן. service_role והמיגרציה כותבים.';
+  'נועל את agencies.is_demo בפני כתיבה מהדפדפן. בהכנסה של תפקיד שאינו service_role או postgres הערך נכפה ל-false. service_role והמיגרציה כותבים.';
 
 revoke all on function public.protect_agency_is_demo() from public, anon;
 grant execute on function public.protect_agency_is_demo() to authenticated, service_role;
 
 drop trigger if exists agencies_protect_is_demo on public.agencies;
 create trigger agencies_protect_is_demo
-  before update on public.agencies
+  before insert or update on public.agencies
   for each row execute function public.protect_agency_is_demo();
 
 
