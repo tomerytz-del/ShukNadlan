@@ -1453,6 +1453,7 @@ var CHECK_TEXT={
   diagonal_walls:function(c){return c.n+' קירות אלכסוניים לא נכנסו למודל.'},
   scale_estimated:function(c){return 'קנה המידה משוער ('+({area:'לפי השטח הכתוב',door:'לפי רוחב דלת',default:'ברירת מחדל'}[c.source]||'הערכה')+'). כיילו לפי מידה ידועה.'},
   scale_inconsistent:function(){return 'המידות הכתובות בתוכנית אינן עקביות. כיילו לפי מידה ידועה.'},
+  walls_inferred:function(){return 'הקירות הפנימיים והדלתות שוחזרו מגבולות החדרים, כי לא נקראו מהתוכנית. השוו לתוכנית המקור.'},
   no_north:function(){return 'לא נמצא חץ צפון בתוכנית. הזינו את כיוון הצפון בלשונית "שמש".'}
 };
 function fillChecks(){

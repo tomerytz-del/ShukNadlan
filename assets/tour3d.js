@@ -192,7 +192,7 @@ async function openHome(){
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
       html='<p class="msg"><b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק. כולל '+(+q.renders_included||20)+' הדמיות. היתרה בארנק: '+money(bal)+'.</p>';
-      if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount='+encodeURIComponent(Math.max(50,Math.ceil(price-bal)))+'">טעינת הארנק</a>';
+      if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
     $('nOkLbl').textContent='אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה';
@@ -202,6 +202,25 @@ async function openHome(){
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
   if($('nKind'))$('nKind').addEventListener('change',quoteUi);
   quoteUi();
+  /* חזרה מטעינת ארנק (?topup=). success אינו הוכחה שהכסף נכנס, רק שדף התשלום החזיר לכאן:
+     היתרה נקראת מחדש כמה פעמים עד שהיא גדלה, והפרמטרים יוצאים מהכתובת */
+  var top=params.get('topup');
+  if(top){
+    history.replaceState(null,'','/tour3d');
+    var note=$('nMsg');
+    if(top!=='success')msg(note,'הטעינה לא הושלמה. אפשר לנסות שוב.',true);
+    else{
+      var k0=kind(),before=+(quotes[k0]||{}).balance||0,tries=0;
+      msg(note,'התשלום התקבל. מעדכנים את היתרה...');
+      var poll=async function(){
+        var r=await sb.rpc('plan_model_quote',{p_owner_kind:k0});
+        if(!r.error&&r.data){quotes[k0]=r.data;quoteUi()}
+        if((+(quotes[k0]||{}).balance||0)>before||(+(quotes[k0]||{}).balance||0)>=priceOf(quotes[k0]))return msg(note,'הארנק נטען. אפשר ליצור את הסיור.');
+        if(++tries<8)setTimeout(poll,3000);else msg(note,'היתרה עוד לא התעדכנה. רעננו את הדף בעוד דקה.');
+      };
+      poll();
+    }
+  }
 
   function msg(el,t,bad){el.textContent=t;el.classList.toggle('bad',!!bad)}
   $('nGo').addEventListener('click',async function(){

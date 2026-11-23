@@ -38,7 +38,8 @@ export type PlanCheck =
   | { code: "diagonal_walls"; n: number }
   | { code: "scale_estimated"; source: "area" | "door" | "default" }
   | { code: "scale_inconsistent" }
-  | { code: "no_north" };
+  | { code: "no_north" }
+  | { code: "walls_inferred" };
 
 export type PlanSettings = {
   scale: number;
@@ -191,6 +192,152 @@ const MAX_ROOMS = 40, MAX_WALLS = 220, MAX_OPENINGS = 12, MAX_SOLIDS = 8;
  * מתשובת מודל הראייה למודל של הצופה.
  * זורק PlanReadError כשאין מה לבנות (פחות משני חדרים או פחות משלושה קירות).
  */
+// ---- קירות מתוך החדרים ----
+// מודל הראייה טוב בתיבות של חדרים וחלש בקירות: בתוכנית האמיתית הראשונה (פנטהאוז, 23.11.2026)
+// חזרו 11 חדרים, 9 קירות חיצוניים ואף קיר פנימי, והסיור יצא אולם אחד. כשהקירות הפנימיים חסרים,
+// משחזרים אותם מגבולות החדרים: רשת מכל קווי החדרים, לכל תא החדר הקטן ביותר שמכיל אותו (כך
+// "סלון" שנקרא כתיבה שעוטפת הכול אינו בולע את חדרי השינה), וקיר בכל גבול בין שני בעלים שונים.
+
+type Grid = { xs: number[]; ys: number[]; own: number[][] };
+
+/** קווים קרובים (עד tol) מתאחדים לקו אחד: שני חדרים שקיר מפריד ביניהם נקראים עם רווח של עובי הקיר */
+function snapLines(vals: number[], tol: number): Map<number, number> {
+  const v = [...new Set(vals)].sort((a, b) => a - b), map = new Map<number, number>();
+  for (let i = 0; i < v.length;) {
+    let j = i;
+    while (j + 1 < v.length && v[j + 1] - v[j] <= tol && v[j + 1] - v[i] <= 2 * tol) j++;
+    const m = Math.round((v[i] + v[j]) / 2);
+    for (let k = i; k <= j; k++) map.set(v[k], m);
+    i = j + 1;
+  }
+  return map;
+}
+
+function roomGrid(rooms: Room[], tol: number): Grid {
+  const mx = snapLines(rooms.flatMap((r) => [r.r[0][0], r.r[0][2]]), tol);
+  const my = snapLines(rooms.flatMap((r) => [r.r[0][1], r.r[0][3]]), tol);
+  const rects = rooms.map((r) => [mx.get(r.r[0][0])!, my.get(r.r[0][1])!, mx.get(r.r[0][2])!, my.get(r.r[0][3])!]);
+  const uniq = (a: number[]) => [...new Set(a)].sort((p, q) => p - q);
+  const xs = uniq(rects.flatMap((q) => [q[0], q[2]])), ys = uniq(rects.flatMap((q) => [q[1], q[3]]));
+  const area = (q: number[]) => (q[2] - q[0]) * (q[3] - q[1]);
+  const own = ys.slice(0, -1).map((y, j) => xs.slice(0, -1).map((x, i) => {
+    const cx = (x + xs[i + 1]) / 2, cy = (y + ys[j + 1]) / 2;
+    let best = -1;
+    rects.forEach((q, k) => {
+      if (cx > q[0] && cx < q[2] && cy > q[1] && cy < q[3] && (best < 0 || area(q) < area(rects[best]))) best = k;
+    });
+    return best;
+  }));
+  return { xs, ys, own };
+}
+
+/** שטח התאים של חדר k, בפיקסלים רבועים */
+function ownedArea(g: Grid, pred: (k: number) => boolean): number {
+  let a = 0;
+  g.own.forEach((row, j) => row.forEach((k, i) => { if (k >= 0 && pred(k)) a += (g.xs[i + 1] - g.xs[i]) * (g.ys[j + 1] - g.ys[j]); }));
+  return a;
+}
+
+type Seg = { A: number; B: number; a: number; b: number; wall: Wall };
+
+/**
+ * קירות, פתחים ומלבני חדרים מתוך הרשת. `read` הם הקירות שהמודל כן קרא: הפתחים שלהם (חלונות,
+ * דלתות) מועתקים לקיר המשוחזר הקרוב. חדר שנשאר בלי דלת מקבל אחת, אחרת אי אפשר להיכנס אליו.
+ */
+export function inferWalls(rooms: Room[], read: Wall[], g: Grid, tol: number, scale: number): { rooms: Room[]; walls: Wall[] } {
+  const { xs, ys, own } = g;
+  const at = (j: number, i: number) => (j < 0 || i < 0 || j >= own.length || i >= own[0].length ? -1 : own[j][i]);
+  const rm = (k: number) => k >= 0 && !rooms[k].bal, bal = (k: number) => k >= 0 && !!rooms[k].bal;
+  const kind = (A: number, B: number): Wall["t"] | null => {
+    if (A === B) return null;
+    if (rm(A) && rm(B)) return "int";
+    if (rm(A) || rm(B)) return "ext";
+    return bal(A) !== bal(B) ? "rail" : null;
+  };
+  const walls: Wall[] = [], segs: Seg[] = [];
+  // עוברים על כל קו של הרשת בשני הכיוונים, ומאחדים קטעים רצופים מאותו סוג לקיר אחד
+  const sweep = (horiz: boolean) => {
+    const lines = horiz ? ys : xs, along = horiz ? xs : ys;
+    lines.forEach((line, li) => {
+      let cur: Wall | null = null;
+      for (let c = 0; c < along.length - 1; c++) {
+        const A = horiz ? at(li - 1, c) : at(c, li - 1), B = horiz ? at(li, c) : at(c, li);
+        const t = kind(A, B);
+        if (!t) { cur = null; continue; }
+        if (!cur || cur.t !== t || cur.b !== along[c]) {
+          cur = horiz ? { h: line, a: along[c], b: along[c + 1], t } : { v: line, a: along[c], b: along[c + 1], t };
+          walls.push(cur);
+        } else cur.b = along[c + 1];
+        segs.push({ A, B, a: along[c], b: along[c + 1], wall: cur });
+      }
+    });
+  };
+  sweep(true);
+  sweep(false);
+
+  const lineOf = (w: Wall) => (w.h !== undefined ? w.h : w.v!);
+  const add = (w: Wall, o: Opening) => { (w.o ??= []).push(o); };
+  // פתחים שנקראו: כל אחד לקיר המשוחזר הקרוב ביותר באותו כיוון
+  for (const rw of read) {
+    for (const o of rw.o ?? []) {
+      let best: Wall | null = null, bd = 2 * tol + 1;
+      for (const w of walls) {
+        if (w.t === "rail" || (w.h !== undefined) !== (rw.h !== undefined)) continue;
+        const d = Math.abs(lineOf(w) - lineOf(rw));
+        if (d < bd && Math.min(o[2], w.b) - Math.max(o[1], w.a) >= 6) { best = w; bd = d; }
+      }
+      if (best) add(best, [o[0], Math.max(o[1], best.a), Math.min(o[2], best.b)]);
+    }
+  }
+  const opens = (sg: Seg, kinds: string) => (sg.wall.o ?? []).some((o) => kinds.includes(o[0]) && Math.min(o[2], sg.b) - Math.max(o[1], sg.a) > 4);
+  const touches = (sg: Seg, k: number) => sg.A === k || sg.B === k;
+  const other = (sg: Seg, k: number) => (sg.A === k ? sg.B : sg.A);
+  const areas = rooms.map((_, k) => ownedArea(g, (x) => x === k));
+  const hub = rooms.reduce((b, r, k) => (!r.bal && (b < 0 || areas[k] > areas[b]) ? k : b), -1);
+  const doorPx = Math.max(10, Math.round(85 / scale)), slidePx = Math.max(20, Math.round(200 / scale));
+  const longest = (list: Seg[]) => list.reduce<Seg | null>((b, sg) => (!b || sg.b - sg.a > b.b - b.a ? sg : b), null);
+  rooms.forEach((r, k) => {
+    if (k === hub || areas[k] === 0) return;
+    const mine = segs.filter((sg) => touches(sg, k) && sg.wall.t !== "rail");
+    if (mine.some((sg) => opens(sg, r.bal ? "ds" : "ds") && (r.bal ? rm(other(sg, k)) : other(sg, k) >= 0))) return;
+    // חדר: דלת אל המרחב המרכזי, ואם אינו גובל בו, אל השכן הפנימי הארוך ביותר. מרפסת: ויטרינה אל חדר
+    const toRooms = mine.filter((sg) => rm(other(sg, k)));
+    const sg = longest(toRooms.filter((x) => other(x, k) === hub)) ?? longest(toRooms);
+    if (!sg) return;
+    const len = sg.b - sg.a, want = r.bal ? slidePx : doorPx, w = Math.min(want, len - 8);
+    if (w < 8) return;
+    const from = r.bal ? Math.round(sg.a + (len - w) / 2) : Math.round(sg.a + Math.min(12, (len - w) / 2));
+    add(sg.wall, [r.bal ? "s" : "d", from, from + w]);
+  });
+  for (const w of walls) {
+    if (!w.o) continue;
+    w.o.sort((p, q) => p[1] - q[1]);
+    const clean: Opening[] = [];
+    for (const o of w.o) if (!clean.length || o[1] >= clean[clean.length - 1][2]) clean.push(o);
+    w.o = clean;
+  }
+
+  // מלבני החדר: רצפים של תאים בכל שורה, ומיזוג שורות עוקבות עם אותו טווח. הגדול ראשון (r[0] הוא החדר "הראשי")
+  const out: Room[] = [];
+  rooms.forEach((r, k) => {
+    const rects: Rect[] = [];
+    own.forEach((row, j) => {
+      for (let i = 0; i < row.length;) {
+        if (row[i] !== k) { i++; continue; }
+        let e = i;
+        while (e + 1 < row.length && row[e + 1] === k) e++;
+        const prev = rects.find((q) => q[0] === xs[i] && q[2] === xs[e + 1] && q[3] === ys[j]);
+        if (prev) prev[3] = ys[j + 1]; else rects.push([xs[i], ys[j], xs[e + 1], ys[j + 1]]);
+        i = e + 1;
+      }
+    });
+    if (!rects.length) return;
+    rects.sort((p, q) => (q[2] - q[0]) * (q[3] - q[1]) - (p[2] - p[0]) * (p[3] - p[1]));
+    out.push({ ...r, r: rects });
+  });
+  return { rooms: out, walls };
+}
+
 export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number): { model: PlanModel; settings: PlanSettings } {
   const W = Math.round(imgW), H = Math.round(imgH);
   if (!validImageSize(W, H)) throw new PlanReadError("bad_image_size", "גודל התמונה אינו תקין");
@@ -199,7 +346,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const bigEnough = (b: Box) => b.x2 - b.x1 >= minSide && b.y2 - b.y1 >= minSide;
 
   // ---- חדרים ----
-  const rooms: Room[] = [];
+  let rooms: Room[] = [];
   const labels: [string, number, number][] = [];
   const lamps: [number, number][] = [];
   const counts: Record<string, number> = {};
@@ -222,7 +369,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   if (rooms.length < 2) throw new PlanReadError("plan_unreadable", "לא זוהו חדרים בתוכנית");
 
   // ---- קירות ופתחים: רק קירות ישרים (אופקי או אנכי). אלכסון נזרק ונספר ----
-  const walls: Wall[] = [];
+  let walls: Wall[] = [];
   let diagonal = 0;
   for (const w of list(raw.walls, MAX_WALLS)) {
     const b = boxPx(w, W, H);
@@ -281,15 +428,24 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   let scale = 1.5;
   let scaleSource: PlanSettings["scale_source"] = "default";
   const doors = walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d").map((o) => o[2] - o[1]));
-  const px2 = rooms.filter((r) => !r.bal && !r.svc)
-    .reduce((s, r) => s + (r.r[0][2] - r.r[0][0]) * (r.r[0][3] - r.r[0][1]), 0);
+  // השטח לפי הרשת ולא לפי סכום המלבנים: חדרים שנקראו חופפים נספרים פעם אחת
+  const tol = Math.max(8, Math.round(Math.max(W, H) * 0.018));
+  const grid = roomGrid(rooms, tol);
+  const px2 = ownedArea(grid, (k) => !rooms[k].bal && !rooms[k].svc);
   const byArea = declaredArea !== null && declaredArea > 15 && declaredArea < 1500 && px2 > 0
     ? Math.sqrt(declaredArea * 10000 / px2) : 0;
   const byDoor = doors.length ? 85 / median(doors) : 0;
-  if (ratios.length) {
-    scale = median(ratios);
+  // מידה כתובה מתקבלת רק אם היא מסכימה עם השטח הכתוב (עד 35%): בפנטהאוז המידות הותאמו לקטעים
+  // הלא נכונים ונתנו 4.6 ס"מ לפיקסל במקום כ-1.7, והרהיטים יצאו בגודל של צעצוע
+  const near = sane(byArea) ? ratios.filter((r) => r / byArea > 0.74 && r / byArea < 1.35) : ratios;
+  if (near.length) {
+    scale = median(near);
     scaleSource = "dimensions";
-    if (ratios.length >= 2 && Math.max(...ratios) / Math.min(...ratios) > 1.25) checks.push({ code: "scale_inconsistent" });
+    if (near.length < ratios.length || (near.length >= 2 && Math.max(...near) / Math.min(...near) > 1.25)) checks.push({ code: "scale_inconsistent" });
+  } else if (ratios.length && sane(byArea)) {
+    scale = byArea;
+    scaleSource = "area";
+    checks.push({ code: "scale_inconsistent" });
   } else if (sane(byArea)) {
     scale = byArea;
     scaleSource = "area";
@@ -298,6 +454,17 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     scaleSource = "door";
   }
   if (scaleSource !== "dimensions") checks.push({ code: "scale_estimated", source: scaleSource });
+
+  // קירות פנימיים חסרים (פחות מקיר לכל שני חדרים): משחזרים מהחדרים. מה שנקרא טוב נשאר כמו שהוא
+  const inner = rooms.filter((r) => !r.bal).length;
+  if (walls.filter((w) => w.t === "int").length < Math.max(1, Math.floor(inner / 2))) {
+    const inf = inferWalls(rooms, walls, grid, tol, scale);
+    if (inf.walls.length >= 3 && inf.rooms.length >= 2) {
+      rooms = inf.rooms;
+      walls = inf.walls;
+      checks.push({ code: "walls_inferred" });
+    }
+  }
 
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });

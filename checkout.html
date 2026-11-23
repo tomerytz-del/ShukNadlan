@@ -697,7 +697,9 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       ? { tier: subTier, auto_renew: document.getElementById('autoRenew').checked, ...client }
       : isDevWallet
       ? { action: 'topup', amount: Number(amountEl.value), ...client }
-      : { amount: Number(amountEl.value), ...client };
+      : { amount: Number(amountEl.value), ...client,
+          /* מי שהגיע מהסיור התלת-ממדי חוזר אליו אחרי הטעינה ולא ל-CRM. רשימה סגורה, לא כתובת חופשית */
+          ...(params.get('return') === 'tour3d' ? { return_to: 'tour3d' } : {}) };
     const endpoint = isSub ? '/functions/v1/subscription-purchase'
       : isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup';
     const res = await fetch(SUPABASE_URL + endpoint, {
