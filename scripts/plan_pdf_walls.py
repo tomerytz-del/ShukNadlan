@@ -94,42 +94,101 @@ if best is None: sys.exit('no filled wall colour found - walls may be drawn as o
 _,wallcol,mask=best
 print('page',page,'of',npages,'wall fill',wallcol)
 
+# --- מחיצות ששורטטו כזוג קווים מקבילים בלי מילוי (חוברות שיווקיות): ממלאים בין השניים.
+# מחיצה היא 0.35 עד 1.1 מעובי הקיר הממולא; רהיט רחב מזה, וקו כפול של חלון צר מזה
+from scipy import ndimage as ndi
+dt=ndi.distance_transform_edt(mask); EXT=float(np.percentile(dt[mask],90))/0.45/S     # עובי קיר ממולא, בנקודות
+segs={'h':[],'v':[]}
+for attrs in re.findall(r'<path ([^>]*)/>',s):
+    if 'stroke="rgb' not in attrs or 'stroke-dasharray' in attrs: continue
+    d=re.search(r' d="([^"]*)"',attrs); t=re.search(r'transform="matrix\(([^)]*)\)"',attrs)
+    if not d: continue
+    a,b,c,dd,e,f=[float(v) for v in t.group(1).split(',')] if t else (1,0,0,1,0,0)
+    pts=[]
+    for cmd,args in re.findall(r'([MLHVCZ])([^MLHVCZ]*)',d.group(1)):
+        v=[float(u) for u in args.split()]
+        if cmd=='M': pts.append([(v[0],v[1])])
+        elif cmd=='L' and pts:
+            for i in range(0,len(v),2): pts[-1].append((v[i],v[i+1]))
+        elif cmd=='C' and pts: pts.append([(v[-2],v[-1])])     # עקומה שוברת את הרצף: קשת של דלת אינה קיר
+        elif cmd=='Z' and pts and len(pts[-1])>1: pts[-1].append(pts[-1][0])
+    for q in pts:
+        q=[(a*x+c*y+e,b*x+dd*y+f) for x,y in q]
+        for (x0,y0),(x1,y1) in zip(q,q[1:]):
+            if abs(y0-y1)<0.3 and abs(x0-x1)>=10: segs['h'].append(((y0+y1)/2,min(x0,x1),max(x0,x1)))
+            elif abs(x0-x1)<0.3 and abs(y0-y1)>=10: segs['v'].append(((x0+x1)/2,min(y0,y1),max(y0,y1)))
+pairs=[]
+for k in 'hv':
+    L=sorted(set((round(l,1),round(a_,1),round(b_,1)) for l,a_,b_ in segs[k]))
+    for i,(l1,a1,b1) in enumerate(L):
+        for l2,a2,b2 in L[i+1:]:
+            gap=l2-l1
+            if gap>EXT*1.1: break
+            lo,hi=max(a1,a2),min(b1,b2)
+            if gap>=EXT*0.35 and hi-lo>=EXT*3: pairs.append([lo*S,l1*S,hi*S,l2*S] if k=='h' else [l1*S,lo*S,l2*S,hi*S])
+# מחיצה מחוברת לרשת הקירות; ספה באמצע החדר לא. מוסיפים בסבבים: מה שנוגע בקיר, ואז מה שנוגע במה שנוסף
+filled=mask; net=ndi.binary_dilation(mask,iterations=round(EXT*S*0.6)); kept=[]; left=pairs
+while True:
+    nxt=[]; grew=False
+    for r_ in left:
+        x0,y0,x1,y1=[int(v) for v in r_]
+        if net[max(0,y0-2):y1+3,max(0,x0-2):x1+3].any():
+            kept.append(r_); grew=True
+            g=round(EXT*S*0.6); net[max(0,y0-g):y1+g,max(0,x0-g):x1+g]=True
+        else: nxt.append(r_)
+    left=nxt
+    if not grew: break
+pm=Image.new('1',(mask.shape[1],mask.shape[0]),0); pd=ImageDraw.Draw(pm)
+for r_ in kept: pd.rectangle(r_,fill=1)
+with_pairs=mask|np.array(pm)
+print('filled wall thickness pt',round(EXT,1),'stroke segments',len(segs['h'])+len(segs['v']),'line pairs',len(pairs),'connected',len(kept))
+
 # --- קנה מידה: לכל מידה כתובה מודדים את המרווח הפנוי בין קירות דרך מרכז הטקסט, אופקית ואנכית
-def span(cx,cy,horizontal):
-    x,y=int(cx*S),int(cy*S); line=mask[y,:] if horizontal else mask[:,x]; p=x if horizontal else y
-    if line[p]: return None
-    a=p
-    while a>0 and not line[a-1]: a-=1
-    b=p
-    while b<len(line)-1 and not line[b+1]: b+=1
-    if a==0 or b==len(line)-1: return None
-    return (b-a+1)/S
-dims=[]
-for x0,y0,x1,y1,t in ws:
-    mt=NUM.match(t)
-    if not mt: continue
-    cm=int(mt.group(1)); cx,cy=(x0+x1)/2,(y0+y1)/2
-    # כיוון המידה לא נקבע מצורת התיבה של הטקסט (לא אמין בטקסט מסובב): מודדים בשני הכיוונים, והקונצנזוס בוחר
-    c=[(k,span(cx,cy,k=='h')) for k in 'hv']
-    c=[(k,v) for k,v in c if v]
-    if c: dims.append({'cm':cm,'at':[round(cx),round(cy)],'cand':c})
-declared=re.search(r'1\s*:\s*(\d{2,3})',' '.join(w[4] for w in ws))
-declared=int(declared.group(1))*2.54/72 if declared else None      # ס"מ לנקודה
-if not dims: sys.exit('no dimension could be matched to a wall span')
-r=np.array([d['cm']/v for d in dims for k,v in d['cand']])
-# הקונצנזוס: היחס שהכי הרבה מידות מסכימות עליו עד 3%. מידה שעוברת דרך פתח או מודדת משהו אחר נופלת
-cons=max(r,key=lambda v:int((np.abs(r-v)/v<0.03).sum()))
-for d in dims:
-    k,v=min(d['cand'],key=lambda c:abs(d['cm']/c[1]-cons)); d['dir']=k; d['pt']=round(v,2); d['ratio']=d['cm']/v; del d['cand']
-r=np.array([d['ratio'] for d in dims]); ok=np.abs(r-cons)/cons<0.03
-scale=float(np.median(r[ok]))
-err=[abs(d['cm']-d['pt']*scale) for d,k in zip(dims,ok) if k]
+def measure(mask):
+  def span(cx,cy,horizontal):
+      x,y=int(cx*S),int(cy*S); line=mask[y,:] if horizontal else mask[:,x]; p=x if horizontal else y
+      if line[p]: return None
+      a=p
+      while a>0 and not line[a-1]: a-=1
+      b=p
+      while b<len(line)-1 and not line[b+1]: b+=1
+      if a==0 or b==len(line)-1: return None
+      return (b-a+1)/S
+  dims=[]
+  for x0,y0,x1,y1,t in ws:
+      mt=NUM.match(t)
+      if not mt: continue
+      cm=int(mt.group(1)); cx,cy=(x0+x1)/2,(y0+y1)/2
+      # כיוון המידה לא נקבע מצורת התיבה של הטקסט (לא אמין בטקסט מסובב): מודדים בשני הכיוונים, והקונצנזוס בוחר
+      c=[(k,span(cx,cy,k=='h')) for k in 'hv']
+      c=[(k,v) for k,v in c if v]
+      if c: dims.append({'cm':cm,'at':[round(cx),round(cy)],'cand':c})
+  declared=re.search(r'1\s*:\s*(\d{2,3})',' '.join(w[4] for w in ws))
+  declared=int(declared.group(1))*2.54/72 if declared else None      # ס"מ לנקודה
+  if not dims: return [],np.array([],bool),None,[],declared
+  r=np.array([d['cm']/v for d in dims for k,v in d['cand']])
+  # הקונצנזוס: היחס שהכי הרבה מידות מסכימות עליו עד 3%. מידה שעוברת דרך פתח או מודדת משהו אחר נופלת
+  cons=max(r,key=lambda v:int((np.abs(r-v)/v<0.03).sum()))
+  for d in dims:
+      k,v=min(d['cand'],key=lambda c:abs(d['cm']/c[1]-cons)); d['dir']=k; d['pt']=round(v,2); d['ratio']=d['cm']/v; del d['cand']
+  r=np.array([d['ratio'] for d in dims]); ok=np.abs(r-cons)/cons<0.03
+  scale=float(np.median(r[ok]))
+  err=[abs(d['cm']-d['pt']*scale) for d,k in zip(dims,ok) if k]
+  return dims,ok,scale,err,declared
+# קובץ שכל הקירות בו ממולאים לא צריך את הזוגות, והם רק מזיקים לו. לא מנחשים איזה קובץ זה: מודדים בשתי הדרכים,
+# ונשארים עם זו שיותר מידות כתובות מסכימות איתה
+A=measure(filled); B=measure(with_pairs)
+use_pairs=int(B[1].sum())>int(A[1].sum())
+dims,ok,scale,err,declared=B if use_pairs else A; mask=with_pairs if use_pairs else filled
+print('agreeing dimensions: filled only',int(A[1].sum()),'with line pairs',int(B[1].sum()),'-> using','line pairs' if use_pairs else 'filled only')
+if scale is None: sys.exit('no dimension could be matched to a wall span')
 print('dimensions read',len(dims),'agree',int(ok.sum()),'scale cm/pt',round(scale,4),'declared',round(declared,4) if declared else None)
 print('error vs written dimensions, cm: median',round(float(np.median(err)),1),'max',round(max(err),1))
 for d,k in zip(dims,ok): print('  ',d['cm'],'->',round(d['pt']*scale,1),'' if k else '(no match)')
 labels=[(t,round((x0+x1)/2),round((y0+y1)/2)) for x0,y0,x1,y1,t in ws if re.search('[א-ת]',t)]
 json.dump({'page':page,'wall_fill':wallcol,'scale_cm_per_pt':scale,'declared_cm_per_pt':declared,'dims':dims,'labels':labels},open(OUT+'.pdf.json','w'),ensure_ascii=False)
-v=Image.fromarray((~mask).astype(np.uint8)*255).convert('RGB'); dr=ImageDraw.Draw(v)
+rgb=np.full(mask.shape+(3,),255,np.uint8); rgb[mask]=(40,90,220); rgb[filled]=(0,0,0)
+v=Image.fromarray(rgb); dr=ImageDraw.Draw(v)
 for d,k in zip(dims,ok):
     x,y=d['at'][0]*S,d['at'][1]*S; dr.ellipse([x-9,y-9,x+9,y+9],fill=(30,160,60) if k else (220,40,40))
 v.resize((v.width//3,v.height//3)).save(OUT+'.pdf.png')
