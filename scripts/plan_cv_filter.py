@@ -7,9 +7,9 @@ segs=[('h',l,a,b,th) for l,a,b,th in d['h']]+[('v',l,a,b,th) for l,a,b,th in d['
 # הוא רהיט, מעקה או חלון: בחמש התוכניות יש פער ריק בין שתי הקבוצות, ולכן הסף נגזר מהתוכנית ולא קבוע
 _w={}
 for s_ in segs:
-    if s_[4]>=TH: _w[int(s_[4])]=_w.get(int(s_[4]),0)+s_[3]-s_[2]
-EXT=max(_w,key=_w.get) if _w else TH
-WALL=max(3,round(EXT*0.3))
+    if s_[4]>=max(4,TH*0.6): _w[int(s_[4])]=_w.get(int(s_[4]),0)+s_[3]-s_[2]
+EXT=max(_w,key=lambda t:_w[t]+_w.get(t-1,0)+_w.get(t+1,0)) if _w else TH
+WALL=max(2,round(EXT*0.3))
 lines=[s_ for s_ in segs if s_[4]<WALL]; segs=[s_ for s_ in segs if s_[4]>=WALL]
 def touch(p,q):
     if p[0]==q[0]:   # מקבילים: אותו קו בקירוב וחפיפה או נגיעה בקצה
@@ -28,7 +28,7 @@ comp={}
 for i,s in enumerate(segs): comp.setdefault(find(i),[]).append(i)
 score=lambda ids: sum(segs[i][3]-segs[i][2] for i in ids)
 # נשארת כל קבוצה שיש בה קיר עבה באורך של ממש: רהיט ותוכנית המפתח מצוירים בקו דק, קיר חיצוני לא
-thick=lambda ids: sum(segs[i][3]-segs[i][2] for i in ids if segs[i][4]>=TH)
+thick=lambda ids: sum(segs[i][3]-segs[i][2] for i in ids if segs[i][4]>=EXT*0.75)
 big=max(thick(c) for c in comp.values())
 good=[c for c in comp.values() if thick(c)>=max(SZ*0.055,0.08*big)]
 best=[i for c in good for i in c]
