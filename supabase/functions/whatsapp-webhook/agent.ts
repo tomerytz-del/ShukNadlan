@@ -234,6 +234,7 @@ import {
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
 import { answerLeadImport, runLeadImport } from "./lead-import.ts";
+import { buildLeadUpdatePayload, leadUpdateReply } from "./lead-update.ts";
 import { clientPhoneE164 } from "../_shared/phone-il.ts";
 import {
   fetchOwnLead, isNumberBlocked, leadFollowupPlan, NUMBER_BLOCKED_NOTE, type OwnLead, saveLeadPhone,
@@ -1791,6 +1792,15 @@ const TOOLS: Anthropic.Tool[] = [
           enum: ["masked", "unlocked", "pending_charge"],
           description: "סינון. ברירת מחדל: הכול.",
         },
+        query: {
+          type: "string",
+          description: "חיפוש לפי שם או עיר (חלק מהשם מספיק). זה הדרך למצוא ליד ישן שלא בעשרת האחרונים. " +
+            "ליד שטרם נפתח מגיע עם שם מוסתר ולכן לא נמצא בחיפוש שם.",
+        },
+        for_edit: {
+          type: "boolean",
+          description: "true כשמחפשים ליד כדי לתקן אותו (update_lead): בלי כפתורי CRM אחרי התשובה, ועד 25 תוצאות.",
+        },
         limit: { type: "integer", description: "ברירת מחדל 10." },
       },
       required: [],
@@ -1823,6 +1833,33 @@ const TOOLS: Anthropic.Tool[] = [
         force_new: { type: "boolean", description: "רק אחרי שהסוכן/ת אישר/ה שזה אדם אחר." },
       },
       required: ["kind"],
+    },
+  },
+  {
+    name: "update_lead",
+    description:
+      "מתקן ליד שכבר נשמר ב\"הלידים שלי\": שם, טלפון, עיר, סוג עסקה, סוג נכס, חדרים, הערות או פרטי הנכס. " +
+      "\"את העיר בליד של צבי תעדכני לעפולה\", \"הטלפון של דנה שגוי\". קודם list_leads עם query (חלק מהשם) " +
+      "ו-for_edit כדי למצוא את lead_id; אם כמה לידים מתאימים - לשאול. **שולחים רק את מה שצריך לשנות.** " +
+      "מחרוזת ריקה מנקה שדה. **details ו-notes מחליפים את הקיים כולו**: לשנות חלק מהם, לשלוח את הערך " +
+      "הקיים מ-list_leads (details) עם התיקון, ולא רק את החלק החדש. שינוי חדרים בלבד מעדכן לבד את \"N חדרים\" ב-details. " +
+      "רק ליד שהסוכן/ת הזין/ה בעצמו/ה (add_lead או ייבוא קובץ): ליד מהאתר, מהלוחות, מהחנות או משיחה לא נערך " +
+      "(הפרטים שלו הם מה שהפונה מסר), והכלי יחזיר not_editable. אם הטלפון החדש כבר שייך לליד פתוח אחר חוזר " +
+      "duplicate ושום דבר לא משתנה. עריכה אינה יוצרת התראה ואינה שולחת דבר לליד.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lead_id: { type: "string", description: "מזהה הליד מ-list_leads." },
+        full_name: { type: "string" },
+        phone: { type: "string" },
+        city: { type: "string" },
+        deal_type: { type: "string", enum: ["sale", "rent", ""], description: "מכירה או השכרה. ריק מנקה." },
+        property_type: { type: "string" },
+        rooms: { type: "number" },
+        notes: { type: "string", description: "הערות חופשיות. מחליף את ההערות הקיימות, לכן לצרף אליהן ולא למחוק." },
+        details: { type: "string", description: "שורת פרטי הנכס (כתובת, קומה, רצינות). מחליפה את הקיימת." },
+      },
+      required: ["lead_id"],
     },
   },
   {
@@ -9241,19 +9278,37 @@ async function toolAddLead(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+async function toolUpdateLead(ctx: ToolContext, input: Record<string, unknown>) {
+  const leadId = String(input.lead_id || "").trim();
+  if (!leadId) return { ok: false, error: "חסר lead_id. קודם list_leads." };
+  const payload = buildLeadUpdatePayload(input);
+  const { data, error } = await ctx.supabase.rpc("agent_lead_update", {
+    p_agent_id: ctx.agent.id,
+    p_lead_id: leadId,
+    p: payload,
+  });
+  if (error) return leadUpdateReply(null);
+  return leadUpdateReply(data);
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
+  // חיפוש ליד לתיקון (update_lead): לא שולחים כפתורי "איזה ליד לפתוח?", הסוכן/ת לא ביקש/ה לפתוח
+  const forEdit = input.for_edit === true;
 
   // ‏leads_masked ולא leads: ה-view מחליף שם, טלפון והודעה בגרסה מוסתרת כל
   // עוד הליד לא נפתח. ‏service_role עוקף RLS אבל **לא** את ה-view, ולכן זו
   // הדרך היחידה כאן שבה ליד סגור לא מדליף פרטים לצ'אט.
   let query = ctx.supabase
     .from("leads_masked")
-    .select("id, lead_type, deal_type, status, display_name, display_phone, display_message, city, property_type, property_id, created_at")
+    .select("id, lead_type, deal_type, status, source, display_name, display_phone, display_message, property_details, city, property_type, property_id, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(forEdit ? Math.max(limit, 25) : limit);
   if (input.status) query = query.eq("status", String(input.status));
+  // חיפוש טקסט: בלי תווים שמשבשים את מסנן ה-or של PostgREST (פסיק, סוגריים, כוכבית, אחוז)
+  const text = String(input.query || "").replace(/[,()*%\\"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (text) query = query.or(`display_name.ilike.%${text}%,city.ilike.%${text}%`);
 
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
@@ -9265,7 +9320,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("status", "masked");
 
   const leads = data || [];
-  const pushed = ctx.outbox && leads.length
+  const pushed = ctx.outbox && leads.length && !forEdit
     ? pushScreens(ctx, leads.map((l) => ({
       type: "new_lead",
       path: `/crm?goto=accLeads&lead=${String(l.id)}`,
@@ -9292,6 +9347,10 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
         message: l.display_message,
         city: l.city,
         property_type: l.property_type,
+        // שורת פרטי הנכס כמו שהיא: update_lead עם details מחליף אותה כולה, ולכן המודל חייב לראות אותה
+        details: l.property_details,
+        // רק source = agent_entered נערך (update_lead)
+        source: l.source,
         created_at: l.created_at,
       };
       // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
@@ -10503,6 +10562,7 @@ async function runTool(
 
       // לידים והתראות
       case "add_lead": return await toolAddLead(ctx, input);
+      case "update_lead": return await toolUpdateLead(ctx, input);
       case "import_leads_file": return await toolImportLeadsFile(ctx, input);
       case "lead_import_answer": return await toolLeadImportAnswer(ctx, input);
       case "list_leads": return await toolListLeads(ctx, input);
@@ -10839,6 +10899,9 @@ const SYSTEM_STATIC: string = (() => {
       "לא create_client: לקוח/ה נשמר/ת בקובץ הלקוחות ואינו מופיע בלידים. שם, טלפון, כתובת, קומה, חדרים ורצינות " +
       "נשמרים כפי שנאמרו, בלי לשאול על מה שחסר. מוכרים/משכירים = kind owner, מחפש/ת = kind seeker. " +
       "אחרי השמירה אל תציע/י להוסיף לקוח/ה, אלא אם ביקשו.",
+    "- תיקון ליד שכבר נשמר (\"את העיר בליד של צבי תעדכני לעפולה\", \"הטלפון של דנה שגוי\") = list_leads כדי למצוא את " +
+      "lead_id, ואז update_lead עם השדות שהשתנו בלבד. לא add_lead (זה היה יוצר ליד שני). " +
+      "רק ליד שהסוכן/ת הזין/ה בעצמו/ה: על not_editable להסביר שליד מהאתר או מהלוחות לא נערך, ולהפנות לכרטיס הליד ב-CRM.",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
     "- הודעה שמתחילה ב-[איש קשר ששותף] = הסוכן/ת שיתף/ה כרטיס מאנשי הקשר או מהשיחות " +
