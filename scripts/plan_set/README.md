@@ -5,7 +5,7 @@
 
 ```sh
 for f in scripts/plan_set/*.jpg; do
-  python3 scripts/plan_cv_walls.py "$f" && python3 scripts/plan_cv_filter.py "$f"
+  python3 scripts/plan_cv_walls.py "$f" && python3 scripts/plan_cv_filter.py "$f" && python3 scripts/plan_cv_rooms.py "$f"
 done
 ```
 
