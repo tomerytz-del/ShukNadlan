@@ -49,6 +49,8 @@ const CASES: Array<{ text: string; expect: string[] }> = [
   { text: "תזכיר לי מחר ב-10 בבוקר להתקשר לרונית", expect: ["agenda_add"] },
   { text: "מה יש לי ביומן השבוע?", expect: ["agenda_list"] },
   { text: "יש לידים חדשים מהיום?", expect: ["list_leads"] },
+  // ליד שכבר נשמר: מוצאים אותו ואז מתקנים, ולא add_lead (ליד שני). 1.12.2026
+  { text: "את העיר בליד של צבי חכמון תעדכני לעפולה", expect: ["list_leads", "update_lead"] },
   { text: "תכין הסכם בלעדיות למכירה לנכס בהנרקיס 7", expect: ["search_properties", "list_properties", "prepare_agreement"] },
   { text: "שאלה למנטור: איך עונים ללקוח שאומר שהעמלה גבוהה מדי?", expect: ["ask_mentor"] },
   { text: "כמה עולה מטר בממוצע ברחוב הנרקיס בעפולה?", expect: ["market_deals_lookup", "cma_report"] },
