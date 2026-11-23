@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<!-- ‏בלי assets/events.js, בכוונה: הדף הוא הסיור עצמו וכלי העבודה של הבעלים, ואין בו
+     קישור קשר. ‏tour3d ב-PRIVATE_PAGES של check_events.py. docs/plan-3d-tour.md -->
+<script src="assets/esc.js"></script>
+<script src="assets/friendly-error.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>סיור תלת-ממדי | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js" data-no-auto></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600&family=Rubik:wght@500;600&display=swap" rel="stylesheet">
+<!-- ה-CSS מוטבע, כמו בכל האתר (CLAUDE.md, "ה-CSS נשאר מוטבע"). בלי design-system.css:
+     הדף הוא אפליקציה במסך אחד, והכללים הכלליים שם היו גוברים על אלה (הוא נטען אחרי ה-style) -->
+<style>
+
+/* Layout: one-screen studio. Controls panel on the right (RTL), 3D stage fills the rest; on phones the stage sits above a scrolling panel.
+   Palette: drafting-paper neutrals with one sea-teal accent and a sun-amber signal. */
+:root{
+  --bg:#e9edee; --panel:#f8fafa; --ink:#14252b; --muted:#5a6d74; --line:#d2dadd;
+  --accent:#0b6b73; --accent-ink:#ffffff; --sun:#d98a0b; --chip:#edf2f3; --danger:#b3392b;
+  --stage:#cfd8dc; --hud:rgba(248,250,250,.92); --shadow:0 2px 10px rgba(10,30,36,.18);
+  --font:'Heebo',system-ui,sans-serif; --display:'Rubik','Heebo',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a1e; --panel:#152329; --ink:#e4eef0; --muted:#97aab1; --line:#27393f;
+  --accent:#3fb6c0; --accent-ink:#06191c; --sun:#f0b24a; --chip:#1d3037; --danger:#ef8c7d;
+  --stage:#1a2b31; --hud:rgba(21,35,41,.92); --shadow:0 2px 10px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a1e; --panel:#152329; --ink:#e4eef0; --muted:#97aab1; --line:#27393f;
+  --accent:#3fb6c0; --accent-ink:#06191c; --sun:#f0b24a; --chip:#1d3037; --danger:#ef8c7d;
+  --stage:#1a2b31; --hud:rgba(21,35,41,.92); --shadow:0 2px 10px rgba(0,0,0,.5); color-scheme:dark}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;margin:0;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-columns:352px minmax(0,1fr);direction:rtl}
+.stage{position:relative;min-width:0;min-height:0;background:var(--stage);overflow:hidden;touch-action:none}
+#c{width:100%;height:100%;display:block;touch-action:none;outline:none}
+.panel{background:var(--panel);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0}
+.head{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.head h1{font:600 18px/1.2 var(--display);margin:0 0 2px}
+.head p{margin:0;color:var(--muted);font-size:12.5px}
+.tabs{display:flex;gap:2px;padding:6px 10px 0;border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.tab{border:0;background:none;padding:9px 11px;cursor:pointer;color:var(--muted);font-weight:500;white-space:nowrap;border-bottom:2px solid transparent}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.body{overflow:auto;padding:14px 16px 18px;flex:1;min-height:0}
+.sec{display:none;flex-direction:column;gap:14px}.sec.on{display:flex}
+.grp{display:flex;flex-direction:column;gap:8px}
+.grp>h3{margin:0;font:600 12px/1 var(--display);letter-spacing:.04em;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.f label{font-size:12px;color:var(--muted)}
+.f input,.f select{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 8px;font-variant-numeric:tabular-nums}
+.f input[type=range]{padding:0;border:0;accent-color:var(--accent)}
+.btn{border:1px solid var(--line);background:var(--chip);border-radius:6px;padding:7px 11px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{padding:4px 8px;font-size:12.5px}
+.btn.danger{color:var(--danger)}
+.btn:focus-visible,.tab:focus-visible,.chip:focus-visible,.style:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:5px 6px 5px 11px;cursor:pointer;font-size:13px}
+.chip b{font-weight:500}.chip .x{border:0;background:none;cursor:pointer;color:var(--muted);padding:0 4px;font-size:15px;line-height:1}
+.chip:hover{border-color:var(--accent)}
+.styles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.style{border:1.5px solid var(--line);background:var(--panel);border-radius:8px;padding:8px;cursor:pointer;text-align:start;display:flex;flex-direction:column;gap:6px}
+.style[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.sw{display:flex;height:22px;border-radius:4px;overflow:hidden;border:1px solid var(--line)}.sw i{flex:1}
+.style b{font-weight:500;font-size:13px}.style small{color:var(--muted);font-size:11.5px;line-height:1.3}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 6px;text-align:start;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+td.n,th.n{text-align:end}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.warn{background:var(--chip);border-radius:6px;padding:8px 10px}
+.ok{color:#2c8a4b}.bad{color:var(--danger)}
+.ck{display:flex;align-items:center;gap:8px}.ck input{width:16px;height:16px;accent-color:var(--accent)}
+textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px;font:12px/1.4 ui-monospace,monospace;direction:ltr}
+.list{display:flex;flex-direction:column;gap:4px;max-height:150px;overflow:auto}
+.li{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.li:hover{background:var(--chip)}.li.sel{border-color:var(--accent);background:var(--chip)}.li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* stage HUD */
+.hud{position:absolute;display:flex;gap:6px;flex-wrap:wrap;z-index:2}
+.hud.tl{top:max(10px,env(safe-area-inset-top,0px));inset-inline-start:max(10px,env(safe-area-inset-left,0px))}
+.hud.tr{top:max(10px,env(safe-area-inset-top,0px));inset-inline-end:max(10px,env(safe-area-inset-right,0px))}
+.seg{display:flex;background:var(--hud);border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
+.seg button{border:0;background:none;padding:8px 12px;cursor:pointer;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tg{background:var(--hud);border:0;border-radius:8px;box-shadow:var(--shadow);padding:8px 11px;cursor:pointer;font-weight:500}
+.tg[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+.info{position:absolute;inset-inline-start:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:var(--hud);border-radius:8px;box-shadow:var(--shadow);padding:8px 11px;font-size:12.5px;display:flex;gap:12px;align-items:center;z-index:2;max-width:calc(100% - 140px)}
+.info b{font-weight:500;font-variant-numeric:tabular-nums}
+#compass{position:absolute;inset-inline-end:max(10px,env(safe-area-inset-right,0px));bottom:10px;width:92px;height:92px;z-index:2;background:var(--hud);border-radius:50%;box-shadow:var(--shadow)}
+.hint{position:absolute;inset-inline:0;top:56px;margin:auto;width:max-content;max-width:calc(100% - 24px);background:var(--hud);padding:6px 12px;border-radius:999px;box-shadow:var(--shadow);font-size:12.5px;z-index:2;pointer-events:none;transition:opacity .4s}
+.disc{font-size:11.5px;color:var(--muted);line-height:1.5;padding:10px 16px;border-top:1px solid var(--line);flex:none}
+[data-mode="drone"] .fpOnly{display:none!important}
+.hud select.tg{padding:8px 10px;max-width:170px}
+.mini{position:absolute;inset-inline-start:max(10px,env(safe-area-inset-left,0px));bottom:62px;width:176px;height:152px;border-radius:8px;box-shadow:var(--shadow);background:#fff;z-index:2;cursor:crosshair;overflow:hidden}
+.mini canvas{width:100%;height:100%;display:block}
+.legend{position:absolute;inset-inline:0;bottom:62px;margin:auto;width:max-content;max-width:calc(100% - 400px);background:var(--hud);border-radius:8px;box-shadow:var(--shadow);padding:8px 12px;font-size:12.5px;z-index:2;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.legend kbd{font:500 11.5px var(--font);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;background:var(--chip);margin-inline-end:2px}
+.mrow{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:end}
+.f input[type=color]{padding:2px;height:34px;cursor:pointer}
+@media (pointer:coarse){.legend{display:none!important}#tgLock{display:none!important}}
+/* במה צרה (טלפון, או חלון צר): שורת מצב המבט למעלה, ומתחתיה שורת כלים אחת שנגללת לצדדים.
+   בלי זה הכפתורים עלו זה על זה ועל הרמז */
+@media (max-width:1180px){
+  .hud.tl{top:calc(max(10px,env(safe-area-inset-top,0px)) + 46px);inset-inline:max(10px,env(safe-area-inset-left,0px));
+    flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+  .hud.tl::-webkit-scrollbar{display:none}
+  .hud.tl>*{flex:none}
+  .hint{top:calc(max(10px,env(safe-area-inset-top,0px)) + 96px)}
+}
+@media (prefers-reduced-motion:reduce){.hint{transition:none}}
+
+/* ---- תוספות הדף ---- */
+[data-mode="fp"] .droneOnly{display:none!important}
+.viewer .edOnly{display:none!important}
+.sws{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.swb{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);cursor:pointer;padding:0}
+.swb[aria-pressed="true"]{outline:3px solid var(--accent);outline-offset:2px}
+.swpick{width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--line);cursor:pointer;background:conic-gradient(#e44,#ec4,#4c6,#4cc,#46e,#c4e,#e44);display:block}
+.swpick input{opacity:0;width:100%;height:100%;cursor:pointer;border:0;padding:0}
+.flb{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;font-size:13px;min-height:36px}
+.flb i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+.flb[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);font-weight:600}
+.app{height:100dvh}
+.grab{display:none}
+.tg.ic{padding:8px 9px;display:inline-flex;align-items:center}
+.tg.ic svg{width:18px;height:18px;display:block}
+.info{cursor:pointer;border:0;text-align:start}
+.checks{background:#fff6e0;color:#5c4300;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5}
+.checks ul{margin:4px 0 0;padding-inline-start:18px}
+.savest{font-size:12px;color:var(--muted);min-height:1.2em}
+.back{color:var(--accent);font-size:12.5px;text-decoration:none}
+/* מסך מלא: הלוח נעלם, הסיור על הכול */
+.app.full{grid-template-columns:minmax(0,1fr)}
+.app.full .panel{display:none}
+/* ---- טלפון: הסיור על כל המסך, והלוח מגירה תחתונה ----
+   סגורה, המגירה היא שורת לשוניות אחת. הבמה אינה משנה גודל כשהיא נפתחת (היא מכסה אותה),
+   ולכן אין קפיצה של התמונה. כל מה שצמוד לתחתית הבמה מתרומם בגובה המגירה הסגורה (--sheet) */
+@media (max-width:820px){
+  .app{display:block;position:relative;--sheet:calc(70px + env(safe-area-inset-bottom,0px))}
+  .app.full{--sheet:0px}
+  .stage{position:absolute;inset:0}
+  .panel{position:absolute;inset-inline:0;bottom:0;z-index:6;border:0;border-radius:18px 18px 0 0;
+    box-shadow:0 -6px 24px rgba(10,30,36,.22);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .grab{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;border:0;background:none;padding:7px 16px 0;cursor:pointer}
+  .grab i{width:38px;height:4px;border-radius:2px;background:var(--line)}
+  .grab span{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .head{display:none}
+  .tabs{border-bottom:0;padding:0 8px 4px;justify-content:space-around}
+  .tab{padding:9px 12px;font-size:14px}
+  .body{max-height:0;padding-block:0;overflow:hidden;transition:max-height .28s ease,padding .28s ease}
+  .disc{display:none}
+  .sheet-open .tabs{border-bottom:1px solid var(--line)}
+  .sheet-open .body{max-height:min(52dvh,460px);overflow:auto;padding-block:14px 18px}
+  .sheet-open .disc{display:block}
+  .seg button,.tg{padding:8px 10px;font-size:13px}
+  .info{bottom:calc(var(--sheet) + 10px);max-width:calc(100% - 96px);padding:7px 10px}
+  .info span+span{display:none}
+  #compass{bottom:calc(var(--sheet) + 10px);width:60px;height:60px}
+  /* במבט ראשון: רק מה שצריך כדי ללכת. המפה מראה כיוון, ולכן המצפן ושורת השמש יורדים */
+  [data-mode="fp"] .info,[data-mode="fp"] #compass{display:none}
+  .mini{width:118px;height:102px;bottom:calc(var(--sheet) + 12px)}
+  .legend{display:none!important}
+}
+@media (prefers-reduced-motion:reduce){.body{transition:none}}
+/* ---- מסכי הפתיחה: טעינה, רשימה, יצירה ---- */
+.home{max-width:620px;margin:0 auto;padding:20px 16px 48px;height:100dvh;overflow:auto}
+.home h1{font:600 22px/1.25 var(--display);margin:0 0 4px}
+.home .sub{color:var(--muted);margin:0 0 16px;font-size:14px;line-height:1.5}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.card h2{font:600 16px/1.3 var(--display);margin:0}
+.mrow2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.mrow2:first-of-type{border-top:0}
+.mrow2 .nm{flex:1;min-width:140px}.mrow2 .nm b{display:block;font-weight:500}.mrow2 .nm small{color:var(--muted)}
+.pill{font-size:11.5px;border-radius:999px;padding:2px 8px;background:var(--chip);color:var(--muted)}
+.pill.on{background:#e5f5ec;color:#1e7a4c}
+.msg{font-size:13px;line-height:1.5;margin:0}.msg.bad{color:var(--danger)}
+.spin{width:28px;height:28px;border:3px solid var(--chip);border-top-color:var(--accent);border-radius:50%;margin:30px auto 10px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.center{text-align:center;color:var(--muted)}
+a.btn{text-decoration:none;display:inline-block}
+.btn[disabled]{opacity:.55;cursor:default}
+
+/* ===== ג'ויסטיק: עיגול אחד במקום ארבעה חצים ===== */
+.joy{position:absolute;display:none;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(var(--sheet,0px) + 16px);width:116px;height:116px;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.5);background:rgba(13,27,32,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);z-index:3;touch-action:none;user-select:none}
+.joy.on{display:block}
+.joy::before{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(255,255,255,.35)}
+.joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.tab svg,.seg svg{display:none}.lblVw{display:none}.now{display:none}.seg3{display:none}.timeBig{display:none}
+.qsec{display:flex;flex-direction:column;gap:8px}
+.qh{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.qh h3{margin:0;font:600 12px/1 var(--display);letter-spacing:.04em;color:var(--muted)}.qh span{font-size:12.5px;color:var(--muted)}
+.swb{width:40px;height:40px;position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.swpick{width:40px;height:40px;flex:none}
+.swb[aria-pressed="true"]::after{content:"";width:13px;height:7px;border:solid #fff;border-width:0 0 2.5px 2.5px;transform:rotate(-45deg) translate(1px,-2px);filter:drop-shadow(0 0 1.5px rgba(0,0,0,.95))}
+.flb i.k-tile{background-image:linear-gradient(rgba(0,0,0,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.13) 1px,transparent 1px);background-size:11px 11px}
+.flb i.k-plank{background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.16) 0 1px,transparent 1px 9px)}
+.flb i.k-marble{background-image:linear-gradient(115deg,transparent 40%,rgba(90,90,96,.3) 42%,transparent 46%,transparent 70%,rgba(90,90,96,.22) 72%,transparent 75%)}
+/* ===== מצב צופה: הסיור הוא המסך כולו, והפקדים צפים מעליו (העיצוב מהקנבס, 22.11.2026) =====
+   סרגל תחתון עם ארבע פעולות; לחיצה פותחת מגש נמוך מעליו, כך שהדירה נשארת גלויה. הבלוק יושב
+   אחרי כללי הנייד בכוונה: הוא גובר עליהם בצופה, ובעורך הם נשארים כמו שהם */
+.app.viewer{display:block;position:relative;--glass:rgba(13,27,32,.76);--gl:rgba(255,255,255,.16);--sheet:calc(94px + env(safe-area-inset-bottom,0px))}
+.app.viewer.full{--sheet:0px}
+.viewer .stage{position:absolute;inset:0}
+.viewer .stage::before{content:"";position:absolute;inset:0 0 auto 0;height:190px;background:linear-gradient(rgba(13,27,32,.66),rgba(13,27,32,.3) 55%,rgba(13,27,32,0));z-index:1;pointer-events:none}
+.viewer .panel{position:absolute;z-index:6;inset-inline:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin-inline:auto;max-width:600px;background:none;border:0;box-shadow:none;border-radius:0;padding:0;display:flex;flex-direction:column;pointer-events:none}
+.viewer .panel>*{pointer-events:auto}
+.viewer .grab,.viewer .head,.app.viewer.sheet-open .head{display:none}
+.viewer .tabs{order:3;margin-top:8px;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;height:68px;align-items:center;padding:0 6px;background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid var(--gl);border-radius:24px;box-shadow:0 8px 28px rgba(0,0,0,.4);overflow:visible}
+.viewer .tab,.viewer .tab[aria-selected="true"]{color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:56px;border-radius:18px;border:0;font-size:12px;font-weight:500;padding:0 4px}
+.viewer .tab svg{display:block;width:22px;height:22px}
+.viewer.sheet-open .tab[aria-selected="true"]{background:#fff;color:#0d1b20;font-weight:700}
+.viewer .lblVw{display:inline}.viewer .lblEd{display:none}
+.viewer .body{order:1;display:none;background:var(--panel);border-radius:24px;padding:16px;max-height:min(44dvh,380px);overflow:auto;box-shadow:0 10px 32px rgba(0,0,0,.45);transition:none;flex:none}
+.viewer.sheet-open .body{display:block;max-height:min(44dvh,380px);padding:16px;border-radius:24px 24px 0 0}
+.viewer .disc{order:2;display:none;background:var(--panel);border-radius:0 0 24px 24px;border-top:1px solid var(--line);padding:8px 16px;font-size:11px}
+.viewer.sheet-open .disc{display:block}
+.viewer .sec{gap:14px}
+.viewer .grp>h3{font:600 16px/1.2 var(--display);letter-spacing:0;color:var(--ink)}
+/* שורה עליונה */
+.viewer .hud.tr{top:max(16px,env(safe-area-inset-top,0px));inset-inline:14px;justify-content:space-between;flex-wrap:nowrap;align-items:center}
+.viewer .seg{background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid var(--gl);border-radius:999px;padding:4px;gap:2px;overflow:visible;box-shadow:none}
+.viewer .seg button{color:#d6e4e7;border-radius:999px;min-height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;font-size:14px}
+.viewer .seg button[aria-pressed="true"]{background:#fff;color:#0d1b20;font-weight:700}
+.viewer .seg svg{display:block;width:16px;height:16px}
+.viewer .tg{background:var(--glass);color:#fff;border:1px solid var(--gl);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:999px;min-height:40px;box-shadow:none;font-size:13px}
+.viewer .tg[aria-pressed="true"]{outline:0;background:#fff;color:#0d1b20}
+.viewer .tg.ic{width:48px;height:48px;justify-content:center;border-radius:50%;padding:0}
+.viewer .tg.ic svg{width:20px;height:20px}
+.viewer #fpSel,.viewer .info,.viewer #compass{display:none!important}
+.viewer .hud.tl{top:calc(max(16px,env(safe-area-inset-top,0px)) + 62px);inset-inline-start:auto;inset-inline-end:14px;flex-direction:column;align-items:flex-end;overflow:visible;padding:0}
+.viewer .now{display:flex;flex-direction:column;gap:2px;position:absolute;z-index:2;top:calc(max(16px,env(safe-area-inset-top,0px)) + 64px);inset-inline-start:16px;max-width:58%;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);pointer-events:none}
+.viewer .now b{font:600 22px/1.2 var(--display)}.viewer .now span{font-size:12.5px;color:#e3edef}
+.viewer .hint{top:calc(max(16px,env(safe-area-inset-top,0px)) + 132px);background:var(--glass);color:#fff}
+.viewer .mini{inset-inline-start:auto;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet) + 16px);width:124px;height:107px;border-radius:20px;border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.viewer .legend{inset-inline:auto;left:28px;right:auto;bottom:40px;margin:0;background:none;box-shadow:none;color:#e3edef;text-shadow:0 1px 6px rgba(0,0,0,.6);max-width:300px;padding:0}
+.viewer .legend span:nth-child(n+3){display:none}
+.viewer .legend kbd{background:rgba(13,27,32,.6);color:#fff;border-color:rgba(255,255,255,.45)}
+@media (max-width:1180px){.viewer .legend{display:none!important}}
+@media (min-width:821px){.viewer .stage::before{height:150px;background:linear-gradient(rgba(13,27,32,.5),rgba(13,27,32,0))}.viewer .mini{width:200px;height:172px;right:28px;bottom:28px}.viewer .now b{font-size:28px}.viewer .hud.tr{inset-inline:28px;top:24px}.viewer .now{inset-inline-start:30px}}
+/* מגש הסגנון: שלוש לשוניות קטנות (סגנון, מטבח, ריצוף), ושורה אחת שנגללת בכל אחת */
+.viewer .seg3{display:flex;background:var(--chip);border-radius:999px;padding:3px;gap:2px}
+.seg3 button{flex:1;border:0;background:none;border-radius:999px;min-height:38px;font-weight:500;cursor:pointer;color:var(--ink)}
+.seg3 button[disabled]{opacity:.4;cursor:default}
+.seg3 button[aria-pressed="true"]{background:#fff;box-shadow:var(--shadow);font-weight:700}
+.viewer .qsec{display:none}.viewer .qsec.on{display:flex}
+.viewer #quickBox{order:-1}
+.viewer .qh h3{display:none}.viewer .qh{justify-content:flex-end;min-height:16px}
+.viewer .styles{display:flex;gap:10px;overflow-x:auto;margin-inline:-16px;padding:4px 16px 6px;scrollbar-width:none}
+.viewer .style{flex:0 0 96px;border:0;background:none;padding:0;align-items:center;gap:6px;box-shadow:none!important}
+.viewer .style .sw{display:grid;grid-template-rows:2fr 1fr;grid-template-columns:1fr 1fr;width:96px;height:72px;border-radius:16px;border:1px solid var(--line)}
+.viewer .style .sw i:first-child{grid-column:1/3}
+.viewer .style[aria-pressed="true"] .sw{outline:3px solid var(--accent);outline-offset:2px}
+.viewer .style[aria-pressed="true"] b{color:var(--accent);font-weight:700}
+.viewer .style small{display:none}.viewer .style b{font-size:13px;text-align:center}
+.viewer .sws{flex-wrap:nowrap;overflow-x:auto;margin-inline:-16px;padding:5px 18px 8px;scrollbar-width:none;gap:10px}
+.viewer #kitSw{margin:0;padding:0;overflow:visible}
+.viewer .swb,.viewer .swpick{width:46px;height:46px}
+.viewer #floorSw{flex-wrap:nowrap;overflow-x:auto;margin-inline:-16px;padding:4px 16px 6px;scrollbar-width:none;gap:8px}
+.viewer .flb{flex:0 0 84px;flex-direction:column;border-radius:16px;padding:8px 4px 7px;gap:6px;font-size:12.5px;background:#fff;text-align:center;line-height:1.2}
+.viewer .flb i{width:62px;height:44px;border-radius:12px}
+.viewer .styles::-webkit-scrollbar,.viewer .sws::-webkit-scrollbar,.viewer #floorSw::-webkit-scrollbar{display:none}
+/* מגש השמש: שעה גדולה, ציר יום שהידית בו היא השמש */
+.viewer .timeBig{display:block;font:600 34px/1 var(--display);font-variant-numeric:tabular-nums}
+.viewer .sec[data-s="sun"]>.grp:nth-child(2){order:-1}
+.viewer .sec[data-s="sun"]>.grp:nth-child(2)>h3,.viewer #timeLbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.viewer #time{-webkit-appearance:none;appearance:none;height:14px;border-radius:999px;margin:12px 0 8px;
+  background:linear-gradient(90deg,#22344a 0%,#22344a 19%,#f0a35a 26%,#bfe1f2 36%,#dff0f7 50%,#bfe1f2 64%,#f0a35a 72%,#22344a 80%,#22344a 100%)}
+.viewer #time::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
+.viewer #time::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
+.viewer .sec[data-s="sun"] .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.viewer .sec[data-s="sun"] .chips .btn{border-radius:999px;min-height:44px;background:#fff;padding:0 6px;white-space:nowrap}
+.viewer #play{grid-column:1/-1}
+.viewer #play{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.viewer #sunTbl{display:none}
+.viewer .sec[data-s="style"]>.ck,.viewer .sec[data-s="style"]>.note{display:none}
+/* מגש החדרים */
+.viewer #viewChips .chip{min-height:44px;padding:0 16px;font-size:14.5px;background:#fff}
+.viewer #lightGrp{display:none}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<main class="home" id="home">
+  <div id="homeBody"><div class="spin"></div><p class="center">טוען...</p></div>
+</main>
+<div class="app viewer" id="app" hidden>
+  <aside class="panel" aria-label="הגדרות הסיור">
+    <button class="grab" id="grab" type="button" aria-expanded="false" aria-label="פתיחה וסגירה של לוח ההגדרות"><i></i><span id="grabTxt">הדמיה להמחשה בלבד</span></button>
+    <div class="head">
+      <a class="back edOnly" href="/tour3d">&rarr; כל הסיורים שלי</a>
+      <h1 id="mName"></h1>
+      <p id="mSub"></p>
+      <div class="chips edOnly" style="margin-top:8px"><button class="btn sm pri" id="pubBtn" type="button"></button><button class="btn sm" id="shareBtn" type="button">העתקת קישור</button><span class="savest" id="saveSt" role="status"></span></div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" aria-selected="false" data-t="saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V5h9v15M13 9h7v11M4 20h16"/><path d="M9.5 12.5v.01"/></svg><span class="lblEd">זוויות</span><span class="lblVw">חדרים</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-t="style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18c1.5 0 2-1 2-2 0-1.5-1-2 0-3s4 .5 6-2a9 9 0 00-8-11z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/></svg>סגנון</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></svg>שמש</button>
+      <button class="tab" role="tab" aria-selected="true" data-t="dims"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16L16 3l5 5L8 21z"/><path d="M12 7l2 2M9 10l2 2M6 13l2 2"/></svg>מידות</button>
+      <button class="tab edOnly" role="tab" aria-selected="false" data-t="furn">ריהוט</button>
+    </div>
+    <div class="body">
+      <section class="sec on" data-s="dims">
+        <div class="checks edOnly" id="checksBox" hidden></div>
+        <div class="grp edOnly"><h3>קנה מידה</h3>
+          <div class="row">
+            <div class="f"><label for="scale">ס"מ לכל פיקסל בתוכנית</label><input id="scale" type="number" step="0.01" min="0.5" max="4"></div>
+            <div class="f"><label for="ceil">גובה תקרה (ס"מ)</label><input id="ceil" type="number" step="5" min="220" max="400"></div>
+          </div>
+          <div class="warn note">כיול מדויק: בחרו חלל וציר, והזינו את המידה האמיתית שמצוינת בתוכנית. קנה המידה יתעדכן לבד.</div>
+          <div class="row">
+            <div class="f"><label for="calRoom">חלל</label><select id="calRoom"></select></div>
+            <div class="f"><label for="calAxis">ציר</label><select id="calAxis"><option value="w">רוחב</option><option value="d">עומק</option></select></div>
+            <div class="f"><label for="calCm">מידה אמיתית (ס"מ)</label><input id="calCm" type="number" min="50" step="1"></div>
+            <div class="f"><label>&nbsp;</label><button class="btn pri" id="calGo" type="button">כייל</button></div>
+          </div>
+        </div>
+        <div class="grp edOnly"><h3>עובי קירות וגבהי פתחים (ס"מ)</h3>
+          <div class="row">
+            <div class="f"><label for="wExt">קיר חיצוני</label><input id="wExt" type="number" min="8" max="60" step="1"></div>
+            <div class="f"><label for="wInt">קיר פנימי</label><input id="wInt" type="number" min="5" max="40" step="1"></div>
+            <div class="f"><label for="sill">גובה אדן חלון</label><input id="sill" type="number" min="0" max="150" step="5"></div>
+            <div class="f"><label for="winH">גובה חלון</label><input id="winH" type="number" min="40" max="220" step="5"></div>
+            <div class="f"><label for="doorH">גובה דלת</label><input id="doorH" type="number" min="190" max="260" step="5"></div>
+          </div>
+        </div>
+        <div class="grp"><h3>שטחי החללים</h3>
+          <table id="areaTbl"></table>
+          <p class="note edOnly" id="areaNote"></p>
+        </div>
+      </section>
+
+      <section class="sec" data-s="sun">
+        <div class="grp"><h3>מיקום וכיוון</h3>
+          <div class="row">
+            <div class="f"><label for="city">עיר</label><select id="city"></select></div>
+            <div class="f"><label for="date">תאריך</label><input id="date" type="date"></div>
+          </div>
+          <div class="f edOnly"><label for="north">כיוון צפון (מעלות עם כיוון השעון מראש התוכנית)</label>
+            <input id="north" type="number" min="-180" max="180" step="1"></div>
+          <p class="note edOnly">0 אומר שהצפון בראש התוכנית. אם חץ הצפון בתוכנית מוטה, הזינו את הזווית שלו.</p>
+        </div>
+        <div class="grp"><h3>שעה ביום</h3>
+          <div class="timeRow"><div><div class="timeBig" id="timeBig"></div><span class="note" id="sunDesc"></span></div></div>
+          <div class="f"><label for="time" id="timeLbl">שעה</label><input id="time" type="range" min="0" max="24" step="0.05"></div>
+          <div class="chips"><button class="btn sm" id="play" type="button">הפעלת יום</button>
+            <button class="btn sm" data-time="8">בוקר</button><button class="btn sm" data-time="12.5">צהריים</button>
+            <button class="btn sm" data-time="16">אחה"צ</button><button class="btn sm" data-time="sunset">שקיעה</button></div>
+          <table id="sunTbl"></table>
+        </div>
+        <div class="grp"><h3>תאורת פנים</h3>
+          <div class="f"><label for="lamps">מנורות</label>
+            <select id="lamps"><option value="auto">אוטומטי לפי השעה</option><option value="on">דלוקות</option><option value="off">כבויות</option></select></div>
+        </div>
+      </section>
+
+      <section class="sec" data-s="style">
+        <div class="grp qsec on" data-qs="style"><div class="qh"><h3>סגנון עיצוב</h3><span id="styleName"></span></div><div class="styles" id="styles"></div></div>
+        <div class="grp" id="quickBox">
+          <div class="seg3" role="group" aria-label="מה לשנות" id="qSeg"><button type="button" data-qs="style" aria-pressed="true">סגנון</button><button type="button" data-qs="kit" aria-pressed="false">מטבח</button><button type="button" data-qs="floor" aria-pressed="false">ריצוף</button></div>
+          <div class="qsec" data-qs="kit"><div class="qh"><h3>צבע המטבח</h3><span id="kitName"></span></div>
+            <div class="sws"><span id="kitSw" class="sws"></span><label class="swpick" title="צבע אחר"><input id="kitColor" type="color" aria-label="צבע אחר למטבח"></label></div></div>
+          <div class="qsec" data-qs="floor"><div class="qh"><h3>ריצוף</h3><span id="floorName"></span></div>
+            <div class="chips" id="floorSw"></div></div>
+        </div>
+        <div class="grp edOnly"><h3>צבעים וחומרים</h3>
+          <div class="f"><label for="wallColor">צבע קירות</label><input id="wallColor" type="color"></div>
+          <div id="floorBox" class="grp"></div>
+          <p class="note warn" id="contrastNote" hidden></p>
+          <div><button class="btn sm" id="matReset" type="button">איפוס לסגנון הנבחר</button></div>
+          <p class="note">הקירות והרצפה תמיד נשמרים בגוונים שונים, כדי שיהיה קל להבדיל ביניהם.</p>
+        </div>
+        <div class="ck"><input type="checkbox" id="labels" checked><label for="labels">הצגת שמות חדרים</label></div>
+        <p class="note">"בסיס" הוא דגם לבן בלי צבעים וטקסטורות.</p>
+      </section>
+
+      <section class="sec" data-s="furn">
+        <div class="ck"><input type="checkbox" id="edit"><label for="edit">מצב עריכה (גרירת ריהוט במבט רחפן)</label></div>
+        <div class="grp"><h3>הוספה</h3>
+          <div class="row"><div class="f"><label for="cat">פריט</label><select id="cat"></select></div>
+          <div class="f"><label>&nbsp;</label><button class="btn pri" id="addF" type="button">הוסף למרכז התצוגה</button></div></div>
+        </div>
+        <div class="grp"><h3>הפריט הנבחר</h3>
+          <div class="chips" id="selTools"><span class="note">בחרו פריט ברשימה או לחצו עליו במודל.</span></div>
+        </div>
+        <div class="grp"><h3>כל הפריטים</h3><div class="list" id="furnList"></div>
+          <div><button class="btn sm danger" id="resetF" type="button">איפוס ריהוט לתוכנית</button></div></div>
+        <p class="note">קיצורים: גרירה להזזה, R לסיבוב, Delete להסרה.</p>
+      </section>
+
+      <section class="sec" data-s="saved">
+        <div class="grp"><h3><span class="lblEd">זוויות צפייה</span><span class="lblVw">לאן הולכים?</span></h3>
+          <div class="chips" id="viewChips"></div>
+          <div class="row edOnly"><div class="f"><label for="viewName">שם לזווית הנוכחית</label><input id="viewName" placeholder="למשל: סלון לכיוון המרפסת"></div>
+          <div class="f"><label>&nbsp;</label><button class="btn pri" id="saveView" type="button">שמירת זווית</button></div></div>
+        </div>
+        <div class="grp" id="lightGrp"><h3>תבניות תאורה</h3>
+          <div class="chips" id="lightChips"></div>
+          <div class="row edOnly"><div class="f"><label for="lightName">שם לתאורה הנוכחית</label><input id="lightName" placeholder="למשל: צהריים בקיץ"></div>
+          <div class="f"><label>&nbsp;</label><button class="btn pri" id="saveLight" type="button">שמירת תאורה</button></div></div>
+          <p class="note edOnly">תבנית שומרת עיר, תאריך, שעה ומנורות. בתבניות "שקיעה" השעה מחושבת מחדש לכל תאריך.</p>
+        </div>
+        <div class="grp edOnly"><h3>גיבוי והעברה</h3>
+          <textarea id="json" spellcheck="false" aria-label="נתוני הסיור כ-JSON"></textarea>
+          <div class="chips"><button class="btn sm" id="expJson" type="button">ייצוא</button><button class="btn sm" id="copyJson" type="button">העתקה</button><button class="btn sm" id="impJson" type="button">טעינה מהתיבה</button></div>
+          <p class="note" id="jsonMsg"></p>
+        </div>
+      </section>
+    </div>
+    <div class="disc">הדמיה להמחשה בלבד. המידות, הריהוט והגימורים אינם מחייבים, ויש לאמתם מול התוכנית המאושרת.</div>
+  </aside>
+
+  <div class="stage" id="stage" data-mode="drone">
+    <canvas id="c" tabindex="0" aria-label="מודל תלת-ממדי של הדירה"></canvas>
+    <div class="hud tr">
+      <div class="seg" role="group" aria-label="מצב מבט"><button id="mDrone" aria-pressed="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/></svg>מלמעלה</button><button id="mFp" aria-pressed="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="4.5" r="2"/><path d="M10 7v6M10 13l-3 5M10 13l3 5M6 10l4-2 4 2"/></svg>הליכה</button></div>
+      <button class="tg ic" id="tgFull" type="button" aria-pressed="false" aria-label="מסך מלא" title="מסך מלא"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <div class="now" id="now"><b id="nowRoom"></b><span id="nowSub"></span></div>
+    <div class="hud tl">
+      <button class="tg droneOnly" id="tgCut" aria-pressed="false">קירות חתוכים</button>
+      <button class="tg droneOnly" id="tgPlan" aria-pressed="false" title="מציג את התוכנית המקורית בשקיפות מעל הרצפה, לבדיקת התאמה">תוכנית מקור (שקוף)</button>
+      <select class="tg fpOnly" id="fpSel" aria-label="קפיצה לחדר"></select>
+      <button class="tg fpOnly" id="tgPerson" aria-pressed="false" title="מציב דמות אדם מולך, כדי להרגיש את קנה המידה של החלל">דמות לקנה מידה</button>
+      <button class="tg fpOnly" id="tgLock" aria-pressed="false" title="העכבר מסובב את המבט בלי לגרור. יציאה: Esc">נעילת עכבר</button>
+    </div>
+    <div class="hint" id="hint">גרירה לסיבוב, גלגלת לזום, לחצן ימני להזזה</div>
+    <button class="info" id="info" type="button" aria-label="שעה ושמש. לחיצה פותחת את הגדרות השמש"></button>
+    <svg id="compass" viewBox="-46 -46 92 92" aria-label="מצפן ושמש"></svg>
+    <div class="legend fpOnly" id="legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>הליכה</span><span>גרירה בעכבר: הסתכלות</span><span>לחיצה על הרצפה: מעבר לשם</span><span>גלגלת: קדימה ואחורה</span><span><kbd>Shift</kbd>מהר</span><span><kbd>Q</kbd><kbd>E</kbd>סיבוב</span></div>
+    <div class="mini fpOnly" id="mini" title="מפת הדירה. לחיצה מעבירה אליך לשם"><canvas id="miniC" width="352" height="304"></canvas></div>
+    <div class="joy" id="joy" role="group" aria-label="הליכה. גררו את העיגול לכיוון הרצוי"><i id="joyKnob"></i></div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/plan3d.js"></script>
+<script src="assets/tour3d.js"></script>
+</body>
+</html>
