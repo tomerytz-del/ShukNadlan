@@ -99,6 +99,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: "invalid_json" }, 400);
   }
   const amount = Number(body?.amount);
+  // לאן חוזרים אחרי התשלום: רשימה סגורה, לא כתובת מהבקשה. טעינה שהתחילה מ-/tour3d חוזרת לשם
+  const backTo = body?.return_to === "tour3d" ? "tour3d" : "crm";
   if (!ALLOWED_AMOUNTS.includes(amount)) return json({ error: "invalid_amount" }, 400);
 
   const resolved = await resolveAgent(req, supabase);
@@ -171,8 +173,8 @@ Deno.serve(async (req: Request) => {
     clientEmail: email,
     // ‏topup_id ולא id: ‏crm.html מנקה מהכתובת רק את שני המפתחות האלה, ושם
     // גנרי היה מתנגש עם פרמטרים אחרים שהדף כבר קורא (‏invite, מפתחות OAuth).
-    successUrl: `${siteBaseUrl}/crm?topup=success&topup_id=${topupId}`,
-    failureUrl: `${siteBaseUrl}/crm?topup=failure&topup_id=${topupId}`,
+    successUrl: `${siteBaseUrl}/${backTo}?topup=success&topup_id=${topupId}`,
+    failureUrl: `${siteBaseUrl}/${backTo}?topup=failure&topup_id=${topupId}`,
     notifyUrl,
     reference: topupId,
   });

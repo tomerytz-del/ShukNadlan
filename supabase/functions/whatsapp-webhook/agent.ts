@@ -234,7 +234,10 @@ import {
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
 import { answerLeadImport, runLeadImport } from "./lead-import.ts";
-import { fetchOwnLead, leadFollowupPlan, type OwnLead } from "./agenda-lead.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
+import {
+  fetchOwnLead, isNumberBlocked, leadFollowupPlan, NUMBER_BLOCKED_NOTE, type OwnLead, saveLeadPhone,
+} from "./agenda-lead.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -9953,6 +9956,14 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   // (on delete set null) פריט שנושא את שניהם היה עובר בשקט לטלפון של הליד.
   const leadRef = await leadRefFrom(ctx, input.lead_id);
   if (leadRef?.row?.status === "unlocked" && !row.client_id) row.lead_id = leadRef.row.id;
+  // ליד שביקשו ולא קושר: אומרים למה, ולא בשקט (כמו ב-agenda_update)
+  const leadNotLinked = leadRef && !row.lead_id
+    ? (!leadRef.row
+      ? "לא קישרתי את הפגישה לליד: הוא לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש ב-list_leads ולא להמציא מזהה."
+      : row.client_id
+      ? "לא קישרתי את הפגישה לליד: היא עם לקוח/ה מהקובץ, וההודעות יוצאות אליו/ה."
+      : "לא קישרתי את הפגישה לליד: הוא עוד נעול ב\"הלידים שלי\".")
+    : null;
 
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
   // עם לקוח/ה מהקובץ או ליד, ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
@@ -9974,6 +9985,12 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   }
   if (error || !data) return { ok: false, error: agendaDbError(error || {}) };
   if (row.client_id) ctx.conv.last_client_id = String(row.client_id);
+  // המספר נשמר על הליד רק אחרי שהפגישה נכנסה ליומן
+  const phoneFailed = followup.notify ? await persistLeadPhone(ctx, String(data.id), leadRef, followup.phoneToSave) : null;
+  if (phoneFailed) {
+    followup.notify = false;
+    followup.note = phoneFailed;
+  }
 
   const [shaped] = await agendaShape(ctx, [data]);
   const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
@@ -9983,7 +10000,7 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
-    client_followup: followup.note,
+    client_followup: [followup.note, leadNotLinked].filter(Boolean).join(" ") || undefined,
     same_time: sameTime || undefined,
     guidance: "אשר/י בשורה אחת או שתיים: מה, מתי (יום ושעה מ-when) ושם פרטי. " +
       "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id. " +
@@ -10022,6 +10039,28 @@ async function exactSameTimeNote(
  */
 type LeadRef = { id: string; row: OwnLead | null };
 
+const LEAD_PHONE_FAILED_NOTE =
+  "הפגישה נשמרה, אבל לא הצלחתי לשמור את המספר בליד, ולכן לא יישלחו אישור ותזכורת. " +
+  "אפשר לנסות שוב עם agenda_update, lead_phone ו-notify_client.";
+
+/**
+ * שומר את המספר שהסוכן/ת אמר/ה, **אחרי** שהפגישה נשמרה. בכשל כובה השליחה על הפריט
+ * (אחרת הוא נשאר client_notify והתור מחזיר no_phone, וניסיון חוזר עם notify_client לא
+ * יוצר אישור חדש כי הטריגר רואה שהיה דלוק). מחזירה את ההערה לסוכן/ת בכשל.
+ */
+async function persistLeadPhone(
+  ctx: ToolContext,
+  itemId: string,
+  leadRef: LeadRef | null,
+  phone: string | undefined,
+): Promise<string | null> {
+  if (!phone || !leadRef?.row) return null;
+  if (await saveLeadPhone(ctx.supabase, ctx.agent.id, leadRef.row.id, phone)) return null;
+  await ctx.supabase.from("agent_agenda_items").update({ client_notify: false })
+    .eq("id", itemId).eq("agent_id", ctx.agent.id);
+  return LEAD_PHONE_FAILED_NOTE;
+}
+
 /** ליד שנאמר בקריאה: הרשומה אם היא של הסוכן/ת, אחרת row ריק. בלי lead_id - null. */
 async function leadRefFrom(ctx: ToolContext, value: unknown): Promise<LeadRef | null> {
   const id = String(value ?? "").trim();
@@ -10046,26 +10085,34 @@ async function clientFollowupPlan(
   due: string | null,
   requested: unknown,
   leadPhone?: unknown,
-): Promise<{ notify: boolean; note?: string }> {
+): Promise<{ notify: boolean; note?: string; phoneToSave?: string }> {
   if (!["meeting", "showing", "signing"].includes(kind) || (!clientId && !leadRef) || !due) return { notify: false };
   if (requested === false) return { notify: false, note: "לבקשתך, ללקוח/ה לא נשלח דבר על הפגישה." };
   // לקוח/ה גובר/ת על ליד, כמו ב-agent_agenda_contact במסד.
   if (!clientId && leadRef) {
     const plan = await leadFollowupPlan(ctx.supabase, ctx.agent.id, leadRef.row, leadPhone);
     if (!plan.notify) return plan;
-    return { notify: true, note: followupSentNote(String(leadRef.row?.raw_name || "").trim() || "הליד", kind, due) };
+    if (await isNumberBlocked(ctx.supabase, plan.phoneToSave || leadRef.row?.raw_phone)) {
+      return { notify: false, note: NUMBER_BLOCKED_NOTE };
+    }
+    return {
+      notify: true,
+      note: followupSentNote(String(leadRef.row?.raw_name || "").trim() || "הליד", kind, due),
+      phoneToSave: plan.phoneToSave,
+    };
   }
   const { data: client } = await ctx.supabase
     .from("agent_clients").select("full_name, phone")
     .eq("id", clientId).eq("agent_id", ctx.agent.id).maybeSingle();
-  const digits = String(client?.phone || "").replace(/\D/g, "");
-  if (digits.length < 9) {
+  // אותו כלל כמו השולח (clientPhoneE164): מספר שהשולח ידחה אינו "נשלח עכשיו"
+  if (!clientPhoneE164(client?.phone)) {
     return {
       notify: false,
       note: `ל${client?.full_name || "לקוח/ה"} אין טלפון בכרטיס, ולכן לא יישלחו אישור ותזכורת. ` +
         "אם תוסיף/י טלפון (update_client) ואז agenda_update עם notify_client - הם יישלחו.",
     };
   }
+  if (await isNumberBlocked(ctx.supabase, client?.phone)) return { notify: false, note: NUMBER_BLOCKED_NOTE };
   return { notify: true, note: followupSentNote(client?.full_name || "לקוח/ה", kind, due) };
 }
 
@@ -10237,6 +10284,8 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   if (!current) return { ok: false, error: "הפריט לא נמצא ביומן. קרא/י ל-agenda_list עם query." };
 
   const patch: Record<string, unknown> = {};
+  // מספר של ליד שנשמר על הליד רק אחרי שהעדכון נשמר ביומן
+  let pendingPhone: { leadRef: LeadRef | null; phone?: string } | null = null;
   if (action === "done") patch.status = "done";
   else if (action === "reopen") patch.status = "open";
   else if (action === "cancel") patch.status = "canceled";
@@ -10266,12 +10315,24 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
       if (!leadRef?.row) {
         return { ok: false, error: "lead_not_found", guidance: "הליד לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש אותו ב-list_leads ולא להמציא מזהה." };
       }
+      // לפריט שיש לו לקוח/ה לא קושרים ליד (agent_agenda_contact מעדיפה את הלקוח/ה, ואם הכרטיס
+      // נמחק ההודעות היו עוברות בשקט לטלפון של הליד). אומרים את זה במפורש, ולא מעדכנים כלום.
+      if (current.client_id) {
+        return { ok: false, error: "lead_not_linked", guidance:
+          "לא קישרתי את הפגישה לליד, ושום דבר מהעדכון הזה לא נשמר: היא כבר מקושרת ללקוח/ה מהקובץ, " +
+          "וההודעות יוצאות אליו/ה. אפשר לקשר ליד רק לפגישה בלי לקוח/ה. אם הפגישה היא עם הליד: " +
+          "agenda_update cancel, ואז agenda_add חדש עם lead_id." };
+      }
+      if (leadRef.row.status !== "unlocked") {
+        return { ok: false, error: "lead_not_linked", guidance:
+          "לא קישרתי את הפגישה לליד, ושום דבר מהעדכון הזה לא נשמר: הליד עוד נעול ב\"הלידים שלי\". " +
+          "אחרי שהוא נפתח אפשר לקשר אותו." };
+      }
       if (current.lead_id && current.lead_id !== leadRef.row.id) {
         return { ok: false, error: "lead_already_linked", guidance:
           "הפגישה כבר מקושרת לליד אחר, וההודעות כבר יצאו אליו/ה. לבטל אותה (agenda_update cancel) ולקבוע פגישה חדשה עם הליד הנכון." };
       }
-      // לא קושרים ליד לפריט שיש לו לקוח/ה (ראו agenda_add), ולא ליד נעול.
-      if (!current.client_id && leadRef.row.status === "unlocked") patch.lead_id = leadRef.row.id;
+      patch.lead_id = leadRef.row.id;
     }
     if (typeof input.notify_client === "boolean") {
       if (input.notify_client) {
@@ -10282,6 +10343,7 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
           return { ok: false, error: "no_followup", guidance: plan.note ||
             "אפשר לשלוח ללקוח/ה רק על פגישה, סיור או חתימה עם לקוח/ה מהקובץ או ליד, ועם מועד." };
         }
+        pendingPhone = { leadRef, phone: plan.phoneToSave };
       }
       patch.client_notify = input.notify_client;
     }
@@ -10293,8 +10355,11 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase.from("agent_agenda_items").update(patch)
     .eq("id", id).eq("agent_id", ctx.agent.id).select(AGENDA_SELECT).single();
   if (error) return { ok: false, error: agendaDbError(error) };
+  const phoneFailed = pendingPhone
+    ? await persistLeadPhone(ctx, id, pendingPhone.leadRef, pendingPhone.phone)
+    : null;
   const [shaped] = await agendaShape(ctx, [data]);
-  return { ok: true, action, item: shaped };
+  return { ok: true, action, item: shaped, ...(phoneFailed ? { client_followup: phoneFailed } : {}) };
 }
 
 function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {

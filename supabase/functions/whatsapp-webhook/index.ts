@@ -157,6 +157,8 @@ import {
   findCatalogLinks,
   MAX_LINKS_PER_MESSAGE,
 } from "./catalog-link.ts";
+import { isMeetingOptOutText } from "./meeting-optout.ts";
+import { stopMeetingFollowups } from "./meeting-optout-run.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -2522,6 +2524,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         reply: (text: string) => reply(from, text, null),
       });
       return;
+    }
+    // מספר שקיבל 131050 וכותב לנו בעצמו שוב מקבל הודעות יזומות (whatsapp_optouts). "הסר"
+    // עצמה אינה משחררת, כדי שמי שחסום ומבקש להסיר לא ייפתח ויעצר בבת אחת.
+    if (!(msg.type === "text" && isMeetingOptOutText(msg.text?.body))) {
+      const { error: clearErr } = await supabase.rpc("whatsapp_optout_clear", { p_phone: from });
+      if (clearErr) console.error("optout clear failed", clearErr.message);
+    }
+    // "הסר" / "לא רלוונטי" מלקוח/ה או ליד שקיבל/ה פולואפ פגישה: עוצרים את ההודעות
+    // הממתינות ומעדכנים את הסוכן/ת. רק למי שאינו סוכן/ת (הענף הזה), ורק כשיש
+    // פגישה שנשלחה אליה הודעה; אחרת ההודעה ממשיכה לבוט כרגיל.
+    if (msg.type === "text" && isMeetingOptOutText(msg.text?.body)) {
+      const stopped = await stopMeetingFollowups(
+        supabase, from, (text: string) => reply(from, text, null, { customer: true }));
+      if (stopped) return;
     }
     if (!publicBotEnabled) {
       await reply(from, UNKNOWN_SENDER_MSG, null, { customer: true });

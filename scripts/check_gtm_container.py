@@ -221,6 +221,11 @@ WRAPPED = {
     "assets/learn.js": r"\bpushEcom\(\s*'([a-z_]+)'",
 }
 
+# אירועים שהקוד דוחף והתגית שלהם עדיין לא בייצוא שבריפו.
+# sign_up: תגיות ההמרה של Meta Lead / Ads מוגדרות ב-GTM (גרסה 23) ולא בקובץ.
+# ברגע שהטריגר נכנס לייצוא, מוחקים את השם מכאן כדי שהבדיקה תחזור לשמור עליו.
+PENDING_GTM_EVENTS = {"sign_up"}
+
 
 def site_events() -> dict[str, set[str]]:
     """‏שם אירוע → הקבצים שדוחפים אותו."""
@@ -325,7 +330,12 @@ def check(path: Path) -> tuple[list[str], list[str]]:
     for name in sorted(pushed):
         where = ", ".join(sorted(pushed[name]))
         tid = by_event.get(name)
-        if tid is None:
+        if tid is None and name in PENDING_GTM_EVENTS:
+            info.append(
+                "האירוע `%s` נדחף ב-%s וממתין לתגית ב-GTM (לא בייצוא שבריפו)."
+                % (name, where)
+            )
+        elif tid is None:
             problems.append(
                 "האירוע `%s` נדחף ב-%s ואין לו טריגר CUSTOM_EVENT ב-GTM.\n"
                 "        הוא נדחף ל-dataLayer ואינו מגיע ל-GA4 — הדף עובד,\n"
