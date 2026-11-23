@@ -63,6 +63,22 @@ for i in cands:
     frac=min(1,area/max(1,int(m.sum()))); sc=ln*frac*frac   # בריבוע: בארבע התוכניות עם רקע אפור ההפרש בלי הריבוע היה 15-20% בלבד
     print('tone',pk,'len',ln,'frac',round(frac,2),'score',round(sc))
     if best is None or sc>best[0]: best=(sc,pk,lo,hi,h_,v_)
+# קיר צבעוני (כחול כהה, חום): אותה בחירה, על גושי צבע כהים שאינם אפורים. המועמד הוא ממוצע הגוש,
+# והמסכה היא כל פיקסל שקרוב אליו בשלושת הערוצים
+q=((r>>4)<<8)|((g>>4)<<4)|(b>>4); dark=(~neutral)&(mx<130)   # קיר מצויר כהה: דק עץ בהיר במרפסת נותן המון פסים ארוכים, ובלי התקרה הזו הוא ניצח בשתי תוכניות
+cnt=np.bincount(q[dark],minlength=4096); taken=[]
+for bi in np.argsort(cnt)[::-1][:12]:
+    if cnt[bi]<0.004*W*H: break
+    sel=dark&(q==bi); c=np.array([r[sel].mean(),g[sel].mean(),b[sel].mean()])
+    if any(np.abs(c-t).max()<30 for t in taken): continue
+    taken.append(c)
+    m=(np.abs(r-c[0])<30)&(np.abs(g-c[1])<30)&(np.abs(b-c[2])<30)
+    h_,v_=bands(m,MINLEN,MAXTH),bands(m.T,MINLEN,MAXTH)
+    ln=sum(x[2]-x[1] for x in h_+v_ if x[3]>=3); area=sum((x[2]-x[1])*x[3] for x in h_+v_ if x[3]>=3)
+    frac=min(1,area/max(1,int(m.sum()))); sc=ln*frac*frac
+    print('colour',c.round().tolist(),'len',ln,'frac',round(frac,2),'score',round(sc))
+    if best is None or sc>best[0]: best=(sc,int(c.max()),int(c.max())-30,int(c.max())+30,h_,v_)
+if best is None: sys.exit('no wall colour found')
 _,peak,LO,HI,hz,vt=best
 print('wall tone',peak,'range',LO,HI,'size',W,H)
 print('horizontal',len(hz),'vertical',len(vt))
