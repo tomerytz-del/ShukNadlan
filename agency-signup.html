@@ -416,6 +416,22 @@ function readSocialFields(){
   return { value };
 }
 
+/* הרשמה שהשרת אישר, פעם אחת. הדף אינו טוען את events.js (זה דף פתיחת
+   משרד, לא מדידת פניות של גולשים), ולכן בלי shukTrack הדחיפה יוצאת
+   ישר ל-dataLayer, עם method ו-role בלבד - בלי אימייל, טלפון או שם.
+   תגית ה-GA4 ותגיות ההמרה של Meta עדיין מוגדרות ב-GTM, לא בקובץ הייצוא. */
+let officeSignupTracked = false;
+function trackOfficeSignup(){
+  if (officeSignupTracked) return;
+  officeSignupTracked = true;
+  var params = { method: 'email', role: 'manager' };
+  try {
+    if (window.shukTrack) { window.shukTrack('sign_up', params); return; }
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event: 'sign_up', page_type: 'agency-signup', method: params.method, role: params.role });
+  } catch (e) { /* מדידה לא שוברת הרשמה */ }
+}
+
 async function signInAfterSignup(email, password){
   try{
     const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
@@ -573,6 +589,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     // ‏החשבון נפתח - נכנסים כבר עכשיו, כדי שכל כפתור "לאיזור הסוכנים" מכאן
     // ינחת בדשבורד ולא במסך הכניסה
     const signedIn = (res.ok && data.success) ? await signInAfterSignup(managerEmail, managerPassword) : false;
+    if (res.ok && data.success) trackOfficeSignup();
 
     // ‏נכנסנו: ישר ללוח הבקרה, גם כשהרישיון עוד בבדיקה - הכרטיס שבראש
     // הדשבורד מטפל בו שם, ובחלון הפתיחה מברכים (WELCOME_KEY ב-crm.js)
