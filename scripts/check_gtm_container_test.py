@@ -178,6 +178,10 @@ def main() -> int:
          lambda c: drop_event(c, "contact_site", "both"),
          "ואין לו טריגר CUSTOM_EVENT")
 
+    case("sign_up ממתין לתגית ב-GTM ואינו ממצא",
+         lambda c: drop_event(c, "sign_up", "both"),
+         None)
+
     case("טריגר בלי תגית שנורית ממנו",
          lambda c: drop_event(c, "generate_lead", "tag"),
          "ואין תגית שנורית ממנו")
