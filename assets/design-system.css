@@ -505,7 +505,7 @@ footer.site h3,footer.site h4,.footer-brand .footer-logo span{color:#fff}
     scroll-behavior:auto !important;
   }
 }
-/* עצירת אנימציות (תפריט הנגישות): המקור כאן. index.html נושא עותק מוקדם מוטבע (הגיליון הזה נטען שם בסוף המסמך), ו-scripts/check_a11y_motion.py בודק ששניהם קיימים ושכל דף שטוען את a11y-menu.js טוען גם את הקובץ הזה */
+/* עצירת אנימציות (תפריט הנגישות): מקור אחד כאן. המחלקה נכנסת מ-home.js ומ-a11y-menu.js, שרצים אחרי הקישור לגיליון הזה, ו-scripts/check_a11y_motion.py בודק שכל דף שטוען את a11y-menu.js מקשר אליו */
 html.a11y-nomotion *,html.a11y-nomotion *::before,html.a11y-nomotion *::after{
   animation:none !important;
   transition:none !important;
