@@ -18,7 +18,11 @@ var SUPABASE_URL='https://obookujgolazrwycsiyn.supabase.co';
 var SUPABASE_ANON_KEY='sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 var FN_URL=SUPABASE_URL+'/functions/v1/plan-model';
 var COLS='id,name,status,published,project_id,model,settings,views,lights,updated_at';
-var THREE_SRC=['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js','https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'];
+/* Three.js r128 משני CDN, עם SRI: קובץ שהשתנה אצל הספק נחסם בדפדפן ולא רץ בדף שיש בו סשן מחובר.
+   ה-hash חושב על הקובץ של jsdelivr (זהה לחבילת npm three@0.128.0), ולכן הוא ראשון. cdnjs מגיש את אותה
+   חבילה; אם הקובץ שם שונה בבייט, הוא ייחסם והטעינה תיפול חזרה לראשון שהצליח */
+var THREE_SRI='sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
+var THREE_SRC=['https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 var MAX_FILE=6*1024*1024;
 
 var $=function(id){return document.getElementById(id)};
@@ -67,7 +71,7 @@ function loadScript(list,i){
   return new Promise(function(ok,no){
     if(window.THREE)return ok();
     if(i>=list.length)return no(new Error('three'));
-    var s=document.createElement('script');s.src=list[i];
+    var s=document.createElement('script');s.integrity=THREE_SRI;s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';s.src=list[i];
     s.onload=function(){ok()};s.onerror=function(){loadScript(list,i+1).then(ok,no)};
     document.head.appendChild(s);
   });
@@ -187,21 +191,40 @@ async function openHome(){
     '</div>');
 
   function kind(){return $('nKind')?$('nKind').value:kinds[0]}
-  function quoteUi(){
+  function quoteUi(keep){
     var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
       html='<p class="msg"><b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק. כולל '+(+q.renders_included||20)+' הדמיות. היתרה בארנק: '+money(bal)+'.</p>';
-      if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount='+encodeURIComponent(Math.max(50,Math.ceil(price-bal)))+'">טעינת הארנק</a>';
+      if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
     $('nOkLbl').textContent='אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה';
-    $('nOk').checked=false;gate();
+    if(!keep)$('nOk').checked=false;gate();
   }
   function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
-  if($('nKind'))$('nKind').addEventListener('change',quoteUi);
+  if($('nKind'))$('nKind').addEventListener('change',function(){quoteUi()});
   quoteUi();
+  /* חזרה מטעינת ארנק (?topup=). success אינו הוכחה שהכסף נכנס, רק שדף התשלום החזיר לכאן:
+     היתרה נקראת מחדש כמה פעמים עד שהיא גדלה, והפרמטרים יוצאים מהכתובת */
+  var top=params.get('topup');
+  if(top){
+    history.replaceState(null,'','/tour3d');
+    var note=$('nMsg');
+    if(top!=='success')msg(note,'הטעינה לא הושלמה. אפשר לנסות שוב.',true);
+    else{
+      var k0=kind(),before=+(quotes[k0]||{}).balance||0,tries=0;
+      msg(note,'התשלום התקבל. מעדכנים את היתרה...');
+      var poll=async function(){
+        var r=await sb.rpc('plan_model_quote',{p_owner_kind:k0});
+        if(!r.error&&r.data){quotes[k0]=r.data;quoteUi(true)}   /* בלי לאפס את תיבת האישור שהמשתמש/ת כבר סימן/ה */
+        if((+(quotes[k0]||{}).balance||0)>before||(+(quotes[k0]||{}).balance||0)>=priceOf(quotes[k0]))return msg(note,'הארנק נטען. אפשר ליצור את הסיור.');
+        if(++tries<8)setTimeout(poll,3000);else msg(note,'היתרה עוד לא התעדכנה. רעננו את הדף בעוד דקה.');
+      };
+      poll();
+    }
+  }
 
   function msg(el,t,bad){el.textContent=t;el.classList.toggle('bad',!!bad)}
   $('nGo').addEventListener('click',async function(){

@@ -35,7 +35,7 @@ const sample = () => ({
   core: [{ x1: 700, y1: 550, x2: 800, y2: 650 }],
   dimensions: [{ cm: 500, x1: 100, y1: 300, x2: 600, y2: 300 }, { cm: 99999, x1: 0, y1: 0, x2: 10, y2: 10 }],
   north_deg: 325,
-  apartment_sqm: 80,
+  apartment_sqm: 30,   // תואם למידה הכתובה (1 ס"מ לפיקסל): מידה שסותרת את השטח נדחית
   balcony_sqm: null,
 });
 
@@ -86,7 +86,7 @@ test("buildModel: קנה מידה ממידה כתובה, וצפון מנורמל
   assert.equal(settings.scale, 1);
   assert.equal(settings.scale_source, "dimensions");
   assert.equal(settings.north, -35);
-  assert.equal(settings.declared_area_sqm, 80);
+  assert.equal(settings.declared_area_sqm, 30);
   assert.equal(settings.declared_balcony_sqm, null);
   assert.ok(!settings.checks.some((c) => c.code === "scale_estimated" || c.code === "no_north"));
 });
@@ -198,6 +198,93 @@ test("imageSize: PNG, JPEG ו-WebP מהכותרת, וקובץ שאינו תמו�
   assert.deepEqual(imageSize(webp), { w: 1600, h: 1354, mime: "image/webp" });
   assert.equal(imageSize(pad([1, 2, 3, 4])), null);
   assert.equal(imageSize(Uint8Array.from([0xff, 0xd8])), null);
+});
+
+
+// הקריאה האמיתית הראשונה (פנטהאוז, 23.11.2026), בפיקסלים של תמונה 1080x908: 11 חדרים, קירות
+// חיצוניים בלבד, "סלון" שעוטף את כל הדירה, ומידות שנתנו 4.6 ס"מ לפיקסל. הסיור יצא אולם אחד.
+const PH_W = 1080, PH_H = 908;
+const phNorm = (x1: number, y1: number, x2: number, y2: number) =>
+  ({ x1: x1 * 1000 / PH_W, y1: y1 * 1000 / PH_H, x2: x2 * 1000 / PH_W, y2: y2 * 1000 / PH_H });
+const penthouse = () => ({
+  rooms: ([["living", 299, 63, 715, 719], ["master", 131, 63, 298, 229], ["bath", 131, 246, 255, 328], ["storage", 252, 308, 399, 386],
+    ["mamad", 252, 392, 402, 526], ["service", 239, 528, 309, 652], ["bath", 310, 576, 377, 705], ["bedroom", 377, 576, 521, 706],
+    ["bedroom", 521, 576, 666, 706], ["balcony", 727, 63, 997, 721], ["balcony", 94, 461, 438, 793]] as [string, number, number, number, number][])
+    .map(([kind, a, b, c, d]) => ({ kind, ...phNorm(a, b, c, d) })),
+  walls: [
+    { kind: "exterior", ...phNorm(131, 63, 715, 63), openings: [{ kind: "window", ...phNorm(150, 63, 220, 63) }] },
+    { kind: "exterior", ...phNorm(715, 63, 715, 721), openings: [{ kind: "sliding", ...phNorm(715, 106, 715, 337) }] },
+    { kind: "exterior", ...phNorm(131, 63, 131, 328) },
+    { kind: "exterior", ...phNorm(377, 706, 666, 706), openings: [{ kind: "window", ...phNorm(411, 706, 454, 706) }] },
+    { kind: "railing", ...phNorm(997, 63, 997, 721) },
+  ],
+  dimensions: [{ cm: 979, ...phNorm(299, 80, 512, 80) }],   // הותאמה לקטע קצר מדי: 4.6 ס"מ לפיקסל
+  apartment_sqm: 156.46, balcony_sqm: 135.2, north_deg: 30,
+});
+
+test("buildModel: בלי קירות פנימיים הם משוחזרים מהחדרים, ולכל חדר יש דלת", () => {
+  const { model, settings } = buildModel(penthouse(), PH_W, PH_H);
+  assert.ok(settings.checks.some((c) => c.code === "walls_inferred"));
+  assert.ok(model.walls.filter((w) => w.t === "int").length >= 8, "קירות פנימיים");
+  const doors = model.walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d"));
+  assert.ok(doors.length >= 7, `דלתות: ${doors.length}`);
+  // אין קיר באורך אפס ואין פתח שיוצא מהקיר
+  for (const w of model.walls) {
+    assert.ok(w.b > w.a);
+    for (const o of w.o ?? []) assert.ok(o[1] >= w.a && o[2] <= w.b && o[2] > o[1]);
+  }
+  // החלון והוויטרינה שנקראו עברו לקירות המשוחזרים
+  assert.ok(model.walls.some((w) => (w.o ?? []).some((o) => o[0] === "s")));
+  assert.ok(model.walls.some((w) => (w.o ?? []).some((o) => o[0] === "w")));
+});
+
+test("buildModel: חדרים חופפים אינם חופפים אחרי השחזור, והסלון אינו בולע את חדרי השינה", () => {
+  const { model } = buildModel(penthouse(), PH_W, PH_H);
+  const rects = model.rooms.flatMap((r) => r.r.map((q) => ({ id: r.id, q })));
+  for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+    const a = rects[i].q, b = rects[j].q;
+    assert.ok(!(a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]), `${rects[i].id} חופף את ${rects[j].id}`);
+  }
+  assert.ok(model.rooms.find((r) => r.id === "living1")!.r.length > 1);
+});
+
+test("buildModel: מידה כתובה שסותרת את השטח הכתוב נדחית, וקנה המידה נגזר מהשטח", () => {
+  const { settings } = buildModel(penthouse(), PH_W, PH_H);
+  assert.equal(settings.scale_source, "area");
+  assert.ok(settings.scale > 1.6 && settings.scale < 2.7, String(settings.scale));
+  assert.ok(settings.checks.some((c) => c.code === "scale_inconsistent"));
+});
+
+test("buildModel: רווח בעובי קיר בין חדרים אינו משאיר אותם אטומים", () => {
+  // מרווחים של 25 פיקסלים (מעל tol): בלי בליעת הרווח יצאו 12 קירות חיצוניים ואף דלת
+  const raw = {
+    rooms: [{ kind: "living", x1: 100, y1: 100, x2: 500, y2: 900 }, { kind: "mamad", x1: 525, y1: 100, x2: 900, y2: 450 },
+      { kind: "bedroom", x1: 525, y1: 475, x2: 900, y2: 900 }],
+    walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 900, y2: 100 }, { kind: "exterior", x1: 900, y1: 100, x2: 900, y2: 900 },
+      { kind: "exterior", x1: 100, y1: 900, x2: 900, y2: 900 }, { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 900 }],
+    apartment_sqm: 90,
+  };
+  const { model } = buildModel(raw, 1000, 1000);
+  assert.ok(model.walls.some((w) => w.t === "int"));
+  assert.equal(model.walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d")).length, 2);
+});
+
+test("buildModel: ויטרינה של חדר אל המרפסת אינה פוטרת אותו מדלת אל הדירה, והתוויות לפי החדרים שנשארו", () => {
+  const raw = {
+    rooms: [{ kind: "living", x1: 100, y1: 100, x2: 600, y2: 500 }, { kind: "bedroom", x1: 600, y1: 100, x2: 900, y2: 500 },
+      { kind: "balcony", x1: 600, y1: 500, x2: 900, y2: 700 }, { kind: "kitchen", x1: 100, y1: 100, x2: 600, y2: 500 }],
+    walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 900, y2: 100 },
+      { kind: "exterior", x1: 600, y1: 500, x2: 900, y2: 500, openings: [{ kind: "sliding", x1: 650, y1: 500, x2: 850, y2: 500 }] },
+      { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 500 }],
+    apartment_sqm: 60,
+  };
+  const { model, settings } = buildModel(raw, 1000, 1000);
+  const inner = model.walls.find((w) => w.t === "int" && w.v === 600)!;
+  assert.ok((inner.o ?? []).some((o) => o[0] === "d"), "דלת בין חדר השינה לסלון");
+  // שני חדרים באותו מלבן: אחד ירד, נספר, ואין לו תווית או מנורה יתומה
+  assert.equal(model.rooms.length, 3);
+  assert.equal(model.labels.length, 3);
+  assert.deepEqual(settings.checks.find((c) => c.code === "rooms_dropped"), { code: "rooms_dropped", n: 1 });
 });
 
 console.log(`✓ ${passed} בדיקות של plan-model עברו`);
