@@ -400,7 +400,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   }
   // מטבח או פינת אוכל שנקראו כ"חדר" בתוך הסלון (70% ומעלה ממנו) הם אזור: כחדר הם היו מקבלים קירות סביבם
   const livings = rooms.filter((r) => r.id.startsWith("living"));
-  rooms = rooms.filter((r) => {
+  const kept = rooms.filter((r) => {
     const kind = r.id.replace(/\d+$/, "");
     if (kind !== "kitchen" && kind !== "dining") return true;
     const q = r.r[0], area = (q[2] - q[0]) * (q[3] - q[1]);
@@ -408,9 +408,24 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
       const p = l.r[0], ox = Math.min(q[2], p[2]) - Math.max(q[0], p[0]), oy = Math.min(q[3], p[3]) - Math.max(q[1], p[1]);
       return ox > 0 && oy > 0 && ox * oy >= 0.7 * area;
     });
-    if (inside && !zones.some((z) => z.kind === kind)) zones.push({ kind, q });
     return !inside;
   });
+  // רק אם נשארים שני חדרים לפחות: תוכנית של סלון ומטבח בלבד נשארת כמו שנקראה, ולא נדחית כ"לא קריאה"
+  if (kept.length >= 2 && kept.length < rooms.length) {
+    for (const r of rooms) {
+      const kind = r.id.replace(/\d+$/, "");
+      if (!kept.includes(r) && (kind === "kitchen" || kind === "dining") && !zones.some((z) => z.kind === kind)) zones.push({ kind, q: r.r[0] });
+    }
+    rooms = kept;
+    // התוויות והמנורות נבנו לפי כל החדרים: בונים מחדש, אחרת לאזור יש שתי תוויות באותה נקודה
+    labels.length = 0;
+    lamps.length = 0;
+    for (const r of rooms) {
+      const q = r.r[0], cx = Math.round((q[0] + q[2]) / 2), cy = Math.round((q[1] + q[3]) / 2);
+      labels.push([r.name, cx, cy]);
+      if (!r.nc) lamps.push([cx, cy]);
+    }
+  }
   if (rooms.length < 2) throw new PlanReadError("plan_unreadable", "לא זוהו חדרים בתוכנית");
 
   // ---- קירות ופתחים: רק קירות ישרים (אופקי או אנכי). אלכסון נזרק ונספר ----
@@ -551,7 +566,8 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
 
   // בלי קנה מידה אמיתי אין לדעת אם מיטה נכנסת לחדר: לא מרהטים על ברירת מחדל
   const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale, zones, walls, tol);
-  for (const z of zones) labels.push([ROOM_KINDS[z.kind].name, Math.round((z.q[0] + z.q[2]) / 2), Math.round((z.q[1] + z.q[3]) / 2)]);
+  // אזור סלון אינו מקבל תווית: לחדר שהוא יושב בו כבר יש אחת
+  for (const z of zones) if (z.kind !== "living") labels.push([ROOM_KINDS[z.kind].name, Math.round((z.q[0] + z.q[2]) / 2), Math.round((z.q[1] + z.q[3]) / 2)]);
   return {
     model: { imgW: W, imgH: H, rooms, solids, walls, labels, lamps, furniture },
     settings: {

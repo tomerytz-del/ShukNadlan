@@ -90,10 +90,12 @@ function roomSpot(r){var c=center(),q=r.r[0],x=(q[0]+q[2])/2*S.scale,z=(q[1]+q[3
 function startFp(){
   var s=S.scale,IN=60,rooms=MODEL.rooms,r=null,i;
   /* קודם כול: תווית "כניסה" והדלת הקרובה אליה. התווית יושבת בצד של הדירה, ולכן היא גם אומרת לאיזה צד מסתכלים */
-  var lab=MODEL.labels.filter(function(l){return /כניסה/.test(l[0])})[0];
+  /* האחרונה: תווית דלת הכניסה נכתבת אחרי תווית של חדר ששמו "כניסה". דלת בקיר חיצוני קודמת לדלת פנימית קרובה יותר */
+  var labs=MODEL.labels.filter(function(l){return /כניסה/.test(l[0])}),lab=labs[labs.length-1];
   if(lab){var bd=170,dr=null;
     MODEL.walls.forEach(function(w){(w.o||[]).forEach(function(o){if(o[0]!=='d')return;var hz=w.h!==undefined,c=hz?w.h:w.v,mid=(o[1]+o[2])/2;
-      var d=hz?Math.hypot(mid-lab[1],c-lab[2]):Math.hypot(c-lab[1],mid-lab[2]);if(d<bd){bd=d;dr={hz:hz,c:c,mid:mid}}})});
+      var d=hz?Math.hypot(mid-lab[1],c-lab[2]):Math.hypot(c-lab[1],mid-lab[2]);if(d>=170)return;var ex=w.t==='ext';
+      if(!dr||(ex&&!dr.ex)||(ex===dr.ex&&d<bd)){bd=d;dr={hz:hz,c:c,mid:mid,ex:ex}}})});
     if(dr){var sg=(dr.hz?lab[2]-dr.c:lab[1]-dr.c)>=0?1:-1,ddx=dr.hz?0:sg,ddz=dr.hz?sg:0;
       return {x:(dr.hz?dr.mid:dr.c)*s+ddx*IN,z:(dr.hz?dr.c:dr.mid)*s+ddz*IN,yaw:Math.atan2(ddx,-ddz),pitch:-0.04}}}
   var has=function(q,x,y){return x>=q[0]&&x<=q[2]&&y>=q[1]&&y<=q[3]};
@@ -791,7 +793,7 @@ function rebuild(){
   world.add(planMesh);
   }
   var c=center();sun.target.position.set(c.x,0,c.z);
-  applyCut();ceilShadow();updateSun();refreshLists();shadowDirty();
+  applyCut();ceilShadow();updateSun();refreshLists();shadowDirty();showWSel();
   if(selId&&furnMap[selId])showSel();
 }
 var labelFont='500 30px Heebo, Rubik, sans-serif';
@@ -840,6 +842,7 @@ function applyCut(){
   cutPlane.constant=S.cut&&S.mode==='drone'?CUT_H:100000;
   /* המתאר יושב בגובה אחר בכל מצב, ולכן נבנה מחדש (כמה עשרות משטחים) */
   if(wallGroup&&MATS.wall){dispose(edgeGroup);buildCutEdges()}
+  showWSel();
   ceilGroup.visible=true;
 }
 
@@ -1231,7 +1234,9 @@ $('north').addEventListener('change',function(){var v=+this.value;if(isFinite(v)
 $('time').addEventListener('input',function(){S.time=+this.value;updateSun();dirty()});
 $('lamps').addEventListener('change',function(){S.lamps=this.value;updateSun();dirty()});
 $('labels').addEventListener('change',function(){S.labels=this.checked;labelGroup.visible=S.labels&&S.mode==='drone';dirty()});
-$('edit').addEventListener('change',function(){S.edit=this.checked;if(!S.edit)selectF(null);else if(S.mode!=='drone')goView(curDroneView())});
+$('edit').addEventListener('change',function(){S.edit=this.checked;
+  if(S.edit&&S.wedit){S.wedit=false;$('wEdit').checked=false;wSel=-1;showWSel();wTools()}   /* עריכת ריהוט ועריכת קירות לא יחד */
+  if(!S.edit)selectF(null);else if(S.mode!=='drone')goView(curDroneView())});
 function curDroneView(){var c=center();return {mode:'drone',drone:{az:S.drone.az,pol:S.drone.pol,rad:S.drone.rad,tx:S.drone.tx||c.x,tz:S.drone.tz||c.z}}}
 $('styles').addEventListener('click',function(e){var b=e.target.closest('.style');if(!b)return;S.style=b.dataset.k;S.mat=styleMat(S.style);baseWall=S.mat.wall;syncMat();$('contrastNote').hidden=true;fillStyles();rebuild();dirty()});
 $('tgCut').addEventListener('click',function(){S.cut=!S.cut;this.setAttribute('aria-pressed',S.cut);applyCut()});
@@ -1316,9 +1321,11 @@ $('wTools').addEventListener('click',function(e){
     else if(a==='a-')w.a-=big;else if(a==='a+')w.a+=big;else if(a==='b+')w.b+=big;else if(a==='b-')w.b-=big;
     else if(a==='del'){MODEL.walls.splice(wSel,1);wSel=-1;rebuild();showWSel();wTools();dirty();return}
     else if(a==='od'||a==='ow'||a==='os'){var wd=Math.round((a==='od'?85:a==='ow'?120:200)/S.scale),mid=(w.a+w.b)/2;
-      /* פתח חדש במקום הפנוי הראשון: באמצע הקיר, ואם תפוס, אחרי הפתח האחרון */
-      var from=Math.round(mid-wd/2),busy=(w.o||[]).some(function(p){return p[1]<from+wd&&p[2]>from});
-      if(busy){var last=w.o[w.o.length-1];from=last[2]+big}
+      /* פתח חדש באמצע הקיר, ואם תפוס, ברווח הפנוי הראשון שמספיק לו. בלי רווח כזה לא מוסיפים, ואומרים */
+      var os=(w.o||[]).slice().sort(function(p,q){return p[1]-q[1]}),free=function(f){return f>=w.a+2&&f+wd<=w.b-2&&!os.some(function(p){return p[1]<f+wd&&p[2]>f})};
+      var from=Math.round(mid-wd/2);
+      if(!free(from)){var cand=[w.a+big].concat(os.map(function(p){return p[2]+big}));from=null;for(var ci=0;ci<cand.length&&from===null;ci++)if(free(cand[ci]))from=cand[ci]}
+      if(from===null){var nt=document.createElement('p');nt.className='note bad';nt.textContent='אין בקיר הזה מקום לפתח נוסף. קצרו או מחקו פתח קיים.';$('wTools').appendChild(nt);return}
       (w.o=w.o||[]).push([a.charAt(1),from,from+wd])}
   }else if(od){
     var pr=od.split(':'),o=w.o[+pr[0]],k=pr[1];if(!o)return;
