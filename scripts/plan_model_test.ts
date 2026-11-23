@@ -272,7 +272,7 @@ test("buildModel: רווח בעובי קיר בין חדרים אינו משאי
 test("buildModel: ויטרינה של חדר אל המרפסת אינה פוטרת אותו מדלת אל הדירה, והתוויות לפי החדרים שנשארו", () => {
   const raw = {
     rooms: [{ kind: "living", x1: 100, y1: 100, x2: 600, y2: 500 }, { kind: "bedroom", x1: 600, y1: 100, x2: 900, y2: 500 },
-      { kind: "balcony", x1: 600, y1: 500, x2: 900, y2: 700 }, { kind: "kitchen", x1: 100, y1: 100, x2: 600, y2: 500 }],
+      { kind: "balcony", x1: 600, y1: 500, x2: 900, y2: 700 }, { kind: "corridor", x1: 100, y1: 100, x2: 600, y2: 500 }],
     walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 900, y2: 100 },
       { kind: "exterior", x1: 600, y1: 500, x2: 900, y2: 500, openings: [{ kind: "sliding", x1: 650, y1: 500, x2: 850, y2: 500 }] },
       { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 500 }],
@@ -285,6 +285,41 @@ test("buildModel: ויטרינה של חדר אל המרפסת אינה פוטר
   assert.equal(model.rooms.length, 3);
   assert.equal(model.labels.length, 3);
   assert.deepEqual(settings.checks.find((c) => c.code === "rooms_dropped"), { code: "rooms_dropped", n: 1 });
+});
+
+test("buildModel: מטבח ופינת אוכל בחלל פתוח הם אזורים: ריהוט ותווית, בלי קירות", () => {
+  const raw = {
+    rooms: [{ kind: "living", x1: 100, y1: 100, x2: 800, y2: 600 }, { kind: "bedroom", x1: 800, y1: 100, x2: 950, y2: 600 },
+      { kind: "kitchen", x1: 100, y1: 100, x2: 350, y2: 500 }],   // "חדר" שכולו בתוך הסלון: הופך לאזור
+    walls: [{ kind: "exterior", x1: 100, y1: 100, x2: 950, y2: 100 }, { kind: "exterior", x1: 100, y1: 100, x2: 100, y2: 600 },
+      { kind: "interior", x1: 800, y1: 100, x2: 800, y2: 600 }, { kind: "exterior", x1: 100, y1: 600, x2: 950, y2: 600 }],
+    zones: [{ kind: "dining", x1: 400, y1: 150, x2: 560, y2: 420 }],
+    entrance: { x1: 500, y1: 600, x2: 560, y2: 600 },
+    apartment_sqm: 100,
+  };
+  const { model } = buildModel(raw, 1000, 1000);
+  assert.equal(model.rooms.length, 2, "המטבח אינו חדר");
+  const kit = model.furniture.find((f) => f[0] === "kitchen")!;
+  assert.ok(kit, "יחידת מטבח");
+  assert.equal(kit[3], 270, "גב אל הקיר השמאלי");
+  assert.ok(model.furniture.some((f) => f[0] === "table"));
+  assert.ok(model.furniture.filter((f) => f[0] === "chair").length >= 4);
+  assert.ok(model.labels.some((l) => l[0] === "מטבח") && model.labels.some((l) => l[0] === "פינת אוכל"));
+  // דלת הכניסה נכנסה לקיר התחתון, והתווית "כניסה" בצד של הדירה (מעל הקיר)
+  const bottom = model.walls.find((w) => w.h === 600)!;
+  assert.ok((bottom.o ?? []).some((o) => o[0] === "d"));
+  const entry = model.labels.find((l) => l[0] === "כניסה")!;
+  assert.ok(entry && entry[2] < 600);
+});
+
+test("buildModel: גרעין הבניין נחצב מהסלון שעוטף אותו, ויש סביבו קיר", () => {
+  const raw = penthouse() as Record<string, unknown>;
+  raw.core = [phNorm(400, 307, 670, 528)];
+  const { model } = buildModel(raw, PH_W, PH_H);
+  assert.equal(model.solids.length, 1);
+  const s = model.solids[0], cxm = (s[0] + s[2]) / 2, cym = (s[1] + s[3]) / 2;
+  assert.ok(!model.rooms.some((r) => r.r.some((q) => cxm > q[0] && cxm < q[2] && cym > q[1] && cym < q[3])), "אין רצפה בתוך הגרעין");
+  assert.ok(model.walls.some((w) => w.t === "ext" && w.h !== undefined && Math.abs(w.h - s[1]) <= 20 && w.a < cxm && w.b > cxm), "קיר בראש הגרעין");
 });
 
 console.log(`✓ ${passed} בדיקות של plan-model עברו`);

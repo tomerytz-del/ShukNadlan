@@ -114,7 +114,7 @@ async function openModel(){
   }
   $('home').hidden=true;$('app').hidden=false;
 
-  var published=!!m.published, lastFurn=JSON.stringify((m.model&&m.model.furniture)||[]), saving=0;
+  var published=!!m.published, lastFurn=JSON.stringify((m.model&&m.model.furniture)||[])+'|'+JSON.stringify((m.model&&m.model.walls)||[]), saving=0;
   function saveState(t,bad){var el=$('saveSt');el.textContent=t;el.classList.toggle('bad',!!bad)}
   async function update(patch){
     /* RLS שחוסם מחזיר 0 שורות ולא שגיאה, ולכן סופרים את מה שחזר */
@@ -140,9 +140,9 @@ async function openModel(){
     title:m.name, model:m.model, settings:st, views:m.views, lights:m.lights, planUrl:planUrl, editable:edit,
     onSave:async function(d){
       var patch={settings:d.settings,views:d.views,lights:d.lights};
-      var f=JSON.stringify(d.furniture);
-      /* המודל עד 800KB: נשלח רק כשהריהוט השתנה */
-      if(f!==lastFurn)patch.model=Object.assign({},m.model,{furniture:d.furniture});
+      var f=JSON.stringify(d.furniture)+'|'+JSON.stringify(d.walls);
+      /* המודל עד 800KB: נשלח רק כשהריהוט או הקירות השתנו */
+      if(f!==lastFurn)patch.model=Object.assign({},m.model,{furniture:d.furniture,walls:d.walls});
       var n=++saving;saveState('שומר...');
       try{await update(patch);lastFurn=f;if(n===saving)saveState('נשמר')}
       catch(e){if(n===saving)saveState('השמירה נכשלה. '+heText(e),true)}
