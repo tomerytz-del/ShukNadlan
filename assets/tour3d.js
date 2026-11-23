@@ -18,7 +18,11 @@ var SUPABASE_URL='https://obookujgolazrwycsiyn.supabase.co';
 var SUPABASE_ANON_KEY='sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 var FN_URL=SUPABASE_URL+'/functions/v1/plan-model';
 var COLS='id,name,status,published,project_id,model,settings,views,lights,updated_at';
-var THREE_SRC=['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js','https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'];
+/* Three.js r128 משני CDN, עם SRI: קובץ שהשתנה אצל הספק נחסם בדפדפן ולא רץ בדף שיש בו סשן מחובר.
+   ה-hash חושב על הקובץ של jsdelivr (זהה לחבילת npm three@0.128.0), ולכן הוא ראשון. cdnjs מגיש את אותה
+   חבילה; אם הקובץ שם שונה בבייט, הוא ייחסם והטעינה תיפול חזרה לראשון שהצליח */
+var THREE_SRI='sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
+var THREE_SRC=['https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 var MAX_FILE=6*1024*1024;
 
 var $=function(id){return document.getElementById(id)};
@@ -67,7 +71,7 @@ function loadScript(list,i){
   return new Promise(function(ok,no){
     if(window.THREE)return ok();
     if(i>=list.length)return no(new Error('three'));
-    var s=document.createElement('script');s.src=list[i];
+    var s=document.createElement('script');s.integrity=THREE_SRI;s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';s.src=list[i];
     s.onload=function(){ok()};s.onerror=function(){loadScript(list,i+1).then(ok,no)};
     document.head.appendChild(s);
   });
