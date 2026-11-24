@@ -5737,7 +5737,21 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   // ‏coverage חוזר רק כשהתוצאה ריקה: מה **כן** יש במאגר לעיר. בלעדיו העוזר
   // הסיק "המאגר לא מכסה את נוף הגליל" על עיר עם 1,512 עסקאות.
   const coverage = res.coverage as Record<string, unknown> | null | undefined;
-  const guidance = deals.length === 0
+  // רחוב שיש לו עסקאות, אבל לפני החלון (20271201140000). "בשנה האחרונה אין"
+  // אינו "אין ברחוב": ב-24.11.2026 גבריאלה ענתה "לא מצאתי" על החלוץ בחדרה,
+  // ששתי עסקאות שלו מלפני 14 חודשים.
+  const outside = coverage?.street_outside_window as Record<string, unknown> | undefined;
+  const outsideN = Number(outside?.deals) || 0;
+  const guidance = deals.length === 0 && outsideN > 0
+    ? "בחלון שביקשו (מ-oldest_considered) אין עסקה, **אבל לרחוב יש " + outsideN + " עסקאות במאגר לפניו**: " +
+      "street_outside_window מראה כמה, ומתי (first_sold_at עד last_sold_at). " +
+      "אמור/י זאת במפורש במקום \"לא מצאתי\": \"בשנה האחרונה אין, אבל יש " + outsideN + " עסקאות ברחוב מתקופה קודמת\", " +
+      "והצע/י להרחיב את התקופה (months) או חיפוש ברדיוס סביב מספר בית. " +
+      (outside?.exact_name === false
+        ? "שם הרחוב במאגר שונה במקצת ממה שנשאל (streets), ולכן אמור/י את השם כפי שהוא במאגר. "
+        : "") +
+      "אל תמציא/י פרטי עסקאות: הן לא בתשובה הזו. אם הסוכן/ת רוצה אותן, חפש/י שוב עם תקופה ארוכה יותר."
+    : deals.length === 0
     ? (coverage && Number(coverage.deals_in_city) > 0
       ? "לא נמצאה עסקה שעונה על החיפוש, **אבל העיר כן במאגר**: coverage מראה כמה עסקאות יש בה, " +
         "באיזה טווח תאריכים (first_sold_at עד last_sold_at) ובאילו רחובות (top_streets). " +
