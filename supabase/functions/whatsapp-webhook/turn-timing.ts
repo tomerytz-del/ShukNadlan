@@ -52,10 +52,24 @@ export function noteTool(t: TurnTiming, name: string, ms: number) {
 export type TurnClock = { arrivedAt: number; transcribeMs: number | null; kind: TurnKind };
 
 const clocks = new Map<string, TurnClock>();
-const CLOCK_TTL_MS = 10 * 60_000;
+// ארוך מחלון האיסוף (עד כמה שניות) ומהמתנה לנעילה (45 שניות), וקצר מספיק כדי ששעון שנשאר מהפעלה אחרת לא ייתפס
+const CLOCK_TTL_MS = 3 * 60_000;
 
 export function setTurnClock(agentId: string, clock: TurnClock) {
-  clocks.set(agentId, clock);
+  // הודעה שנייה ברצף אינה מוחקת את הראשונה: ההמתנה נמדדת מהראשונה, והתמלול נצבר ונשאר סוג התור שלו
+  const prev = clocks.get(agentId);
+  if (prev && clock.arrivedAt - prev.arrivedAt <= CLOCK_TTL_MS) {
+    const transcribeMs = prev.transcribeMs === null && clock.transcribeMs === null
+      ? null
+      : (prev.transcribeMs ?? 0) + (clock.transcribeMs ?? 0);
+    clocks.set(agentId, {
+      arrivedAt: prev.arrivedAt,
+      transcribeMs,
+      kind: prev.transcribeMs !== null ? prev.kind : clock.kind,
+    });
+  } else {
+    clocks.set(agentId, clock);
+  }
   if (clocks.size > 500) {
     for (const [k, v] of clocks) if (Date.now() - v.arrivedAt > CLOCK_TTL_MS) clocks.delete(k);
   }

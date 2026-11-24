@@ -52,12 +52,18 @@ await test("בלי שעון: kind=other, wait ו-transcribe null, total מתחי
   eq([row.kind, row.wait_ms, row.transcribe_ms, row.total_ms], ["other", null, null, 4_000]);
 });
 
-await test("שעון: נלקח פעם אחת, ופג אחרי 10 דקות", () => {
+await test("שעון: הודעה שנייה ברצף שומרת את ההגעה הראשונה ואת התמלול", () => {
+  setTurnClock("z", { arrivedAt: 1_000, transcribeMs: 8_000, kind: "voice" });
+  setTurnClock("z", { arrivedAt: 3_000, transcribeMs: null, kind: "text" });
+  eq(takeTurnClock("z", 4_000), { arrivedAt: 1_000, transcribeMs: 8_000, kind: "voice" });
+});
+
+await test("שעון: נלקח פעם אחת, ופג אחרי 3 דקות", () => {
   setTurnClock("x", { arrivedAt: 1_000, transcribeMs: null, kind: "text" });
   eq(takeTurnClock("x", 2_000)?.kind, "text");
   eq(takeTurnClock("x", 2_000), null);
   setTurnClock("y", { arrivedAt: 1_000, transcribeMs: null, kind: "text" });
-  eq(takeTurnClock("y", 1_000 + 11 * 60_000), null);
+  eq(takeTurnClock("y", 1_000 + 4 * 60_000), null);
 });
 
 await test("סוגי הודעות", () => {
@@ -91,7 +97,11 @@ await test("המיגרציה: RLS, הרשאות ל-service_role בלבד, ובל
   const sql = readFileSync("supabase/migrations/20271201110000_gabriela_turn_timings.sql", "utf8");
   if (!/enable row level security/.test(sql)) throw new Error("no RLS");
   if (!/revoke all on table public\.gabriela_turn_timings from public, anon, authenticated/.test(sql)) throw new Error("revoke");
-  if (/\b(body|text|phone|message)\s+text\b/i.test(sql)) throw new Error("content column");
+  const block = sql.match(/create table if not exists public\.gabriela_turn_timings \(([\s\S]*?)\n\);/)?.[1] || "";
+  const cols = block.split("\n").map((l) => l.match(/^\s{2}([a-z_]+)\s+(bigint|timestamptz|uuid|text|integer|smallint)\b/)?.[1])
+    .filter(Boolean).sort();
+  eq(cols, ["agent_id", "cache_read", "cache_write", "created_at", "id", "in_tokens", "kind", "llm_calls", "llm_ms",
+    "out_tokens", "outcome", "prep_ms", "send_ms", "tool_calls", "tool_ms", "tool_names", "total_ms", "transcribe_ms", "wait_ms"].sort(), "cols");
 });
 
 await test("agent.ts ו-index.ts מחוברים", () => {

@@ -24,7 +24,6 @@ create table if not exists public.gabriela_turn_timings (
   id            bigint generated always as identity primary key,
   created_at    timestamptz not null default now(),
   agent_id      uuid,
-  channel       text not null default 'whatsapp',
   kind          text not null,
   outcome       text not null,
   wait_ms       integer,
@@ -44,9 +43,7 @@ create table if not exists public.gabriela_turn_timings (
   constraint gabriela_turn_timings_kind_chk
     check (kind in ('text', 'voice', 'audio_file', 'image', 'document', 'button', 'other')),
   constraint gabriela_turn_timings_outcome_chk
-    check (outcome in ('ok', 'error', 'aborted')),
-  constraint gabriela_turn_timings_channel_chk
-    check (channel in ('whatsapp', 'email'))
+    check (outcome in ('ok', 'error', 'aborted'))
 );
 
 comment on table public.gabriela_turn_timings is

@@ -3017,6 +3017,7 @@ async function playTextTurn(opts: {
   const { agent, from, conv } = opts;
   let turnText = opts.text;
   let turnImage = opts.image;
+  const timing = newTurnTiming();
   const catalog = await attachCatalogImage(agent.id, from, conv, turnText);
   if (catalog.image) turnImage = catalog.image;
   turnText = withCatalogNote(turnText, catalog.note);
@@ -3032,7 +3033,6 @@ async function playTextTurn(opts: {
   const mediaTurn = hasMediaBlock(turnText);
   let answer: string;
   const outbox: OutboxItem[] = [];
-  const timing = newTurnTiming();
   const clock = takeTurnClock(agent.id, timing.startedAt);
   const logTiming = (outcome: "ok" | "error" | "aborted", sendMs?: number) =>
     recordTurnTiming(supabase, buildTimingRow({
@@ -3078,8 +3078,7 @@ async function playTextTurn(opts: {
   await saveConversation(agent.id, from, conv);
   const sendStartedAt = Date.now();
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
-  // רושמים אחרי השליחה של התשובה עצמה: total_ms הוא "מההודעה ועד שהתשובה יצאה"
-  await logTiming("ok", Date.now() - sendStartedAt);
+  const sendMs = Date.now() - sendStartedAt;
   // האלבום עם הכיתוב הוצג. מסמנים את כולן, לא רק את הכתובת שנשלחה למודל.
   if (turnImage) {
     const shown = await pendingImagesForAsk(agent.id);
@@ -3087,6 +3086,8 @@ async function playTextTurn(opts: {
   }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
   await maybeFairUseNotice(agent, from);
+  // אחרי הכול, כדי שהכתיבה לא תעכב את הכפתורים. total_ms: מההודעה ועד סוף התור
+  await logTiming("ok", sendMs);
   return "work";
 }
 
