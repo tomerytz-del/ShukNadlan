@@ -1,6 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { noteLlm, noteTool, type TurnTiming } from "./turn-timing.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import {
   abortedTurnNote,
@@ -11283,6 +11284,8 @@ export async function runAgentTurn(opts: {
   outbox?: OutboxItem[];
   /** החכירה נגמרה: עוצרים לפני שתור אחר תופס, כדי שלא ירוצו שניים יחד. */
   signal?: AbortSignal;
+  /** נצבר כאן זמן המודל והכלים (turn-timing.ts). הקורא רושם אותו, גם כשהתור נכשל. */
+  timing?: TurnTiming;
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
@@ -11355,6 +11358,7 @@ export async function runAgentTurn(opts: {
     // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
     // נכנס ל-SYSTEM_STATIC או ל-TOOLS.
     const u = response.usage as unknown as Record<string, number | undefined>;
+    if (opts.timing) noteLlm(opts.timing, Date.now() - llmStart, u);
     console.log(
       `llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
@@ -11421,6 +11425,7 @@ export async function runAgentTurn(opts: {
       // ‏`ms=` כאן וב-`llm` (24.10.2026): בשבוע שאחרי 17.10 טקסט של סוכן/ת
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
+      if (opts.timing && !blocked) noteTool(opts.timing, use.name, Date.now() - toolStart);
       console.log(`tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
       if (!blocked) collectToolAsks(toolAsks, result);
       results.push({

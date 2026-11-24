@@ -158,6 +158,9 @@ import {
   MAX_LINKS_PER_MESSAGE,
 } from "./catalog-link.ts";
 import { isMeetingOptOutText } from "./meeting-optout.ts";
+import {
+  buildTimingRow, kindOfMessage, newTurnTiming, recordTurnTiming, setTurnClock, takeTurnClock,
+} from "./turn-timing.ts";
 import { stopMeetingFollowups } from "./meeting-optout-run.ts";
 
 // ============================================================================
@@ -2383,6 +2386,7 @@ async function handleOpenDemandClaim(agentId: string, from: string, rawId: strin
 }
 
 async function handleMessage(msg: Record<string, any>): Promise<void> {
+  const arrivedAt = Date.now();
   const from: string = msg.from;
   if (!from || !msg.id) return;
 
@@ -2625,6 +2629,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // --- המרת ההודעה לקלט טקסטואלי/ויזואלי ל-LLM ---
   let userText = "";
   let newImageUrl: string | null = null;
+  // הורדה ותמלול של הקלטה, למדידת זמני התור (turn-timing.ts)
+  let transcribeMs: number | null = null;
+  let voiceKind = false;
 
   switch (msg.type) {
     case "text": {
@@ -2691,6 +2698,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       ));
 
       let file: { bytes: Uint8Array; mimeType: string };
+      const mediaStartedAt = Date.now();
       try {
         file = await downloadMedia(media.id);
       } catch (err) {
@@ -2718,6 +2726,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           supabase, openaiKey, agentId: agent.id, bytes: file.bytes, mime: file.mimeType,
           fileName, call: !voiceNote,
         });
+        transcribeMs = Date.now() - mediaStartedAt;
+        voiceKind = voiceNote;
       } else {
         result = await documentToText(file.bytes, file.mimeType, fileName);
       }
@@ -2946,6 +2956,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     });
   const kick = () => kickPendingDrain(agent.id, 8);
 
+  setTurnClock(agent.id, { arrivedAt, transcribeMs, kind: kindOfMessage(msg.type, voiceKind) });
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
   });
@@ -3021,8 +3032,15 @@ async function playTextTurn(opts: {
   const mediaTurn = hasMediaBlock(turnText);
   let answer: string;
   const outbox: OutboxItem[] = [];
+  const timing = newTurnTiming();
+  const clock = takeTurnClock(agent.id, timing.startedAt);
+  const logTiming = (outcome: "ok" | "error" | "aborted", sendMs?: number) =>
+    recordTurnTiming(supabase, buildTimingRow({
+      agentId: agent.id, outcome, timing, clock, turnStartedAt: timing.startedAt, sendMs,
+    }));
   try {
     answer = await runAgentTurn({
+      timing,
       supabase,
       agent,
       conv,
@@ -3034,6 +3052,7 @@ async function playTextTurn(opts: {
     });
   } catch (err) {
     if (opts.signal?.aborted || (err as { name?: string })?.name === "AbortError") {
+      await logTiming("aborted");
       if (abortedTurnPlan(conv.abortedToolNames || []) === "save") {
         await saveConversation(agent.id, from, conv);
         await reply(
@@ -3047,6 +3066,7 @@ async function playTextTurn(opts: {
       return "work";
     }
     console.error("agent turn failed", err);
+    await logTiming("error");
     if (opts.msgId) {
       await supabase.from("whatsapp_messages")
         .update({ error: String((err as Error)?.message || err) })
@@ -3056,7 +3076,10 @@ async function playTextTurn(opts: {
     return "work";
   }
   await saveConversation(agent.id, from, conv);
+  const sendStartedAt = Date.now();
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+  // רושמים אחרי השליחה של התשובה עצמה: total_ms הוא "מההודעה ועד שהתשובה יצאה"
+  await logTiming("ok", Date.now() - sendStartedAt);
   // האלבום עם הכיתוב הוצג. מסמנים את כולן, לא רק את הכתובת שנשלחה למודל.
   if (turnImage) {
     const shown = await pendingImagesForAsk(agent.id);
