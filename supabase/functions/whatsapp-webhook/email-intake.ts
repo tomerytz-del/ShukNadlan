@@ -783,10 +783,16 @@ async function handleOne(
   }
 
   await deps.saveConversation(agent.id, phone, conv);
+  // send_ms הוא השליחה בלבד (בלי finish), כמו בתור וואטסאפ. שליחה שנכשלה נרשמת "error" ועדיין זורקת כמו קודם.
   const deliverStartedAt = Date.now();
-  await deliver(deps, phone, agent, mail.subject, answer);
+  let delivered = false;
+  try {
+    await deliver(deps, phone, agent, mail.subject, answer);
+    delivered = true;
+  } finally {
+    await logTiming(delivered ? "ok" : "error", Date.now() - deliverStartedAt);
+  }
   await finish(sb, row, "done", answer);
-  await logTiming("ok", Date.now() - deliverStartedAt);
   };
 
   if (deps.holdTurn) {
