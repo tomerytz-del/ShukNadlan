@@ -10441,8 +10441,10 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
         return { ok: false, error: "lead_already_linked", guidance:
           "הפגישה כבר מקושרת לליד אחר, וההודעות כבר יצאו אליו/ה. לבטל אותה (agenda_update cancel) ולקבוע פגישה חדשה עם הליד הנכון." };
       }
-      const guard = linkGuard(leadRef.row.raw_name, recentAgentWords(ctx.conv.history, ctx.userText || ""),
-        input.client_confirmed);
+      // הליד שכבר מקושר לפגישה אינו נשאל שוב: הקישור נעשה (ואושר) כשנקבעה
+      const guard = current.lead_id === leadRef.row.id
+        ? null
+        : linkGuard(leadRef.row.raw_name, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
       if (guard) return guard;
       patch.lead_id = leadRef.row.id;
     }

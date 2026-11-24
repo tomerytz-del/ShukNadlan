@@ -40,6 +40,13 @@ test("מילה קצרה בתוך מילה אחרת אינה נחשבת (בר ב�
   eq(nameSupportedByWords("מיכל", ["אמיכל"]), false, "א אינה קידומת");
 });
 
+test("חלקי השם חייבים להיות באותה הודעה", () => {
+  eq(nameSupportedByWords("משה כהן", ["פגישה עם משה", "ציפורה כהן התקשרה"]), false);
+  eq(nameSupportedByWords("משה כהן", ["פגישה עם משה", "משה כהן מחר"]), true);
+  eq(nameSupportedByWords("דני", ["פגישה עם דניאל"]), false);
+  eq(nameSupportedByWords("רון", ["פגישה עם אהרון"]), false);
+});
+
 test("מה שלא נכתב בידי הסוכן/ת אינו נחשב: תמלול, מסמך והודעה מועברת", () => {
   const transcript = "[הקלטת שיחה - תמלול: a.m4a]\nשלום, אני אברהים זועבי\n[סוף הקובץ]\n\nקבע פגישה עם אברהים";
   eq(nameSupportedByWords("אברהים זועבי", recentAgentWords([], transcript)), false);

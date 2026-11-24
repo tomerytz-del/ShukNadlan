@@ -37,13 +37,16 @@ function wordMatches(word: string, token: string): boolean {
 }
 
 /**
- * האם כל מילות השם (שתי אותיות ומעלה) נאמרו בדברי הסוכן/ת, כמילים שלמות. שם בלי מילים שאפשר לבדוק אינו נחשב נתמך.
+ * האם כל מילות השם (שתי אותיות ומעלה) נאמרו בדברי הסוכן/ת, כמילים שלמות ובאותה הודעה. שם בלי מילים שאפשר לבדוק אינו נחשב נתמך.
  */
 export function nameSupportedByWords(fullName: unknown, texts: readonly string[]): boolean {
   const tokens = normalizeName(fullName).split(" ").filter((t) => Array.from(t).length >= 2);
   if (!tokens.length) return false;
-  const words = normalizeName(texts.join(" ")).split(" ").filter(Boolean);
-  return tokens.every((t) => words.some((w) => wordMatches(w, t)));
+  // כל חלקי השם באותה הודעה: "משה" על אחד ו"כהן" על אחר, בשתי הודעות, אינם "משה כהן"
+  return texts.some((text) => {
+    const words = normalizeName(text).split(" ").filter(Boolean);
+    return tokens.every((t) => words.some((w) => wordMatches(w, t)));
+  });
 }
 
 // מה שלא נכתב בידי הסוכן/ת: תמלול הקלטה או מסמך שהועברו אליי (media-intake.ts), והודעה מועברת.
