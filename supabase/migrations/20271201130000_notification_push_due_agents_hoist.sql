@@ -73,7 +73,7 @@ as $$
            public.notification_push_priority_types()                  as priority,
            public.whatsapp_template_cap_on()                          as cap_on,
            public.notification_known_types()                          as known,
-           -- 20271201120000: שני ערכים שאינם תלויים בסוכן/ת, פעם אחת במקום
+           -- 20271201130000: שני ערכים שאינם תלויים בסוכן/ת, פעם אחת במקום
            -- פעם לכל סוכן/ת ולכל סוג התראה.
            public.notification_push_less_kept_types()                 as less_kept,
            public.whatsapp_template_cap_digest_open_at(pg_catalog.now()) as tpl_open
@@ -243,7 +243,7 @@ as $$
 $$;
 
 comment on function public.notification_push_due_agents() is
-  'גוף 20271130100000. 20271201120000: less_kept ובדיקת שעון התקציר מחושבים פעם אחת ב-cfg0 במקום לכל סוכן/ת ולכל סוג. התוצאה זהה.';
+  'גוף 20271130100000. 20271201130000: less_kept ובדיקת שעון התקציר מחושבים פעם אחת ב-cfg0 במקום לכל סוכן/ת ולכל סוג. התוצאה זהה.';
 
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;
