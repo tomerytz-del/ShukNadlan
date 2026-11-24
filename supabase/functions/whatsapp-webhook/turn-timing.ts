@@ -3,7 +3,7 @@
 // בקובץ נפרד מ-agent.ts ומ-index.ts כדי שהבדיקה תרוץ בלי לטעון אותם.
 // אין כאן תוכן הודעה, טלפון או טקסט: מספרים ושמות כלים בלבד.
 
-export type TurnKind = "text" | "voice" | "audio_file" | "image" | "document" | "button" | "other";
+export type TurnKind = "text" | "voice" | "audio_file" | "image" | "document" | "button" | "email" | "other";
 export type TurnOutcome = "ok" | "error" | "aborted";
 
 /** נצבר בתוך runAgentTurn (המודל והכלים). */
