@@ -2,6 +2,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { noteLlm, noteTool, type TurnTiming } from "./turn-timing.ts";
+import { linkGuard, recentAgentWords } from "./link-guard.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import {
   abortedTurnNote,
@@ -1970,6 +1971,11 @@ const TOOLS: Anthropic.Tool[] = [
           description: "מתי להזכיר, בדקות לפני. \"תזכיר לי חצי שעה לפני\" = [30]. בלי השדה - ברירת המחדל לפי הסוג " +
             "(פגישה: שעה לפני, משימה: בזמן). [] = בלי תזכורת.",
         },
+        client_confirmed: {
+          type: "boolean",
+          description: "רק אחרי שהחזרת needs_link_confirmation ושאלת את הסוכן/ת \"לקשר לכרטיס של X?\" והוא/היא ענה/תה כן במפורש. " +
+            "לעולם לא בקריאה הראשונה, ולא מניחים אישור.",
+        },
         notify_client: {
           type: "boolean",
           description: "פגישה/סיור/חתימה עם client_id או lead_id: לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, " +
@@ -2036,6 +2042,10 @@ const TOOLS: Anthropic.Tool[] = [
         kind: { type: "string", enum: AGENDA_KINDS },
         high_priority: { type: "boolean" },
         remind_minutes_before: { type: "array", items: { type: "integer" } },
+        client_confirmed: {
+          type: "boolean",
+          description: "עם lead_id: רק אחרי needs_link_confirmation ושאישור מפורש של הסוכן/ת לקשר לכרטיס. לא מניחים אישור.",
+        },
         notify_client: {
           type: "boolean",
           description: "עם edit: להפסיק (false) או להתחיל (true) לשלוח ללקוח/ה אישור ותזכורת על הפגישה.",
@@ -2196,6 +2206,8 @@ interface ToolContext {
   conv: ConversationState;
   /** הודעות כפתורים שיוצאות אחרי התשובה (‏index.ts). חסר בתור שאינו מוואטסאפ. */
   outbox?: OutboxItem[];
+  /** מה שהסוכן/ת כתב/ה בתור הזה (link-guard.ts): קישור פגישה לכרטיס נבדק מולו. */
+  userText?: string;
   /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
   listingCitySlot?: ListingCitySlot;
   /** הוויתור והחלון של client_matches בתור הזה, כדי ש-property_refs יראה את מה שהוצג. */
@@ -10054,6 +10066,17 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
   // עם לקוח/ה מהקובץ או ליד, ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
   // הסוכן/ת ביקש/ה שלא. בלי טלפון אין למי לשלוח, והמודל אומר את זה.
+  // קישור לכרטיס או לליד רק לפי שם שהסוכן/ת אמר/ה (link-guard.ts), לפני כל כתיבה ולפני כל הודעה
+  const linkedName = row.client_id
+    ? (await ctx.supabase.from("agent_clients").select("full_name")
+      .eq("id", row.client_id).eq("agent_id", ctx.agent.id).maybeSingle()).data?.full_name
+    : row.lead_id ? leadRef?.row?.raw_name : null;
+  // רק פגישה, סיור וחתימה עם מועד: אלה היחידות שיוצא מהן אישור ללקוח/ה (clientFollowupPlan). משימה ותזכורת
+  // שמקושרות לכרטיס לא שולחות כלום, ולכן אין סיבה לשאול.
+  if ((row.client_id || row.lead_id) && due && ["meeting", "showing", "signing"].includes(kind)) {
+    const guard = linkGuard(linkedName, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
+    if (guard) return guard;
+  }
   const followup = await clientFollowupPlan(ctx, kind, row.client_id as string | null, leadRef, due ?? null,
     input.notify_client, input.lead_phone);
   if (followup.notify) row.client_notify = true;
@@ -10418,6 +10441,11 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
         return { ok: false, error: "lead_already_linked", guidance:
           "הפגישה כבר מקושרת לליד אחר, וההודעות כבר יצאו אליו/ה. לבטל אותה (agenda_update cancel) ולקבוע פגישה חדשה עם הליד הנכון." };
       }
+      // הליד שכבר מקושר לפגישה אינו נשאל שוב: הקישור נעשה (ואושר) כשנקבעה
+      const guard = current.lead_id === leadRef.row.id
+        ? null
+        : linkGuard(leadRef.row.raw_name, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
+      if (guard) return guard;
       patch.lead_id = leadRef.row.id;
     }
     if (typeof input.notify_client === "boolean") {
@@ -10915,7 +10943,7 @@ const SYSTEM_STATIC: string = (() => {
       "חוץ מבעל/ת נכס (needs.client_kind owner), שלו/ה אין התאמות: הצע/י להוסיף את הנכס.",
     "- אם processing הוא true - השיחה עוד מעובדת. אמור/אמרי שהסיכום יגיע בעוד רגע.",
     "- משימות מהשיחה - הסוכן/ת לוחץ/ת על כפתור או כותב/ת. עזור/עזרי לבצע, אל תסתפק/י בהסבר:",
-    "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה. מועד שנאמר " +
+    "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה, **רק** כשהסוכן/ת אמר/ה את השם המלא שבכרטיס. שם פרטי שדומה לכרטיס אינו מספיק: הקריאה תחזור needs_link_confirmation, ואז שואלים \"לקשר לכרטיס של X?\" ולא קובעים עד תשובה. מועד שנאמר " +
       "בשיחה - קבע/י בו. בלי מועד - agenda_free_slots והצע/י שתי-שלוש שעות פנויות, וקבע/י אחרי בחירה.",
     "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase - הסוכן/ת " +
       "שולח/ת בכפתור שיוצא אחרי התשובה. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
@@ -11316,7 +11344,7 @@ export async function runAgentTurn(opts: {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
-  const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
+  const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox, userText: userSummary };
   const demandOn = await cadenceButtonOn(supabase);
   const tools = agentTools(demandOn, allowedTools);
   const gaps = profileGaps(await loadProfileForTurn(ctx));
