@@ -144,7 +144,7 @@ import { canonicalPositions, parsePhotoMoveButton, photoMoveButtons, urlsAt } fr
 import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
-import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import { clientMatchesQuery, differentKnownPhones, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import {
   sameTimeConflictLine,
   collectToolAsks,
@@ -6367,7 +6367,7 @@ async function findClientDuplicates(
       phone: row.phone ? String(row.phone) : null,
       status: String(row.status || ""),
       kind: row.kind === "confirm" ? "confirm" : "duplicate",
-    }));
+    })).filter((h) => !(h.kind === "confirm" && differentKnownPhones(phone, h.phone)));
   }
   const missing = /agent_client_duplicate|PGRST202|schema cache/i.test(String(error.message || ""));
   if (!missing) {
@@ -6389,7 +6389,7 @@ async function findClientDuplicates(
     }
     for (const c of rows || []) {
       const same = namesLikelySame(c.full_name, fullName) || phonesMatch(phone, c.phone);
-      const confirm = !same && namesNeedConfirm(c.full_name, fullName);
+      const confirm = !same && namesNeedConfirm(c.full_name, fullName) && !differentKnownPhones(phone, c.phone);
       if (!same && !confirm) continue;
       hits.push({
         id: String(c.id),
