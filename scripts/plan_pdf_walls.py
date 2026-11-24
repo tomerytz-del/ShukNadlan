@@ -90,33 +90,57 @@ for col,paths in fills.items():
     score=area*frac*frac
     print('fill',col,'shapes',len(paths),'area%',round(100*area/m.size,2),'in long runs',round(frac,2),'score',round(score))
     if best is None or score>best[0]: best=(score,col,m)
-if best is None: sys.exit('no filled wall colour found - walls may be drawn as outlines')
+# --- מוסכמה שלישית: קיר בלי מילוי, שני קווים וביניהם קווקוו אלכסוני צפוף (ברירת המחדל של AutoCAD לבטון).
+# אוספים את הקווים האלכסוניים הקצרים, סוגרים את הרווח ביניהם, ומה שנשאר כפס הוא קיר.
+# קווקוו דליל (ריצוף, לובי) לא נסגר ונעלם בפתיחה
+from scipy import ndimage as ndi
+def stroke_polys():
+    for attrs in re.findall(r'<path ([^>]*)/>',s):
+        if 'stroke="rgb' not in attrs: continue
+        d=re.search(r' d="([^"]*)"',attrs); t=re.search(r'transform="matrix\(([^)]*)\)"',attrs)
+        if not d: continue
+        a,b,c,dd,e,f=[float(v) for v in t.group(1).split(',')] if t else (1,0,0,1,0,0)
+        pts=[]
+        for cmd,args in re.findall(r'([MLHVCZ])([^MLHVCZ]*)',d.group(1)):
+            v=[float(u) for u in args.split()]
+            if cmd=='M': pts.append([(v[0],v[1])])
+            elif cmd=='L' and pts:
+                for i in range(0,len(v),2): pts[-1].append((v[i],v[i+1]))
+            elif cmd=='C' and pts: pts.append([(v[-2],v[-1])])     # עקומה שוברת את הרצף: קשת של דלת אינה קיר
+            elif cmd=='Z' and pts and len(pts[-1])>1: pts[-1].append(pts[-1][0])
+        for q in pts:
+            yield 'dasharray' in attrs,[(a*x+c*y+e,b*x+dd*y+f) for x,y in q]
+hm=Image.new('1',(round(PW*S),round(PH*S)),0); hd=ImageDraw.Draw(hm); nh=0
+for dash,q in stroke_polys():
+    for (x0,y0),(x1,y1) in zip(q,q[1:]):
+        dx,dy=abs(x1-x0),abs(y1-y0)
+        if 1.5<max(dx,dy)<60 and min(dx,dy)>0.75*max(dx,dy): hd.line([x0*S,y0*S,x1*S,y1*S],fill=1,width=2); nh+=1
+if nh>200:
+    # סגירה ופתיחה דרך טרנספורמת מרחק (מהיר, ועגול). הרדיוס: יותר מחצי המרווח בין קווי הקווקוו (כ-6.5 נק'),
+    # פחות מחצי המרווח בקווקוו דליל של ריצוף או לובי (כ-14 נק')
+    r=4.2*S; hm_=np.array(hm)
+    m=ndi.distance_transform_edt(~hm_)<=r; m=ndi.distance_transform_edt(m)>r
+    m=ndi.distance_transform_edt(m)>1.5*S; m=ndi.distance_transform_edt(~m)<=1.5*S; area=int(m.sum())
+    if area>0.0015*m.size:
+        # גוש מקווקו רחב (גרעין, לובי) אינו קיר: מורידים מה שעבה פי 2.5 מהעובי השכיח
+        dt_=ndi.distance_transform_edt(m); th=float(np.percentile(dt_[m],50))*4
+        fat=ndi.binary_dilation(dt_>th*1.25,iterations=int(th*1.3)); m=m&~fat; area=int(m.sum())
+        rows,inband=runs_len(m,round(60*S),0); frac=min(1,inband/(2*area)) if area else 0; score=area*frac*frac
+        print('hatch: diagonal strokes',nh,'area%',round(100*area/m.size,2),'in long runs',round(frac,2),'score',round(score))
+        if best is None or score>best[0]: best=(score,'hatch',m)
+if best is None: sys.exit('no wall found: neither a filled colour nor dense hatching')
 _,wallcol,mask=best
 print('page',page,'of',npages,'wall fill',wallcol)
 
 # --- מחיצות ששורטטו כזוג קווים מקבילים בלי מילוי (חוברות שיווקיות): ממלאים בין השניים.
 # מחיצה היא 0.35 עד 1.1 מעובי הקיר הממולא; רהיט רחב מזה, וקו כפול של חלון צר מזה
-from scipy import ndimage as ndi
 dt=ndi.distance_transform_edt(mask); EXT=float(np.percentile(dt[mask],90))/0.45/S     # עובי קיר ממולא, בנקודות
 segs={'h':[],'v':[]}
-for attrs in re.findall(r'<path ([^>]*)/>',s):
-    if 'stroke="rgb' not in attrs or 'stroke-dasharray' in attrs: continue
-    d=re.search(r' d="([^"]*)"',attrs); t=re.search(r'transform="matrix\(([^)]*)\)"',attrs)
-    if not d: continue
-    a,b,c,dd,e,f=[float(v) for v in t.group(1).split(',')] if t else (1,0,0,1,0,0)
-    pts=[]
-    for cmd,args in re.findall(r'([MLHVCZ])([^MLHVCZ]*)',d.group(1)):
-        v=[float(u) for u in args.split()]
-        if cmd=='M': pts.append([(v[0],v[1])])
-        elif cmd=='L' and pts:
-            for i in range(0,len(v),2): pts[-1].append((v[i],v[i+1]))
-        elif cmd=='C' and pts: pts.append([(v[-2],v[-1])])     # עקומה שוברת את הרצף: קשת של דלת אינה קיר
-        elif cmd=='Z' and pts and len(pts[-1])>1: pts[-1].append(pts[-1][0])
-    for q in pts:
-        q=[(a*x+c*y+e,b*x+dd*y+f) for x,y in q]
-        for (x0,y0),(x1,y1) in zip(q,q[1:]):
-            if abs(y0-y1)<0.3 and abs(x0-x1)>=10: segs['h'].append(((y0+y1)/2,min(x0,x1),max(x0,x1)))
-            elif abs(x0-x1)<0.3 and abs(y0-y1)>=10: segs['v'].append(((x0+x1)/2,min(y0,y1),max(y0,y1)))
+for dash,q in stroke_polys():
+    if dash: continue
+    for (x0,y0),(x1,y1) in zip(q,q[1:]):
+        if abs(y0-y1)<0.3 and abs(x0-x1)>=10: segs['h'].append(((y0+y1)/2,min(x0,x1),max(x0,x1)))
+        elif abs(x0-x1)<0.3 and abs(y0-y1)>=10: segs['v'].append(((x0+x1)/2,min(y0,y1),max(y0,y1)))
 pairs=[]
 for k in 'hv':
     L=sorted(set((round(l,1),round(a_,1),round(b_,1)) for l,a_,b_ in segs[k]))
@@ -179,9 +203,16 @@ def measure(mask):
 # ונשארים עם זו שיותר מידות כתובות מסכימות איתה
 A=measure(filled); B=measure(with_pairs)
 use_pairs=int(B[1].sum())>int(A[1].sum())
+weak=max(int(A[1].sum()),int(B[1].sum()))<3
+# פחות משלוש מידות מסכימות אינן ראיה לכלום (ב-AutoCAD הטקסט מצויר כקווים ולא נקרא). בקיר מקווקו המחיצות
+# הפנימיות תמיד בקו כפול, ולכן שם לוקחים את הזוגות; בקיר ממולא נשארים עם המילוי
+if weak: use_pairs=(wallcol=='hatch')
 dims,ok,scale,err,declared=B if use_pairs else A; mask=with_pairs if use_pairs else filled
 print('agreeing dimensions: filled only',int(A[1].sum()),'with line pairs',int(B[1].sum()),'-> using','line pairs' if use_pairs else 'filled only')
-if scale is None: sys.exit('no dimension could be matched to a wall span')
+if weak or scale is None:
+    # אין מספיק מידות קריאות: נשארים עם קנה המידה שכתוב בגיליון, ולא גוזרים קנה מידה ממידה בודדת
+    if not declared: sys.exit('fewer than 3 dimensions match the walls, and no scale is written')
+    scale=declared; err=[0]; ok=np.zeros(len(dims),bool); print('too few readable dimensions - using the written scale')
 print('dimensions read',len(dims),'agree',int(ok.sum()),'scale cm/pt',round(scale,4),'declared',round(declared,4) if declared else None)
 print('error vs written dimensions, cm: median',round(float(np.median(err)),1),'max',round(max(err),1))
 for d,k in zip(dims,ok): print('  ',d['cm'],'->',round(d['pt']*scale,1),'' if k else '(no match)')
