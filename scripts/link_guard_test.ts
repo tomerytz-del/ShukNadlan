@@ -38,6 +38,7 @@ test("מילה קצרה בתוך מילה אחרת אינה נחשבת (בר ב�
   eq(nameSupportedByWords("מיכל", ["שלחי למיכל"]), true, "קידומת ל");
   eq(nameSupportedByWords("מיכל", ["ולמיכל גם"]), true, "שתי קידומות");
   eq(nameSupportedByWords("מיכל", ["אמיכל"]), false, "א אינה קידומת");
+  eq(nameSupportedByWords("מיכל", ["ושלמיכל"]), false, "שלוש אותיות אינן קידומת");
 });
 
 test("חלקי השם חייבים להיות באותה הודעה", () => {
