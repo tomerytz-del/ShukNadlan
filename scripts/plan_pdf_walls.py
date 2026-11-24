@@ -185,8 +185,68 @@ if scale is None: sys.exit('no dimension could be matched to a wall span')
 print('dimensions read',len(dims),'agree',int(ok.sum()),'scale cm/pt',round(scale,4),'declared',round(declared,4) if declared else None)
 print('error vs written dimensions, cm: median',round(float(np.median(err)),1),'max',round(max(err),1))
 for d,k in zip(dims,ok): print('  ',d['cm'],'->',round(d['pt']*scale,1),'' if k else '(no match)')
+# --- חדרים: סוגרים פתחים, ממלאים, וכל חלל סגור הוא חדר. פתח הוא רווח בין שני קצוות קיר לאורך אותו קו,
+# ולכן הוא "פס" בעובי של קיר. רווח באותו רוחב בין שני קירות מקבילים (מסדרון) נמשך לכל אורך החדר, וכך מבדילים
+def bridges(m,maxgap,maxth):
+    """רווח בין שני רצפי קיר באותה שורה. עוקבים אחרי כל רווח לפי שני הקצוות שלו: פתח נמשך כעובי הקיר,
+    וחדר צר (אותו רוחב, קצוות אחרים) נמשך לכל גובהו ונזרק"""
+    out=np.zeros_like(m); act={}      # (e,nx) -> שורת התחלה
+    def flush(k,y0,y1):
+        if y1-y0<=maxth: out[y0:y1,k[0]:k[1]]=True
+    for y in range(m.shape[0]+1):
+        cur=[]
+        if y<m.shape[0] and m[y].any():
+            d=np.diff(np.concatenate(([0],m[y].astype(np.int8),[0])))
+            st=np.where(d==1)[0]; en=np.where(d==-1)[0]
+            cur=[(int(e),int(nx)) for e,nx in zip(en[:-1],st[1:]) if nx-e<=maxgap]
+        nxt={}
+        for g in cur:
+            k=next((k for k in act if abs(k[0]-g[0])<=2 and abs(k[1]-g[1])<=2),None)
+            if k is not None: nxt[k]=act.pop(k)
+            else: nxt[g]=y
+        for k,y0 in act.items(): flush(k,y0,y)
+        act=nxt
+    return out
+MAXGAP=round(260/scale*S); MAXTH=round(EXT*1.6*S)
+closed=mask|bridges(mask,MAXGAP,MAXTH)|bridges(mask.T,MAXGAP,MAXTH).T
+free=~closed
+R=round(120/scale*S)      # החוץ: מה שעיגול ברדיוס 1.2 מ' מגיע אליו משולי העמוד
+core=ndi.distance_transform_edt(free)>R; cl,_=ndi.label(core)
+eb=set(np.unique(np.concatenate([cl[0],cl[-1],cl[:,0],cl[:,-1]])).tolist())-{0}
+outside=ndi.distance_transform_edt(~np.isin(cl,list(eb)))<=R+2
+lab,n=ndi.label(free&~outside)
+px2m=(scale/S/100)**2
+# שמות: מילים בעברית באותה שורה שסמוכות זו לזו הן תווית אחת
+heb=sorted([w for w in ws if re.search('[א-ת]',w[4])],key=lambda w:(round(w[1]/4),w[0]))
+groups=[]
+for w in heb:
+    g=groups[-1] if groups else None
+    if g and abs(g['y']-(w[1]+w[3])/2)<4 and w[0]-g['x1']<12: g['t'].append(w[4]); g['x1']=w[2]
+    else: groups.append({'t':[w[4]],'x0':w[0],'x1':w[2],'y':(w[1]+w[3])/2})
+rooms={}
+for g in groups:
+    cx,cy=int((g['x0']+g['x1'])/2*S),int(g['y']*S)
+    i=int(lab[cy,cx]) if 0<=cy<lab.shape[0] and 0<=cx<lab.shape[1] else 0
+    if i: rooms.setdefault(i,[]).append(' '.join(t[::-1] if re.search('[א-ת]',t) else t for t in reversed(g['t'])))
+sizes=ndi.sum(np.ones_like(lab),lab,range(1,n+1))
+out_rooms=[]; objs=ndi.find_objects(lab)
+for i in range(1,n+1):
+    m2=float(sizes[i-1])*px2m
+    if m2<0.8: continue
+    sl=objs[i-1]
+    out_rooms.append({'id':i,'names':rooms.get(i,[]),'m2':round(m2,2),'bbox_pt':[round(sl[1].start/S,1),round(sl[0].start/S,1),round(sl[1].stop/S,1),round(sl[0].stop/S,1)]})
+out_rooms.sort(key=lambda r:-r['m2'])
+alltext=' '.join(w[4] for w in ws)
+decl=[float(v) for v in re.findall(r'(\d{2,3}\.\d{1,2})',alltext)]
+named=sum(r['m2'] for r in out_rooms if r['names'])
+print('rooms',len(out_rooms),'named',sum(1 for r in out_rooms if r['names']),'| net floor of named rooms m2',round(named,1),'| all closed spaces',round(sum(r['m2'] for r in out_rooms),1),'| areas written in the plan',decl)
+for r in out_rooms: print('  ',r['m2'],'m2',' / '.join(r['names']) or '(no name)')
+rng=np.random.RandomState(5); rgb2=np.full(mask.shape+(3,),255,np.uint8)
+for r in out_rooms: rgb2[lab==r['id']]=rng.randint(120,240,3) if r['names'] else (225,225,225)
+rgb2[closed&~mask]=(230,60,60); rgb2[mask]=(0,0,0)
+Image.fromarray(rgb2).resize((mask.shape[1]//3,mask.shape[0]//3)).save(OUT+'.pdf.rooms.png')
 labels=[(t,round((x0+x1)/2),round((y0+y1)/2)) for x0,y0,x1,y1,t in ws if re.search('[א-ת]',t)]
-json.dump({'page':page,'wall_fill':wallcol,'scale_cm_per_pt':scale,'declared_cm_per_pt':declared,'dims':dims,'labels':labels},open(OUT+'.pdf.json','w'),ensure_ascii=False)
+json.dump({'rooms':out_rooms,'page':page,'wall_fill':wallcol,'scale_cm_per_pt':scale,'declared_cm_per_pt':declared,'dims':dims,'labels':labels},open(OUT+'.pdf.json','w'),ensure_ascii=False)
 rgb=np.full(mask.shape+(3,),255,np.uint8); rgb[mask]=(40,90,220); rgb[filled]=(0,0,0)
 v=Image.fromarray(rgb); dr=ImageDraw.Draw(v)
 for d,k in zip(dims,ok):
