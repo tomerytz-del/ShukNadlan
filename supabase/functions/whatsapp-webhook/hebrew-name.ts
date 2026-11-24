@@ -31,6 +31,14 @@ export function differentKnownPhones(a: unknown, b: unknown): boolean {
   return ka !== "" && kb !== "" && ka !== kb;
 }
 
+/** מסיר מהתוצאות שאלות "אותו אדם?" (kind confirm) שבהן שני הכרטיסים נושאים טלפון שונה. כפילות ממש נשארת. */
+export function dropConfirmWithDifferentPhone<T extends { kind: string; phone: string | null }>(
+  hits: readonly T[],
+  inputPhone: unknown,
+): T[] {
+  return hits.filter((h) => !(h.kind === "confirm" && differentKnownPhones(inputPhone, h.phone)));
+}
+
 /**
  * י' באמצע המילה יורדת ("דויד"/"דוד"). י' בראש המילה ו-י' בסופה נשארות:
  * מחיקה של כולן הפכה את "ישי לוי" ל"לו" ואת "רוני" ל"רון".
