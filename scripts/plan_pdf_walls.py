@@ -26,6 +26,17 @@ ws=words(page)
 svg=tempfile.mktemp(suffix='.svg'); subprocess.run(['pdftocairo','-svg','-f',str(page),'-l',str(page),pdf,svg],check=True)
 s=open(svg).read(); os.remove(svg)
 PW,PH=[float(v) for v in re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"',s).groups()]
+# גיליון שיש בו יותר מדירה אחת (קומה שלמה, דופלקס, גיליון היתר): מסמנים את התוכנית במלבן, בנקודות PDF
+CROP=[float(v) for v in os.environ['PLAN_CROP'].split(',')] if os.environ.get('PLAN_CROP') else [0,0,PW,PH]
+OX,OY=CROP[0],CROP[1]; PW,PH=CROP[2]-CROP[0],CROP[3]-CROP[1]
+ws=[(a-OX,b-OY,c-OX,d-OY,t) for a,b,c,d,t in ws if a>=CROP[0] and c<=CROP[2] and b>=CROP[1] and d<=CROP[3]]
+# כש-CropBox שונה מ-MediaBox, pdftotext מודד מפינת ה-CropBox ו-pdftocairo -svg מוזז ממנה בהפרש שבין השניים.
+# בלי התיקון הזה החיתוך נופל 142 נקודות הצידה בגיליון היתר, והקירות והמידות לא נפגשים
+_bx=subprocess.run(['pdfinfo','-box','-f',str(page),'-l',str(page),pdf],capture_output=True,text=True).stdout
+_mb=re.search(r'MediaBox:\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)',_bx); _cb=re.search(r'CropBox:\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)',_bx)
+VX=OX-((float(_cb.group(1))-float(_mb.group(1))) if _mb and _cb else 0)
+VY=OY-((float(_mb.group(4))-float(_cb.group(4))) if _mb and _cb else 0)
+def inside(q): return any(0<=x<=PW and 0<=y<=PH for x,y in q)
 
 def subpaths(d):
     """M/L/H/V/C/Z מוחלטים, כמו ש-cairo כותב. עקומה מיוצגת בנקודת הסיום שלה: קיר הוא קו ישר"""
@@ -44,7 +55,8 @@ def subpaths(d):
         elif cmd=='C':
             for i in range(0,len(v),6): x,y=v[i+4],v[i+5]; cur.append((x,y))
     if len(cur)>2: out.append(cur)
-    return out
+    out=[[(px-VX,py-VY) for px,py in q] for q in out]
+    return [q for q in out if inside(q)]
 
 fills=collections.defaultdict(list)
 for attrs in re.findall(r'<path ([^>]*)/>',s):
@@ -78,7 +90,7 @@ def runs_len(m,minlen,maxth):
         ln=xe-xs; ok=ln>=minlen
         tot+=int(ok.sum()); inband+=int(ln[ok].sum())
     return tot,inband
-best=None
+best=None; cands=[]
 for col,paths in fills.items():
     if len(paths)<4: continue
     m=raster(paths); area=int(m.sum())
@@ -89,6 +101,7 @@ for col,paths in fills.items():
     thick=inband/max(1,rows)/1   # אורך ממוצע של רצף
     score=area*frac*frac
     print('fill',col,'shapes',len(paths),'area%',round(100*area/m.size,2),'in long runs',round(frac,2),'score',round(score))
+    cands.append((score,col,m))
     if best is None or score>best[0]: best=(score,col,m)
 # --- מוסכמה שלישית: קיר בלי מילוי, שני קווים וביניהם קווקוו אלכסוני צפוף (ברירת המחדל של AutoCAD לבטון).
 # אוספים את הקווים האלכסוניים הקצרים, סוגרים את הרווח ביניהם, ומה שנשאר כפס הוא קיר.
@@ -109,7 +122,8 @@ def stroke_polys():
             elif cmd=='C' and pts: pts.append([(v[-2],v[-1])])     # עקומה שוברת את הרצף: קשת של דלת אינה קיר
             elif cmd=='Z' and pts and len(pts[-1])>1: pts[-1].append(pts[-1][0])
         for q in pts:
-            yield 'dasharray' in attrs,[(a*x+c*y+e,b*x+dd*y+f) for x,y in q]
+            q=[(a*x+c*y+e-VX,b*x+dd*y+f-VY) for x,y in q]
+            if inside(q): yield 'dasharray' in attrs,q
 hm=Image.new('1',(round(PW*S),round(PH*S)),0); hd=ImageDraw.Draw(hm); nh=0
 for dash,q in stroke_polys():
     for (x0,y0),(x1,y1) in zip(q,q[1:]):
@@ -130,6 +144,10 @@ if nh>200:
         if best is None or score>best[0]: best=(score,'hatch',m)
 if best is None: sys.exit('no wall found: neither a filled colour nor dense hatching')
 _,wallcol,mask=best
+if wallcol!='hatch':
+    # צבע מילוי נוסף שגם הוא יוצר פסים (שליש מהציון של הטוב ביותר) הוא גם קיר: קיים ומוצע בתוכנית היתר
+    for sc,col,m in cands:
+        if col!=wallcol and sc>=best[0]/3: mask=mask|m; print('also wall fill',col)
 print('page',page,'of',npages,'wall fill',wallcol)
 
 # --- מחיצות ששורטטו כזוג קווים מקבילים בלי מילוי (חוברות שיווקיות): ממלאים בין השניים.
@@ -183,6 +201,7 @@ def measure(mask):
       mt=NUM.match(t)
       if not mt: continue
       cm=int(mt.group(1)); cx,cy=(x0+x1)/2,(y0+y1)/2
+      if cm<60: continue      # 10, 20: עובי קיר. יש מהן עשרות בתוכנית היתר, והן מושכות את הקונצנזוס למדידה חסרת משמעות
       # כיוון המידה לא נקבע מצורת התיבה של הטקסט (לא אמין בטקסט מסובב): מודדים בשני הכיוונים, והקונצנזוס בוחר
       c=[(k,span(cx,cy,k=='h')) for k in 'hv']
       c=[(k,v) for k,v in c if v]
