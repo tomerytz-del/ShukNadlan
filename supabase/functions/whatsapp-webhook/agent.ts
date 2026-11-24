@@ -5650,6 +5650,15 @@ const CMA_OWNERSHIP_GUIDANCE =
   "גם כשהם כמעט זהים (ואז אמור/אמרי שאין כאן פער משמעותי). אם הם חסרים - אין די עסקאות בשתי " +
   "הקבוצות, ואסור לטעון שיש או שאין פער. **לעולם אל תתקן/י את הערכת השווי בעצמך לפי סוג הבעלות.**";
 
+/** "בשנה האחרונה" / "בשנתיים האחרונות" / "ב-6 החודשים האחרונים": החלון שנשאל, במילים. */
+function lastPeriodPhrase(months: number): string {
+  if (months === 1) return "בחודש האחרון";
+  if (months === 12) return "בשנה האחרונה";
+  if (months === 24) return "בשנתיים האחרונות";
+  if (months > 24 && months % 12 === 0) return "ב-" + (months / 12) + " השנים האחרונות";
+  return "ב-" + months + " החודשים האחרונים";
+}
+
 /**
  * מידע תכנוני ובנייה.
  *
@@ -5742,10 +5751,13 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   // ששתי עסקאות שלו מלפני 14 חודשים.
   const outside = coverage?.street_outside_window as Record<string, unknown> | undefined;
   const outsideN = Number(outside?.deals) || 0;
+  // הניסוח נגזר מהחלון שנשאל (months), לא קבוע: בחלון של 6 או 24 חודשים
+  // "בשנה האחרונה" היה שגוי.
+  const period = lastPeriodPhrase(Number(res.months) || 24);
   const guidance = deals.length === 0 && outsideN > 0
-    ? "בחלון שביקשו (מ-oldest_considered) אין עסקה, **אבל לרחוב יש " + outsideN + " עסקאות במאגר לפניו**: " +
+    ? "בחלון שביקשו (" + period + ", מ-" + String(res.oldest_considered || "") + ") אין עסקה, **אבל לרחוב יש " + outsideN + " עסקאות במאגר לפניו**: " +
       "street_outside_window מראה כמה, ומתי (first_sold_at עד last_sold_at). " +
-      "אמור/י זאת במפורש במקום \"לא מצאתי\": \"בשנה האחרונה אין, אבל יש " + outsideN + " עסקאות ברחוב מתקופה קודמת\", " +
+      "אמור/י זאת במפורש במקום \"לא מצאתי\": \"" + period + " אין, אבל יש " + outsideN + " עסקאות ברחוב מתקופה קודמת\", " +
       "והצע/י להרחיב את התקופה (months) או חיפוש ברדיוס סביב מספר בית. " +
       (outside?.exact_name === false
         ? "שם הרחוב במאגר שונה במקצת ממה שנשאל (streets), ולכן אמור/י את השם כפי שהוא במאגר. "
