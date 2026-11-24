@@ -108,6 +108,8 @@ await test("agent.ts ו-index.ts מחוברים", () => {
   const agent = readFileSync("supabase/functions/whatsapp-webhook/agent.ts", "utf8");
   const index = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
   if (!/noteLlm\(opts\.timing/.test(agent) || !/noteTool\(opts\.timing/.test(agent)) throw new Error("agent");
+  const email = readFileSync("supabase/functions/whatsapp-webhook/email-intake.ts", "utf8");
+  if (!/timing,\n/.test(email) || !/kind: "email"/.test(email) || !/logTiming\("ok"/.test(email)) throw new Error("email");
   if (!/setTurnClock\(/.test(index) || !/recordTurnTiming\(/.test(index)) throw new Error("index");
 });
 

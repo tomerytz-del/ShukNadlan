@@ -39,6 +39,7 @@ import {
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
 import { prepareImportJob } from "./property-import.ts";
 import { prepareLeadImportJob } from "./lead-import.ts";
+import { buildTimingRow, newTurnTiming, recordTurnTiming } from "./turn-timing.ts";
 
 /* התיבה. ברירת המחדל היא תיבת הפלטפורמה שכבר שולחת את המייל
    (‏platform-mail), עם אותה סיסמת אפליקציה — אין סוד חדש להגדיר. תיבה נפרדת
@@ -622,6 +623,9 @@ async function handleOne(
   who: { token: string } | { agentId: string },
   resume?: { id: number; attemptCount?: number },
 ): Promise<void> {
+  // זמני התור (turn-timing.ts, docs/gabriela-turn-timing.md): ההגעה היא תחילת הטיפול במייל הזה, לא שליחתו.
+  // transcribe_ms הוא קריאת הקבצים המצורפים (PDF והקלטות). ניסיון חוזר אחרי lock_wait מתחיל מדידה חדשה.
+  const arrivedAt = Date.now();
   const sb = deps.supabase;
 
   // ‏claim לפני כל דבר שעולה כסף או כותב. שתי הרצות חופפות רואות את אותו
@@ -726,7 +730,9 @@ async function handleOne(
   // אחרי הגייטים: קריאת PDF והקלטה עולות כסף. כשל כללי כאן (לא של קובץ
   // אחד — אלה נבלעים ב-readAttachments) אינו מפיל את המייל עצמו.
   let att: ReadAttachments = { text: "", images: [], history: "" };
+  let attachmentsMs: number | null = null;
   if (mail.attachments.length || truncated) {
+    const attachmentsStartedAt = Date.now();
     try {
       att = await readAttachments(sb, agent, mail.attachments, truncated);
     } catch (err) {
@@ -734,6 +740,7 @@ async function handleOne(
       att.text = `(${mail.attachments.length} קבצים מצורפים לא נקראו בגלל תקלה: ` +
         `${mail.attachments.map((a) => safe(a.name)).slice(0, 10).join(", ")})`;
     }
+    attachmentsMs = Date.now() - attachmentsStartedAt;
   }
   const content: Anthropic.ContentBlockParam[] = [
     ...att.images,
@@ -741,8 +748,15 @@ async function handleOne(
   ];
 
   let answer: string;
+  const timing = newTurnTiming();
+  const logTiming = (outcome: "ok" | "error" | "aborted", sendMs?: number) =>
+    recordTurnTiming(sb, buildTimingRow({
+      agentId: agent.id, outcome, timing, turnStartedAt: timing.startedAt, sendMs,
+      clock: { arrivedAt, transcribeMs: attachmentsMs, kind: "email" },
+    }));
   try {
     answer = await runAgentTurn({
+      timing,
       supabase: sb,
       agent: agentRow,
       conv,
@@ -753,6 +767,7 @@ async function handleOne(
     });
   } catch (err) {
     if (ctx?.signal?.aborted) {
+      await logTiming("aborted");
       if (conv.abortedToolNames && conv.abortedToolNames.length) {
         await deps.saveConversation(agent.id, phone, conv);
       }
@@ -761,14 +776,17 @@ async function handleOne(
       return;
     }
     console.error("email intake turn failed", err);
+    await logTiming("error");
     await finish(sb, row, "failed", `turn: ${String((err as Error)?.message || err)}`);
     await notifyEmailFailed(sb, agent.id, false);
     return;
   }
 
   await deps.saveConversation(agent.id, phone, conv);
+  const deliverStartedAt = Date.now();
   await deliver(deps, phone, agent, mail.subject, answer);
   await finish(sb, row, "done", answer);
+  await logTiming("ok", Date.now() - deliverStartedAt);
   };
 
   if (deps.holdTurn) {
