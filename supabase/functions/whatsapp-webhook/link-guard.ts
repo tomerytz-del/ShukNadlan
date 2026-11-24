@@ -25,15 +25,35 @@ export function normalizeName(value: unknown): string {
     .trim();
 }
 
+// אותיות שנדבקות בראש מילה בעברית: ו, ה, ב, כ, ל, מ, ש ("ולאברהים" = ו + ל + אברהים). עד שלוש.
+const HEBREW_PREFIX = /^[והבכלמש]{1,3}$/u;
+
+/** האם המילה מהטקסט היא מילת השם, עם קידומת עברית או בלעדיה. הכלה בתוך מילה אינה נחשבת ("בר" בתוך "אברהים"). */
+function wordMatches(word: string, token: string): boolean {
+  if (word === token) return true;
+  // מילת שם קצרה (שתי אותיות) רק בהתאמה מלאה: "מה" ו"של" נדבקות לכל מילה
+  if (Array.from(token).length < 3 || !word.endsWith(token)) return false;
+  return HEBREW_PREFIX.test(word.slice(0, word.length - token.length));
+}
+
 /**
- * האם כל מילות השם (שתי אותיות ומעלה) מופיעות בדברי הסוכן/ת. בדיקת הכלה ולא שוויון מילה, כי בעברית
- * קידומת נדבקת ("לאברהים", "עם־אברהים"). שם בלי מילים שאפשר לבדוק אינו נחשב נתמך.
+ * האם כל מילות השם (שתי אותיות ומעלה) נאמרו בדברי הסוכן/ת, כמילים שלמות. שם בלי מילים שאפשר לבדוק אינו נחשב נתמך.
  */
 export function nameSupportedByWords(fullName: unknown, texts: readonly string[]): boolean {
   const tokens = normalizeName(fullName).split(" ").filter((t) => Array.from(t).length >= 2);
   if (!tokens.length) return false;
-  const haystack = normalizeName(texts.join(" "));
-  return tokens.every((t) => haystack.includes(t));
+  const words = normalizeName(texts.join(" ")).split(" ").filter(Boolean);
+  return tokens.every((t) => words.some((w) => wordMatches(w, t)));
+}
+
+// מה שלא נכתב בידי הסוכן/ת: תמלול הקלטה או מסמך שהועברו אליי (media-intake.ts), והודעה מועברת.
+const THIRD_PARTY_BLOCK = /\[(?:הקלטת שיחה - תמלול|מסמך שהתקבל)[^\]\n]*\]\n[\s\S]*?\n\[סוף הקובץ\]/g;
+const FORWARDED_MARK = "[הודעה מועברת - נכתבה במקור על ידי מישהו אחר]";
+
+/** רק מה שהסוכן/ת כתב/ה: בלי בלוקי תמלול ומסמך, ובלי הודעה מועברת (שנכתבה בידי אחר/ת). */
+export function agentOwnWords(text: string): string {
+  if (text.startsWith(FORWARDED_MARK)) return "";
+  return text.replace(THIRD_PARTY_BLOCK, " ");
 }
 
 /** מה שהסוכן/ת כתב/ה בתור הזה ובכמה התורים שלפניו (ההיסטוריה שומרת טקסט בלבד). */
@@ -45,11 +65,11 @@ export function recentAgentWords(
   const past = (history || [])
     .filter((m) => m && m.role === "user" && typeof m.content === "string")
     .slice(-lastTurns)
-    .map((m) => m.content as string);
-  return [...past, current];
+    .map((m) => agentOwnWords(m.content as string));
+  return [...past, agentOwnWords(current)];
 }
 
-export type LinkGuard = { ok: false; error: "needs_link_confirmation"; linked_name: string; guidance: string };
+export type LinkGuard = { ok: false; error: "needs_link_confirmation"; linked_name: string | null; guidance: string };
 
 /**
  * null = מותר לקשר. אחרת מחזירים את התשובה לכלי, בלי לכתוב כלום. `confirmed` הוא ה-`client_confirmed` שהמודל
@@ -63,15 +83,15 @@ export function linkGuard(
   if (confirmed === true) return null;
   const label = String(name ?? "").trim();
   if (label && nameSupportedByWords(label, words)) return null;
-  const shown = label || "הכרטיס";
+  const shown = label || "";
   return {
     ok: false,
     error: "needs_link_confirmation",
-    linked_name: shown,
+    linked_name: shown || null,
     guidance:
-      `לא נקבע כלום ולא נשלח כלום. הסוכן/ת לא אמר/ה את השם המלא "${shown}", ולכן אסור לקשר את הפגישה לכרטיס הזה ` +
+      `לא נקבע כלום ולא נשלח כלום. הסוכן/ת לא אמר/ה את השם המלא${shown ? ` "${shown}"` : " שבכרטיס"}, ולכן אסור לקשר את הפגישה לכרטיס הזה ` +
       `(קישור שולח אישור בוואטסאפ לאדם שבכרטיס, וביטול שולח לו עוד הודעה). שאל/י בשורה אחת: ` +
-      `"לקשר לכרטיס של ${shown}?" ועצור/עצרי. אחרי "כן" מפורש בהודעה נפרדת: אותה קריאה שוב עם client_confirmed true. ` +
+      `${shown ? `"לקשר לכרטיס של ${shown}?"` : `"לקשר לכרטיס או לליד שמצאתי? (אין לו שם שמור, אציין את הטלפון או מה שיש)"`} ועצור/עצרי. אחרי "כן" מפורש בהודעה נפרדת: אותה קריאה שוב עם client_confirmed true. ` +
       `אחרי "לא", או אם אין כרטיס כזה: בלי client_id ובלי lead_id (הפגישה נשארת ביומן בלי לקוח/ה, והתזכורת רק אליו/ה). ` +
       `לעולם לא להגיד "קבעתי" לפני שהקריאה הצליחה.`,
   };

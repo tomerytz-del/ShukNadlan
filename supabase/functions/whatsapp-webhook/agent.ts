@@ -10071,7 +10071,9 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
     ? (await ctx.supabase.from("agent_clients").select("full_name")
       .eq("id", row.client_id).eq("agent_id", ctx.agent.id).maybeSingle()).data?.full_name
     : row.lead_id ? leadRef?.row?.raw_name : null;
-  if (row.client_id || row.lead_id) {
+  // רק פגישה, סיור וחתימה עם מועד: אלה היחידות שיוצא מהן אישור ללקוח/ה (clientFollowupPlan). משימה ותזכורת
+  // שמקושרות לכרטיס לא שולחות כלום, ולכן אין סיבה לשאול.
+  if ((row.client_id || row.lead_id) && due && ["meeting", "showing", "signing"].includes(kind)) {
     const guard = linkGuard(linkedName, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
     if (guard) return guard;
   }

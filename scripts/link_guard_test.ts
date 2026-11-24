@@ -29,6 +29,27 @@ test("שם מלא שנאמר - נתמך, גם עם קידומת ובכל סדר"
   eq(nameSupportedByWords("אברהים זועבי", ["זועבי אברהים מחר"]), true);
 });
 
+test("מילה קצרה בתוך מילה אחרת אינה נחשבת (בר בתוך אברהים)", () => {
+  eq(nameSupportedByWords("אברהים בר", ["קבע פגישה עם אברהים"]), false);
+  eq(nameSupportedByWords("אברהים בר", ["קבע פגישה עם אברהים בר"]), true);
+  eq(nameSupportedByWords("דן כהן", ["פגישה עם אדון כהן"]), false);
+  eq(nameSupportedByWords("דן כהן", ["פגישה עם דן כהן"]), true);
+  eq(nameSupportedByWords("דן כהן", ["פגישה עם לדן כהן"]), false, "שתי אותיות רק בהתאמה מלאה");
+  eq(nameSupportedByWords("מיכל", ["שלחי למיכל"]), true, "קידומת ל");
+  eq(nameSupportedByWords("מיכל", ["ולמיכל גם"]), true, "שתי קידומות");
+  eq(nameSupportedByWords("מיכל", ["אמיכל"]), false, "א אינה קידומת");
+});
+
+test("מה שלא נכתב בידי הסוכן/ת אינו נחשב: תמלול, מסמך והודעה מועברת", () => {
+  const transcript = "[הקלטת שיחה - תמלול: a.m4a]\nשלום, אני אברהים זועבי\n[סוף הקובץ]\n\nקבע פגישה עם אברהים";
+  eq(nameSupportedByWords("אברהים זועבי", recentAgentWords([], transcript)), false);
+  const doc = "[מסמך שהתקבל: x.pdf]\nאברהים זועבי\n[סוף הקובץ]";
+  eq(nameSupportedByWords("אברהים זועבי", recentAgentWords([{ role: "user", content: doc }], "כן")), false);
+  const fwd = "[הודעה מועברת - נכתבה במקור על ידי מישהו אחר]\nאני אברהים זועבי";
+  eq(nameSupportedByWords("אברהים זועבי", recentAgentWords([{ role: "user", content: fwd }], "קבע לו")), false);
+  eq(nameSupportedByWords("אברהים", recentAgentWords([], transcript)), true, "אברהים נאמר גם מחוץ לתמלול");
+});
+
 test("כרטיס עם מילה אחת - נתמך כשהיא נאמרה", () => {
   eq(nameSupportedByWords("רונית", ["שלחי לרונית את הפרטים"]), true);
   eq(nameSupportedByWords("רונית", ["שלחי לרות את הפרטים"]), false);
@@ -70,14 +91,20 @@ test("linkGuard: שם לא נתמך חוסם ושואל, אישור מפורש �
   eq(linkGuard("אברהים זועבי", ["עם אברהים זועבי"], undefined), null);
 });
 
-test("linkGuard: שם חסר בכרטיס חוסם", () => {
-  eq(linkGuard(null, ["עם מישהו"], undefined)?.error, "needs_link_confirmation");
+test("linkGuard: שם חסר בכרטיס חוסם, בשאלה שאינה מגומגמת", () => {
+  const g = linkGuard(null, ["עם מישהו"], undefined);
+  eq(g?.error, "needs_link_confirmation");
+  eq(g?.linked_name, null);
+  if (g?.guidance.includes("של הכרטיס")) throw new Error("garbled question");
 });
 
 test("agent.ts: השער לפני הפולואפ, בהוספה ובעדכון ליד, והסכמה מכירה client_confirmed", () => {
   const s = readFileSync("supabase/functions/whatsapp-webhook/agent.ts", "utf8");
   const add = s.indexOf("async function toolAgendaAdd");
   const gate = s.indexOf("linkGuard(linkedName", add);
+  if (!/due && \["meeting", "showing", "signing"\]\.includes\(kind\)\) \{\n    const guard = linkGuard\(/.test(s)) {
+    throw new Error("gate limited to meeting/showing/signing with a due time");
+  }
   const plan = s.indexOf("await clientFollowupPlan(ctx, kind", add);
   if (gate < 0 || plan < 0 || gate > plan) throw new Error("gate must precede clientFollowupPlan in toolAgendaAdd");
   const upd = s.indexOf("async function toolAgendaUpdate");
