@@ -322,7 +322,7 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 **אין כפילות עם מדריך ההתחלה:** ארבעת הדרבונים שלו נולדים מאירוע ועוסקים בצעדים
 שאחרי הרישיון, ולרישיון עצמו לא היה דרבון.
 
-**חשבון ההדגמה של Google Play (`play.review@shuknadlan.co.il`) מוחרג** ב-`license_reminder_candidates()` (מיגרציה `20271116100000_license_reminder_skip_demo.sql`): אין לו רישיון בכוונה. חשבון הדגמה נוסף יתווסף לאותו תנאי.
+**חשבון ההדגמה של Google Play (`play.review@shuknadlan.co.il`) מוחרג** ב-`license_reminder_candidates()` (מיגרציה `20271116100000_license_reminder_skip_demo.sql`): אין לו רישיון בכוונה. מ-`20271202090000_license_reminder_skip_demo_agencies.sql` מוחרג גם כל משרד שמסומן `agencies.is_demo` (משרד ההדגמה של צוות ההטמעה), ולכן חשבון הדגמה נוסף אינו דורש שינוי בפונקציה - רק משרד עם הדגל.
 
 בדיקה בלי לשלוח: `license-reminder?dry_run=1` (קורא את `license_reminder_candidates()`).
 
