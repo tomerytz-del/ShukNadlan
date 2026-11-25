@@ -174,6 +174,7 @@ async function openHome(){
       (open?'<span class="pill'+(x.published?' on':'')+'">'+(x.published?'מפורסם':'לא מפורסם')+'</span>'+
         '<a class="btn sm pri" href="/tour3d?m='+encodeURIComponent(x.id)+'&edit=1">עריכה</a>'+
         '<a class="btn sm" href="/tour3d?m='+encodeURIComponent(x.id)+'">צפייה</a>'+
+        (x.has_source_plan?'<button class="btn sm" type="button" data-plan="'+esc(x.id)+'" data-name="'+esc(x.name)+'">התוכנית המקורית</button>':'')+
         '<button class="btn sm" type="button" data-mirror="'+esc(x.id)+'" data-kind="'+esc(x.owner_kind)+'" data-name="'+esc(x.name)+'">תמונת מראה</button>':'')+
       '</div>'}).join(''):'<p class="msg">עדיין אין סיורים. הראשון נוצר מהטופס שלמטה.</p>';
 
@@ -237,6 +238,29 @@ async function openHome(){
       var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64});
       location.href=tourUrl(d.model_id,true);
     }catch(e){msg(out,heText(e),true);btn.disabled=false}
+  });
+  // התוכנית שהועלתה, בשכבה מעל הרשימה. כתובת חתומה לשעה מ-plan_url, ורק לבעלים (הבדיקה בפונקציה)
+  var lb=null;
+  function closeLb(){if(lb){lb.remove();lb=null;document.removeEventListener('keydown',lbKey)}}
+  function lbKey(e){if(e.key==='Escape')closeLb()}
+  function openLb(name,url){
+    closeLb();
+    lb=document.createElement('div');lb.className='lb';lb.setAttribute('role','dialog');lb.setAttribute('aria-modal','true');lb.setAttribute('aria-label','התוכנית המקורית');
+    lb.innerHTML='<div class="lbBar"><b>'+esc(name)+'</b><a class="btn sm" target="_blank" rel="noopener" href="'+esc(url)+'">פתיחה בגודל מלא</a>'+
+      '<button class="btn sm pri" type="button" id="lbX">סגירה</button></div>'+
+      '<div class="lbImg"><img alt="התוכנית שהועלתה לדגם '+esc(name)+'" src="'+esc(url)+'"></div>';
+    document.body.appendChild(lb);
+    lb.addEventListener('click',function(e){if(e.target===lb||e.target.id==='lbX')closeLb();else if(e.target.tagName==='IMG')e.target.classList.toggle('full')});
+    document.addEventListener('keydown',lbKey);$('lbX').focus();
+  }
+  homeBody.addEventListener('click',async function(e){
+    var pb=e.target.closest('[data-plan]');if(!pb)return;
+    var out=$('listMsg');pb.disabled=true;msg(out,'טוענים את התוכנית...');
+    try{
+      var d=await callFn({action:'plan_url',model_id:pb.dataset.plan});
+      msg(out,'');openLb(pb.dataset.name,d.url);
+    }catch(err){msg(out,err&&err.error==='not_found'?'קובץ התוכנית של הדגם הזה כבר אינו שמור.':heText(err),true)}
+    pb.disabled=false;
   });
   homeBody.addEventListener('click',async function(e){
     var b=e.target.closest('[data-mirror]');if(!b)return;
