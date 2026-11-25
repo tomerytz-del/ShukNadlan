@@ -207,6 +207,11 @@ textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(
 .mrow2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
 .mrow2:first-of-type{border-top:0}
 .mrow2 .nm{flex:1;min-width:140px}.mrow2 .nm b{display:block;font-weight:500}.mrow2 .nm small{color:var(--muted)}
+.lb{position:fixed;inset:0;z-index:50;background:#0b1418;display:flex;flex-direction:column}
+.lbBar{display:flex;align-items:center;gap:8px;padding:10px 12px;color:#fff;flex-wrap:wrap}.lbBar b{flex:1;min-width:120px;font-weight:500}
+.lbImg{flex:1;overflow:auto;padding:0 12px 12px;display:flex}
+.lbImg img{max-width:100%;max-height:100%;margin:auto;background:#fff;border-radius:8px;cursor:zoom-in}
+.lbImg img.full{max-width:none;max-height:none;margin:0;cursor:zoom-out}
 .pill{font-size:11.5px;border-radius:999px;padding:2px 8px;background:var(--chip);color:var(--muted)}
 .pill.on{background:#e5f5ec;color:#1e7a4c}
 .msg{font-size:13px;line-height:1.5;margin:0}.msg.bad{color:var(--danger)}
@@ -304,6 +309,14 @@ a.btn{text-decoration:none;display:inline-block}
 .viewer #time::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
 .viewer #time::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
 .viewer .sec[data-s="sun"] .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sunMoreBtn{display:none}
+/* בצופה המגש מציג שעה וציר בלבד. עיר, תאריך ומנורות מאחורי כפתור: הם משתנים לעיתים רחוקות, והמגש היה תופס כמעט חצי מהמסך */
+.viewer .sunMoreBtn{display:inline-flex;align-self:flex-start;background:#fff}
+.viewer .sec[data-s="sun"]:not(.more)>.grp:not(:nth-child(2)){display:none}
+/* בזמן גרירת הציר או הפעלת יום: המגש שקוף חוץ מהשעה והציר, וההדמיה נראית. אותה פריסה, כדי שהציר לא יזוז */
+.viewer.sun-peek .body{background:transparent;box-shadow:none;overflow:visible}
+.viewer.sun-peek .tabs,.viewer.sun-peek .disc,.viewer.sun-peek .sunMoreBtn,.viewer.sun-peek #sunDesc,.viewer.sun-peek #sunTbl,.viewer.sun-peek .sec[data-s="sun"] .chips .btn:not(#play){opacity:0;pointer-events:none}
+.viewer.sun-peek .timeBig{color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.65)}
 .viewer .sec[data-s="sun"] .chips .btn{border-radius:999px;min-height:44px;background:#fff;padding:0 6px;white-space:nowrap}
 .viewer #play{grid-column:1/-1}
 .viewer #play{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -370,7 +383,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
 
-      <section class="sec" data-s="sun">
+      <section class="sec" data-s="sun" id="sunSec">
         <div class="grp"><h3>מיקום וכיוון</h3>
           <div class="row">
             <div class="f"><label for="city">עיר</label><select id="city"></select></div>
@@ -392,6 +405,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="f"><label for="lamps">מנורות</label>
             <select id="lamps"><option value="auto">אוטומטי לפי השעה</option><option value="on">דלוקות</option><option value="off">כבויות</option></select></div>
         </div>
+        <button class="btn sm sunMoreBtn" id="sunMore" type="button" aria-expanded="false">מיקום, תאריך ותאורה</button>
       </section>
 
       <section class="sec" data-s="style">
