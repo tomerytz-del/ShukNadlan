@@ -1249,7 +1249,8 @@ $('addF').addEventListener('click',addFurn);
 $('resetF').addEventListener('click',function(){resetFurn();selId=null;rebuild();selTools();dirty()});
 function selTab(t){
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(b){b.setAttribute('aria-selected',b.dataset.t===t)});
-  Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(s){s.classList.toggle('on',s.dataset.s===t)})}
+  Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(s){s.classList.toggle('on',s.dataset.s===t)});
+  sunPeek()}
 /* בנייד הלוח הוא מגירה תחתונה: סגורה היא שורת הלשוניות בלבד, והסיור על כל המסך.
    לשונית פותחת אותה, נגיעה בסיור סוגרת. במחשב המחלקה sheet-open אינה משנה דבר */
 var appEl=$('app');
@@ -1262,7 +1263,7 @@ $('c').addEventListener('pointerdown',function(){if(appEl.classList.contains('sh
 /* מגש השמש מתכווץ לשעה ולציר בזמן גרירה והפעלת יום, כדי שההדמיה והצל ייראו. הפריסה אינה משתנה (רק שקיפות):
    אחרת הציר היה קופץ מתחת לאצבע. pointerup נשמע ב-window, כי האצבע משתחררת לא תמיד מעל הציר */
 var sunDrag=false;
-function sunPeek(){appEl.classList.toggle('sun-peek',sunDrag||playing)}
+function sunPeek(){if(!appEl)return;appEl.classList.toggle('sun-peek',(sunDrag||playing)&&$('sunSec').classList.contains('on'))}   /* רק כשלשונית השמש פתוחה: בלשונית אחרת המגש היה שקוף ולא לחיץ */
 function sunEnd(){sunDrag=false;sunPeek();window.removeEventListener('pointerup',sunEnd);window.removeEventListener('pointercancel',sunEnd)}
 $('time').addEventListener('pointerdown',function(){sunDrag=true;sunPeek();window.addEventListener('pointerup',sunEnd);window.addEventListener('pointercancel',sunEnd)});
 $('sunMore').addEventListener('click',function(){var on=$('sunSec').classList.toggle('more');this.setAttribute('aria-expanded',on)});

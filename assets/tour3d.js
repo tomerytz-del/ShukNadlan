@@ -23,7 +23,7 @@ var COLS='id,name,status,published,project_id,model,settings,views,lights,update
    חבילה; אם הקובץ שם שונה בבייט, הוא ייחסם והטעינה תיפול חזרה לראשון שהצליח */
 var THREE_SRI='sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
 var THREE_SRC=['https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
-var MAX_FILE=6*1024*1024;
+var MAX_FILE=6000000;   /* כמו ב-MAX_B64 בשרת (8,000,000 ב-base64): 6*1024*1024 עבר כאן ונפל שם */
 /* PDF: נפתח בדפדפן ומומר לתמונה, והשרת מקבל תמונה כמו תמיד. pdf.js נטען רק כשנבחר PDF, מ-/vendor/ (ה-CSP מתיר
    עובד רק מהאתר עצמו, ולכן לא מ-CDN). בשלב הזה רק בחשבון ללא חיוב: קריאת Gemini על גיליון שלם עוד לא נבדקה */
 var PDF_BASE='/vendor/pdfjs-dist@6.5.438/',PDF_MAX=20*1024*1024,PDF_SIDE=2400;
@@ -46,7 +46,7 @@ async function pdfToJpeg(doc,no){
   var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
   await page.render({canvasContext:x,viewport:v}).promise;
   try{
-    for(var q=.9;q>=.5;q-=.2){var b=await new Promise(function(ok){c.toBlob(ok,'image/jpeg',q)});if(b&&b.size<=MAX_FILE)return b}
+    for(var q of [.9,.7,.5]){var b=await new Promise(function(ok){c.toBlob(ok,'image/jpeg',q)});if(b&&b.size<=MAX_FILE)return b}
   }finally{c.width=c.height=0}
   throw {error:'image_too_large'};
 }
@@ -64,6 +64,7 @@ var CODE_TEXT={
   insufficient_balance:'אין מספיק יתרה בארנק. טענו את הארנק ונסו שוב.',
   not_your_project:'הפרויקט אינו שייך לחשבון הזה.',
   pdf_failed:'אי אפשר לקרוא את קובץ ה-PDF. נסו לשמור את התוכנית כתמונה.',
+  image_too_large:'התמונה גדולה מדי. עד 6MB.',
   mirror_source_invalid:'אי אפשר ליצור תמונת מראה מהדגם הזה.',
   forbidden:'אין לחשבון הזה הרשאה לפעולה.',
   unauthorized:'צריך להתחבר מחדש.',
@@ -237,9 +238,13 @@ async function openHome(){
   var pdfState=null,autoName='';
   function pdfAllowed(q){return !!q.eligible&&priceOf(q)===0}
   /* pdfState הוא null בזמן שה-PDF נפתח ואחרי כישלון, ולכן הכפתור נעול בשני המקרים */
-  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length&&(!isPdf($('nFile').files[0])||pdfState))}
+  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length&&(!isPdf($('nFile').files[0])||(pdfState&&pdfAllowed(q))))}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
-  if($('nKind'))$('nKind').addEventListener('change',function(){quoteUi()});
+  if($('nKind'))$('nKind').addEventListener('change',function(){
+    /* PDF שנבחר בחשבון ללא חיוב אינו עובר לחשבון משלם */
+    if(isPdf($('nFile').files[0])&&!pdfAllowed(quotes[kind()]||{})){if(pdfState)pdfState.task.destroy();pdfState=null;$('nFile').value='';$('nPageBox').hidden=true;msg($('nMsg'),'קובץ PDF זמין בשלב זה רק בחשבון ללא חיוב. שמרו את התוכנית כתמונה.',true)}
+    quoteUi();
+  });
   /* בחירת קובץ: השם מתמלא משם הקובץ, וב-PDF נקבע העמוד (אפשר להחליף) */
   $('nFile').addEventListener('change',async function(){
     var f=this.files[0],out=$('nMsg');if(pdfState)pdfState.task.destroy();pdfState=null;$('nPageBox').hidden=true;
@@ -250,11 +255,13 @@ async function openHome(){
     if(f.size>PDF_MAX){this.value='';return msg(out,'קובץ ה-PDF גדול מדי. עד 20MB.',true)}
     gate();msg(out,'פותחים את ה-PDF...');
     try{
-      pdfState=await pdfOpen(f);
+      var st=await pdfOpen(f);
+      if(this.files[0]!==f)return st.task.destroy();   /* נבחר קובץ אחר בזמן שהזה נפתח */
+      pdfState=st;
       var opts='';for(var i=1;i<=pdfState.pages;i++)opts+='<option value="'+i+'">עמוד '+i+(i===pdfState.best&&pdfState.pages>1?' (נבחר אוטומטית)':'')+'</option>';
       $('nPage').innerHTML=opts;$('nPage').value=pdfState.best;$('nPageBox').hidden=pdfState.pages<2;
       msg(out,pdfState.pages>1?'ה-PDF כולל '+pdfState.pages+' עמודים. בחרנו את עמוד '+pdfState.best+', כי יש בו הכי הרבה מידות.':'');
-    }catch(e){this.value='';msg(out,CODE_TEXT.pdf_failed,true)}
+    }catch(e){if(this.files[0]===f){this.value='';msg(out,CODE_TEXT.pdf_failed,true)}}
     gate();
   });
   quoteUi();
