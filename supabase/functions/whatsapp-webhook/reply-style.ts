@@ -273,6 +273,7 @@ export function sameTimeConflictLine(
  * השאלה נמצאת בסוף ההודעה (עד 160 תווים אחריה), ולא באמצע הודעה על נושא אחר.
  */
 export const ANSWER_MAX_CHARS = 30;
+const REFUSAL = /^(?:לא|לא תודה|עזוב(?:י)?|ביטול|בטל(?:י)?|תבטל(?:י)?|אל|stop|no)[\s.!,]*$/i;
 const ANSWER_FRESH_MS = 60 * 60_000;
 
 export function answersLastQuestion(
@@ -282,20 +283,30 @@ export function answersLastQuestion(
 ): string | null {
   const answer = userText.replace(/\s+/g, " ").trim();
   if (!answer || Array.from(answer).length > ANSWER_MAX_CHARS || /[?؟]/.test(answer)) return null;
+  // תחליף של תמונה או מסמך ("[תמונה] ...") אינו תשובה, וסירוב או ביטול אינם תשובה שמבצעים: "למחוק?" ← "לא"
+  if (answer.startsWith("[") || REFUSAL.test(answer)) return null;
   const last = history[history.length - 1];
   if (!last || last.role !== "assistant") return null;
   const at = last.at ? Date.parse(last.at) : NaN;
-  if (Number.isFinite(at) && now - at > ANSWER_FRESH_MS) return null;
-  const text = messageText(last.content).trim();
+  if (Number.isFinite(at)) {
+    if (now - at > ANSWER_FRESH_MS) return null;
+  } else if (history.some((m) => m && m.at)) {
+    return null; // בלי חותמת בהיסטוריה שיש בה חותמות: הודעה ישנה, לא טרייה
+  }
+  // כתובת (‏`/plan?k=`) אינה שאלה
+  const text = messageText(last.content).replace(/https?:\/\/\S+|\b[\w.-]+\.[a-z]{2,}\/\S*/gi, " ").trim();
   // השאלה האחרונה בהודעה, ורק אם היא בסוף ההודעה (עד 160 תווים אחריה): "באיזו עיר הוא מחפש? אחרי שתגיד,
   // אכין לו רשימה." כן, "?" בתחילת הודעה ארוכה על נושא אחר - לא
   const at2 = text.lastIndexOf("?");
   if (at2 < 0 || text.length - at2 > 160) return null;
-  const start = Math.max(text.lastIndexOf("\n", at2), text.lastIndexOf(".", at2), text.lastIndexOf("!", at2)) + 1;
+  // גבול משפט: שורה חדשה, או נקודה/קריאה שאחריהן רווח ("2.5 מיליון" אינה גבול)
+  const edges = [...text.slice(0, at2).matchAll(/\n|[.!](?=\s)/g)];
+  const edge = edges[edges.length - 1];
+  const start = edge ? (edge.index ?? 0) + edge[0].length : 0;
   const question = text.slice(start, at2 + 1).replace(/\s+/g, " ").trim().slice(-140);
   if (!question) return null;
-  return `ההודעה הזו היא כנראה תשובה לשאלה האחרונה שלך ("${question}"). השתמש/י בה כתשובה ובצע/י את הפעולה שחיכתה ` +
-    "לה, בלי לשאול שוב את אותה שאלה. אם היא באמת אינה עונה על השאלה, אמור/י זאת במשפט אחד.";
+  return `ההודעה הזו היא כנראה תשובה לשאלה האחרונה שלך ("${question}"). השתמש/י בה כתשובה ובצע/י ` +
+    "את מה שהסוכן/ת ביקש/ה, בלי לשאול שוב את אותה שאלה. אם היא באמת אינה עונה על השאלה, אמור/י זאת במשפט אחד.";
 }
 
 export function styleContext(history: readonly HistoryMsg[], userText: string): string {

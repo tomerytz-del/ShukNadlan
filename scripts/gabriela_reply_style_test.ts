@@ -163,6 +163,14 @@ const correction = "תתקני, הפגישה עם עליזה היא היום ב�
   check("בלי חותמת זמן: עדיין נחשבת", (answersLastQuestion([{ role: "assistant", content: "באיזו עיר?" }], "עפולה", now) || "").includes("באיזו עיר"));
   check("נכנסת ל-styleContext", styleContext([{ role: "assistant", content: "באיזו עיר הוא מחפש? אחרי שתגיד, אכין רשימה." }], "עפולה").includes("באיזו עיר"));
   check("הודעה ריקה", answersLastQuestion(q, "   ", now) === null);
+  const del: HistoryMsg[] = [{ role: "assistant", content: "למחוק את הנכס? זה לא הפיך.", at: "2026-11-25T10:46:40Z" }];
+  check("סירוב או ביטול אינם תשובה לבצע", ["לא", "לא תודה", "עזוב", "ביטול", "תבטלי."].every((w) => answersLastQuestion(del, w, now) === null));
+  check("'כן' כן נחשב", (answersLastQuestion(del, "כן", now) || "").includes("למחוק את הנכס"));
+  const link: HistoryMsg[] = [{ role: "assistant", content: "הנה דוח ה-CMA: https://shuknadlan.co.il/cma?k=abc123", at: "2026-11-25T10:46:40Z" }];
+  check("כתובת עם ? אינה שאלה", answersLastQuestion(link, "תודה", now) === null);
+  check("נקודה עשרונית אינה גבול משפט", (answersLastQuestion([{ role: "assistant", content: "התקציב הוא 1.8 מיליון, באיזו עיר?", at: "2026-11-25T10:46:40Z" }], "עפולה", now) || "").includes("התקציב הוא 1.8 מיליון"));
+  check("תחליף מדיה אינו תשובה", answersLastQuestion(q, "[תמונה] שלום", now) === null);
+  check("בלי חותמת בהיסטוריה שיש בה חותמות: לא טרייה", answersLastQuestion([{ role: "user", content: "שלום", at: "2026-11-25T10:00:00Z" }, { role: "assistant", content: "באיזו עיר?" }], "עפולה", now) === null);
 }
 
 const reading = likelyReading(correction) || "";
