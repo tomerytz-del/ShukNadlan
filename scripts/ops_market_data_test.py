@@ -107,6 +107,32 @@ check("קריית ביאליק (42 מול ~1,500) - ממצא, ורק היא",
 check("גדיש (17 עסקאות, בלי שכונות) אינה 'הדבקה חלקית'",
       not any(f.evidence.get("city") == "גדיש" for f in thin))
 
+# "מעט" נמדד מול עיר באותו גודל: המספרים של 23.11.2026.
+def pop(row, n):
+    return dict(row, population=n)
+
+
+emek = of(run([pop(city("afula-emek", "עפולה", 1656, hoods=22), 74024),
+               pop(city("afula-emek", "כפר תבור", 87, hoods=17), 4896)]),
+          "market_city_deals_thin")
+check("כפר תבור (87 עסקאות, 4,896 תושבים) אינה 'הדבקה חלקית' מול עפולה", not emek)
+kr = of(run([pop(city("krayot", "קריית אתא", 1685, hoods=16), 67860),
+             pop(city("krayot", "קריית ים", 1572, hoods=7), 49970),
+             pop(city("krayot", "קריית ביאליק", 42, hoods=12), 52332)]),
+        "market_city_deals_thin")
+check("קריית ביאליק (42 עסקאות, 52 אלף תושבים) נשארת ממצא, מול הצפוי לגודלה",
+      len(kr) == 1 and kr[0].evidence["city"] == "קריית ביאליק"
+      and kr[0].evidence["expected"] == 1299)
+hz = of(run([pop(city("herzliya", "הרצליה", 1513, hoods=20), 128593),
+             pop(city("herzliya", "רמת השרון", 569, hoods=13), 54378),
+             pop(city("herzliya", "יקום", 0, hoods=3), 887)]),
+        "market_city_deals_thin")
+check("קיבוץ של 887 תושבים בלי עסקאות - אין ממה לשפוט", not hz)
+zero = of(run([pop(city("ashdod", "אשדוד", 1627, hoods=26), 260937),
+               pop(city("ashdod", "קרית מלאכי", 0, hoods=16), 30866)]),
+          "market_city_deals_thin")
+check("עיר של 30 אלף תושבים בלי אף עסקה נשארת ממצא", len(zero) == 1)
+
 unp = sorted(f.evidence["city"] for f in of(fs, "market_deals_unpinned"))
 check("בלי פין: חיפה (31%) וקריית אתא (35%), לא נשר (13%) ולא קריית ים (8%)",
       unp == ["חיפה", "קריית אתא"])

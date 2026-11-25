@@ -3,7 +3,7 @@
 //   node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
 
 import { readFileSync } from "node:fs";
-import { clientMatchesQuery, nameSkeleton, namesLikelySame, namesNeedConfirm, phoneKey, phonesMatch } from "../supabase/functions/whatsapp-webhook/hebrew-name.ts";
+import { clientMatchesQuery, differentKnownPhones, dropConfirmWithDifferentPhone, nameSkeleton, namesLikelySame, namesNeedConfirm, phoneKey, phonesMatch } from "../supabase/functions/whatsapp-webhook/hebrew-name.ts";
 import { adminAlertTitle, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmFailureKind, PUBLIC_FALLBACK_SITE } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
 import { PUBLIC_MODEL_CURRENT, PUBLIC_MODEL_NEXT, publicBotModel } from "../supabase/functions/whatsapp-webhook/public-model.ts";
 import { pageLink, urlInSay } from "../supabase/functions/whatsapp-webhook/crm-pages.ts";
@@ -28,6 +28,20 @@ check("טלפון קצר אינו מפתח", phoneKey("12345") === "");
 check("חיפוש לפי כתיב", clientMatchesQuery("קלפון", { full_name: "משפחת כלפון", phone: "" }));
 check("חיפוש לפי טלפון", clientMatchesQuery("0501234567", { full_name: "דני", phone: "972501234567" }));
 check("חיפוש ריק אינו תופס הכל", !clientMatchesQuery("  ", { full_name: "דני", phone: "050" }));
+check("שני טלפונים שונים: אין שאלה על שם משפחה זהה", differentKnownPhones("0544420240", "052-111-2222") && differentKnownPhones("+972544420240", "0521112222"));
+check("אותו טלפון, או בלי טלפון באחד הצדדים - ממשיכים לשאול", !differentKnownPhones("0544420240", "054-442-0240") && !differentKnownPhones("0544420240", null) && !differentKnownPhones("", "0521112222") && !differentKnownPhones("123", "0521112222"));
+{
+  const hits = [
+    { kind: "confirm", phone: "052-111-2222" },
+    { kind: "confirm", phone: null },
+    { kind: "confirm", phone: "0544420240" },
+    { kind: "duplicate", phone: "052-111-2222" },
+  ];
+  const kept = dropConfirmWithDifferentPhone(hits, "054-442-0240");
+  check("שאלה נשארת בטלפון זהה או חסר, וכפילות ממש לעולם לא נמחקת",
+    kept.length === 3 && kept.every((h) => h.phone !== "052-111-2222" || h.kind === "duplicate"));
+  check("בלי טלפון בקלט: כל השאלות נשארות", dropConfirmWithDifferentPhone(hits, "").length === 4);
+}
 check("דני כהן אינו רון כהן", !namesLikelySame("דני כהן", "רון כהן") && namesNeedConfirm("דני כהן", "רון כהן"));
 check("דוד ודויד עם אותו שם משפחה", namesLikelySame("דוד כהן", "דויד כהן") && !namesNeedConfirm("דוד כהן", "דויד כהן"));
 check("כהן לבדו אינו דני כהן", !namesLikelySame("כהן", "דני כהן"));

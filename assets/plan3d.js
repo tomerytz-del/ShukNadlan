@@ -88,7 +88,16 @@ function roomSpot(r){var c=center(),q=r.r[0],x=(q[0]+q[2])/2*S.scale,z=(q[1]+q[3
    מחפשים את חלל הכניסה (לפי המזהה או לפי תווית "כניסה"/"מבואה"), ואת הפתח שבגבולו:
    דלת בקיר חיצוני היא דלת הכניסה, ועומדים בה. פתח פנימי הוא המעבר לדירה, ועומדים מולו בקצה הרחוק */
 function startFp(){
-  var s=S.scale,IN=45,rooms=MODEL.rooms,r=null,i;
+  var s=S.scale,IN=60,rooms=MODEL.rooms,r=null,i;
+  /* קודם כול: תווית "כניסה" והדלת הקרובה אליה. התווית יושבת בצד של הדירה, ולכן היא גם אומרת לאיזה צד מסתכלים */
+  /* האחרונה: תווית דלת הכניסה נכתבת אחרי תווית של חדר ששמו "כניסה". דלת בקיר חיצוני קודמת לדלת פנימית קרובה יותר */
+  var labs=MODEL.labels.filter(function(l){return /כניסה/.test(l[0])}),lab=labs[labs.length-1];
+  if(lab){var bd=170,dr=null;
+    MODEL.walls.forEach(function(w){(w.o||[]).forEach(function(o){if(o[0]!=='d')return;var hz=w.h!==undefined,c=hz?w.h:w.v,mid=(o[1]+o[2])/2;
+      var d=hz?Math.hypot(mid-lab[1],c-lab[2]):Math.hypot(c-lab[1],mid-lab[2]);if(d>=170)return;var ex=w.t==='ext';
+      if(!dr||(ex&&!dr.ex)||(ex===dr.ex&&d<bd)){bd=d;dr={hz:hz,c:c,mid:mid,ex:ex}}})});
+    if(dr){var sg=(dr.hz?lab[2]-dr.c:lab[1]-dr.c)>=0?1:-1,ddx=dr.hz?0:sg,ddz=dr.hz?sg:0;
+      return {x:(dr.hz?dr.mid:dr.c)*s+ddx*IN,z:(dr.hz?dr.c:dr.mid)*s+ddz*IN,yaw:Math.atan2(ddx,-ddz),pitch:-0.04}}}
   var has=function(q,x,y){return x>=q[0]&&x<=q[2]&&y>=q[1]&&y<=q[3]};
   /* "כניסה" קודמת ל"מבואה": מבואה היא לפעמים המעבר לחדר ההורים, ולא פתח הבית */
   [/כניסה/,/מבואה/].forEach(function(re,n){
@@ -758,7 +767,8 @@ function rebuild(){
   world.add(floorGroup);world.add(ceilGroup);
   /* קירות וליבה */
   wallGroup=new T.Group();
-  MODEL.walls.forEach(function(w){addWall(wallGroup,w)});
+  /* כל תיבה של קיר נושאת את מספר הקיר (wi): כך לחיצה בעורך הקירות יודעת איזה קיר נבחר */
+  MODEL.walls.forEach(function(w,i){var n0=wallGroup.children.length;addWall(wallGroup,w);for(var k=n0;k<wallGroup.children.length;k++)wallGroup.children[k].userData.wi=i});
   MODEL.solids.forEach(function(q){box(wallGroup,MATS.core,q[0]*s,q[2]*s,0,H,q[1]*s,q[3]*s,true)});
   wetTiles(wallGroup);collectWindows();
   if(STYLES[S.style].flat)wallOutlines(wallGroup);
@@ -783,7 +793,7 @@ function rebuild(){
   world.add(planMesh);
   }
   var c=center();sun.target.position.set(c.x,0,c.z);
-  applyCut();ceilShadow();updateSun();refreshLists();shadowDirty();
+  applyCut();ceilShadow();updateSun();refreshLists();shadowDirty();showWSel();
   if(selId&&furnMap[selId])showSel();
 }
 var labelFont='500 30px Heebo, Rubik, sans-serif';
@@ -832,6 +842,7 @@ function applyCut(){
   cutPlane.constant=S.cut&&S.mode==='drone'?CUT_H:100000;
   /* המתאר יושב בגובה אחר בכל מצב, ולכן נבנה מחדש (כמה עשרות משטחים) */
   if(wallGroup&&MATS.wall){dispose(edgeGroup);buildCutEdges()}
+  showWSel();
   ceilGroup.visible=true;
 }
 
@@ -1009,6 +1020,7 @@ function endPtr(e){
   var p=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);
   if(p&&p.moved<6&&ptrs.size===0&&!tw){
     if(S.mode==='fp'){tapMove(e,locked)}
+    else if(S.wedit){wSel=pickWall(e);showWSel();wTools()}
     else if(S.edit){var h=pickFurn(e);selectF(h?h.id:null)}
   }
   if(ptrs.size===0)drag=null;
@@ -1162,7 +1174,7 @@ function dirty(){shadowDirty();clearTimeout(saveT);saveT=setTimeout(save,400)}
 function settingsOut(){var o=Object.assign({},SETTINGS);['scale','ceil','wExt','wInt','sill','winH','doorH','north','city','style','labels','mat'].forEach(function(k){o[k]=S[k]});return o}
 function furnOut(){return FURN.filter(function(f){return !f.auto}).map(function(f){var a=[f.t,Math.round(f.x),Math.round(f.y),Math.round(f.rot)||0];if(f.w||f.d)a.push(Math.round(f.w)||0);if(f.d)a.push(Math.round(f.d));return a})}
 function dataOut(){return {v:1,settings:settingsOut(),furniture:FURN,views:VIEWS,lights:LIGHTS}}
-function payload(){return {settings:settingsOut(),furniture:furnOut(),views:VIEWS,lights:LIGHTS}}
+function payload(){return {settings:settingsOut(),furniture:furnOut(),walls:JSON.parse(JSON.stringify(MODEL.walls)),views:VIEWS,lights:LIGHTS}}
 function save(){if(EDIT&&OPTS.onSave)OPTS.onSave(payload())}
 function load(o){
   if(!o)return false;
@@ -1222,7 +1234,9 @@ $('north').addEventListener('change',function(){var v=+this.value;if(isFinite(v)
 $('time').addEventListener('input',function(){S.time=+this.value;updateSun();dirty()});
 $('lamps').addEventListener('change',function(){S.lamps=this.value;updateSun();dirty()});
 $('labels').addEventListener('change',function(){S.labels=this.checked;labelGroup.visible=S.labels&&S.mode==='drone';dirty()});
-$('edit').addEventListener('change',function(){S.edit=this.checked;if(!S.edit)selectF(null);else if(S.mode!=='drone')goView(curDroneView())});
+$('edit').addEventListener('change',function(){S.edit=this.checked;
+  if(S.edit&&S.wedit){S.wedit=false;$('wEdit').checked=false;wSel=-1;showWSel();wTools()}   /* עריכת ריהוט ועריכת קירות לא יחד */
+  if(!S.edit)selectF(null);else if(S.mode!=='drone')goView(curDroneView())});
 function curDroneView(){var c=center();return {mode:'drone',drone:{az:S.drone.az,pol:S.drone.pol,rad:S.drone.rad,tx:S.drone.tx||c.x,tz:S.drone.tz||c.z}}}
 $('styles').addEventListener('click',function(e){var b=e.target.closest('.style');if(!b)return;S.style=b.dataset.k;S.mat=styleMat(S.style);baseWall=S.mat.wall;syncMat();$('contrastNote').hidden=true;fillStyles();rebuild();dirty()});
 $('tgCut').addEventListener('click',function(){S.cut=!S.cut;this.setAttribute('aria-pressed',S.cut);applyCut()});
@@ -1256,6 +1270,94 @@ function setFull(on){
 }
 $('tgFull').addEventListener('click',function(){setFull(!appEl.classList.contains('full'))});
 document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&appEl.classList.contains('full'))setFull(false)});
+
+/* ================= עורך קירות ודלתות =================
+   הקריאה האוטומטית מפספסת קירות, דלתות ואת גרעין הבניין (docs/plan-3d-tour.md), ועד עכשיו לבעלים לא
+   הייתה דרך לתקן. בוחרים קיר בלחיצה במבט מלמעלה, ומזיזים, מאריכים, מחליפים סוג ומוסיפים פתחים בכפתורים.
+   כל שינוי בונה מחדש ושומר. הרצפות (rooms) אינן נערכות כאן */
+var wSel=-1,wBox=null;
+function pickWall(e){setNdc(e);ray.setFromCamera(ndc,camera);var h=ray.intersectObjects(wallGroup.children,false);
+  for(var i=0;i<h.length;i++){var wi=h[i].object.userData.wi;if(wi!==undefined)return wi}return -1}
+function showWSel(){
+  if(wBox){world.remove(wBox);wBox.geometry.dispose();wBox=null}
+  var w=MODEL.walls[wSel];if(!w||!S.wedit)return;
+  var s=S.scale,hz=w.h!==undefined,len=(w.b-w.a)*s,c=(hz?w.h:w.v)*s,mid=(w.a+w.b)/2*s,top=(S.cut?CUT_H:S.ceil)+14;
+  wBox=new T.Mesh(new T.BoxGeometry(hz?len:44,8,hz?44:len),new T.MeshBasicMaterial({color:0x0b9aa5,transparent:true,opacity:.6,depthTest:false}));
+  wBox.position.set(hz?mid:c,top,hz?c:mid);wBox.renderOrder=9;world.add(wBox);
+}
+var W_KIND={ext:'חיצוני',int:'פנימי',rail:'מעקה'},O_KIND={d:'דלת',w:'חלון',s:'ויטרינה'};
+function wTools(){
+  var el=$('wTools'),w=MODEL.walls[wSel];
+  if(!w){el.innerHTML='<span class="note">'+(S.wedit?'לחצו על קיר במבט מלמעלה.':'הפעילו את עריכת הקירות.')+'</span>';return}
+  var hz=w.h!==undefined,cm=function(px){return Math.round(px*S.scale)},b=function(a,t){return '<button class="btn sm" type="button" data-w="'+a+'">'+t+'</button>'};
+  var h='<p class="note"><b>'+(hz?'קיר אופקי':'קיר אנכי')+'</b>, '+cm(w.b-w.a)+' ס"מ</p>'+
+    '<div class="chips">'+b('mv-',hz?'הזזה למעלה':'הזזה שמאלה')+b('mv+',hz?'הזזה למטה':'הזזה ימינה')+'</div>'+
+    '<div class="chips">'+b('a-',(hz?'קצה שמאלי':'קצה עליון')+': הארכה')+b('a+','קיצור')+'</div>'+
+    '<div class="chips">'+b('b+',(hz?'קצה ימני':'קצה תחתון')+': הארכה')+b('b-','קיצור')+'</div>'+
+    '<div class="f"><label for="wType">סוג הקיר</label><select id="wType">'+Object.keys(W_KIND).map(function(k){return '<option value="'+k+'"'+(w.t===k?' selected':'')+'>'+W_KIND[k]+'</option>'}).join('')+'</select></div>';
+  (w.o||[]).forEach(function(o,j){
+    h+='<div class="wop"><select data-ok="'+j+'" aria-label="סוג הפתח">'+Object.keys(O_KIND).map(function(k){return '<option value="'+k+'"'+(o[0]===k?' selected':'')+'>'+O_KIND[k]+'</option>'}).join('')+'</select>'+
+      '<span class="note">'+cm(o[2]-o[1])+' ס"מ</span>'+
+      '<button class="btn sm" type="button" data-o="'+j+':m-" aria-label="הזזת הפתח אחורה">◀</button><button class="btn sm" type="button" data-o="'+j+':m+" aria-label="הזזת הפתח קדימה">▶</button>'+
+      '<button class="btn sm" type="button" data-o="'+j+':w-">צר</button><button class="btn sm" type="button" data-o="'+j+':w+">רחב</button>'+
+      '<button class="btn sm danger" type="button" data-o="'+j+':x" aria-label="מחיקת הפתח">×</button></div>'});
+  if(w.t!=='rail')h+='<div class="chips">'+b('od','הוספת דלת')+b('ow','הוספת חלון')+b('os','הוספת ויטרינה')+'</div>';
+  h+='<div class="chips">'+b('del','<span class="danger">מחיקת הקיר</span>')+'</div>';
+  el.innerHTML=h;
+}
+/* אחרי כל שינוי: קיר באורך סביר, ופתחים בתוך הקיר, ממוינים ובלי חפיפה */
+function wFix(w){
+  var mn=Math.max(6,Math.round(30/S.scale));if(w.b-w.a<mn)w.b=w.a+mn;
+  var o=(w.o||[]).map(function(p){var a=Math.max(w.a+2,p[1]),b=Math.min(w.b-2,p[2]);return [p[0],Math.round(a),Math.round(b)]}).filter(function(p){return p[2]-p[1]>=mn}).sort(function(p,q){return p[1]-q[1]});
+  var out=[];o.forEach(function(p){if(!out.length||p[1]>=out[out.length-1][2])out.push(p)});
+  if(out.length&&w.t!=='rail')w.o=out;else delete w.o;
+}
+function wChanged(){var w=MODEL.walls[wSel];if(w)wFix(w);rebuild();showWSel();wTools();dirty()}
+$('wTools').addEventListener('click',function(e){
+  var bt=e.target.closest('button');if(!bt)return;var w=MODEL.walls[wSel];if(!w)return;
+  var st=Math.max(1,Math.round(5/S.scale)),big=st*2,hz=w.h!==undefined,a=bt.dataset.w,od=bt.dataset.o;
+  if(a){
+    if(a==='mv-'||a==='mv+'){var dl=a==='mv+'?st:-st;if(hz)w.h+=dl;else w.v+=dl}
+    else if(a==='a-')w.a-=big;else if(a==='a+')w.a+=big;else if(a==='b+')w.b+=big;else if(a==='b-')w.b-=big;
+    else if(a==='del'){MODEL.walls.splice(wSel,1);wSel=-1;rebuild();showWSel();wTools();dirty();return}
+    else if(a==='od'||a==='ow'||a==='os'){var wd=Math.round((a==='od'?85:a==='ow'?120:200)/S.scale),mid=(w.a+w.b)/2;
+      /* פתח חדש באמצע הקיר, ואם תפוס, ברווח הפנוי הראשון שמספיק לו. בלי רווח כזה לא מוסיפים, ואומרים */
+      var os=(w.o||[]).slice().sort(function(p,q){return p[1]-q[1]}),free=function(f){return f>=w.a+2&&f+wd<=w.b-2&&!os.some(function(p){return p[1]<f+wd&&p[2]>f})};
+      var from=Math.round(mid-wd/2);
+      if(!free(from)){var cand=[w.a+big].concat(os.map(function(p){return p[2]+big}));from=null;for(var ci=0;ci<cand.length&&from===null;ci++)if(free(cand[ci]))from=cand[ci]}
+      if(from===null){var nt=document.createElement('p');nt.className='note bad';nt.textContent='אין בקיר הזה מקום לפתח נוסף. קצרו או מחקו פתח קיים.';$('wTools').appendChild(nt);return}
+      (w.o=w.o||[]).push([a.charAt(1),from,from+wd])}
+  }else if(od){
+    var pr=od.split(':'),o=w.o[+pr[0]],k=pr[1];if(!o)return;
+    if(k==='m-'){o[1]-=big;o[2]-=big}else if(k==='m+'){o[1]+=big;o[2]+=big}
+    else if(k==='w-'){o[2]-=big}else if(k==='w+'){o[2]+=big}else if(k==='x'){w.o.splice(+pr[0],1)}
+  }
+  wChanged();
+});
+$('wTools').addEventListener('change',function(e){
+  var w=MODEL.walls[wSel];if(!w)return;
+  if(e.target.id==='wType'&&W_KIND[e.target.value])w.t=e.target.value;
+  else if(e.target.dataset.ok!==undefined&&O_KIND[e.target.value]&&w.o[+e.target.dataset.ok])w.o[+e.target.dataset.ok][0]=e.target.value;
+  wChanged();
+});
+$('wEdit').addEventListener('change',function(){
+  S.wedit=this.checked;
+  if(S.wedit){
+    /* עריכה נעשית מלמעלה, בקירות חתוכים ומול תוכנית המקור */
+    if($('edit').checked){$('edit').checked=false;S.edit=false;selectF(null)}
+    S.cut=true;$('tgCut').setAttribute('aria-pressed',true);
+    if(planMesh){S.plan=true;planMesh.visible=true;$('tgPlan').setAttribute('aria-pressed',true)}
+    if(S.mode!=='drone')goView(curDroneView());else applyCut();
+  }else wSel=-1;
+  showWSel();wTools();
+});
+function wAdd(hz){
+  var cx=Math.round((S.drone.tx||center().x)/S.scale),cy=Math.round((S.drone.tz||center().z)/S.scale),L=Math.round(100/S.scale);
+  MODEL.walls.push(hz?{h:cy,a:cx-L,b:cx+L,t:'int'}:{v:cx,a:cy-L,b:cy+L,t:'int'});
+  wSel=MODEL.walls.length-1;if(!$('wEdit').checked){$('wEdit').checked=true;$('wEdit').dispatchEvent(new Event('change'))}
+  wChanged();
+}
+$('wAddH').addEventListener('click',function(){wAdd(true)});$('wAddV').addEventListener('click',function(){wAdd(false)});
 
 /* זמן: מקשי קיצור והפעלת יום */
 var playing=false,playT=0;
