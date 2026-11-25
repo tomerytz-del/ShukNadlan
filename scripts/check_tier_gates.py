@@ -48,7 +48,7 @@ GATES = {
     'סרטון שיווקי אוטומטי מהתמונות':               'property_video_tier',
     'הפקת סיור וירטואלי 360° בתוך דף הנכס':        'property_virtual_tour_eligible',
     # סיור תלת-ממדי (20271129090000): Elite פעיל לסוכן/ת, ₪49 לדגם מהארנק. יזם/משווק קונה בלי מסלול.
-    'סיור תלת-ממדי מתוכנית דירה, כולל 20 הדמיות לדגם': 'plan_model_eligible',
+    'סיור תלת-ממדי מתוכנית דירה':                  'plan_model_eligible',
     'הדמיות AI לנכס פרטי - 4 סגנונות עיצוב':       'property_visualizations_enabled',
     'הדמיות AI לנכסים מסחריים':                    'property_visualizations_enabled',
     'מפת מיקום מדויקת בדף הנכס':                   'property_map_enabled',
