@@ -77,6 +77,64 @@ check("בקשת החימום לפני הדף הראשון",
 check("הדפים נמדדים בלי .html (אחרת נמדדת הפניית 301)",
       not any(p.endswith(".html") for p, _ in LIVE_PAGES), LIVE_PAGES)
 
+# ‏502 בודד אינו "דף שבור בפרודקשן"; ‏502 בשתי בקשות - כן; ‏404 אינו מנוסה שוב.
+class _Bad(_Resp):
+    def __init__(self, status):
+        self.status_code = status
+
+
+class _Flaky(_Session):
+    seen: dict = {}
+
+    def get(self, url, **kwargs):
+        n = _Flaky.seen[url] = _Flaky.seen.get(url, 0) + 1
+        if url.endswith("/") and n == 1:
+            return _Bad(502)
+        if url.endswith("/projects"):
+            return _Bad(503)
+        if url.endswith("/articles"):
+            return _Bad(404)
+        return _Resp()
+
+
+_real_sleep = time.sleep
+time.sleep = lambda s: None          # שלוש השניות שבין הניסיונות
+sys.modules["requests"].Session = _Flaky
+flaky = {(f.code, f.subject): f for f in _live(_LiveCtx())}
+time.sleep = _real_sleep
+check("502 בודד שאחריו 200 הוא ממצא נמוך, לא חמור",
+      flaky.get(("page_error_once", "/")) is not None
+      and flaky[("page_error_once", "/")].severity == "low"
+      and ("page_error", "/") not in flaky, sorted(flaky))
+check("503 בשתי בקשות נשאר חמור, עם שני הניסיונות ב-evidence",
+      ("page_error", "/projects") in flaky
+      and flaky[("page_error", "/projects")].severity == "critical"
+      and [x["status"] for x in flaky[("page_error", "/projects")].evidence["attempts"]] == [503, 503],
+      sorted(flaky))
+check("404 נשאר חמור ואינו מנוסה שוב",
+      ("page_error", "/articles") in flaky
+      and _Flaky.seen.get("https://example.test/articles") == 1, _Flaky.seen)
+
+# דגימה ראשונה איטית (צומת edge קר) אינה ממצא; דף שאיטי בכל בקשה - כן.
+class _ColdFirst(_Session):
+    slow_always = "/agencies"
+    seen: dict = {}
+
+    def get(self, url, **kwargs):
+        n = _ColdFirst.seen[url] = _ColdFirst.seen.get(url, 0) + 1
+        if url.endswith(_ColdFirst.slow_always) or (url.endswith("/projects") and n == 1):
+            time.sleep(0.85)
+        return _Resp()
+
+
+sys.modules["requests"].Session = _ColdFirst
+found = [(f.code, f.subject, len(f.evidence["samples_ms"])) for f in _live(_LiveCtx())]
+check("דגימה קרה אחת אינה תגובה איטית, ודף שאיטי בכל בקשה נשאר ממצא",
+      found == [("slow_ttfb", "/agencies", 3)], found)
+check("דף מהיר נמדד פעם אחת, ודף שחצה את הסף שלוש",
+      _ColdFirst.seen.get("https://example.test/") == 1
+      and _ColdFirst.seen.get("https://example.test/projects") == 3, _ColdFirst.seen)
+
 # ---------------------------------------------------------------- queue_blocked
 
 from ops_agent.probes import database  # noqa: E402
