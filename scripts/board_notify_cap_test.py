@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIG = ROOT / "supabase/migrations/20271130150000_board_source_notify_caps.sql"
+MIG = ROOT / "supabase/migrations/20271201190000_board_source_notify_caps.sql"
 PREV = ROOT / "supabase/migrations/20271121160000_board_cross_source_duplicate.sql"
 INTAKE = ROOT / "supabase/functions/listing-inventory-intake/index.ts"
 DB = os.environ.get("BOARD_NOTIFY_CAP_DB", "board_notify_cap_test")

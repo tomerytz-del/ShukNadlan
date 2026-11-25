@@ -408,7 +408,7 @@ Content-Type: application/json
 מצרף מודעות. כל הודעה שהוצגה נרשמת ב-`board_listing_presentations`
 (שורה אחת, `service_role` מכניס בלבד). כשל ביומן לא עוצר את התשובה.
 התראות על מודעה חדשה נשארות ב-`scraped_lead_add`
-עם התקרה היומית המשותפת.
+עם תקרה יומית נפרדת לכל מקור.
 
 הסינון: `city_id` (קבוצת יישובים מתרחבת), `deal_type`, `property_type`,
 `rooms`, `price`, ורק `removed_at is null`. בלי עיר בבקשה - ערי השוק
