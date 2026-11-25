@@ -1214,6 +1214,18 @@ const slow = await bundleRun((_u, init) =>
 const down = await bundleRun(() => json({ message: "upstream" }, 503));
 /* משרד שהמסד נכשל עליו יוצא כמו שהוא - ואסור שה-CDN ישמור אותו */
 globalThis.fetch = (async () => json({}, 500)) as typeof fetch;
+globalThis.fetch = (async () => json({}, 406)) as typeof fetch;
+const articleGone = await handler(new Request("https://shuknadlan.co.il/article?slug=x"), {
+  next: async () => new Response(PAGE, { headers: { "content-type": "text/html", etag: '"static"' } }),
+} as never);
+/* עותק אחרון בזמן כשל: קודם הצלחה שנשמרת, ואז 503 מהמסד על אותה כתובת */
+resetLastGood();
+const withEtag = { next: async () => new Response(stripPage, { headers: { "content-type": "text/html", etag: '"static"', "last-modified": "x" } }) } as never;
+globalThis.fetch = (async () => json({ found: true, property: BUNDLE_PROP, siblings: [], hoods: [] })) as typeof fetch;
+const filled = await handler(new Request(`https://shuknadlan.co.il/property?id=${BUNDLE_ID}`), withEtag);
+globalThis.fetch = (async () => json({}, 503)) as typeof fetch;
+const stale = await handler(new Request(`https://shuknadlan.co.il/property?id=${BUNDLE_ID}`), withEtag);
+globalThis.fetch = (async () => json({}, 500)) as typeof fetch;
 const agencyUnfilled = await handler(new Request("https://shuknadlan.co.il/agency?slug=a"), context());
 const bundleChecks: [string, boolean][] = [
   ["מטמון: הפונקציה מוגדרת cache manual, אחרת כותרת ה-CDN אינה חלה",
@@ -1226,6 +1238,15 @@ const bundleChecks: [string, boolean][] = [
       && slow.res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
       && agencyUnfilled.headers.get("Netlify-CDN-Cache-Control") === "no-store"
       && (await agencyUnfilled.text()) === PAGE],
+  ["מטמון: 'אין רשומה' ב-200 (כתבה) אינו נשמר",
+    articleGone.status === 200 && NOINDEX.test(await articleGone.text())
+      && articleGone.headers.get("Netlify-CDN-Cache-Control") === "no-store"],
+  ["מטמון: המסלול הישן (דף שעלול לצאת חלקי) אינו נשמר",
+    absent.res.status === 200 && absent.res.headers.get("Netlify-CDN-Cache-Control") === "no-store"],
+  ["מטמון: דף שמולא אינו נושא את ה-ETag של הקובץ הסטטי",
+    filled.status === 200 && filled.headers.get("etag") === null && filled.headers.get("last-modified") === null],
+  ["מטמון: העותק האחרון בזמן כשל יוצא 200 ואינו נשמר ב-CDN",
+    stale.status === 200 && stale.headers.get("Netlify-CDN-Cache-Control") === "no-store"],
   ["bundle: קריאה אחת למסד, והיא ל-property_page_bundle",
     full.calls.length === 1 && full.calls[0].includes(`rpc/property_page_bundle?p_id=${BUNDLE_ID}`)],
   ["bundle: הכותרת, המבדיל מהאחים ושם הסוכן/ת מהתשובה האחת",

@@ -1105,6 +1105,9 @@ type PropertyParts = {
   siblings: Record<string, unknown>[] | null;
   agentDisplay: string;
   hood: HoodRow | null;
+  /* המסלול הישן: שלוש השאילתות המשניות יכולות להיכשל כל אחת לבדה, והדף
+     יוצא חלקי. תשובה כזו אינה נשמרת ב-CDN. */
+  legacy?: boolean;
 };
 
 /* ‏Server-Timing של דף הנכס: כמה עלה כל שלב, ובאיזה מסלול נשלף. */
@@ -1190,6 +1193,7 @@ async function propertyPartsLegacy(id: string): Promise<PropertyParts | "missing
     siblings,
     agentDisplay: agent && agent.kind === "row" ? String(agent.row.display_name || "") : "",
     hood,
+    legacy: true,
   };
 }
 
@@ -1274,6 +1278,7 @@ async function propertyMeta(id: string, canonical: string, timing?: Timing): Pro
     ],
     paint: heroPaint(p),
     noindex: offMarket,
+    noStore: parts.legacy,
     attrs: agencySlugOf(p)
       ? [{ id: "agencyStrip", name: "href", value: `/agency?slug=${encodeURIComponent(agencySlugOf(p))}` }]
       : undefined,
@@ -2331,6 +2336,8 @@ export default async function handler(request: Request, context: Context) {
       if (!isProperty) return unfilled(res);
       const prev = await recall(lastGoodKey(request.url));
       if (prev) {
+        // עותק ישן בזמן כשל: לגולש/ת הזה/ו, לא ל-CDN לשש הדקות הבאות
+        prev.headers.set("Netlify-CDN-Cache-Control", "no-store");
         timed(prev.headers);
         return prev;
       }
@@ -2347,13 +2354,19 @@ export default async function handler(request: Request, context: Context) {
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
     const headers = new Headers(res.headers);
-    if (meta !== "missing" && meta.noStore) {
+    /* "אין רשומה" ב-200 (פרויקט, יזם, בעל מקצוע, כתבה) אינו נשמר: כתבה
+       שפורסמה דקה אחרי שנפתחה לא תישאר noindex ב-CDN. */
+    if (meta === "missing" || meta.noStore) {
       headers.set("Cache-Control", "no-store");
       headers.set("Netlify-CDN-Cache-Control", "no-store");
     } else {
       headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
       headers.set("Cache-Control", "public, max-age=0, must-revalidate");
       headers.set("Netlify-Vary", DETAIL_VARY);
+      /* ה-ETag וה-Last-Modified הם של הקובץ הסטטי ומשתנים רק בדיפלוי.
+         על גוף שמולא מהמסד הם היו נותנים 304 על מחיר שהשתנה. */
+      headers.delete("etag");
+      headers.delete("last-modified");
     }
     const response = new Response(out, { status: res.status, headers });
     if (isProperty && meta !== "missing") {
