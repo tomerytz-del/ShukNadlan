@@ -62,6 +62,7 @@
 | סרטון שיווקי | ✗ | ₪25 להפקה | 8 בחודש ללא חיוב |
 | הדמיות AI (פרטי — 4 סגנונות, ומסחרי) | ✗ | ✗ | ✓ |
 | הפקת סיור וירטואלי 360° בדף הנכס | ✗ | ✗ | ✓ |
+| סיור תלת-ממדי מתוכנית דירה, כולל 20 הדמיות לדגם | ✗ | ✗ | ₪49 לדגם דירה |
 | עוזר אישי בוואטסאפ (נכסים, לקוחות, התאמות, דוח שוק, מידע תכנוני, הכנת הסכמים, מיילים מועברים) | ✗ | ✓ שימוש הוגן (הספים פנימיים: `gabriela_fair_use_monthly` ו-`gabriela_fair_use_hard_monthly`, לא מתפרסמים) | ✓ בלי תקרה |
 | התראות הפעמון גם בוואטסאפ | ✗ | ✓ | ✓ |
 | מדריך התחלה מלווה בצעדים הראשונים | ✓ | ✓ | ✓ |
@@ -91,6 +92,7 @@
 | מחיר משרד ב-Elite | `subscription_price` (העומס עם הסוכן/ת) ← `office_elite_price`: **Elite בלבד**, מחיר לכל סוכן/ת לפי גודל הצוות ברגע החיוב. ראו "מחיר משרד" למטה |
 | הדמיות AI | `property_visualizations_enabled` — `premium` בלבד, ובנוסף ב-policies של טבלת `property_visualizations` |
 | הפקת סיור 360° | `property_virtual_tour_eligible` — `premium` בלבד, ב-policies של **הכתיבה** לטבלה ולדלי. התצוגה אינה תלויה במסלול: סיור שהופק נשאר בדף |
+| סיור תלת-ממדי מתוכנית דירה | `plan_model_eligible` — סוכן/ת ב-`premium` פעיל (אותה הגדרה של `property_virtual_tour_eligible`), יזם/משווק פעיל בלי מסלול. נאכף ב-`start_plan_model`, יחד עם החיוב של `plan_model_price` (‏₪49 לדגם, מראה = דגם נוסף). התצוגה אינה תלויה במסלול: סיור שפורסם נשאר. `docs/plan-3d-tour.md` |
 | תיאור שיווקי אוטומטי ב-AI | `property_description_tier_ok` — שלוש נקודות, ראו למטה |
 | העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` — בדיקת `tier` לפני כל עיבוד. מייל מועבר עובר את אותה בדיקה (`tier` + `billing_status`) ב-`whatsapp-webhook/email-intake.ts`, לפני הקריאה למודל (`docs/email-intake.md`) |
 | התראות בוואטסאפ | `notification_push_due_agents` — `mid`/`premium` + `billing_status` |

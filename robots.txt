@@ -44,6 +44,9 @@ Disallow: /meeting.html
 # דף הבדיקה התכנונית לסוכן/ת - קישור עם טוקן מגבריאלה (docs/govmap.md)
 Disallow: /plan
 Disallow: /plan.html
+# הסיור התלת-ממדי מתוכנית דירה: נצפה מתוך דף הנכס או הפרויקט, ועורך לבעלים (docs/plan-3d-tour.md)
+Disallow: /tour3d
+Disallow: /tour3d.html
 Disallow: /reminders-off
 Disallow: /reminders-off.html
 Disallow: /manage-alerts

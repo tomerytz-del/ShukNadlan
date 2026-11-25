@@ -416,6 +416,37 @@ function readSocialFields(){
   return { value };
 }
 
+/* הרשמה שהשרת אישר, פעם אחת. הדף אינו טוען את events.js (זה דף פתיחת
+   משרד, לא מדידת פניות של גולשים), ולכן בלי shukTrack הדחיפה יוצאת
+   ישר ל-dataLayer, עם method ו-role בלבד - בלי אימייל, טלפון או שם.
+   תגית ה-GA4 ותגיות ההמרה של Meta עדיין מוגדרות ב-GTM, לא בקובץ הייצוא.
+   done רץ אחרי ש-GTM סיים את התגיות (eventCallback), ולכל המאוחר אחרי
+   800ms, כדי שהפניה ל-CRM לא תמחק את האירוע ולא תיתקע אם GTM לא עונה. */
+let officeSignupTracked = false;
+function trackOfficeSignup(done){
+  var finished = false;
+  function finish(){
+    if (finished) return;
+    finished = true;
+    if (typeof done === 'function') done();
+  }
+  if (officeSignupTracked) { finish(); return; }
+  officeSignupTracked = true;
+  try {
+    window.dataLayer = window.dataLayer || [];
+    var payload = { event: 'sign_up', page_type: 'agency-signup', method: 'email', role: 'manager' };
+    if (typeof done === 'function') {
+      payload.eventCallback = finish;
+      payload.eventTimeout = 800;
+      window.dataLayer.push(payload);
+      setTimeout(finish, 800);
+      return;
+    }
+    if (window.shukTrack) { window.shukTrack('sign_up', { method: 'email', role: 'manager' }); return; }
+    window.dataLayer.push(payload);
+  } catch (e) { finish(); /* מדידה לא שוברת הרשמה */ }
+}
+
 async function signInAfterSignup(email, password){
   try{
     const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
@@ -575,13 +606,15 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     const signedIn = (res.ok && data.success) ? await signInAfterSignup(managerEmail, managerPassword) : false;
 
     // ‏נכנסנו: ישר ללוח הבקרה, גם כשהרישיון עוד בבדיקה - הכרטיס שבראש
-    // הדשבורד מטפל בו שם, ובחלון הפתיחה מברכים (WELCOME_KEY ב-crm.js)
+    // הדשבורד מטפל בו שם, ובחלון הפתיחה מברכים (WELCOME_KEY ב-crm.js).
+    // ההפניה מחכה ל-eventCallback של sign_up, עם תקרה של 800ms.
     if (signedIn){
       try { sessionStorage.setItem(WELCOME_KEY, '1'); } catch(_){ /* גלישה פרטית - בלי חלון הפתיחה */ }
       btn.textContent = 'נכנסים למערכת…';
-      location.replace('/crm');
+      trackOfficeSignup(function(){ location.replace('/crm'); });
       return;
     }
+    if (res.ok && data.success) trackOfficeSignup();
 
     // ‏החשבון נפתח, אבל הרישיון לא נמצא ברשם. זה **אינו** כישלון: נכנסים
     // כרגיל, ורק הדף והמודעות מחכים לאישור. הצילום מתבקש כאן, כשהפרטים

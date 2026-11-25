@@ -56,6 +56,16 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `crm_lead_handled` | "טופל" על ליד חדש (השלב עובר ל"נוצר קשר ראשוני") | — |
 | `crm_lead_handled_undo` | ביטול הסימון מטוסט "ביטול", בתוך כחמש שניות | — |
 | `crm_home_summary` | לחיצה על שורה ב"הנה תמונת המצב שלך להיום" | `summary_item`: `leads` \| `meetings` \| `late` \| `expiring` \| `exclusive` |
+| `sign_up` | הרשמת משרד שהשרת אישר (`agency-signup.html`), פעם אחת | `method`: `email`. `role`: `manager`. בלי אימייל, טלפון או שם |
+
+`sign_up` נדחף מ-`agency-signup.html` רק אחרי `res.ok && data.success`, פעם אחת
+בטעינה. הדף אינו טוען את `events.js`, ולכן כש-`shukTrack` אינו קיים אותה
+דחיפה יוצאת ישר ל-`dataLayer`, עם `event`, `page_type`, `method` ו-`role`.
+כשהכניסה האוטומטית מצליחה, ההפניה ל-CRM יוצאת מ-`eventCallback` של הדחיפה
+(`eventTimeout` 800ms), ויש טיימר גיבוי באותו אורך כדי שההפניה לא תיתקע
+אם GTM לא קורא ל-callback. חסימת רישיון (403) אינה הרשמה. תגית ה-GA4
+ותגיות ההמרה של Meta Lead / Ads לאירוע הזה עדיין מוגדרות ב-GTM (גרסה 23)
+ולא בייצוא שבריפו.
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
