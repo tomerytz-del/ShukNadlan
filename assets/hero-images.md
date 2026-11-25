@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | `hero-house-800.webp`, `hero-house-1600.webp` | `/afula/בתים-פרטיים` | owner-provided by Tomer Itzhak, 2026-10-25 | בית פרטי מודרני בסגנון ישראלי |
 | `hero-garden-800.webp`, `hero-garden-1600.webp` | `/afula/דירות-גן` | owner-provided by Tomer Itzhak, 2026-10-25 | דירת גן מודרנית בסגנון ישראלי |
-| `hero-apt-800.webp`, `hero-apt-1600.webp` | `/afula/דירות-3-חדרים` | owner-provided by Tomer Itzhak, 2026-10-25 | בניין מגורים מודרני עם מרפסות |
+| `hero-apt-800.webp`, `hero-apt-1600.webp` | `/afula/דירות-3-חדרים`, `/afula/דירות-4-חדרים`, `/afula/דירות-5-חדרים` | owner-provided by Tomer Itzhak, 2026-10-25 | בניין מגורים מודרני עם מרפסות |
 | `hero-projects-800.webp`, `hero-projects-1600.webp` | `/projects` | owner-provided by Tomer Itzhak, 2026-10-25 | מגדלי מגורים חדשים |
 | `hero-valley-800.webp`, `hero-valley.webp` | דף הבית, `/afula/מתווכים`, וסוג נחיתה לא מוכר | תמונת העמק שכבר הייתה בריפו | |
 

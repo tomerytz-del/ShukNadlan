@@ -26,6 +26,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
@@ -37,6 +38,7 @@ on:
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
       - "scripts/street_alias_test.ts"
+      - "scripts/plan_model_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -52,6 +54,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
@@ -63,6 +66,7 @@ on:
       - "scripts/ops_question_test.ts"
       - "scripts/board_listings_test.ts"
       - "scripts/street_alias_test.ts"
+      - "scripts/plan_model_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -143,6 +147,9 @@ jobs:
       - name: תקציר התראות של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
 
+      - name: סדר תבניות, 131049 ותקציר לסוכנים
+        run: node --experimental-strip-types scripts/wa_agent_notify_priority_test.ts
+
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
       # הסגורה (‏docs/coaches.md).
@@ -183,3 +190,7 @@ jobs:
       # ומה שאינו מוכר נופל לברירת המחדל של הקורא.
       - name: מקורות ליד
         run: node --experimental-strip-types scripts/lead_source_test.ts
+
+      # קריאת תוכנית דירה לסיור התלת-ממדי: המרה למודל, קנה מידה והיפוך מראה (docs/plan-3d-tour.md)
+      - name: דגם דירה תלת-ממדי
+        run: node --experimental-strip-types scripts/plan_model_test.ts

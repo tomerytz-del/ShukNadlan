@@ -1,6 +1,8 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { noteLlm, noteTool, type TurnTiming } from "./turn-timing.ts";
+import { linkGuard, recentAgentWords } from "./link-guard.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import {
   abortedTurnNote,
@@ -142,7 +144,7 @@ import { canonicalPositions, parsePhotoMoveButton, photoMoveButtons, urlsAt } fr
 import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
-import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import { clientMatchesQuery, differentKnownPhones, dropConfirmWithDifferentPhone, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import {
   sameTimeConflictLine,
   collectToolAsks,
@@ -234,6 +236,11 @@ import {
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
 import { answerLeadImport, runLeadImport } from "./lead-import.ts";
+import { buildLeadUpdatePayload, leadUpdateReply } from "./lead-update.ts";
+import { clientPhoneE164 } from "../_shared/phone-il.ts";
+import {
+  fetchOwnLead, isNumberBlocked, leadFollowupPlan, NUMBER_BLOCKED_NOTE, type OwnLead, saveLeadPhone,
+} from "./agenda-lead.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -1787,6 +1794,15 @@ const TOOLS: Anthropic.Tool[] = [
           enum: ["masked", "unlocked", "pending_charge"],
           description: "סינון. ברירת מחדל: הכול.",
         },
+        query: {
+          type: "string",
+          description: "חיפוש לפי שם או עיר (חלק מהשם מספיק). זה הדרך למצוא ליד ישן שלא בעשרת האחרונים. " +
+            "ליד שטרם נפתח מגיע עם שם מוסתר ולכן לא נמצא בחיפוש שם.",
+        },
+        for_edit: {
+          type: "boolean",
+          description: "true כשמחפשים ליד כדי לתקן אותו (update_lead): בלי כפתורי CRM אחרי התשובה, ועד 25 תוצאות.",
+        },
         limit: { type: "integer", description: "ברירת מחדל 10." },
       },
       required: [],
@@ -1819,6 +1835,33 @@ const TOOLS: Anthropic.Tool[] = [
         force_new: { type: "boolean", description: "רק אחרי שהסוכן/ת אישר/ה שזה אדם אחר." },
       },
       required: ["kind"],
+    },
+  },
+  {
+    name: "update_lead",
+    description:
+      "מתקן ליד שכבר נשמר ב\"הלידים שלי\": שם, טלפון, עיר, סוג עסקה, סוג נכס, חדרים, הערות או פרטי הנכס. " +
+      "\"את העיר בליד של צבי תעדכני לעפולה\", \"הטלפון של דנה שגוי\". קודם list_leads עם query (חלק מהשם) " +
+      "ו-for_edit כדי למצוא את lead_id; אם כמה לידים מתאימים - לשאול. **שולחים רק את מה שצריך לשנות.** " +
+      "מחרוזת ריקה מנקה שדה. **details ו-notes מחליפים את הקיים כולו**: לשנות חלק מהם, לשלוח את הערך " +
+      "הקיים מ-list_leads (details) עם התיקון, ולא רק את החלק החדש. שינוי חדרים בלבד מעדכן לבד את \"N חדרים\" ב-details. " +
+      "רק ליד שהסוכן/ת הזין/ה בעצמו/ה (add_lead או ייבוא קובץ): ליד מהאתר, מהלוחות, מהחנות או משיחה לא נערך " +
+      "(הפרטים שלו הם מה שהפונה מסר), והכלי יחזיר not_editable. אם הטלפון החדש כבר שייך לליד פתוח אחר חוזר " +
+      "duplicate ושום דבר לא משתנה. עריכה אינה יוצרת התראה ואינה שולחת דבר לליד.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lead_id: { type: "string", description: "מזהה הליד מ-list_leads." },
+        full_name: { type: "string" },
+        phone: { type: "string" },
+        city: { type: "string" },
+        deal_type: { type: "string", enum: ["sale", "rent", ""], description: "מכירה או השכרה. ריק מנקה." },
+        property_type: { type: "string" },
+        rooms: { type: "number" },
+        notes: { type: "string", description: "הערות חופשיות. מחליף את ההערות הקיימות, לכן לצרף אליהן ולא למחוק." },
+        details: { type: "string", description: "שורת פרטי הנכס (כתובת, קומה, רצינות). מחליפה את הקיימת." },
+      },
+      required: ["lead_id"],
     },
   },
   {
@@ -1893,7 +1936,8 @@ const TOOLS: Anthropic.Tool[] = [
       "קובע ביומן של הסוכן/ת פגישה, סיור, חתימה, שיחה או משימה, עם תזכורת " +
       "בוואטסאפ ובפעמון. \"תזכיר לי מחר ב-10 להתקשר לרונית\", \"יש לי פגישה " +
       "ביום ג' ב-17:00 עם דני בהרצל 12\". השעה היא שעון ישראל. " +
-      "מי שאינו/ה בקובץ הלקוחות נקבע/ת בלי client_id, בלי לשאול אם להוסיף.",
+      "מי שאינו/ה בקובץ הלקוחות נקבע/ת בלי client_id, בלי לשאול אם להוסיף. " +
+      "פגישה עם ליד מ\"הלידים שלי\" (list_leads): lead_id, בלי כרטיס לקוח/ה.",
     input_schema: {
       type: "object",
       properties: {
@@ -1908,6 +1952,15 @@ const TOOLS: Anthropic.Tool[] = [
         location: { type: "string" },
         notes: { type: "string" },
         client_id: { type: "string", description: "לקוח/ה מהקובץ (מ-list_clients), אם הפגישה איתו/ה." },
+        lead_id: {
+          type: "string",
+          description: "ליד מ\"הלידים שלי\" (מ-list_leads), אם הפגישה איתו/ה ואין כרטיס לקוח/ה. " +
+            "עם client_id - הלקוח/ה גובר/ת. הפגישה נקשרת לליד.",
+        },
+        lead_phone: {
+          type: "string",
+          description: "רק עם lead_id, כשהליד בלי טלפון והסוכן/ת אמר/ה לך את המספר. נשמר על הליד. לעולם לא לנחש.",
+        },
         property_id: { type: "string", description: "נכס של הסוכן/ת (מ-list_properties), אם רלוונטי." },
         high_priority: {
           type: "boolean",
@@ -1918,9 +1971,14 @@ const TOOLS: Anthropic.Tool[] = [
           description: "מתי להזכיר, בדקות לפני. \"תזכיר לי חצי שעה לפני\" = [30]. בלי השדה - ברירת המחדל לפי הסוג " +
             "(פגישה: שעה לפני, משימה: בזמן). [] = בלי תזכורת.",
         },
+        client_confirmed: {
+          type: "boolean",
+          description: "רק אחרי שהחזרת needs_link_confirmation ושאלת את הסוכן/ת \"לקשר לכרטיס של X?\" והוא/היא ענה/תה כן במפורש. " +
+            "לעולם לא בקריאה הראשונה, ולא מניחים אישור.",
+        },
         notify_client: {
           type: "boolean",
-          description: "פגישה/סיור/חתימה עם client_id: לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, " +
+          description: "פגישה/סיור/חתימה עם client_id או lead_id: לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, " +
             "תזכורת (יום לפני כשרחוק, ושעה לפני) עם כפתורי אישור הגעה/ביטול, ואחרי סיור - שאלה איך היה. " +
             "ברירת מחדל: כן. false רק כשהסוכן/ת ביקש/ה לא לשלוח ללקוח/ה.",
         },
@@ -1984,9 +2042,21 @@ const TOOLS: Anthropic.Tool[] = [
         kind: { type: "string", enum: AGENDA_KINDS },
         high_priority: { type: "boolean" },
         remind_minutes_before: { type: "array", items: { type: "integer" } },
+        client_confirmed: {
+          type: "boolean",
+          description: "עם lead_id: רק אחרי needs_link_confirmation ושאישור מפורש של הסוכן/ת לקשר לכרטיס. לא מניחים אישור.",
+        },
         notify_client: {
           type: "boolean",
           description: "עם edit: להפסיק (false) או להתחיל (true) לשלוח ללקוח/ה אישור ותזכורת על הפגישה.",
+        },
+        lead_id: {
+          type: "string",
+          description: "עם edit: לקשר את הפגישה לליד מ\"הלידים שלי\" (מ-list_leads), כדי לשלוח לו/ה אישור ותזכורת.",
+        },
+        lead_phone: {
+          type: "string",
+          description: "עם lead_id או פגישה שכבר מקושרת לליד בלי טלפון: המספר שהסוכן/ת אמר/ה. לעולם לא לנחש.",
         },
       },
       required: ["item_id", "action"],
@@ -2136,6 +2206,8 @@ interface ToolContext {
   conv: ConversationState;
   /** הודעות כפתורים שיוצאות אחרי התשובה (‏index.ts). חסר בתור שאינו מוואטסאפ. */
   outbox?: OutboxItem[];
+  /** מה שהסוכן/ת כתב/ה בתור הזה (link-guard.ts): קישור פגישה לכרטיס נבדק מולו. */
+  userText?: string;
   /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
   listingCitySlot?: ListingCitySlot;
   /** הוויתור והחלון של client_matches בתור הזה, כדי ש-property_refs יראה את מה שהוצג. */
@@ -5590,6 +5662,15 @@ const CMA_OWNERSHIP_GUIDANCE =
   "גם כשהם כמעט זהים (ואז אמור/אמרי שאין כאן פער משמעותי). אם הם חסרים - אין די עסקאות בשתי " +
   "הקבוצות, ואסור לטעון שיש או שאין פער. **לעולם אל תתקן/י את הערכת השווי בעצמך לפי סוג הבעלות.**";
 
+/** "בשנה האחרונה" / "בשנתיים האחרונות" / "ב-6 החודשים האחרונים": החלון שנשאל, במילים. */
+function lastPeriodPhrase(months: number): string {
+  if (months === 1) return "בחודש האחרון";
+  if (months === 12) return "בשנה האחרונה";
+  if (months === 24) return "בשנתיים האחרונות";
+  if (months > 24 && months % 12 === 0) return "ב-" + (months / 12) + " השנים האחרונות";
+  return "ב-" + months + " החודשים האחרונים";
+}
+
 /**
  * מידע תכנוני ובנייה.
  *
@@ -5677,7 +5758,24 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   // ‏coverage חוזר רק כשהתוצאה ריקה: מה **כן** יש במאגר לעיר. בלעדיו העוזר
   // הסיק "המאגר לא מכסה את נוף הגליל" על עיר עם 1,512 עסקאות.
   const coverage = res.coverage as Record<string, unknown> | null | undefined;
-  const guidance = deals.length === 0
+  // רחוב שיש לו עסקאות, אבל לפני החלון (20271201140000). "בשנה האחרונה אין"
+  // אינו "אין ברחוב": ב-24.11.2026 גבריאלה ענתה "לא מצאתי" על החלוץ בחדרה,
+  // ששתי עסקאות שלו מלפני 14 חודשים.
+  const outside = coverage?.street_outside_window as Record<string, unknown> | undefined;
+  const outsideN = Number(outside?.deals) || 0;
+  // הניסוח נגזר מהחלון שנשאל (months), לא קבוע: בחלון של 6 או 24 חודשים
+  // "בשנה האחרונה" היה שגוי.
+  const period = lastPeriodPhrase(Number(res.months) || 24);
+  const guidance = deals.length === 0 && outsideN > 0
+    ? "בחלון שביקשו (" + period + ", מ-" + String(res.oldest_considered || "") + ") אין עסקה, **אבל לרחוב יש " + outsideN + " עסקאות במאגר לפניו**: " +
+      "street_outside_window מראה כמה, ומתי (first_sold_at עד last_sold_at). " +
+      "אמור/י זאת במפורש במקום \"לא מצאתי\": \"" + period + " אין, אבל יש " + outsideN + " עסקאות ברחוב מתקופה קודמת\", " +
+      "והצע/י להרחיב את התקופה (months) או חיפוש ברדיוס סביב מספר בית. " +
+      (outside?.exact_name === false
+        ? "שם הרחוב במאגר שונה במקצת ממה שנשאל (streets), ולכן אמור/י את השם כפי שהוא במאגר. "
+        : "") +
+      "אל תמציא/י פרטי עסקאות: הן לא בתשובה הזו. אם הסוכן/ת רוצה אותן, חפש/י שוב עם תקופה ארוכה יותר."
+    : deals.length === 0
     ? (coverage && Number(coverage.deals_in_city) > 0
       ? "לא נמצאה עסקה שעונה על החיפוש, **אבל העיר כן במאגר**: coverage מראה כמה עסקאות יש בה, " +
         "באיזה טווח תאריכים (first_sold_at עד last_sold_at) ובאילו רחובות (top_streets). " +
@@ -6263,13 +6361,13 @@ async function findClientDuplicates(
     p_phone: phone,
   });
   if (!error) {
-    return ((data || []) as ClientDupHit[]).map((row) => ({
+    return dropConfirmWithDifferentPhone(((data || []) as ClientDupHit[]).map((row) => ({
       id: String(row.id),
       full_name: String(row.full_name || ""),
       phone: row.phone ? String(row.phone) : null,
       status: String(row.status || ""),
-      kind: row.kind === "confirm" ? "confirm" : "duplicate",
-    }));
+      kind: row.kind === "confirm" ? "confirm" as const : "duplicate" as const,
+    })), phone);
   }
   const missing = /agent_client_duplicate|PGRST202|schema cache/i.test(String(error.message || ""));
   if (!missing) {
@@ -6291,7 +6389,7 @@ async function findClientDuplicates(
     }
     for (const c of rows || []) {
       const same = namesLikelySame(c.full_name, fullName) || phonesMatch(phone, c.phone);
-      const confirm = !same && namesNeedConfirm(c.full_name, fullName);
+      const confirm = !same && namesNeedConfirm(c.full_name, fullName) && !differentKnownPhones(phone, c.phone);
       if (!same && !confirm) continue;
       hits.push({
         id: String(c.id),
@@ -9219,19 +9317,37 @@ async function toolAddLead(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+async function toolUpdateLead(ctx: ToolContext, input: Record<string, unknown>) {
+  const leadId = String(input.lead_id || "").trim();
+  if (!leadId) return { ok: false, error: "חסר lead_id. קודם list_leads." };
+  const payload = buildLeadUpdatePayload(input);
+  const { data, error } = await ctx.supabase.rpc("agent_lead_update", {
+    p_agent_id: ctx.agent.id,
+    p_lead_id: leadId,
+    p: payload,
+  });
+  if (error) return leadUpdateReply(null);
+  return leadUpdateReply(data);
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
+  // חיפוש ליד לתיקון (update_lead): לא שולחים כפתורי "איזה ליד לפתוח?", הסוכן/ת לא ביקש/ה לפתוח
+  const forEdit = input.for_edit === true;
 
   // ‏leads_masked ולא leads: ה-view מחליף שם, טלפון והודעה בגרסה מוסתרת כל
   // עוד הליד לא נפתח. ‏service_role עוקף RLS אבל **לא** את ה-view, ולכן זו
   // הדרך היחידה כאן שבה ליד סגור לא מדליף פרטים לצ'אט.
   let query = ctx.supabase
     .from("leads_masked")
-    .select("id, lead_type, deal_type, status, display_name, display_phone, display_message, city, property_type, property_id, created_at")
+    .select("id, lead_type, deal_type, status, source, display_name, display_phone, display_message, property_details, city, property_type, property_id, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(forEdit ? Math.max(limit, 25) : limit);
   if (input.status) query = query.eq("status", String(input.status));
+  // חיפוש טקסט: בלי תווים שמשבשים את מסנן ה-or של PostgREST (פסיק, סוגריים, כוכבית, אחוז)
+  const text = String(input.query || "").replace(/[,()*%\\"']/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (text) query = query.or(`display_name.ilike.%${text}%,city.ilike.%${text}%`);
 
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
@@ -9243,7 +9359,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("status", "masked");
 
   const leads = data || [];
-  const pushed = ctx.outbox && leads.length
+  const pushed = ctx.outbox && leads.length && !forEdit
     ? pushScreens(ctx, leads.map((l) => ({
       type: "new_lead",
       path: `/crm?goto=accLeads&lead=${String(l.id)}`,
@@ -9270,6 +9386,10 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
         message: l.display_message,
         city: l.city,
         property_type: l.property_type,
+        // שורת פרטי הנכס כמו שהיא: update_lead עם details מחליף אותה כולה, ולכן המודל חייב לראות אותה
+        details: l.property_details,
+        // רק source = agent_entered נערך (update_lead)
+        source: l.source,
         created_at: l.created_at,
       };
       // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
@@ -9739,7 +9859,7 @@ function agendaDbError(error: { message?: string }): string {
 }
 
 const AGENDA_SELECT =
-  "id, kind, title, notes, location, due_at, priority, status, source, source_key, client_id, property_id, remind_before";
+  "id, kind, title, notes, location, due_at, priority, status, source, source_key, client_id, lead_id, property_id, remind_before";
 
 async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>>) {
   const clientIds = [...new Set(rows.map((r) => r.client_id).filter(Boolean))] as string[];
@@ -9749,6 +9869,14 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
       .from("agent_clients").select("id, full_name, phone")
       .eq("agent_id", ctx.agent.id).in("id", clientIds);
     (data || []).forEach((c) => names.set(c.id, c.phone ? `${c.full_name} (${c.phone})` : c.full_name));
+  }
+  // פגישה שקשורה רק לליד: השם מהליד (רק של הסוכן/ת הזה/זו), כמו אצל לקוח/ה.
+  const leadIds = [...new Set(rows.filter((r) => !r.client_id).map((r) => r.lead_id).filter(Boolean))] as string[];
+  if (leadIds.length) {
+    const { data } = await ctx.supabase
+      .from("leads").select("id, raw_name")
+      .eq("agent_id", ctx.agent.id).eq("status", "unlocked").in("id", leadIds);
+    (data || []).forEach((l) => l.raw_name && names.set(l.id, l.raw_name));
   }
   // מה הלקוח/ה קיבל/ה וענה/תה על הפגישה. שאילתה נפרדת ולא חלק מ-AGENDA_SELECT:
   // העמודות נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תפיל את היומן.
@@ -9781,7 +9909,7 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
     high_priority: r.priority === "high" || undefined,
     status: r.status,
     location: r.location || undefined,
-    client: r.client_id ? names.get(String(r.client_id)) : undefined,
+    client: names.get(String(r.client_id || r.lead_id || "")),
     notes: r.notes || undefined,
     automatic: r.source === "system" || undefined,
     client_followup: followups.get(String(r.id))?.notify
@@ -9920,11 +10048,37 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   const remind = agendaRemind(input);
   if (remind !== undefined) row.remind_before = remind;
 
+  // ליד מ"הלידים שלי": הפגישה נקשרת אליו (lead_id), וגם נשלח לו הפולואפ כשיש לו
+  // טלפון. הקישור רק לליד של הסוכן/ת הזה/זו.
+  // רק כשאין client_id: ל-agent_agenda_contact לקוח/ה גובר/ת, ואם הכרטיס נמחק
+  // (on delete set null) פריט שנושא את שניהם היה עובר בשקט לטלפון של הליד.
+  const leadRef = await leadRefFrom(ctx, input.lead_id);
+  if (leadRef?.row?.status === "unlocked" && !row.client_id) row.lead_id = leadRef.row.id;
+  // ליד שביקשו ולא קושר: אומרים למה, ולא בשקט (כמו ב-agenda_update)
+  const leadNotLinked = leadRef && !row.lead_id
+    ? (!leadRef.row
+      ? "לא קישרתי את הפגישה לליד: הוא לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש ב-list_leads ולא להמציא מזהה."
+      : row.client_id
+      ? "לא קישרתי את הפגישה לליד: היא עם לקוח/ה מהקובץ, וההודעות יוצאות אליו/ה."
+      : "לא קישרתי את הפגישה לליד: הוא עוד נעול ב\"הלידים שלי\".")
+    : null;
+
   // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
-  // עם לקוח/ה מהקובץ ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
-  // הסוכן/ת ביקש/ה שלא. בלי טלפון בכרטיס אין למי לשלוח, והמודל אומר את זה.
-  const followup = await clientFollowupPlan(ctx, kind, row.client_id as string | null, due ?? null,
-    input.notify_client);
+  // עם לקוח/ה מהקובץ או ליד, ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
+  // הסוכן/ת ביקש/ה שלא. בלי טלפון אין למי לשלוח, והמודל אומר את זה.
+  // קישור לכרטיס או לליד רק לפי שם שהסוכן/ת אמר/ה (link-guard.ts), לפני כל כתיבה ולפני כל הודעה
+  const linkedName = row.client_id
+    ? (await ctx.supabase.from("agent_clients").select("full_name")
+      .eq("id", row.client_id).eq("agent_id", ctx.agent.id).maybeSingle()).data?.full_name
+    : row.lead_id ? leadRef?.row?.raw_name : null;
+  // רק פגישה, סיור וחתימה עם מועד: אלה היחידות שיוצא מהן אישור ללקוח/ה (clientFollowupPlan). משימה ותזכורת
+  // שמקושרות לכרטיס לא שולחות כלום, ולכן אין סיבה לשאול.
+  if ((row.client_id || row.lead_id) && due && ["meeting", "showing", "signing"].includes(kind)) {
+    const guard = linkGuard(linkedName, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
+    if (guard) return guard;
+  }
+  const followup = await clientFollowupPlan(ctx, kind, row.client_id as string | null, leadRef, due ?? null,
+    input.notify_client, input.lead_phone);
   if (followup.notify) row.client_notify = true;
 
   let { data, error } = await ctx.supabase
@@ -9940,6 +10094,12 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   }
   if (error || !data) return { ok: false, error: agendaDbError(error || {}) };
   if (row.client_id) ctx.conv.last_client_id = String(row.client_id);
+  // המספר נשמר על הליד רק אחרי שהפגישה נכנסה ליומן
+  const phoneFailed = followup.notify ? await persistLeadPhone(ctx, String(data.id), leadRef, followup.phoneToSave) : null;
+  if (phoneFailed) {
+    followup.notify = false;
+    followup.note = phoneFailed;
+  }
 
   const [shaped] = await agendaShape(ctx, [data]);
   const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
@@ -9949,7 +10109,7 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
-    client_followup: followup.note,
+    client_followup: [followup.note, leadNotLinked].filter(Boolean).join(" ") || undefined,
     same_time: sameTime || undefined,
     guidance: "אשר/י בשורה אחת או שתיים: מה, מתי (יום ושעה מ-when) ושם פרטי. " +
       "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id. " +
@@ -9986,34 +10146,83 @@ async function exactSameTimeNote(
  * האם לשלוח ללקוח/ה אישור ותזכורת על הפגישה, ומה לומר על זה לסוכן/ת.
  * ההודעות עצמן יוצאות מהתור במסד (‏agent_agenda_client_messages), לא מכאן.
  */
+type LeadRef = { id: string; row: OwnLead | null };
+
+const LEAD_PHONE_FAILED_NOTE =
+  "הפגישה נשמרה, אבל לא הצלחתי לשמור את המספר בליד, ולכן לא יישלחו אישור ותזכורת. " +
+  "אפשר לנסות שוב עם agenda_update, lead_phone ו-notify_client.";
+
+/**
+ * שומר את המספר שהסוכן/ת אמר/ה, **אחרי** שהפגישה נשמרה. בכשל כובה השליחה על הפריט
+ * (אחרת הוא נשאר client_notify והתור מחזיר no_phone, וניסיון חוזר עם notify_client לא
+ * יוצר אישור חדש כי הטריגר רואה שהיה דלוק). מחזירה את ההערה לסוכן/ת בכשל.
+ */
+async function persistLeadPhone(
+  ctx: ToolContext,
+  itemId: string,
+  leadRef: LeadRef | null,
+  phone: string | undefined,
+): Promise<string | null> {
+  if (!phone || !leadRef?.row) return null;
+  if (await saveLeadPhone(ctx.supabase, ctx.agent.id, leadRef.row.id, phone)) return null;
+  await ctx.supabase.from("agent_agenda_items").update({ client_notify: false })
+    .eq("id", itemId).eq("agent_id", ctx.agent.id);
+  return LEAD_PHONE_FAILED_NOTE;
+}
+
+/** ליד שנאמר בקריאה: הרשומה אם היא של הסוכן/ת, אחרת row ריק. בלי lead_id - null. */
+async function leadRefFrom(ctx: ToolContext, value: unknown): Promise<LeadRef | null> {
+  const id = String(value ?? "").trim();
+  if (!id) return null;
+  return { id, row: await fetchOwnLead(ctx.supabase, ctx.agent.id, id) };
+}
+
+/** הנוסח לסוכן/ת אחרי שהוחלט לשלוח: אותו נוסח ללקוח/ה ולליד. */
+function followupSentNote(name: string, kind: string, due: string): string {
+  const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
+    ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
+  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
+  return `ל${name} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
+    "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback;
+}
+
 async function clientFollowupPlan(
   ctx: ToolContext,
   kind: string,
   clientId: string | null,
+  leadRef: LeadRef | null,
   due: string | null,
   requested: unknown,
-): Promise<{ notify: boolean; note?: string }> {
-  if (!["meeting", "showing", "signing"].includes(kind) || !clientId || !due) return { notify: false };
+  leadPhone?: unknown,
+): Promise<{ notify: boolean; note?: string; phoneToSave?: string }> {
+  if (!["meeting", "showing", "signing"].includes(kind) || (!clientId && !leadRef) || !due) return { notify: false };
   if (requested === false) return { notify: false, note: "לבקשתך, ללקוח/ה לא נשלח דבר על הפגישה." };
+  // לקוח/ה גובר/ת על ליד, כמו ב-agent_agenda_contact במסד.
+  if (!clientId && leadRef) {
+    const plan = await leadFollowupPlan(ctx.supabase, ctx.agent.id, leadRef.row, leadPhone);
+    if (!plan.notify) return plan;
+    if (await isNumberBlocked(ctx.supabase, plan.phoneToSave || leadRef.row?.raw_phone)) {
+      return { notify: false, note: NUMBER_BLOCKED_NOTE };
+    }
+    return {
+      notify: true,
+      note: followupSentNote(String(leadRef.row?.raw_name || "").trim() || "הליד", kind, due),
+      phoneToSave: plan.phoneToSave,
+    };
+  }
   const { data: client } = await ctx.supabase
     .from("agent_clients").select("full_name, phone")
     .eq("id", clientId).eq("agent_id", ctx.agent.id).maybeSingle();
-  const digits = String(client?.phone || "").replace(/\D/g, "");
-  if (digits.length < 9) {
+  // אותו כלל כמו השולח (clientPhoneE164): מספר שהשולח ידחה אינו "נשלח עכשיו"
+  if (!clientPhoneE164(client?.phone)) {
     return {
       notify: false,
       note: `ל${client?.full_name || "לקוח/ה"} אין טלפון בכרטיס, ולכן לא יישלחו אישור ותזכורת. ` +
         "אם תוסיף/י טלפון (update_client) ואז agenda_update עם notify_client - הם יישלחו.",
     };
   }
-  const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
-    ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
-  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
-  return {
-    notify: true,
-    note: `ל${client?.full_name || "לקוח/ה"} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
-      "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback,
-  };
+  if (await isNumberBlocked(ctx.supabase, client?.phone)) return { notify: false, note: NUMBER_BLOCKED_NOTE };
+  return { notify: true, note: followupSentNote(client?.full_name || "לקוח/ה", kind, due) };
 }
 
 /**
@@ -10184,6 +10393,8 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   if (!current) return { ok: false, error: "הפריט לא נמצא ביומן. קרא/י ל-agenda_list עם query." };
 
   const patch: Record<string, unknown> = {};
+  // מספר של ליד שנשמר על הליד רק אחרי שהעדכון נשמר ביומן
+  let pendingPhone: { leadRef: LeadRef | null; phone?: string } | null = null;
   if (action === "done") patch.status = "done";
   else if (action === "reopen") patch.status = "open";
   else if (action === "cancel") patch.status = "canceled";
@@ -10204,14 +10415,49 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
     if (input.high_priority !== undefined) patch.priority = input.high_priority ? "high" : "normal";
     const remind = agendaRemind(input);
     if (remind !== undefined) patch.remind_before = remind;
+    // ליד מ"הלידים שלי": קישור הפגישה אליו, או הליד שכבר מקושר אליה.
+    // הליד נשלף רק כשצריך: כשקושרים ליד, או כשמבקשים לשלוח.
+    const leadRef = input.lead_id || input.notify_client === true
+      ? await leadRefFrom(ctx, input.lead_id || current.lead_id)
+      : null;
+    if (input.lead_id) {
+      if (!leadRef?.row) {
+        return { ok: false, error: "lead_not_found", guidance: "הליד לא נמצא ב\"הלידים שלי\" של הסוכן/ת. לחפש אותו ב-list_leads ולא להמציא מזהה." };
+      }
+      // לפריט שיש לו לקוח/ה לא קושרים ליד (agent_agenda_contact מעדיפה את הלקוח/ה, ואם הכרטיס
+      // נמחק ההודעות היו עוברות בשקט לטלפון של הליד). אומרים את זה במפורש, ולא מעדכנים כלום.
+      if (current.client_id) {
+        return { ok: false, error: "lead_not_linked", guidance:
+          "לא קישרתי את הפגישה לליד, ושום דבר מהעדכון הזה לא נשמר: היא כבר מקושרת ללקוח/ה מהקובץ, " +
+          "וההודעות יוצאות אליו/ה. אפשר לקשר ליד רק לפגישה בלי לקוח/ה. אם הפגישה היא עם הליד: " +
+          "agenda_update cancel, ואז agenda_add חדש עם lead_id." };
+      }
+      if (leadRef.row.status !== "unlocked") {
+        return { ok: false, error: "lead_not_linked", guidance:
+          "לא קישרתי את הפגישה לליד, ושום דבר מהעדכון הזה לא נשמר: הליד עוד נעול ב\"הלידים שלי\". " +
+          "אחרי שהוא נפתח אפשר לקשר אותו." };
+      }
+      if (current.lead_id && current.lead_id !== leadRef.row.id) {
+        return { ok: false, error: "lead_already_linked", guidance:
+          "הפגישה כבר מקושרת לליד אחר, וההודעות כבר יצאו אליו/ה. לבטל אותה (agenda_update cancel) ולקבוע פגישה חדשה עם הליד הנכון." };
+      }
+      // הליד שכבר מקושר לפגישה אינו נשאל שוב: הקישור נעשה (ואושר) כשנקבעה
+      const guard = current.lead_id === leadRef.row.id
+        ? null
+        : linkGuard(leadRef.row.raw_name, recentAgentWords(ctx.conv.history, ctx.userText || ""), input.client_confirmed);
+      if (guard) return guard;
+      patch.lead_id = leadRef.row.id;
+    }
     if (typeof input.notify_client === "boolean") {
       if (input.notify_client) {
         const plan = await clientFollowupPlan(ctx, String(patch.kind || current.kind),
-          current.client_id as string | null, String(patch.due_at ?? current.due_at ?? "") || null, true);
+          current.client_id as string | null, leadRef, String(patch.due_at ?? current.due_at ?? "") || null, true,
+          input.lead_phone);
         if (!plan.notify) {
           return { ok: false, error: "no_followup", guidance: plan.note ||
-            "אפשר לשלוח ללקוח/ה רק על פגישה, סיור או חתימה עם לקוח/ה מהקובץ ועם מועד." };
+            "אפשר לשלוח ללקוח/ה רק על פגישה, סיור או חתימה עם לקוח/ה מהקובץ או ליד, ועם מועד." };
         }
+        pendingPhone = { leadRef, phone: plan.phoneToSave };
       }
       patch.client_notify = input.notify_client;
     }
@@ -10223,8 +10469,11 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase.from("agent_agenda_items").update(patch)
     .eq("id", id).eq("agent_id", ctx.agent.id).select(AGENDA_SELECT).single();
   if (error) return { ok: false, error: agendaDbError(error) };
+  const phoneFailed = pendingPhone
+    ? await persistLeadPhone(ctx, id, pendingPhone.leadRef, pendingPhone.phone)
+    : null;
   const [shaped] = await agendaShape(ctx, [data]);
-  return { ok: true, action, item: shaped };
+  return { ok: true, action, item: shaped, ...(phoneFailed ? { client_followup: phoneFailed } : {}) };
 }
 
 function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
@@ -10368,6 +10617,7 @@ async function runTool(
 
       // לידים והתראות
       case "add_lead": return await toolAddLead(ctx, input);
+      case "update_lead": return await toolUpdateLead(ctx, input);
       case "import_leads_file": return await toolImportLeadsFile(ctx, input);
       case "lead_import_answer": return await toolLeadImportAnswer(ctx, input);
       case "list_leads": return await toolListLeads(ctx, input);
@@ -10693,7 +10943,7 @@ const SYSTEM_STATIC: string = (() => {
       "חוץ מבעל/ת נכס (needs.client_kind owner), שלו/ה אין התאמות: הצע/י להוסיף את הנכס.",
     "- אם processing הוא true - השיחה עוד מעובדת. אמור/אמרי שהסיכום יגיע בעוד רגע.",
     "- משימות מהשיחה - הסוכן/ת לוחץ/ת על כפתור או כותב/ת. עזור/עזרי לבצע, אל תסתפק/י בהסבר:",
-    "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה. מועד שנאמר " +
+    "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה, **רק** כשהסוכן/ת אמר/ה את השם המלא שבכרטיס. שם פרטי שדומה לכרטיס אינו מספיק: הקריאה תחזור needs_link_confirmation, ואז שואלים \"לקשר לכרטיס של X?\" ולא קובעים עד תשובה. מועד שנאמר " +
       "בשיחה - קבע/י בו. בלי מועד - agenda_free_slots והצע/י שתי-שלוש שעות פנויות, וקבע/י אחרי בחירה.",
     "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase - הסוכן/ת " +
       "שולח/ת בכפתור שיוצא אחרי התשובה. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
@@ -10704,6 +10954,9 @@ const SYSTEM_STATIC: string = (() => {
       "לא create_client: לקוח/ה נשמר/ת בקובץ הלקוחות ואינו מופיע בלידים. שם, טלפון, כתובת, קומה, חדרים ורצינות " +
       "נשמרים כפי שנאמרו, בלי לשאול על מה שחסר. מוכרים/משכירים = kind owner, מחפש/ת = kind seeker. " +
       "אחרי השמירה אל תציע/י להוסיף לקוח/ה, אלא אם ביקשו.",
+    "- תיקון ליד שכבר נשמר (\"את העיר בליד של צבי תעדכני לעפולה\", \"הטלפון של דנה שגוי\") = list_leads כדי למצוא את " +
+      "lead_id, ואז update_lead עם השדות שהשתנו בלבד. לא add_lead (זה היה יוצר ליד שני). " +
+      "רק ליד שהסוכן/ת הזין/ה בעצמו/ה: על not_editable להסביר שליד מהאתר או מהלוחות לא נערך, ולהפנות לכרטיס הליד ב-CRM.",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
     "- הודעה שמתחילה ב-[איש קשר ששותף] = הסוכן/ת שיתף/ה כרטיס מאנשי הקשר או מהשיחות " +
@@ -10838,11 +11091,14 @@ const SYSTEM_STATIC: string = (() => {
     "- פגישה עם לקוח/ה מהקובץ: קודם list_clients עם query, והעבר/י client_id - אז השם " +
       "והטלפון יופיעו בתזכורת. מי שאינו/ה בקובץ: agenda_add בלי client_id. " +
       "אין לשאול אם להוסיף ואין לשאול טלפון, ואין להמציא שם מהכותרת. " +
+      "פגישה עם ליד מ\"הלידים שלי\" (לא לקוח/ה): list_leads, ואז lead_id ב-agenda_add, בלי לפתוח כרטיס לקוח/ה. " +
+      "אם client_followup אומר שאין לליד טלפון - לשאול את הסוכן/ת מה המספר, בשאלה אחת, ולא לנחש; " +
+      "אחרי שנאמר - agenda_update עם lead_phone ו-notify_client true. " +
       "סוג עסקה נשאל רק אם יוצרים או מעדכנים כרטיס והכלי החזיר ask.",
     "- אין להזכיר פגישה אחרת, תזכורת או התנגשות בתשובה על משהו אחר. " +
       "אם חזר same_time - שורה אחת אחרי האישור, בלי לשאול אם להזיז. " +
       "פגישה בשעה אחרת אינה התנגשות.",
-    "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ: הלקוח/ה מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
+    "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ או עם ליד מ\"הלידים שלי\": הוא/היא מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
       "ותזכורת שעה לפני עם כפתורי אישור הגעה, ביטול ומועד אחר. התשובה מגיעה לסוכן/ת כהתראה. " +
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
     "- אחרי סיור הלקוח/ה נשאל/ת איך היה, והתשובה פותחת משימה אוטומטית. \"תשלחי לה נכסים דומים\" / " +
@@ -11082,11 +11338,13 @@ export async function runAgentTurn(opts: {
   outbox?: OutboxItem[];
   /** החכירה נגמרה: עוצרים לפני שתור אחר תופס, כדי שלא ירוצו שניים יחד. */
   signal?: AbortSignal;
+  /** נצבר כאן זמן המודל והכלים (turn-timing.ts). הקורא רושם אותו, גם כשהתור נכשל. */
+  timing?: TurnTiming;
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
-  const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
+  const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox, userText: userSummary };
   const demandOn = await cadenceButtonOn(supabase);
   const tools = agentTools(demandOn, allowedTools);
   const gaps = profileGaps(await loadProfileForTurn(ctx));
@@ -11154,6 +11412,7 @@ export async function runAgentTurn(opts: {
     // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
     // נכנס ל-SYSTEM_STATIC או ל-TOOLS.
     const u = response.usage as unknown as Record<string, number | undefined>;
+    if (opts.timing) noteLlm(opts.timing, Date.now() - llmStart, u);
     console.log(
       `llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
@@ -11220,6 +11479,7 @@ export async function runAgentTurn(opts: {
       // ‏`ms=` כאן וב-`llm` (24.10.2026): בשבוע שאחרי 17.10 טקסט של סוכן/ת
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
+      if (opts.timing && !blocked) noteTool(opts.timing, use.name, Date.now() - toolStart);
       console.log(`tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
       if (!blocked) collectToolAsks(toolAsks, result);
       results.push({

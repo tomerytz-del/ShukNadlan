@@ -85,12 +85,12 @@
     var cityCrumb = document.getElementById("landCityCrumb");
     if (cityCrumb) {
       var city = S.cityOf(page);
-      cityCrumb.textContent = city.name;
-      cityCrumb.setAttribute("href", city.home);
+      cityCrumb.textContent = view.crumbHere ? (view.crumbName || city.name) : city.name;
+      cityCrumb.setAttribute("href", view.crumbHere ? (view.crumbPath || city.home) : city.home);
     }
     if (h1) h1.textContent = view.h1;
     if (benefit) benefit.textContent = view.benefit || view.description;
-    if (crumb) crumb.textContent = view.h1;
+    if (crumb) crumb.textContent = view.crumbHere || view.h1;
     if (chips) chips.innerHTML = S.chipsHtml(view, packed.rows, packed.extras);
     if (updated) updated.innerHTML = S.updatedHtml(packed.rows);
     if (hero) hero.innerHTML = S.heroHtml(view);

@@ -3638,9 +3638,11 @@
     return { name: name.trim().length >= 2, phone: phone.replace(/\D/g, '').length >= 9, consent: !!(consent && consent.checked) };
   }
   function syncCta() {
+    var btn = $('swCta');
+    if (!btn || !sheetCard) return;
     var v = validLead();
     var ready = formOpen && v.name && v.phone && v.consent;
-    $('swCta').textContent = ready ? 'שליחת הפנייה ←' : sheetCard.label;
+    btn.textContent = ready ? 'שליחת הפנייה ←' : sheetCard.label;
   }
   $('swSheetBody').addEventListener('click', function (e) {
     if (e.target.closest('[data-prof]')) { e.stopPropagation(); return; }
@@ -3660,6 +3662,10 @@
   });
   $('swSheetBody').addEventListener('input', syncCta);
   $('swSheetBody').addEventListener('change', syncCta);
+  /* תיבת האישור עוברת אל #swCtaBar כשהטופס פתוח (placeConsent), מחוץ
+     לגוף הגיליון. בלי המאזין כאן סימון האישור לא מעדכן את טקסט הכפתור. */
+  $('swCtaBar').addEventListener('input', syncCta);
+  $('swCtaBar').addEventListener('change', syncCta);
   $('swCta').addEventListener('click', function () {
     if (sent) return;
     var v = validLead();

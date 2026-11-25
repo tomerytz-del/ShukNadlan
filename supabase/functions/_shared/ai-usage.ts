@@ -40,6 +40,8 @@ export type AiFeature =
   | "neighborhood_describe"
   // המנטור של מנהל/ת הפלטפורמה (office-coach?kind=platform, docs/coaches.md)
   | "platform_coach"
+  // קריאת תוכנית דירה לסיור התלת-ממדי (plan-model, docs/plan-3d-tour.md)
+  | "plan_read"
   // הדמיה שהוגשה מהמטמון בלי קריאה למודל (‏units = מספר התמונות) - כדי למדוד את שיעור הפגיעה
   | "viz_cache_hit";
 

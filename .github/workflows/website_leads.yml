@@ -1,0 +1,44 @@
+name: לידים באתר - כרטיס, ייחוס, הרשמה ודוחות
+
+# כרטיס הפנייה בדף הנכס קורס במחשב בלי flex-shrink:0, דפי נחיתה בלי
+# visit-attr.js מאבדים את ייחוס הביקור, והרשמה בלי sign_up לא נראית ב-GA4.
+# הבדיקה קוראת קבצים בלבד.
+
+on:
+  pull_request:
+    paths:
+      - "property.html"
+      - "agency-signup.html"
+      - "for-brokers.html"
+      - "brokers.html"
+      - "join-*.html"
+      - "assets/swipe.js"
+      - "supabase/migrations/*demo_agencies_out_of_reports.sql"
+      - "scripts/check_website_leads.py"
+      - ".github/workflows/website_leads.yml"
+  push:
+    branches: [main]
+    paths:
+      - "property.html"
+      - "agency-signup.html"
+      - "for-brokers.html"
+      - "brokers.html"
+      - "join-*.html"
+      - "assets/swipe.js"
+      - "supabase/migrations/*demo_agencies_out_of_reports.sql"
+      - "scripts/check_website_leads.py"
+      - ".github/workflows/website_leads.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: לידים באתר
+        run: python3 scripts/check_website_leads.py

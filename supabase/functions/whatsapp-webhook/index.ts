@@ -157,6 +157,11 @@ import {
   findCatalogLinks,
   MAX_LINKS_PER_MESSAGE,
 } from "./catalog-link.ts";
+import { isMeetingOptOutText } from "./meeting-optout.ts";
+import {
+  buildTimingRow, kindOfMessage, newTurnTiming, recordTurnTiming, setTurnClock, takeTurnClock,
+} from "./turn-timing.ts";
+import { stopMeetingFollowups } from "./meeting-optout-run.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -2381,6 +2386,7 @@ async function handleOpenDemandClaim(agentId: string, from: string, rawId: strin
 }
 
 async function handleMessage(msg: Record<string, any>): Promise<void> {
+  const arrivedAt = Date.now();
   const from: string = msg.from;
   if (!from || !msg.id) return;
 
@@ -2523,6 +2529,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       });
       return;
     }
+    // מספר שקיבל 131050 וכותב לנו בעצמו שוב מקבל הודעות יזומות (whatsapp_optouts). "הסר"
+    // עצמה אינה משחררת, כדי שמי שחסום ומבקש להסיר לא ייפתח ויעצר בבת אחת.
+    if (!(msg.type === "text" && isMeetingOptOutText(msg.text?.body))) {
+      const { error: clearErr } = await supabase.rpc("whatsapp_optout_clear", { p_phone: from });
+      if (clearErr) console.error("optout clear failed", clearErr.message);
+    }
+    // "הסר" / "לא רלוונטי" מלקוח/ה או ליד שקיבל/ה פולואפ פגישה: עוצרים את ההודעות
+    // הממתינות ומעדכנים את הסוכן/ת. רק למי שאינו סוכן/ת (הענף הזה), ורק כשיש
+    // פגישה שנשלחה אליה הודעה; אחרת ההודעה ממשיכה לבוט כרגיל.
+    if (msg.type === "text" && isMeetingOptOutText(msg.text?.body)) {
+      const stopped = await stopMeetingFollowups(
+        supabase, from, (text: string) => reply(from, text, null, { customer: true }));
+      if (stopped) return;
+    }
     if (!publicBotEnabled) {
       await reply(from, UNKNOWN_SENDER_MSG, null, { customer: true });
       return;
@@ -2609,6 +2629,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // --- המרת ההודעה לקלט טקסטואלי/ויזואלי ל-LLM ---
   let userText = "";
   let newImageUrl: string | null = null;
+  // הורדה ותמלול של הקלטה, למדידת זמני התור (turn-timing.ts)
+  let transcribeMs: number | null = null;
+  let voiceKind = false;
 
   switch (msg.type) {
     case "text": {
@@ -2675,6 +2698,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       ));
 
       let file: { bytes: Uint8Array; mimeType: string };
+      const mediaStartedAt = Date.now();
       try {
         file = await downloadMedia(media.id);
       } catch (err) {
@@ -2702,6 +2726,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           supabase, openaiKey, agentId: agent.id, bytes: file.bytes, mime: file.mimeType,
           fileName, call: !voiceNote,
         });
+        transcribeMs = Date.now() - mediaStartedAt;
+        voiceKind = voiceNote;
       } else {
         result = await documentToText(file.bytes, file.mimeType, fileName);
       }
@@ -2930,6 +2956,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     });
   const kick = () => kickPendingDrain(agent.id, 8);
 
+  setTurnClock(agent.id, { arrivedAt, transcribeMs, kind: kindOfMessage(msg.type, voiceKind) });
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
   });
@@ -2990,6 +3017,7 @@ async function playTextTurn(opts: {
   const { agent, from, conv } = opts;
   let turnText = opts.text;
   let turnImage = opts.image;
+  const timing = newTurnTiming();
   const catalog = await attachCatalogImage(agent.id, from, conv, turnText);
   if (catalog.image) turnImage = catalog.image;
   turnText = withCatalogNote(turnText, catalog.note);
@@ -3005,8 +3033,14 @@ async function playTextTurn(opts: {
   const mediaTurn = hasMediaBlock(turnText);
   let answer: string;
   const outbox: OutboxItem[] = [];
+  const clock = takeTurnClock(agent.id, timing.startedAt);
+  const logTiming = (outcome: "ok" | "error" | "aborted", sendMs?: number) =>
+    recordTurnTiming(supabase, buildTimingRow({
+      agentId: agent.id, outcome, timing, clock, turnStartedAt: timing.startedAt, sendMs,
+    }));
   try {
     answer = await runAgentTurn({
+      timing,
       supabase,
       agent,
       conv,
@@ -3018,6 +3052,7 @@ async function playTextTurn(opts: {
     });
   } catch (err) {
     if (opts.signal?.aborted || (err as { name?: string })?.name === "AbortError") {
+      await logTiming("aborted");
       if (abortedTurnPlan(conv.abortedToolNames || []) === "save") {
         await saveConversation(agent.id, from, conv);
         await reply(
@@ -3031,6 +3066,7 @@ async function playTextTurn(opts: {
       return "work";
     }
     console.error("agent turn failed", err);
+    await logTiming("error");
     if (opts.msgId) {
       await supabase.from("whatsapp_messages")
         .update({ error: String((err as Error)?.message || err) })
@@ -3040,7 +3076,9 @@ async function playTextTurn(opts: {
     return "work";
   }
   await saveConversation(agent.id, from, conv);
+  const sendStartedAt = Date.now();
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+  const sendMs = Date.now() - sendStartedAt;
   // האלבום עם הכיתוב הוצג. מסמנים את כולן, לא רק את הכתובת שנשלחה למודל.
   if (turnImage) {
     const shown = await pendingImagesForAsk(agent.id);
@@ -3048,6 +3086,8 @@ async function playTextTurn(opts: {
   }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
   await maybeFairUseNotice(agent, from);
+  // אחרי הכול, כדי שהכתיבה לא תעכב את הכפתורים. total_ms: מההודעה ועד סוף התור
+  await logTiming("ok", sendMs);
   return "work";
 }
 

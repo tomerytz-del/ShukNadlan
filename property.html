@@ -719,7 +719,11 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .agency-strip .chev svg{width:18px;height:18px}
 
   /* ====== כרטיס ההמרה של הסוכן/ת ====== */
-  .sidebar > *{margin-bottom:16px}
+  /* ‏flex-shrink:0: מ-980px העמודה היא flex עם max-height ו-overflow.
+     ברירת המחדל (shrink 1) מכווצת את כרטיס הפנייה לגובה של שורה כשהתוכן
+     גבוה מהמסך, ו-overflow:hidden על .agent-card גוזר את הטופס.
+     במובייל העמודה אינה flex, אז הכלל לא משנה שם כלום. */
+  .sidebar > *{margin-bottom:16px;flex-shrink:0}
   .sidebar > *:last-child{margin-bottom:0}
   /* רצועת המשרד היא ‎.panel‎, ו-‎.panel‎ מביא איתו ‎margin-top:18px‎ שנועד
      לרצף פאנלים בעמודת התוכן. בעמודת הצד הקצב הוא ‎margin-bottom‎ של
@@ -2539,6 +2543,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h4>חיפושים פופולריים</h4>
     <div class="footer-seo-links">
       <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/דירות-4-חדרים">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="/afula/דירות-5-חדרים">דירות 5 חדרים ומעלה למכירה בעפולה</a>
       <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
       <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
       <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי בעפולה</a>

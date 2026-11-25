@@ -77,6 +77,26 @@ check("בקשת החימום לפני הדף הראשון",
 check("הדפים נמדדים בלי .html (אחרת נמדדת הפניית 301)",
       not any(p.endswith(".html") for p, _ in LIVE_PAGES), LIVE_PAGES)
 
+# דגימה ראשונה איטית (צומת edge קר) אינה ממצא; דף שאיטי בכל בקשה - כן.
+class _ColdFirst(_Session):
+    slow_always = "/agencies"
+    seen: dict = {}
+
+    def get(self, url, **kwargs):
+        n = _ColdFirst.seen[url] = _ColdFirst.seen.get(url, 0) + 1
+        if url.endswith(_ColdFirst.slow_always) or (url.endswith("/projects") and n == 1):
+            time.sleep(0.85)
+        return _Resp()
+
+
+sys.modules["requests"].Session = _ColdFirst
+found = [(f.code, f.subject, len(f.evidence["samples_ms"])) for f in _live(_LiveCtx())]
+check("דגימה קרה אחת אינה תגובה איטית, ודף שאיטי בכל בקשה נשאר ממצא",
+      found == [("slow_ttfb", "/agencies", 3)], found)
+check("דף מהיר נמדד פעם אחת, ודף שחצה את הסף שלוש",
+      _ColdFirst.seen.get("https://example.test/") == 1
+      and _ColdFirst.seen.get("https://example.test/projects") == 3, _ColdFirst.seen)
+
 # ---------------------------------------------------------------- queue_blocked
 
 from ops_agent.probes import database  # noqa: E402

@@ -7819,25 +7819,20 @@ let freeTextFeatures = new Set();
   const params = new URLSearchParams(location.search);
   // city= מסנן ליישוב (sentence-search) בלי להיות עמוד חדש ברשימה הסגורה
   const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
-  /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
+  /* ‏**טעינה ראשונה עם פרמטרי חיפוש מחילה אותם.**
 
-     הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה
-     מביקור קודם נושאות ‎?deal=sale&type=apt&rooms=4-5‎ - והדף נפתח כאילו
-     הגולש/ת כבר בחר/ה: "הצג 17 נכסים" במקום כל הנכסים. ניסיון קודם זיהה
-     "כתובת שהדף כתב" לפי sessionStorage, ונכשל: כתובת מלפני הסימון, ולשונית
-     שהטלפון שחזר בלי האחסון, נקראו כקישור.
+     קישור כמו ‎/?city=עפולה&maxPrice=3800‎ שנפתח ישירות (וואטסאפ, בלי
+     referrer) הוא חיפוש: ‏setFromParams מקבל כל פרמטר מוכר (‏maxPrice,
+     minPrice, rooms, type, city ועוד). עמוד חיפוש פופולרי נשאר כמו שהיה -
+     ‏search-pages.ts מזריקה ‎<meta name="shuk-search-heading">‎ רק לרשימה
+     הסגורה, והסוג (‏landingSearchType) נכנס למשפט כשהכתובת לא בחרה סוג.
+     הרשימה וה-canonical לא משתנים כאן: צירוף שאינו ברשימה אינו מקבל
+     canonical עצמי.
 
-     עכשיו הכלל הפוך - הכתובת מוחלת רק כשברור שהגיעו אליה כחיפוש:
-       1. עמוד חיפוש פופולרי - ‏search-pages.ts מזריקה לו
-          ‎<meta name="shuk-search-heading">‎, ורק לכתובות שברשימה.
-       2. הגעה דרך קישור - מדף אחר באתר או מאתר אחר (גוגל). ה-referrer
-          ריק בלשונית ששוחזרה, בכתובת שהוקלדה ובסימנייה.
-     בכל מקרה אחר הפרמטרים יורדים מהכתובת, כדי ששורת הכתובת תתאים למסך.
-
-     **ורענון תמיד נקי, גם בשני המקרים האלה.** הדפדפן שומר את ה-referrer
-     המקורי ברענון, ולכן מי שהגיע/ה מדף נכס, בחר/ה מסננים (הכתובת התעדכנה)
-     ורענן/ה - נקרא/ה כ"הגעה דרך קישור" והמסננים חזרו. רענון הוא בקשה
-     מפורשת להתחיל מחדש. */
+     **רענון נפתח נקי.** הדפדפן שומר את ה-referrer המקורי ברענון, ולכן
+     רענון אינו "הגעה דרך קישור". הפרמטרים המוכרים יורדים מהכתובת.
+     ‏viaLink (referrer, ‏src=link, סימון הצ'יפ) מסווג את ההגעה ואינו
+     השער להחלה. */
   const landing = !isReload() && !!document.querySelector('meta[name="shuk-search-heading"]');
   let viaLink = false;
   try {
@@ -7847,8 +7842,9 @@ let freeTextFeatures = new Set();
     }
   } catch(e){ /* referrer לא תקין - כאילו אין */ }
   /* צ'יפ של החיפוש המהיר שנפתח בלשונית חדשה (או לפני שהנכסים נטענו): סימון
-     חד-פעמי בן פחות מ-15 שניות לאותה כתובת בדיוק נחשב קישור. רענון ולשונית
-     ששוחזרה אחר כך עדיין נפתחים נקיים (‏P0-F) */
+     חד-פעמי בן פחות מ-15 שניות לאותה כתובת בדיוק גולל לתוצאות
+     (‏quickNavArrived). המסננים חלים מהכתובת גם בלי הסימון. רענון נפתח נקי
+     (‏P0-F) */
   try {
     const mark = JSON.parse(localStorage.getItem(QUICK_NAV_KEY) || 'null');
     if (mark){
@@ -7860,9 +7856,10 @@ let freeTextFeatures = new Set();
       }
     }
   } catch(e){ /* אחסון חסום - כמו בלי סימון */ }
-  /* ‏?src=link - a filtered link we distribute ourselves (FB/Messenger/IG/WhatsApp/QR):
-     in-app browsers send no referrer, so the marker counts as "arrived via link".
-     A reload still opens clean. The marker is removed from the address bar so a restored tab opens clean. */
+  /* ‏?src=link - a filtered link we distribute ourselves (FB/Messenger/IG/WhatsApp/QR).
+     The marker is stored for attribution and removed from the address bar.
+     Search params apply on any first load, with or without the marker.
+     A reload still opens clean. */
   if (!isReload() && params.get('src') === 'link'){
     viaLink = true;
     /* events.js קורא את src מהכתובת רק באירוע, אחרי שהשורה הזו כבר מחקה אותו.
@@ -7871,7 +7868,7 @@ let freeTextFeatures = new Set();
     try { const u = new URL(location.href); u.searchParams.delete('src'); history.replaceState(history.state, '', u); } catch(e){}
   }
   const hasSearch = known.some(k => params.has(k));
-  if (hasSearch && !landing && !viaLink){
+  if (isReload() && hasSearch){
     try {
       const url = new URL(location.href);
       known.forEach(k => url.searchParams.delete(k));
@@ -9060,11 +9057,10 @@ function renderQuickSearch(properties){
   document.getElementById('quickAreas').closest('.quick-group').hidden = !areas.length;
   sec.hidden = false;
 }
-/* ‏P0-F: צ'יפ של החיפוש המהיר הוא קישור לדף הבית עצמו (‏/?q=…), וכלל "דף הבית
-   נפתח נקי" (‏initSentenceSearch) מחק את הפרמטרים שלו - הלחיצה לא עשתה כלום.
-   ה-href נשאר קישור אמיתי (גוגל ממשיך לראות אותו), אבל לחיצה רגילה מוחלת
-   במקום על המשפט הטעון, בלי טעינה. לשונית חדשה, או לחיצה לפני שהנכסים
-   נטענו, מסמנות את הניווט ל-15 שניות (‏sk_qs_nav), והכלל מכבד את הסימון. */
+/* ‏P0-F: צ'יפ של החיפוש המהיר הוא קישור אמיתי (‏/?q=…), וגוגל ממשיכה לראות אותו.
+   לחיצה רגילה מוחלת על המשפט הטעון, בלי טעינה. לשונית חדשה, או לחיצה לפני
+   שהנכסים נטענו, מסמנות את הניווט ל-15 שניות (‏sk_qs_nav) כדי לגלול לתוצאות.
+   פרמטרי החיפוש עצמם חלים בכל טעינה ראשונה (‏initSentenceSearch). רענון נקי. */
 function quickNavMark(a){
   try { localStorage.setItem(QUICK_NAV_KEY, JSON.stringify({ href: a.getAttribute('href'), t: Date.now() })); } catch(e){ /* מצב פרטי */ }
 }

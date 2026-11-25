@@ -550,6 +550,8 @@ type SiloPage = {
   property_type: string | null;
   property_types?: string[] | null;
   rooms: number | null;
+  roomsMin?: number | null;
+  roomsMax?: number | null;
   cityName: string;
   names?: string[] | null;
   market: string;
@@ -584,7 +586,12 @@ function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
   if (types) {
     if (!types.includes(String(row.property_type || ""))) return false;
   } else if (page.property_type && String(row.property_type || "") !== page.property_type) return false;
-  if (page.rooms != null && Number(row.rooms) !== Number(page.rooms)) return false;
+  const rooms = Number(row.rooms);
+  if (page.roomsMin != null || page.roomsMax != null) {
+    if (!Number.isFinite(rooms)) return false;
+    if (page.roomsMin != null && rooms < Number(page.roomsMin)) return false;
+    if (page.roomsMax != null && rooms >= Number(page.roomsMax)) return false;
+  } else if (page.rooms != null && rooms !== Number(page.rooms)) return false;
   return true;
 }
 

@@ -697,7 +697,9 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       ? { tier: subTier, auto_renew: document.getElementById('autoRenew').checked, ...client }
       : isDevWallet
       ? { action: 'topup', amount: Number(amountEl.value), ...client }
-      : { amount: Number(amountEl.value), ...client };
+      : { amount: Number(amountEl.value), ...client,
+          /* מי שהגיע מהסיור התלת-ממדי חוזר אליו אחרי הטעינה ולא ל-CRM. רשימה סגורה, לא כתובת חופשית */
+          ...(params.get('return') === 'tour3d' ? { return_to: 'tour3d' } : {}) };
     const endpoint = isSub ? '/functions/v1/subscription-purchase'
       : isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup';
     const res = await fetch(SUPABASE_URL + endpoint, {
@@ -1077,6 +1079,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     <h4>חיפושים פופולריים</h4>
     <div class="footer-seo-links">
       <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/דירות-4-חדרים">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="/afula/דירות-5-חדרים">דירות 5 חדרים ומעלה למכירה בעפולה</a>
       <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
       <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
       <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי בעפולה</a>

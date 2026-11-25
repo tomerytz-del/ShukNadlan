@@ -9,8 +9,11 @@ on:
       - "supabase/migrations/20271030000200_whatsapp_template_cap.sql"
       - "supabase/migrations/20271031260000_template_cap_digest_reserved.sql"
       - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/notification-push/template-priority.ts"
+      - "supabase/migrations/20271130100000_wa_agent_notify_priority.sql"
       - "scripts/whatsapp_template_cap_test.mjs"
       - "scripts/whatsapp_template_cap_digest_test.py"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - ".github/workflows/whatsapp_template_cap.yml"
   push:
     branches: [main]
@@ -18,8 +21,11 @@ on:
       - "supabase/migrations/20271030000200_whatsapp_template_cap.sql"
       - "supabase/migrations/20271031260000_template_cap_digest_reserved.sql"
       - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/notification-push/template-priority.ts"
+      - "supabase/migrations/20271130100000_wa_agent_notify_priority.sql"
       - "scripts/whatsapp_template_cap_test.mjs"
       - "scripts/whatsapp_template_cap_digest_test.py"
+      - "scripts/wa_agent_notify_priority_test.ts"
       - ".github/workflows/whatsapp_template_cap.yml"
   workflow_dispatch:
 
@@ -56,3 +62,4 @@ jobs:
         run: |
           node scripts/whatsapp_template_cap_test.mjs
           python3 scripts/whatsapp_template_cap_digest_test.py
+          node --experimental-strip-types scripts/wa_agent_notify_priority_test.ts

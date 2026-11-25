@@ -91,6 +91,10 @@
     [['phone_required'], 'חסר מספר טלפון. בלי טלפון אין בעמוד כפתור וואטסאפ ואין חיוג.'],
     [['tier_required', 'upgrade_required'], 'היכולת הזו זמינה במסלול גבוה יותר. אפשר לשדרג בעמוד המסלולים.'],
     [['insufficient_balance', 'insufficient_credit', 'insufficient_funds'], 'אין מספיק יתרה בארנק. אפשר לטעון אותו ולנסות שוב.'],
+    // הסיור התלת-ממדי (plan-model, docs/plan-3d-tour.md)
+    [['mirror_source_invalid'], 'אי אפשר ליצור תמונת מראה מהדגם הזה.'],
+    [['name_required'], 'חסר שם לדגם.'],
+    [['gemini_not_configured'], 'קריאת התוכנית אינה זמינה כרגע. לא בוצע חיוב.'],
     [['already_member'], 'הסוכן/ת כבר בצוות המשרד.'],
     [['db_error', 'server_error', 'unhandled', 'queue_failed', /^5\d\d$/],
       'הפעולה נכשלה בשרת. כדאי לנסות שוב בעוד רגע.'],

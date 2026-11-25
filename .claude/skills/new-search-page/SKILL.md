@@ -43,6 +43,8 @@ description: הוספה או שינוי של עמוד תוצאות (חיפוש �
   בלי `landing`, סינון `deal=sale` מצהיר על `/afula/דירות-למכירה`.
   `deal=commercial` (וגם `ptype`) מצהיר על `/afula/נדלן-מסחרי` רק כשיש
   מלאי. `landing` קובע דף אחר, למשל `/afula/דירות-3-חדרים`.
+  `deal=sale&rooms=4` ו-`rooms=5` כבר מצביעים ל-`/afula/דירות-4-חדרים`
+  ו-`/afula/דירות-5-חדרים`.
 - **הפרמטרים חייבים להיות כאלה ש-`applyDeepLinkFilters` יודע לקרוא**
   (`assets/home.js`): `deal`, `rooms`, `ptype`, `minPrice`, `maxPrice`,
   `q`, `ai`. פרמטר שהדף אינו מכיר ייתן עמוד עם כותרת שמבטיחה סינון
