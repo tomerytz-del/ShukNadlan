@@ -26,21 +26,18 @@ var THREE_SRC=['https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js','
 var MAX_FILE=6*1024*1024;
 /* PDF: נפתח בדפדפן ומומר לתמונה, והשרת מקבל תמונה כמו תמיד. pdf.js נטען רק כשנבחר PDF, מ-/vendor/ (ה-CSP מתיר
    עובד רק מהאתר עצמו, ולכן לא מ-CDN). בשלב הזה רק בחשבון ללא חיוב: קריאת Gemini על גיליון שלם עוד לא נבדקה */
-var PDF_BASE='/vendor/pdfjs-dist@6.5.438/',PDF_MAX=20*1024*1024,PDF_SIDE=2400,pdfLib=null;
+var PDF_BASE='/vendor/pdfjs-dist@6.5.438/',PDF_MAX=20*1024*1024,PDF_SIDE=2400;
 function isPdf(f){return !!f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name))}
-async function pdfjs(){
-  if(!pdfLib){pdfLib=await import(PDF_BASE+'pdf.min.mjs');pdfLib.GlobalWorkerOptions.workerSrc=PDF_BASE+'pdf.worker.min.mjs'}
-  return pdfLib;
-}
 /* העמוד של התוכנית: זה שיש בו הכי הרבה מספרים שנראים כמו מידות (355, -435-). בחוברת עמוד המפרט כמעט בלי */
 async function pdfOpen(file){
-  var lib=await pdfjs(),doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,enableXfa:false}).promise;
+  var lib=await import(PDF_BASE+'pdf.min.mjs');lib.GlobalWorkerOptions.workerSrc=PDF_BASE+'pdf.worker.min.mjs';
+  var task=lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,enableXfa:false}),doc=await task.promise;
   var best=1,top=-1;
-  for(var i=1;i<=Math.min(doc.numPages,12);i++){
+  for(var i=1;i<=Math.min(doc.numPages,12)&&doc.numPages>1;i++){
     var tc=await (await doc.getPage(i)).getTextContent(),n=tc.items.filter(function(t){return /^-?\d{2,4}-?$/.test(String(t.str).trim())}).length;
     if(n>top){top=n;best=i}
   }
-  return {doc:doc,pages:doc.numPages,best:best};
+  return {doc:doc,task:task,pages:doc.numPages,best:best};
 }
 async function pdfToJpeg(doc,no){
   var page=await doc.getPage(no),v0=page.getViewport({scale:1});
@@ -231,33 +228,34 @@ async function openHome(){
       if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
-    var pdfOk=!!q.eligible&&price===0;
+    var pdfOk=pdfAllowed(q);
     $('nFile').accept='image/jpeg,image/png,image/webp'+(pdfOk?',application/pdf':'');
     $('nFileLbl').textContent=pdfOk?'תמונה או PDF של התוכנית (JPG, PNG, WebP עד 6MB, או PDF)':'תמונת התוכנית (JPG, PNG או WebP, עד 6MB)';
     $('nOkLbl').textContent=price?'אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה':'אני מאשר/ת יצירת דגם, ללא חיוב';
     if(!keep)$('nOk').checked=false;gate();
   }
-  var pdfState=null,pdfBusy=false,autoName='';
-  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length&&!pdfBusy)}
+  var pdfState=null,autoName='';
+  function pdfAllowed(q){return !!q.eligible&&priceOf(q)===0}
+  /* pdfState הוא null בזמן שה-PDF נפתח ואחרי כישלון, ולכן הכפתור נעול בשני המקרים */
+  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length&&(!isPdf($('nFile').files[0])||pdfState))}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
   if($('nKind'))$('nKind').addEventListener('change',function(){quoteUi()});
   /* בחירת קובץ: השם מתמלא משם הקובץ, וב-PDF נקבע העמוד (אפשר להחליף) */
   $('nFile').addEventListener('change',async function(){
-    var f=this.files[0],out=$('nMsg');pdfState=null;$('nPageBox').hidden=true;
+    var f=this.files[0],out=$('nMsg');if(pdfState)pdfState.task.destroy();pdfState=null;$('nPageBox').hidden=true;
     if(!f)return;
     if(!$('nName').value.trim()||$('nName').value===autoName)$('nName').value=autoName=f.name.replace(/\.[^.]+$/,'').slice(0,120);
     if(!isPdf(f))return gate();
-    var q=quotes[kind()]||{};
-    if(!(q.eligible&&priceOf(q)===0)){this.value='';return msg(out,'קובץ PDF זמין בשלב זה רק בחשבון ללא חיוב. שמרו את התוכנית כתמונה.',true)}
+    if(!pdfAllowed(quotes[kind()]||{})){this.value='';return msg(out,'קובץ PDF זמין בשלב זה רק בחשבון ללא חיוב. שמרו את התוכנית כתמונה.',true)}
     if(f.size>PDF_MAX){this.value='';return msg(out,'קובץ ה-PDF גדול מדי. עד 20MB.',true)}
-    pdfBusy=true;gate();msg(out,'פותחים את ה-PDF...');
+    gate();msg(out,'פותחים את ה-PDF...');
     try{
       pdfState=await pdfOpen(f);
       var opts='';for(var i=1;i<=pdfState.pages;i++)opts+='<option value="'+i+'">עמוד '+i+(i===pdfState.best&&pdfState.pages>1?' (נבחר אוטומטית)':'')+'</option>';
       $('nPage').innerHTML=opts;$('nPage').value=pdfState.best;$('nPageBox').hidden=pdfState.pages<2;
       msg(out,pdfState.pages>1?'ה-PDF כולל '+pdfState.pages+' עמודים. בחרנו את עמוד '+pdfState.best+', כי יש בו הכי הרבה מידות.':'');
-    }catch(e){this.value='';msg(out,'אי אפשר לקרוא את קובץ ה-PDF. נסו לשמור את התוכנית כתמונה.',true)}
-    pdfBusy=false;gate();
+    }catch(e){this.value='';msg(out,CODE_TEXT.pdf_failed,true)}
+    gate();
   });
   quoteUi();
   /* חזרה מטעינת ארנק (?topup=). success אינו הוכחה שהכסף נכנס, רק שדף התשלום החזיר לכאן:
@@ -288,7 +286,6 @@ async function openHome(){
     btn.disabled=true;msg(out,'קוראים את התוכנית. זה לוקח עד דקה, לא לסגור את הדף.');
     try{
       if(isPdf(file)){
-        if(!pdfState)throw {error:'pdf_failed'};
         file=await pdfToJpeg(pdfState.doc,+$('nPage').value||pdfState.best);
       }
       var b64=await new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'')};fr.onerror=no;fr.readAsDataURL(file)});

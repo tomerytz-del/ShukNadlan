@@ -1263,8 +1263,8 @@ $('c').addEventListener('pointerdown',function(){if(appEl.classList.contains('sh
    אחרת הציר היה קופץ מתחת לאצבע. pointerup נשמע ב-window, כי האצבע משתחררת לא תמיד מעל הציר */
 var sunDrag=false;
 function sunPeek(){appEl.classList.toggle('sun-peek',sunDrag||playing)}
-$('time').addEventListener('pointerdown',function(){sunDrag=true;sunPeek()});
-['pointerup','pointercancel'].forEach(function(t){window.addEventListener(t,function(){if(sunDrag){sunDrag=false;sunPeek()}})});
+function sunEnd(){sunDrag=false;sunPeek();window.removeEventListener('pointerup',sunEnd);window.removeEventListener('pointercancel',sunEnd)}
+$('time').addEventListener('pointerdown',function(){sunDrag=true;sunPeek();window.addEventListener('pointerup',sunEnd);window.addEventListener('pointercancel',sunEnd)});
 $('sunMore').addEventListener('click',function(){var on=$('sunSec').classList.toggle('more');this.setAttribute('aria-expanded',on)});
 $('info').addEventListener('click',function(){selTab('sun');sheet(true)});
 /* מסך מלא: הלוח נעלם לגמרי. באייפון אין requestFullscreen לאלמנט, והמחלקה לבדה עושה את העבודה */
