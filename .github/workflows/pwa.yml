@@ -27,6 +27,9 @@ on:
       - "favicon.ico"
       - "scripts/check_pwa.py"
       - "scripts/check_favicon.py"
+      - "scripts/check_a11y_motion.py"
+      - "assets/design-system.css"
+      - "assets/a11y-menu.js"
       - ".github/workflows/pwa.yml"
   push:
     branches: [main]
@@ -43,6 +46,9 @@ on:
       - "favicon.ico"
       - "scripts/check_pwa.py"
       - "scripts/check_favicon.py"
+      - "scripts/check_a11y_motion.py"
+      - "assets/design-system.css"
+      - "assets/a11y-menu.js"
       - ".github/workflows/pwa.yml"
   workflow_dispatch:
 
@@ -63,3 +69,7 @@ jobs:
       # לא מופיע בגוגל.
       - name: בדיקת favicon ושם האתר
         run: python3 scripts/check_favicon.py
+
+      # ‏'עצירת אנימציות' בתפריט הנגישות: הכלל במקום אחד, והדף שמציע אותו חייב לטעון אותו.
+      - name: בדיקת כלל עצירת האנימציות
+        run: python3 scripts/check_a11y_motion.py

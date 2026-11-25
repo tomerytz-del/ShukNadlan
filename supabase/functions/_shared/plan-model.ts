@@ -85,6 +85,8 @@ export const PLAN_READ_PROMPT =
   '  "walls": [{"kind": "exterior|interior|railing", "x1":0,"y1":0,"x2":0,"y2":0,\n' +
   '             "openings": [{"kind": "door|window|sliding", "x1":0,"y1":0,"x2":0,"y2":0}]}],\n' +
   '  "core": [{"x1":0,"y1":0,"x2":0,"y2":0}],\n' +
+  '  "zones": [{"kind": "kitchen|dining|living", "x1":0,"y1":0,"x2":0,"y2":0}],\n' +
+  '  "entrance": {"x1":0,"y1":0,"x2":0,"y2":0},\n' +
   '  "dimensions": [{"cm": 0, "x1":0,"y1":0,"x2":0,"y2":0}],\n' +
   '  "north_deg": null,\n' +
   '  "apartment_sqm": null,\n' +
@@ -92,14 +94,16 @@ export const PLAN_READ_PROMPT =
   "}\n" +
   `kind של חדר הוא אחד מ: ${Object.keys(ROOM_KINDS).join(", ")}.\n` +
   "כללים:\n" +
-  "1. rooms: מלבן לכל חלל, לפי הפנים של הקירות. חלל פתוח אחד (סלון, מטבח ופינת אוכל בלי קיר ביניהם) הוא חדר אחד מסוג living.\n" +
+  "1. rooms: מלבן לכל חלל, לפי הפנים של הקירות. חלל פתוח אחד (סלון, מטבח ופינת אוכל בלי קיר ביניהם) הוא חדר אחד מסוג living. מלבן של חדר אינו מכסה חדרים אחרים ואינו מכסה את גרעין הבניין.\n" +
   "2. walls: קו לאורך מרכז כל קיר, מקצה לקצה. exterior לקיר חיצוני עבה, interior למחיצה פנימית, railing למעקה מרפסת. רק קירות שמצוירים בתוכנית.\n" +
   "3. openings: כל דלת, חלון או דלת הזזה, כקטע על קו הקיר שלו. רווח בקיר עם קשת פתיחה הוא door.\n" +
-  "4. core: גרעין הבניין (מדרגות, מעלית, פירים) אם הוא מופיע בתוך מתאר הדירה. לא חלק מהדירה.\n" +
+  "4. core: גרעין הבניין (מדרגות, מעלית, פירים, לובי קומתי) אם הוא מופיע בתוך מתאר הדירה או שהדירה עוטפת אותו: מלבן אחד שעוטף את כולו. לא חלק מהדירה ולא חדר.\n" +
   "5. dimensions: עד 8 קווי מידה שמספר בסנטימטרים כתוב לידם, עם שתי הנקודות שהמידה נמדדת ביניהן. רק מספרים שכתובים בתוכנית.\n" +
   "6. north_deg: זווית חץ הצפון במעלות עם כיוון השעון מראש התמונה, או null אם אין חץ.\n" +
   "7. apartment_sqm ו-balcony_sqm: רק אם השטח כתוב בתוכנית. אחרת null.\n" +
-  "8. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
+  "8. zones: בתוך חלל פתוח, מלבן סביב הריהוט המצויר של כל אזור: kitchen (משטח העבודה והארונות), dining (שולחן האוכל והכיסאות), living (הספה והשטיח). אלה אזורים ולא חדרים, ואין ביניהם קירות.\n" +
+  "9. entrance: דלת הכניסה הראשית לדירה, כקטע על קו הקיר שלה (בדרך כלל ליד המילה כניסה או חץ). null אם אינה מסומנת.\n" +
+  "10. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
 
 const num = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
@@ -213,19 +217,23 @@ function snapLines(vals: number[], tol: number): Map<number, number> {
   return map;
 }
 
-function roomGrid(rooms: Room[], tol: number): Grid {
-  const mx = snapLines(rooms.flatMap((r) => [r.r[0][0], r.r[0][2]]), tol);
-  const my = snapLines(rooms.flatMap((r) => [r.r[0][1], r.r[0][3]]), tol);
+function roomGrid(rooms: Room[], tol: number, solids: Rect[] = []): Grid {
+  const mx = snapLines(rooms.flatMap((r) => [r.r[0][0], r.r[0][2]]).concat(solids.flatMap((q) => [q[0], q[2]])), tol);
+  const my = snapLines(rooms.flatMap((r) => [r.r[0][1], r.r[0][3]]).concat(solids.flatMap((q) => [q[1], q[3]])), tol);
+  // גרעין הבניין אינו שייך לאף חדר: תא שבתוכו נשאר ריק, וכך נוצר סביבו קיר ("סלון" שעוטף אותו אינו בולע אותו)
+  const cores = solids.map((q) => [mx.get(q[0])!, my.get(q[1])!, mx.get(q[2])!, my.get(q[3])!]);
   // חדר צר ששני הקצוות שלו התאחדו לקו אחד היה נעלם: לו משאירים את הקואורדינטות המקוריות בציר הזה
   const rects = rooms.map((r) => {
     const q = r.r[0], x1 = mx.get(q[0])!, x2 = mx.get(q[2])!, y1 = my.get(q[1])!, y2 = my.get(q[3])!;
     return [x1 < x2 ? x1 : q[0], y1 < y2 ? y1 : q[1], x1 < x2 ? x2 : q[2], y1 < y2 ? y2 : q[3]];
   });
   const uniq = (a: number[]) => [...new Set(a)].sort((p, q) => p - q);
-  const xs = uniq(rects.flatMap((q) => [q[0], q[2]])), ys = uniq(rects.flatMap((q) => [q[1], q[3]]));
+  const all = rects.concat(cores);
+  const xs = uniq(all.flatMap((q) => [q[0], q[2]])), ys = uniq(all.flatMap((q) => [q[1], q[3]]));
   const area = (q: number[]) => (q[2] - q[0]) * (q[3] - q[1]);
   const own = ys.slice(0, -1).map((y, j) => xs.slice(0, -1).map((x, i) => {
     const cx = (x + xs[i + 1]) / 2, cy = (y + ys[j + 1]) / 2;
+    if (cores.some((q) => cx > q[0] && cx < q[2] && cy > q[1] && cy < q[3])) return -1;
     let best = -1;
     rects.forEach((q, k) => {
       if (cx > q[0] && cx < q[2] && cy > q[1] && cy < q[3] && (best < 0 || area(q) < area(rects[best]))) best = k;
@@ -384,6 +392,40 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     if (!room.nc) lamps.push([cx, cy]);
   }
   if (dropped) checks.push({ code: "rooms_dropped", n: dropped });
+  // ---- אזורים בחלל פתוח (מטבח, פינת אוכל, סלון): לריהוט ולתוויות, לא קירות ----
+  const zones: Zone[] = [];
+  for (const z of list(raw.zones, 6)) {
+    const b = boxPx(z, W, H), k = (z as Record<string, unknown>)?.kind;
+    if (b && bigEnough(b) && (k === "kitchen" || k === "dining" || k === "living")) zones.push({ kind: k, q: [b.x1, b.y1, b.x2, b.y2] });
+  }
+  // מטבח או פינת אוכל שנקראו כ"חדר" בתוך הסלון (70% ומעלה ממנו) הם אזור: כחדר הם היו מקבלים קירות סביבם
+  const livings = rooms.filter((r) => r.id.startsWith("living"));
+  const kept = rooms.filter((r) => {
+    const kind = r.id.replace(/\d+$/, "");
+    if (kind !== "kitchen" && kind !== "dining") return true;
+    const q = r.r[0], area = (q[2] - q[0]) * (q[3] - q[1]);
+    const inside = livings.some((l) => {
+      const p = l.r[0], ox = Math.min(q[2], p[2]) - Math.max(q[0], p[0]), oy = Math.min(q[3], p[3]) - Math.max(q[1], p[1]);
+      return ox > 0 && oy > 0 && ox * oy >= 0.7 * area;
+    });
+    return !inside;
+  });
+  // רק אם נשארים שני חדרים לפחות: תוכנית של סלון ומטבח בלבד נשארת כמו שנקראה, ולא נדחית כ"לא קריאה"
+  if (kept.length >= 2 && kept.length < rooms.length) {
+    for (const r of rooms) {
+      const kind = r.id.replace(/\d+$/, "");
+      if (!kept.includes(r) && (kind === "kitchen" || kind === "dining") && !zones.some((z) => z.kind === kind)) zones.push({ kind, q: r.r[0] });
+    }
+    rooms = kept;
+    // התוויות והמנורות נבנו לפי כל החדרים: בונים מחדש, אחרת לאזור יש שתי תוויות באותה נקודה
+    labels.length = 0;
+    lamps.length = 0;
+    for (const r of rooms) {
+      const q = r.r[0], cx = Math.round((q[0] + q[2]) / 2), cy = Math.round((q[1] + q[3]) / 2);
+      labels.push([r.name, cx, cy]);
+      if (!r.nc) lamps.push([cx, cy]);
+    }
+  }
   if (rooms.length < 2) throw new PlanReadError("plan_unreadable", "לא זוהו חדרים בתוכנית");
 
   // ---- קירות ופתחים: רק קירות ישרים (אופקי או אנכי). אלכסון נזרק ונספר ----
@@ -448,7 +490,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const doors = walls.flatMap((w) => (w.o ?? []).filter((o) => o[0] === "d").map((o) => o[2] - o[1]));
   // השטח לפי הרשת ולא לפי סכום המלבנים: חדרים שנקראו חופפים נספרים פעם אחת
   const tol = Math.max(8, Math.round(Math.max(W, H) * 0.018));
-  const grid = roomGrid(rooms, tol);
+  const grid = roomGrid(rooms, tol, solids);
   const px2 = ownedArea(grid, (k) => !rooms[k].bal && !rooms[k].svc);
   const byArea = declaredArea !== null && declaredArea > 15 && declaredArea < 1500 && px2 > 0
     ? Math.sqrt(declaredArea * 10000 / px2) : 0;
@@ -497,11 +539,35 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     }
   }
 
+  // ---- דלת הכניסה: נכנסת לקיר הקרוב, ותווית "כניסה" בצד של הדירה (משם נפתח מבט ראשון) ----
+  const en = boxPx(raw.entrance, W, H);
+  if (en) {
+    const hz = en.x2 - en.x1 >= en.y2 - en.y1, mid = hz ? (en.y1 + en.y2) / 2 : (en.x1 + en.x2) / 2;
+    const lo = hz ? en.x1 : en.y1, hi = hz ? en.x2 : en.y2;
+    let best: Wall | null = null, bd = 2 * tol + 1;
+    for (const w of walls) {
+      if (w.t === "rail" || (w.h !== undefined) !== hz) continue;
+      const d = Math.abs((w.h !== undefined ? w.h : w.v!) - mid);
+      if (d < bd && Math.min(hi, w.b) - Math.max(lo, w.a) >= 6) { best = w; bd = d; }
+    }
+    if (best) {
+      const doorPx = Math.max(10, Math.round(90 / scale)), c = Math.round((Math.max(lo, best.a) + Math.min(hi, best.b)) / 2);
+      const from = Math.max(best.a, Math.round(c - doorPx / 2)), to = Math.min(best.b, from + doorPx);
+      best.o = (best.o ?? []).filter((o) => o[2] <= from || o[1] >= to).concat([["d", from, to]]).sort((p, q) => p[1] - q[1]);
+      const line = best.h !== undefined ? best.h : best.v!, off = Math.max(14, Math.round(60 / scale));
+      const inRoom = (x: number, y: number) => rooms.some((r) => !r.bal && r.r.some((q) => x > q[0] && x < q[2] && y > q[1] && y < q[3]));
+      const side = [1, -1].find((sg) => (hz ? inRoom(c, line + sg * off) : inRoom(line + sg * off, c)));
+      if (side) labels.push(hz ? ["כניסה", c, line + side * off] : ["כניסה", line + side * off, c]);
+    }
+  }
+
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });
 
   // בלי קנה מידה אמיתי אין לדעת אם מיטה נכנסת לחדר: לא מרהטים על ברירת מחדל
-  const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale);
+  const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale, zones, walls, tol);
+  // אזור סלון אינו מקבל תווית: לחדר שהוא יושב בו כבר יש אחת
+  for (const z of zones) if (z.kind !== "living") labels.push([ROOM_KINDS[z.kind].name, Math.round((z.q[0] + z.q[2]) / 2), Math.round((z.q[1] + z.q[3]) / 2)]);
   return {
     model: { imgW: W, imgH: H, rooms, solids, walls, labels, lamps, furniture },
     settings: {
@@ -519,8 +585,56 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
  * ריהוט התחלתי, מינימלי ובמרכז החדר: נקודת פתיחה לעורך ולא עיצוב. פריט נכנס רק אם יש לו
  * מקום (לפי מידות החדר בס"מ), כדי שלא ייצא מיטה שבולטת מקיר.
  */
-export function autoFurnish(rooms: Room[], scale: number): Furn[] {
+export type Zone = { kind: "kitchen" | "dining" | "living"; q: Rect };
+
+/** ריהוט של אזור בחלל פתוח. המטבח נצמד לקיר שלאורך האזור; בלי קיר קרוב, לצד הארוך */
+function furnishZone(z: Zone, scale: number, walls: Wall[], tol: number, out: Furn[]) {
+  const [x1, y1, x2, y2] = z.q, cx = Math.round((x1 + x2) / 2), cy = Math.round((y1 + y2) / 2);
+  const wCm = (x2 - x1) * scale, dCm = (y2 - y1) * scale, wide = wCm >= dCm, px = (cm: number) => Math.round(cm / scale);
+  if (z.kind === "dining") {
+    const len = Math.max(160, Math.min(240, Math.max(wCm, dCm) - 40)), n = Math.min(4, Math.floor(len / 58));
+    out.push(["table", cx, cy, wide ? 0 : 90, Math.round(len), 100]);
+    for (let i = 0; i < n; i++) {
+      const t = px(-len / 2 + (len / n) * (i + 0.5)), o = px(74);
+      if (wide) { out.push(["chair", cx + t, cy - o, 0]); out.push(["chair", cx + t, cy + o, 180]); }
+      else { out.push(["chair", cx - o, cy + t, 270]); out.push(["chair", cx + o, cy + t, 90]); }
+    }
+    return;
+  }
+  if (z.kind === "living") {
+    out.push(["rug", cx, cy, wide ? 0 : 90]);
+    if (wide) out.push(["sofa", cx, Math.round(y1 + (y2 - y1) * 0.22), 0]); else out.push(["sofa", Math.round(x1 + (x2 - x1) * 0.22), cy, 270]);
+    out.push(["coffee", cx, cy, wide ? 0 : 90]);
+    return;
+  }
+  // מטבח: הצד שלאורכו יש הכי הרבה קיר
+  const sides = [
+    { rot: 0, hz: true, line: y1, lo: x1, hi: x2, sg: 1 }, { rot: 180, hz: true, line: y2, lo: x1, hi: x2, sg: -1 },
+    { rot: 270, hz: false, line: x1, lo: y1, hi: y2, sg: 1 }, { rot: 90, hz: false, line: x2, lo: y1, hi: y2, sg: -1 },
+  ].map((sd) => {
+    let cover = 0, at = sd.line;
+    for (const w of walls) {
+      if (w.t === "rail" || (w.h !== undefined) !== sd.hz) continue;
+      const wl = w.h !== undefined ? w.h : w.v!, ov = Math.min(sd.hi, w.b) - Math.max(sd.lo, w.a);
+      if (Math.abs(wl - sd.line) <= 3 * tol && ov > cover) { cover = ov; at = wl; }
+    }
+    return { ...sd, cover, at };
+  });
+  const best = sides.reduce((b, sd) => (sd.cover > b.cover || (sd.cover === b.cover && sd.hi - sd.lo > b.hi - b.lo) ? sd : b));
+  const len = Math.max(180, Math.min(440, (best.hi - best.lo) * scale)), mid = Math.round((best.lo + best.hi) / 2);
+  const off = best.at + best.sg * px(40), isl = best.at + best.sg * px(250);
+  out.push(best.hz ? ["kitchen", mid, off, best.rot, Math.round(len)] : ["kitchen", off, mid, best.rot, Math.round(len)]);
+  // אי רק כשיש עומק: 3.3 מ' ומעלה מהקיר
+  if ((best.hz ? dCm : wCm) >= 330 && len >= 240) {
+    const w = Math.round(Math.min(240, len - 100));
+    out.push(best.hz ? ["island", mid, isl, best.rot, w, 80] : ["island", isl, mid, best.rot, w, 80]);
+  }
+}
+
+export function autoFurnish(rooms: Room[], scale: number, zones: Zone[] = [], walls: Wall[] = [], tol = 16): Furn[] {
   const out: Furn[] = [];
+  for (const z of zones) furnishZone(z, scale, walls, tol, out);
+  const zoned = (k: string) => zones.some((z) => z.kind === k);
   for (const r of rooms) {
     const [x1, y1, x2, y2] = r.r[0];
     const cx = Math.round((x1 + x2) / 2), cy = Math.round((y1 + y2) / 2);
@@ -530,8 +644,8 @@ export function autoFurnish(rooms: Room[], scale: number): Furn[] {
     const fits = (a: number, b: number) => (wide ? wCm >= a && dCm >= b : dCm >= a && wCm >= b);
     if ((kind === "master" || kind === "bedroom") && fits(260, 240)) out.push(["bed2", cx, cy, 0]);
     else if ((kind === "bedroom" || kind === "mamad") && fits(240, 160)) out.push(["bed1", cx, cy, wide ? 90 : 0]);
-    else if (kind === "living" && fits(360, 300)) { out.push(["rug", cx, cy, wide ? 0 : 90]); out.push(["sofa", cx, cy, wide ? 0 : 90]); }
-    else if (kind === "dining" && fits(320, 220)) out.push(["table", cx, cy, wide ? 0 : 90]);
+    else if (kind === "living" && !zoned("living") && fits(360, 300)) { out.push(["rug", cx, cy, wide ? 0 : 90]); out.push(["sofa", cx, cy, wide ? 0 : 90]); }
+    else if (kind === "dining" && !zoned("dining") && fits(320, 220)) out.push(["table", cx, cy, wide ? 0 : 90]);
     else if (kind === "wc" && fits(90, 120)) out.push(["toilet", cx, cy, 0]);
     else if (kind === "bath" && fits(180, 150)) out.push(["toilet", cx, cy, 0]);
     else if (kind === "balcony" && fits(300, 200)) out.push(["otable", cx, cy, wide ? 0 : 90]);
