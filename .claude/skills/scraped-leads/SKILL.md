@@ -160,8 +160,10 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
 
 - `scraped_lead_add` דוחה פוסט פייסבוק מלפני יותר מ-72 שעות (`post_too_old`).
   במדלן וביד2 אין פניה לבעלים. `first_seen_at` בלי `date_known` לא נדחף.
-  עד `madlan_notify_daily_cap` מודעות מדלן ויד2 **יחד** ביום. הספירה
-  ננעלת ב-`pg_advisory_xact_lock` במפתח קבוע לפני ה-`count`. הליד חינם
+  עד `madlan_notify_daily_cap` מודעות מדלן ביום, ועד `yad2_notify_daily_cap`
+  מודעות יד2 ביום. כל מקור סופר רק את השורות שלו (`push_site_only = false`,
+  מאז חצות בישראל). הספירה ננעלת ב-`pg_advisory_xact_lock` במפתח של המקור
+  לפני ה-`count` (מדלן 881151301, יד2 881151302). הליד חינם
   (`madlan_free` / `yad2_free`) נרשם `assigned` ב-`lead_routing_log`
   (בלי טלפון; לא `unrouted`, כי זה מעיר את כל מנהלי הפלטפורמה). מודעה בלי טלפון נקלטת; פייסבוק בלי טלפון
   נדחה. מלאי חי: `listing_inventory_sync`, הסנכרון
