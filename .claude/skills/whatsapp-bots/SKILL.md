@@ -169,6 +169,15 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 ו-`inbound_kind_test.ts` נכשל אם כפתור או תמונה נכנסים לספירה.
 ‏`docs/whatsapp-setup.md`, "שימוש הוגן".
 
+## רישום זמני התור (`turn-timing.ts`, `gabriela_turn_timings`)
+
+כל תור של הסוכנים (וואטסאפ ומייל, `kind = 'email'`) נרשם בשורה אחת עם משכי זמן בלי תוכן: המתנה לרצף, הורדה ותמלול, הכנה,
+מודל, כלים, שליחה וסך הכול. `runAgentTurn` מקבל `timing` אופציונלי וצובר; `playTextTurn` ו-`handleOne` ב-`email-intake.ts` רושמים,
+גם כשהתור נכשל או נקטע. **`wait_ms` ו-`transcribe_ms` נשמרים בזיכרון ההפעלה לפי סוכן/ת** (`setTurnClock`), ולכן תור שרץ בהפעלה
+אחרת נרשם עם `kind = 'other'` בלי השניים. דגל `gabriela_turn_timing_enabled` ב-`pricing_config` עוצר כתיבה בלי דיפלוי, שמירה 90 יום
+(cron יומי). קוראים כך: `select * from gabriela_turn_timing_report`. **טענה על "גבריאלה איטית" נשענת על הטבלה הזו ולא על הרגשה**, ותור מייל
+מסונן בכלים ואינו דומה לתור וואטסאפ. `docs/gabriela-turn-timing.md`.
+
 ## מטמון הפרומפט
 
 `SYSTEM_STATIC` נשמר במטמון. **אסור להכניס אליו דבר שמשתנה בין קריאות** -
