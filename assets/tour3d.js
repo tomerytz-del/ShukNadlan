@@ -195,7 +195,7 @@ async function openHome(){
     var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
-      html=price?'<p class="msg"><b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק. כולל '+(+q.renders_included||20)+' הדמיות. היתרה בארנק: '+money(bal)+'.</p>':'<p class="msg"><b>ללא חיוב</b> בחשבון הזה. כולל '+(+q.renders_included||20)+' הדמיות.</p>';
+      html='<p class="msg">'+(price?'<b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק.':'<b>ללא חיוב</b> בחשבון הזה.')+' כולל '+(+q.renders_included||20)+' הדמיות.'+(price?' היתרה בארנק: '+money(bal)+'.':'')+'</p>';
       if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
@@ -241,7 +241,7 @@ async function openHome(){
   homeBody.addEventListener('click',async function(e){
     var b=e.target.closest('[data-mirror]');if(!b)return;
     var q=quotes[b.dataset.kind]||{},out=$('listMsg');
-    if(!confirm(priceOf(q)?'תמונת מראה היא דגם נוסף, בחיוב של '+money(priceOf(q))+' מהארנק. להמשיך?':'תמונת מראה היא דגם נוסף, ללא חיוב. להמשיך?'))return;
+    var mp=priceOf(q);if(!confirm('תמונת מראה היא דגם נוסף, '+(mp?'בחיוב של '+money(mp)+' מהארנק':'ללא חיוב')+'. להמשיך?'))return;
     b.disabled=true;msg(out,'יוצרים את תמונת המראה...');
     try{
       var d=await callFn({action:'mirror',owner_kind:b.dataset.kind,source_model_id:b.dataset.mirror});
