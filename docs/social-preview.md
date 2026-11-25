@@ -356,7 +356,7 @@ curl -s "https://shuknadlan.co.il/property?id=<id>" | grep -E 'og:|<title>'
 מה-runner של הסוכן התפעולי, בארה"ב, אותם שני סבבים הם 1,012-1,166ms - מעל סף
 ה-`slow_ttfb` (800ms).
 
-**מה נכנס:** `property_page_bundle(uuid)` (‏`20271201160000`) מחזירה את ארבעת החלקים
+**מה נכנס:** `property_page_bundle(uuid)` (‏`20271201170000`) מחזירה את ארבעת החלקים
 בתשובה אחת, ו-`propertyBundle` ב-`og-tags.ts` קוראת לה. היא `SECURITY INVOKER`: אותן
 שורות ואותו RLS כמו ארבע השאילתות שהיא מחליפה.
 
