@@ -11,7 +11,9 @@
 --
 -- העתק מלא של client_match_digest_run מ-20270513090000 (md5 של הגוף זהה
 -- לפרודקשן, ‏35467716...), ותנאי אחד נוסף ב-lst. הוא בסוף ה-AND כי הוא קורא
--- לפונקציה.
+-- לפונקציה. ובנוסף suppress_push = false מפורש ב-insert (ברירת המחדל, בלי שינוי
+-- התנהגות), כי check_notification_backfill דורש החלטה מפורשת בכל מיגרציה שכותבת
+-- התראות.
 -- =============================================================================
 
 create or replace function public.client_match_digest_run()
@@ -224,14 +226,18 @@ begin
       end if;
 
       -- יעד אחד רק כשיש רק צד אחד ופריט אחד בו (הסקיל agent-notifications)
+      -- suppress_push מפורש (false) הוא ברירת המחדל של העמודה, כלומר אין שינוי:
+      -- הסיכום חייב להגיע לוואטסאפ, וכך check_notification_backfill מזהה שזו
+      -- החלטה ולא מילוי.
       insert into public.notifications (agent_id, type, title, body,
-                                        related_client_id, related_property_id)
+                                        related_client_id, related_property_id, suppress_push)
       values (r.id, 'match_digest',
               'ריכוז התאמות ללקוחות' || case when v_now - r.last_sent_at > interval '20 hours'
                                                then ' - מאז הסיכום הקודם' else '' end,
               v_body,
               case when coalesce(v_lst_n, 0) = 0 then v_one_c end,
-              case when coalesce(v_props, 0) = 0 then v_one_p end);
+              case when coalesce(v_props, 0) = 0 then v_one_p end,
+              false);
       v_sent := v_sent + 1;
     end if;
 
