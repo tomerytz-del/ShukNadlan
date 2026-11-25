@@ -279,8 +279,15 @@ def _live(ctx) -> Iterator[Finding]:
         # ניסיון שני לפני שמכריזים על אתר מת. ‏**זה לא פינוק:** ממצא
         # בדרגת "חמור" פותח Issue, ותקלת רשת חולפת אצל ה-runner נראית
         # בדיוק כמו אתר שנפל. התראת שווא אחת מלמדת להתעלם מהבאות.
+        #
+        # ‏**ואותו כלל חל על 5xx, לא רק על חריגה** (25.11.2026). הניסיון השני
+        # יצא רק כשהבקשה זרקה, ולכן 502 בודד מ-Netlify נכתב מיד כ"דף שבור
+        # בפרודקשן" - ונשאר פתוח עד הסריקה הבאה, שבפועל יוצאת פעמיים ביום.
+        # שלושת אירועי ה-5xx עד היום נראו כל אחד בסריקה אחת בלבד. ‏4xx אינו
+        # מנוסה שוב: הוא תשובה של הדף, לא של רגע.
         resp = None
         last_err: Exception | None = None
+        tries: list[dict] = []   # מה קרה בכל ניסיון - נכנס ל-evidence
         for attempt in (1, 2):
             try:
                 started = time.perf_counter()
@@ -289,12 +296,15 @@ def _live(ctx) -> Iterator[Finding]:
                 ttfb_ms = (time.perf_counter() - started) * 1000
                 body = resp.content
                 total_ms = (time.perf_counter() - started) * 1000
-                break
+                tries.append({"status": resp.status_code, "ms": round(ttfb_ms)})
+                if resp.status_code < 500:
+                    break
             except Exception as err:  # noqa: BLE001
                 last_err = err
                 resp = None
-                if attempt == 1:
-                    time.sleep(3)
+                tries.append({"error": type(err).__name__})
+            if attempt == 1:
+                time.sleep(3)
 
         if resp is None:
             yield Finding(
@@ -304,19 +314,48 @@ def _live(ctx) -> Iterator[Finding]:
                 detail="שתי בקשות ל-%s נכשלו: %s" % (url, last_err),
                 suggestion="שני ניסיונות שנכשלו אינם תקלת רשת חולפת. לבדוק את "
                            "‏Netlify ואת ה-DNS.",
+                evidence={"attempts": tries},
             )
             continue
 
         if resp.status_code >= 400:
+            # "גם בבקשה שנייה" רק כשגם הראשונה ענתה 5xx; אם היא זרקה חריגה,
+            # הניסוח הכללי, והפירוט ב-evidence.
+            twice = len(tries) == 2 and tries[0].get("status", 0) >= 500
             yield Finding(
                 area="health", code="page_error", severity="critical",
                 subject=path.split("?", 1)[0],
                 title="הדף מחזיר %d: %s" % (resp.status_code, label),
-                detail="‏%s החזיר %d." % (url, resp.status_code),
+                detail=("‏%s החזיר %d גם בבקשה שנייה, שלוש שניות אחרי הראשונה."
+                        if twice else "‏%s החזיר %d.") % (url, resp.status_code),
                 suggestion="דף שבור בפרודקשן. לבדוק את הפריסה האחרונה ב-Netlify.",
                 metric=float(resp.status_code), metric_unit="סטטוס",
+                # בלי זה אי אפשר לדעת בדיעבד מה נפל: ‏502 של edge function
+                # שקרסה ו-502 של Netlify עצמה נראים אותו דבר בכותרת.
+                evidence={"url": url, "attempts": tries,
+                          "request_id": resp.headers.get("x-nf-request-id"),
+                          "body": body[:200].decode("utf-8", "replace")},
             )
             continue
+
+        # ‏5xx אחד ואחריו תשובה תקינה: לא "דף שבור", אבל גם לא כלום. ממצא
+        # נמוך, כדי שדף שנופל פעם בכל סריקה ייראה כדפוס ולא ייעלם.
+        failed_first = [x for x in tries[:-1] if x.get("status", 0) >= 500]
+        if failed_first:
+            yield Finding(
+                area="health", code="page_error_once", severity="low",
+                subject=path.split("?", 1)[0],
+                title="%s החזיר %d פעם אחת, ונטען בבקשה השנייה"
+                      % (label, failed_first[0]["status"]),
+                detail="‏%s החזיר %d, ושלוש שניות אחר כך %d. גולש/ת שהגיע/ה באותו "
+                       "רגע ראה/תה דף שגיאה." % (url, failed_first[0]["status"],
+                                                 resp.status_code),
+                suggestion="אירוע בודד הוא רגע אצל Netlify. אם הממצא חוזר על אותו "
+                           "דף בסריקות רצופות - לבדוק את ה-edge function שמגישה "
+                           "אותו ואת יומן הפונקציות ב-Netlify.",
+                metric=float(failed_first[0]["status"]), metric_unit="סטטוס",
+                evidence={"url": url, "attempts": tries},
+            )
 
         kb = len(body) / 1024
         encoding = (resp.headers.get("content-encoding") or "").lower()
