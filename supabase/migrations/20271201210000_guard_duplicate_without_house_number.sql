@@ -60,7 +60,15 @@ begin
            old.city, old.street, old.house_number, old.rooms, old.floor, old.deal_type)
          is not distinct from v_key
      and public.property_text_key(old.unit_label)
-         is not distinct from public.property_text_key(new.unit_label) then
+         is not distinct from public.property_text_key(new.unit_label)
+     -- בלי מפתח (חסר מספר בית) "אותה זהות" אינה נגזרת מהמפתח: שינוי חדרים, קומה, סוג עסקה, עיר או רחוב על
+     -- מודעה בלי מספר בית היא זהות חדשה, ועוברת את הבדיקה למטה. עריכת מחיר או תיאור עדיין נקטעת כאן.
+     and (v_key is not null
+          or (old.rooms is not distinct from new.rooms
+              and old.floor is not distinct from new.floor
+              and old.deal_type is not distinct from new.deal_type
+              and public.property_text_key(old.city) is not distinct from public.property_text_key(new.city)
+              and public.property_text_key(old.street) is not distinct from public.property_text_key(new.street))) then
     return new;
   end if;
 
