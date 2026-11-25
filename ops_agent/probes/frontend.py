@@ -289,6 +289,13 @@ def _live(ctx) -> Iterator[Finding]:
                 ttfb_ms = (time.perf_counter() - started) * 1000
                 body = resp.content
                 total_ms = (time.perf_counter() - started) * 1000
+                # ‏5xx יחיד מקבל אותו ניסיון שני כמו כשל רשת: ‏502/503
+                # חולף ב-edge של Netlify נראה בסריקה אחת בדיוק כמו אתר
+                # שנפל (‏24.11.2026 - Supabase והאתר היו תקינים). ‏4xx
+                # אינו חולף ולכן אינו מנוסה שוב.
+                if resp.status_code >= 500 and attempt == 1:
+                    time.sleep(3)
+                    continue
                 break
             except Exception as err:  # noqa: BLE001
                 last_err = err
