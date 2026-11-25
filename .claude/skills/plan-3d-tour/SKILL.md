@@ -78,6 +78,9 @@ python3 scripts/plan_wall_audit.py plan.jpg model.json --out diff.png
 * **סוכן/ת: Elite פעיל** (`property_virtual_tour_eligible`, אותה הגדרה כמו סיור 360).
   **יזם/משווק: בלי מסלול**, מארנק היזם. סיור 360 מפנורמות נשאר כלול ב-Elite, ואינו
   קשור לחיוב הזה.
+* **מנהל/ת הפלטפורמה לא מחויב/ת** (`plan_model_free_for`: `is_platform_admin` פעיל, ארנק הסוכן/ת בלבד).
+  המחיר בהצעה 0, אין שורה ב-`plan_model_charges` (האילוץ `amount > 0`), והפטור כולל את דרישת
+  המסלול. הדף מציג "ללא חיוב"; `priceOf` חייבת לקבל 0 כמחיר ולא ליפול ל-49.
 * **כל שינוי סטטוס עובר בפונקציה** (`start` → `mark_reading` → `complete` / `fail`),
   באותה נעילת שורה. לא `update` גולמי של `status` מה-Edge Function.
 * **שלושה מצבים אחרי כישלון, לא שניים:** ההחזר אושר ("₪49 הוחזרו לארנק"), ההחזר לא
