@@ -166,6 +166,9 @@ const DEFAULT_IMAGE = `${SITE}/assets/logo-shuknadlan.png`;
 const ORG_LOGO = `${SITE}/assets/logo-shuknadlan-square.png`;
 const SITE_NAME = "שוק נדל״ן";
 const FETCH_TIMEOUT_MS = 1200;
+/* מפתח המטמון ב-CDN: רק הפרמטר שבוחר את הרשומה. ‏utm, ‏fbclid ו-gclid
+   אינם עותק נפרד, ואין עוגייה שמשנה את הדף. */
+const DETAIL_VARY = "query=id|slug";
 
 /* ---------- עזרים ---------- */
 
@@ -2185,6 +2188,19 @@ function failureHeaders(base: Headers, status: number): Headers {
   return headers;
 }
 
+/* דף שיוצא בלי מילוי (כשל מסד בדף שאינו נכס, או זריקה): אותו גוף ואותן
+   כותרות, ורק ה-CDN אינו שומר אותו. עם cache: "manual" תשובה כזו בלי
+   הכותרת הייתה תלויה בכותרות של הקובץ הסטטי. */
+function unfilled(res: Response): Response {
+  try {
+    const headers = new Headers(res.headers);
+    headers.set("Netlify-CDN-Cache-Control", "no-store");
+    return new Response(res.body, { status: res.status, headers });
+  } catch {
+    return res; // הגוף כבר נקרא - מחזירים את המקור כמו שהוא
+  }
+}
+
 /* ‏Server-Timing לדף נכס שנשאל עליו המסד: origin - ה-HTML הסטטי, db - המסד (desc: באיזה
    מסלול), total - כל הפונקציה. נראה בלשונית Network ובכל curl, בלי כלי נוסף.
    מספרים בלבד, בלי שום פרט של הנכס או של הגולש/ת. תשובת 200 נשמרת ב-CDN
@@ -2312,7 +2328,7 @@ export default async function handler(request: Request, context: Context) {
     // ‏null = לא ידענו. בנכס: עותק קודם ב-200, ואחרת 503 בלי noindex.
     // בשאר הדפים התשובה המקורית.
     if (!meta) {
-      if (!isProperty) return res;
+      if (!isProperty) return unfilled(res);
       const prev = await recall(lastGoodKey(request.url));
       if (prev) {
         timed(prev.headers);
@@ -2337,6 +2353,7 @@ export default async function handler(request: Request, context: Context) {
     } else {
       headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
       headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+      headers.set("Netlify-Vary", DETAIL_VARY);
     }
     const response = new Response(out, { status: res.status, headers });
     if (isProperty && meta !== "missing") {
@@ -2346,10 +2363,14 @@ export default async function handler(request: Request, context: Context) {
     timed(response.headers);
     return response;
   } catch {
-    return res; // הזרקה שנכשלה לא תשבור דף
+    return unfilled(res); // הזרקה שנכשלה לא תשבור דף
   }
 }
 
+/* ‏cache: "manual" הוא מה שגורם ל-Netlify-CDN-Cache-Control לחול. בלעדיו
+   הכותרת נכתבה והפונקציה רצה בכל בקשה בכל זאת, כולל הסבב למסד (נמדד
+   25.11.2026: ‏age: 0 וזמני db שונים בכל בקשה). רק תשובה שהתמלאה נושאת
+   כותרת מטמון; 404, 503 ודף שלא מולא נשארים בלי מטמון, כמו קודם. */
 /* ‏‎excludedPath‎ אינו נחוץ: ההתאמה כאן היא לנתיבים המדויקים בלבד, בשתי
    הצורות שבהן Netlify מגיש כל דף — עם הסיומת ובלעדיה. */
 export const config: Config = {
@@ -2362,4 +2383,5 @@ export const config: Config = {
     "/professional", "/professional.html",
     "/article", "/article.html",
   ],
+  cache: "manual",
 };

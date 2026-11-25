@@ -26,7 +26,7 @@
    התיעוד: ‎docs/social-preview.md‎.
    ========================================================================== */
 
-import handler from "../netlify/edge-functions/og-tags.ts";
+import handler, { config as ogConfig } from "../netlify/edge-functions/og-tags.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 /* הבדיקות מחליפות את fetch. השאילתה החיה נשארת על המקור. */
@@ -1212,7 +1212,20 @@ const slow = await bundleRun((_u, init) =>
   })
 );
 const down = await bundleRun(() => json({ message: "upstream" }, 503));
+/* משרד שהמסד נכשל עליו יוצא כמו שהוא - ואסור שה-CDN ישמור אותו */
+globalThis.fetch = (async () => json({}, 500)) as typeof fetch;
+const agencyUnfilled = await handler(new Request("https://shuknadlan.co.il/agency?slug=a"), context());
 const bundleChecks: [string, boolean][] = [
+  ["מטמון: הפונקציה מוגדרת cache manual, אחרת כותרת ה-CDN אינה חלה",
+    (ogConfig as { cache?: string }).cache === "manual"],
+  ["מטמון: דף נכס שמולא נשמר לדקה, והמפתח הוא id ו-slug בלבד",
+    full.res.headers.get("Netlify-CDN-Cache-Control") === "public, max-age=60, stale-while-revalidate=300"
+      && full.res.headers.get("Netlify-Vary") === "query=id|slug"],
+  ["מטמון: 404, 503 ודף שלא מולא אינם נשמרים ב-CDN",
+    gone.res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+      && slow.res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+      && agencyUnfilled.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+      && (await agencyUnfilled.text()) === PAGE],
   ["bundle: קריאה אחת למסד, והיא ל-property_page_bundle",
     full.calls.length === 1 && full.calls[0].includes(`rpc/property_page_bundle?p_id=${BUNDLE_ID}`)],
   ["bundle: הכותרת, המבדיל מהאחים ושם הסוכן/ת מהתשובה האחת",
