@@ -160,11 +160,16 @@ const correction = "תתקני, הפגישה עם עליזה היא היום ב�
   check("בלי שאלה בסוף ההודעה האחרונה", answersLastQuestion([{ role: "assistant", content: "פתחתי כרטיס לברק, והוא מקבל התאמות מכל הערים.", at: "2026-11-25T10:46:40Z" }], "עפולה", now) === null);
   check("ההודעה האחרונה בהיסטוריה אינה של גבריאלה", answersLastQuestion([...q, { role: "user", content: "רגע", at: "2026-11-25T10:47:00Z" }], "עפולה", now) === null);
   check("שאלה שחלפה (יותר משעה) אינה נחשבת", answersLastQuestion(q, "עפולה", Date.parse("2026-11-25T12:00:00Z")) === null);
-  check("בלי חותמת זמן: עדיין נחשבת", (answersLastQuestion([{ role: "assistant", content: "באיזו עיר?" }], "עפולה", now) || "").includes("באיזו עיר"));
-  check("נכנסת ל-styleContext", styleContext([{ role: "assistant", content: "באיזו עיר הוא מחפש? אחרי שתגיד, אכין רשימה." }], "עפולה").includes("באיזו עיר"));
+  check("בלי חותמת זמן בהיסטוריה: אין שאלה פתוחה", answersLastQuestion([{ role: "assistant", content: "באיזו עיר?" }], "עפולה", now) === null
+    && answersLastQuestion([{ role: "user", content: "שלום" }, { role: "assistant", content: "באיזו עיר הוא מחפש?" }], "עפולה", now) === null);
+  check("חותמת שבורה: אין שאלה פתוחה", answersLastQuestion([{ role: "assistant", content: "באיזו עיר?", at: "לא תאריך" }], "עפולה", now) === null);
+  check("נכנסת ל-styleContext", styleContext([{ role: "assistant", content: "באיזו עיר הוא מחפש? אחרי שתגיד, אכין רשימה.", at: new Date().toISOString() }], "עפולה").includes("באיזו עיר"));
   check("הודעה ריקה", answersLastQuestion(q, "   ", now) === null);
   const del: HistoryMsg[] = [{ role: "assistant", content: "למחוק את הנכס? זה לא הפיך.", at: "2026-11-25T10:46:40Z" }];
   check("סירוב או ביטול אינם תשובה לבצע", ["לא", "לא תודה", "עזוב", "ביטול", "תבטלי."].every((w) => answersLastQuestion(del, w, now) === null));
+  check("סירוב לפי תחילת ההודעה", ["לא, תשאירי אותו", "אל תמחקי", "עוד לא", "עוד לא, חכי", "לא!", "אל"].every((w) => answersLastQuestion(del, w, now) === null));
+  check("רגע, שנייה ודי הם עצירה", ["רגע", "רגע, חכי", "שנייה", "שניה אחת", "די", "די, עצרי"].every((w) => answersLastQuestion(del, w, now) === null));
+  check("מילה שמתחילה באותן אותיות אינה סירוב", ["לאה כהן", "אלה", "דיזנגוף 12", "רגעים", "דירה"].every((w) => (answersLastQuestion(q, w, now) || "").includes("באיזו עיר")));
   check("'כן' כן נחשב", (answersLastQuestion(del, "כן", now) || "").includes("למחוק את הנכס"));
   const link: HistoryMsg[] = [{ role: "assistant", content: "הנה דוח ה-CMA: https://shuknadlan.co.il/cma?k=abc123", at: "2026-11-25T10:46:40Z" }];
   check("כתובת עם ? אינה שאלה", answersLastQuestion(link, "תודה", now) === null);
