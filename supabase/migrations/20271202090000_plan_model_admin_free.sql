@@ -23,7 +23,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select p_owner_kind = 'agent' and exists (
+  -- coalesce: סוג בעלים null היה מחזיר null, ו-`not null` מדלג בשקט על בדיקת המסלול והיתרה
+  select coalesce(p_owner_kind = 'agent', false) and exists (
     select 1 from public.agency_members
      where id = p_owner_id and is_platform_admin = true and active = true);
 $$;
@@ -53,7 +54,7 @@ declare
   v_id       uuid;
   v_free     boolean;
 begin
-  if p_owner_kind not in ('agent', 'developer') then
+  if p_owner_kind is null or p_owner_kind not in ('agent', 'developer') then
     return jsonb_build_object('error', 'bad_owner_kind');
   end if;
   if p_name is null or char_length(btrim(p_name)) = 0 then
