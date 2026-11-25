@@ -136,8 +136,8 @@ check(
     && sql.includes("צריך מספר קומה או מספר משרד"),
 );
 
-// מודעה בלי מספר בית מול משרד אחר (20271201210000)
-const hnSql = readFileSync(new URL("../supabase/migrations/20271201210000_guard_duplicate_without_house_number.sql", import.meta.url), "utf8");
+// מודעה בלי מספר בית מול משרד אחר (20271202100000)
+const hnSql = readFileSync(new URL("../supabase/migrations/20271202100000_guard_duplicate_without_house_number.sql", import.meta.url), "utf8");
 const dbMsg = "במערכת כבר מפורסמת מודעה של משרד אחר באותו רחוב, עם אותו מספר חדרים וקומה ואותו סוג עסקה. כדי לפרסם יש להזין מספר בית. אם זו אותה דירה, אפשר לפרסם אותה רק על סמך הסכם בלעדיות חתום.";
 check(
   "גבריאלה אומרת משפט בלי שמות כשחסר מספר בית",

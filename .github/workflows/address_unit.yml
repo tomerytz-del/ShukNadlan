@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20271116133000_property_unit_label.sql"
-      - "supabase/migrations/20271201210000_guard_duplicate_without_house_number.sql"
+      - "supabase/migrations/20271202100000_guard_duplicate_without_house_number.sql"
       - "supabase/functions/whatsapp-webhook/address-unit.ts"
       - "supabase/functions/whatsapp-webhook/listing-actions.ts"
       - "scripts/address_unit_test.ts"
@@ -13,7 +13,7 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/20271116133000_property_unit_label.sql"
-      - "supabase/migrations/20271201210000_guard_duplicate_without_house_number.sql"
+      - "supabase/migrations/20271202100000_guard_duplicate_without_house_number.sql"
       - "supabase/functions/whatsapp-webhook/address-unit.ts"
       - "supabase/functions/whatsapp-webhook/listing-actions.ts"
       - "scripts/address_unit_test.ts"
