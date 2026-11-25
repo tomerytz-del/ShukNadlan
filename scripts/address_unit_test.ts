@@ -14,7 +14,7 @@ import {
   type ListedUnit,
   type UnitAddress,
 } from "../supabase/functions/whatsapp-webhook/address-unit.ts";
-import { publishErrorText, UNIT_REQUIRED_MSG } from "../supabase/functions/whatsapp-webhook/listing-actions.ts";
+import { HOUSE_NUMBER_REQUIRED_MSG, publishErrorText, UNIT_REQUIRED_MSG } from "../supabase/functions/whatsapp-webhook/listing-actions.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -134,6 +134,28 @@ check(
     && sql.includes("coalesce(p_same_agency, false)")
     && elsewhereAt > 0 && unitRequiredAt > elsewhereAt
     && sql.includes("צריך מספר קומה או מספר משרד"),
+);
+
+// מודעה בלי מספר בית מול משרד אחר (20271201210000)
+const hnSql = readFileSync(new URL("../supabase/migrations/20271201210000_guard_duplicate_without_house_number.sql", import.meta.url), "utf8");
+const dbMsg = "במערכת כבר מפורסמת מודעה של משרד אחר באותו רחוב, עם אותו מספר חדרים וקומה ואותו סוג עסקה. כדי לפרסם יש להזין מספר בית. אם זו אותה דירה, אפשר לפרסם אותה רק על סמך הסכם בלעדיות חתום.";
+check(
+  "גבריאלה אומרת משפט בלי שמות כשחסר מספר בית",
+  publishErrorText(dbMsg) === HOUSE_NUMBER_REQUIRED_MSG && !/https?:\/\//.test(HOUSE_NUMBER_REQUIRED_MSG),
+);
+check(
+  "הטריגר: רק משרד אחר, חדרים וקומה וסוג עסקה חובה, ואותו hint שכבר מטופל",
+  hnSql.includes("p.agency_id is distinct from new.agency_id")
+    && hnSql.includes("new.rooms is not null")
+    && hnSql.includes("new.floor is not null")
+    && hnSql.includes("coalesce(p.deal_type, '') = coalesce(new.deal_type, '')")
+    && hnSql.includes("property_text_key(new.house_number) is null")
+    && hnSql.includes("hint = 'duplicate_elsewhere'"),
+);
+check(
+  "הטריגר: ההגנה על עריכת מודעה פעילה (קטיעה מוקדמת) והחסימה אחריה נשמרו",
+  hnSql.indexOf("old.status = 'active'") > 0
+    && hnSql.indexOf("old.status = 'active'") < hnSql.indexOf("property_text_key(new.house_number) is null"),
 );
 
 if (failed) {

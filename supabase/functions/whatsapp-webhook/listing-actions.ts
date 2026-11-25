@@ -424,10 +424,19 @@ export function redactPublishError(message: string | null | undefined): string |
 export const UNIT_REQUIRED_MSG =
   "כדי לפרסם יחידה נוספת באותו בניין צריך מספר קומה או מספר משרד. בלי המספר אי אפשר לפרסם.";
 
+/**
+ * מודעה בלי מספר בית מול מודעה של משרד אחר באותו רחוב, חדרים, קומה וסוג עסקה (טריגר
+ * properties_guard_duplicate, 20271201210000). בלי שמות. הפתרון הוא מספר בית, ואם זו אותה דירה - בלעדיות.
+ */
+export const HOUSE_NUMBER_REQUIRED_MSG =
+  "יש כבר מודעה של משרד אחר באותו רחוב, עם אותם חדרים, קומה וסוג עסקה. כדי לפרסם צריך מספר בית. " +
+  "אם זו אותה דירה, אפשר לפרסם רק עם הסכם בלעדיות חתום.";
+
 /** הודעה מוכרת בלי שמות, וכל השאר משפט כללי. */
 export function publishErrorText(message: string | null | undefined): string {
   const msg = String(message || "").replace(/[—–]/g, "-").trim();
   if (msg.includes("צריך מספר קומה או מספר משרד")) return UNIT_REQUIRED_MSG;
+  if (msg.includes("כדי לפרסם יש להזין מספר בית")) return HOUSE_NUMBER_REQUIRED_MSG;
   return redactPublishError(message) ?? PUBLISH_FAILED;
 }
 
