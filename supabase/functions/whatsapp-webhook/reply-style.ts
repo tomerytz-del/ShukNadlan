@@ -264,6 +264,40 @@ export function sameTimeConflictLine(
   return `באותה שעה כבר קבוע: ${title}.`;
 }
 
+/**
+ * הודעה קצרה אחרי שאלה של גבריאלה היא כמעט תמיד התשובה לה. ב-25.11.2026 המודל שאל שוב שאלה שנענתה
+ * ("באיזו עיר" ← "עפולה", "כמה עמלה" ← "2%"): בתור ההוא הוא נקרא פעם אחת, בלי כלי, והתשובה כבר הייתה בהקשר.
+ * ההיסטוריה שנשמרת היא טקסט בלבד, בלי מה שהכלים החזירו, ולכן הוא מתחיל כמעט מאפס ולפעמים בוחר לשאול.
+ * שורה בהקשר של התור (לא בפרומפט המטמון) אומרת לו להשתמש בתשובה. **רק כשההודעה האחרונה בהיסטוריה היא שאלה
+ * שלה, ממש לפני ההודעה החדשה, וההודעה החדשה קצרה ואינה שאלה.** שאלה שחלפה (שעה ויותר) אינה נחשבת.
+ * השאלה נמצאת בסוף ההודעה (עד 160 תווים אחריה), ולא באמצע הודעה על נושא אחר.
+ */
+export const ANSWER_MAX_CHARS = 30;
+const ANSWER_FRESH_MS = 60 * 60_000;
+
+export function answersLastQuestion(
+  history: readonly HistoryMsg[],
+  userText: string,
+  now: number = Date.now(),
+): string | null {
+  const answer = userText.replace(/\s+/g, " ").trim();
+  if (!answer || Array.from(answer).length > ANSWER_MAX_CHARS || /[?؟]/.test(answer)) return null;
+  const last = history[history.length - 1];
+  if (!last || last.role !== "assistant") return null;
+  const at = last.at ? Date.parse(last.at) : NaN;
+  if (Number.isFinite(at) && now - at > ANSWER_FRESH_MS) return null;
+  const text = messageText(last.content).trim();
+  // השאלה האחרונה בהודעה, ורק אם היא בסוף ההודעה (עד 160 תווים אחריה): "באיזו עיר הוא מחפש? אחרי שתגיד,
+  // אכין לו רשימה." כן, "?" בתחילת הודעה ארוכה על נושא אחר - לא
+  const at2 = text.lastIndexOf("?");
+  if (at2 < 0 || text.length - at2 > 160) return null;
+  const start = Math.max(text.lastIndexOf("\n", at2), text.lastIndexOf(".", at2), text.lastIndexOf("!", at2)) + 1;
+  const question = text.slice(start, at2 + 1).replace(/\s+/g, " ").trim().slice(-140);
+  if (!question) return null;
+  return `ההודעה הזו היא כנראה תשובה לשאלה האחרונה שלך ("${question}"). השתמש/י בה כתשובה ובצע/י את הפעולה שחיכתה ` +
+    "לה, בלי לשאול שוב את אותה שאלה. אם היא באמת אינה עונה על השאלה, אמור/י זאת במשפט אחד.";
+}
+
 export function styleContext(history: readonly HistoryMsg[], userText: string): string {
   const lines: string[] = [];
   const settled = activeSettled(history, userText);
@@ -279,6 +313,8 @@ export function styleContext(history: readonly HistoryMsg[], userText: string): 
   }
   const reading = likelyReading(userText);
   if (reading) lines.push(reading);
+  const answers = answersLastQuestion(history, userText);
+  if (answers) lines.push(answers);
   const offered = offeredNames(history);
   if (offered.length) lines.push(`כבר הוצע להוסיף לקובץ, ואין להציע שוב: ${offered.join(", ")}.`);
   return lines.join("\n");

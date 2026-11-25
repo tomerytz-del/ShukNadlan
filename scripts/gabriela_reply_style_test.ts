@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { recentPushesNote } from "../supabase/functions/whatsapp-webhook/wa-reply-context.ts";
 import {
+  answersLastQuestion,
   clientOfferLine,
   closedNameLinks,
   isClearAnswer,
@@ -144,6 +145,26 @@ check("לחזור אינו שם לקוח", !agentSrc.includes("אפשר להוס
 // --- 3. עליזה בקפה קפה, לא תפריט על חגי ---
 
 const correction = "תתקני, הפגישה עם עליזה היא היום בקפה קפה. ולא עם חגי";
+// 25.11.2026: תשובה קצרה לשאלה שנשאלה שוב
+{
+  const now = Date.parse("2026-11-25T10:47:12Z");
+  const q: HistoryMsg[] = [
+    { role: "user", content: "תכניסי לקוח חדש ברק 0524845100", at: "2026-11-25T10:46:22Z" },
+    { role: "assistant", content: "תומר, פתחתי כרטיס לברק.\n\nבאיזו עיר הוא מחפש? אחרי שתגיד, אכין לו רשימה.", at: "2026-11-25T10:46:40Z" },
+  ];
+  const hint = answersLastQuestion(q, "עפולה", now) || "";
+  check("תשובה קצרה אחרי שאלה: השורה מופיעה ומצטטת את השאלה", hint.includes("באיזו עיר") && hint.includes("בלי לשאול שוב"));
+  check("אחרי 'כמה עמלה לרשום, באחוזים או בסכום?'", (answersLastQuestion([{ role: "assistant", content: "חסרה העמלה.\n\nכמה עמלה לרשום, באחוזים או בסכום?", at: "2026-11-25T10:56:19Z" }], "2%", Date.parse("2026-11-25T10:56:40Z")) || "").includes("כמה עמלה"));
+  check("הודעה ארוכה אינה תשובה קצרה", answersLastQuestion(q, "תכניסי לי גם לקוחה חדשה בשם רונית לוי עם תקציב של שני מיליון", now) === null);
+  check("הודעה שהיא שאלה אינה תשובה", answersLastQuestion(q, "באיזה שכונות?", now) === null);
+  check("בלי שאלה בסוף ההודעה האחרונה", answersLastQuestion([{ role: "assistant", content: "פתחתי כרטיס לברק, והוא מקבל התאמות מכל הערים.", at: "2026-11-25T10:46:40Z" }], "עפולה", now) === null);
+  check("ההודעה האחרונה בהיסטוריה אינה של גבריאלה", answersLastQuestion([...q, { role: "user", content: "רגע", at: "2026-11-25T10:47:00Z" }], "עפולה", now) === null);
+  check("שאלה שחלפה (יותר משעה) אינה נחשבת", answersLastQuestion(q, "עפולה", Date.parse("2026-11-25T12:00:00Z")) === null);
+  check("בלי חותמת זמן: עדיין נחשבת", (answersLastQuestion([{ role: "assistant", content: "באיזו עיר?" }], "עפולה", now) || "").includes("באיזו עיר"));
+  check("נכנסת ל-styleContext", styleContext([{ role: "assistant", content: "באיזו עיר הוא מחפש? אחרי שתגיד, אכין רשימה." }], "עפולה").includes("באיזו עיר"));
+  check("הודעה ריקה", answersLastQuestion(q, "   ", now) === null);
+}
+
 const reading = likelyReading(correction) || "";
 check("קריאה אחת על עליזה", reading.includes("עליזה") && reading.includes("חגי") && reading.includes("בלי תפריט"), reading);
 check("ביטול מפורש אינו תיקון", likelyReading("תבטלי את הפגישה עם חגי") === null);
