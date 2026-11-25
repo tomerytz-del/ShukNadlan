@@ -1249,7 +1249,8 @@ $('addF').addEventListener('click',addFurn);
 $('resetF').addEventListener('click',function(){resetFurn();selId=null;rebuild();selTools();dirty()});
 function selTab(t){
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(b){b.setAttribute('aria-selected',b.dataset.t===t)});
-  Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(s){s.classList.toggle('on',s.dataset.s===t)})}
+  Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(s){s.classList.toggle('on',s.dataset.s===t)});
+  sunPeek()}
 /* בנייד הלוח הוא מגירה תחתונה: סגורה היא שורת הלשוניות בלבד, והסיור על כל המסך.
    לשונית פותחת אותה, נגיעה בסיור סוגרת. במחשב המחלקה sheet-open אינה משנה דבר */
 var appEl=$('app');
@@ -1259,6 +1260,13 @@ $('tabs').addEventListener('click',function(e){var b=e.target.closest('.tab');if
   selTab(b.dataset.t);sheet(!same)});
 $('grab').addEventListener('click',function(){sheet(!appEl.classList.contains('sheet-open'))});
 $('c').addEventListener('pointerdown',function(){if(appEl.classList.contains('sheet-open'))sheet(false)});
+/* מגש השמש מתכווץ לשעה ולציר בזמן גרירה והפעלת יום, כדי שההדמיה והצל ייראו. הפריסה אינה משתנה (רק שקיפות):
+   אחרת הציר היה קופץ מתחת לאצבע. pointerup נשמע ב-window, כי האצבע משתחררת לא תמיד מעל הציר */
+var sunDrag=false;
+function sunPeek(){if(!appEl)return;appEl.classList.toggle('sun-peek',(sunDrag||playing)&&$('sunSec').classList.contains('on'))}   /* רק כשלשונית השמש פתוחה: בלשונית אחרת המגש היה שקוף ולא לחיץ */
+function sunEnd(){sunDrag=false;sunPeek();window.removeEventListener('pointerup',sunEnd);window.removeEventListener('pointercancel',sunEnd)}
+$('time').addEventListener('pointerdown',function(){sunDrag=true;sunPeek();window.addEventListener('pointerup',sunEnd);window.addEventListener('pointercancel',sunEnd)});
+$('sunMore').addEventListener('click',function(){var on=$('sunSec').classList.toggle('more');this.setAttribute('aria-expanded',on)});
 $('info').addEventListener('click',function(){selTab('sun');sheet(true)});
 /* מסך מלא: הלוח נעלם לגמרי. באייפון אין requestFullscreen לאלמנט, והמחלקה לבדה עושה את העבודה */
 function setFull(on){
@@ -1361,10 +1369,10 @@ $('wAddH').addEventListener('click',function(){wAdd(true)});$('wAddV').addEventL
 
 /* זמן: מקשי קיצור והפעלת יום */
 var playing=false,playT=0;
-$('play').addEventListener('click',function(){playing=!playing;this.textContent=playing?'עצירה':'הפעלת יום';playT=performance.now()});
+$('play').addEventListener('click',function(){playing=!playing;this.textContent=playing?'עצירה':'הפעלת יום';playT=performance.now();sunPeek()});
 document.querySelectorAll('[data-time]').forEach(function(b){b.addEventListener('click',function(){
   var ll=CITIES[S.city],d=sunDay(ll[0],ll[1],S.date),q=b.dataset.time;
-  S.time=q==='sunset'?Math.max(0,(d.set||18)-0.35):+q;playing=false;$('play').textContent='הפעלת יום';updateSun();dirty()})});
+  S.time=q==='sunset'?Math.max(0,(d.set||18)-0.35):+q;playing=false;sunPeek();$('play').textContent='הפעלת יום';updateSun();dirty()})});
 
 /* זוויות ותבניות */
 function chipHtml(arr,kind){return arr.map(function(v,i){return '<span class="chip" tabindex="0" role="button" data-k="'+kind+'" data-i="'+i+'"><b>'+esc(v.n)+'</b>'+(EDIT?'<button class="x" data-del="'+i+'" aria-label="מחיקה">×</button>':'')+'</span>'}).join('')}
