@@ -309,6 +309,14 @@ a.btn{text-decoration:none;display:inline-block}
 .viewer #time::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
 .viewer #time::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#f2a521;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer}
 .viewer .sec[data-s="sun"] .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sunMoreBtn{display:none}
+/* בצופה המגש מציג שעה וציר בלבד. עיר, תאריך ומנורות מאחורי כפתור: הם משתנים לעיתים רחוקות, והמגש היה תופס כמעט חצי מהמסך */
+.viewer .sunMoreBtn{display:inline-flex;align-self:flex-start;background:#fff}
+.viewer .sec[data-s="sun"]:not(.more)>.grp:not(:nth-child(2)){display:none}
+/* בזמן גרירת הציר או הפעלת יום: המגש שקוף חוץ מהשעה והציר, וההדמיה נראית. אותה פריסה, כדי שהציר לא יזוז */
+.viewer.sun-peek .body{background:transparent;box-shadow:none;overflow:visible}
+.viewer.sun-peek .tabs,.viewer.sun-peek .disc,.viewer.sun-peek .sunMoreBtn,.viewer.sun-peek #sunDesc,.viewer.sun-peek #sunTbl,.viewer.sun-peek .sec[data-s="sun"] .chips .btn:not(#play){opacity:0;pointer-events:none}
+.viewer.sun-peek .timeBig{color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.65)}
 .viewer .sec[data-s="sun"] .chips .btn{border-radius:999px;min-height:44px;background:#fff;padding:0 6px;white-space:nowrap}
 .viewer #play{grid-column:1/-1}
 .viewer #play{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -375,7 +383,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
 
-      <section class="sec" data-s="sun">
+      <section class="sec" data-s="sun" id="sunSec">
         <div class="grp"><h3>מיקום וכיוון</h3>
           <div class="row">
             <div class="f"><label for="city">עיר</label><select id="city"></select></div>
@@ -397,6 +405,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="f"><label for="lamps">מנורות</label>
             <select id="lamps"><option value="auto">אוטומטי לפי השעה</option><option value="on">דלוקות</option><option value="off">כבויות</option></select></div>
         </div>
+        <button class="btn sm sunMoreBtn" id="sunMore" type="button" aria-expanded="false">מיקום, תאריך ותאורה</button>
       </section>
 
       <section class="sec" data-s="style">

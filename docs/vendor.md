@@ -89,3 +89,17 @@ vendor/leaflet@1.9.4/images/             ← leaflet/dist/images (ה-CSS מפנ�
 **והגדול, שנעשה אחר כך באותו יום:** ‏`assets/home.js` היה 568KB ‏(167KB דחוסים), וכמחצית
 מהם הערות. מאז הפריסה מקטינה את העותק שנפרס (‏`docs/netlify-usage.md`, "הקטנה
 בפריסה"): ‏home.js ‏171 → 82KB דחוסים, ו-load של דף הבית בביקור ראשון ‏4.46 → 3.44 שניות.
+
+## pdf.js: העלאת PDF לסיור התלת-ממדי (26.11.2026)
+
+```
+vendor/pdfjs-dist@6.5.438/pdf.min.mjs         ← pdfjs-dist/legacy/build/pdf.min.mjs
+vendor/pdfjs-dist@6.5.438/pdf.worker.min.mjs  ← pdfjs-dist/legacy/build/pdf.worker.min.mjs
+vendor/pdfjs-dist@6.5.438/LICENSE
+```
+
+נטען ב-`import()` רק כש-`/tour3d` מקבל PDF (1.8MB, לא בטעינה הראשונה). **למה מהאתר ולא מ-CDN:**
+ה-CSP מתיר `worker-src 'self' blob:` ולכן עובד מ-jsdelivr נחסם. **ואין `integrity`:** `import()` אינו
+נושא אותו, והקובץ מוגש מהאתר עצמו, כלומר הוא חלק מה-PR. בנייה `legacy` כי iOS ישן חסר `Promise.withResolvers`.
+נפתח עם `isEvalSupported:false` (פרצת הרצת קוד דרך גופן ב-pdf.js ישן). שדרוג = נתיב חדש.
+

@@ -24,6 +24,35 @@ var COLS='id,name,status,published,project_id,model,settings,views,lights,update
 var THREE_SRI='sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';
 var THREE_SRC=['https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 var MAX_FILE=6*1024*1024;
+/* PDF: נפתח בדפדפן ומומר לתמונה, והשרת מקבל תמונה כמו תמיד. pdf.js נטען רק כשנבחר PDF, מ-/vendor/ (ה-CSP מתיר
+   עובד רק מהאתר עצמו, ולכן לא מ-CDN). בשלב הזה רק בחשבון ללא חיוב: קריאת Gemini על גיליון שלם עוד לא נבדקה */
+var PDF_BASE='/vendor/pdfjs-dist@6.5.438/',PDF_MAX=20*1024*1024,PDF_SIDE=2400,pdfLib=null;
+function isPdf(f){return !!f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name))}
+async function pdfjs(){
+  if(!pdfLib){pdfLib=await import(PDF_BASE+'pdf.min.mjs');pdfLib.GlobalWorkerOptions.workerSrc=PDF_BASE+'pdf.worker.min.mjs'}
+  return pdfLib;
+}
+/* העמוד של התוכנית: זה שיש בו הכי הרבה מספרים שנראים כמו מידות (355, -435-). בחוברת עמוד המפרט כמעט בלי */
+async function pdfOpen(file){
+  var lib=await pdfjs(),doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false,enableXfa:false}).promise;
+  var best=1,top=-1;
+  for(var i=1;i<=Math.min(doc.numPages,12);i++){
+    var tc=await (await doc.getPage(i)).getTextContent(),n=tc.items.filter(function(t){return /^-?\d{2,4}-?$/.test(String(t.str).trim())}).length;
+    if(n>top){top=n;best=i}
+  }
+  return {doc:doc,pages:doc.numPages,best:best};
+}
+async function pdfToJpeg(doc,no){
+  var page=await doc.getPage(no),v0=page.getViewport({scale:1});
+  var v=page.getViewport({scale:Math.min(PDF_SIDE/Math.max(v0.width,v0.height),8)});
+  var c=document.createElement('canvas');c.width=Math.round(v.width);c.height=Math.round(v.height);
+  var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:x,viewport:v}).promise;
+  try{
+    for(var q=.9;q>=.5;q-=.2){var b=await new Promise(function(ok){c.toBlob(ok,'image/jpeg',q)});if(b&&b.size<=MAX_FILE)return b}
+  }finally{c.width=c.height=0}
+  throw {error:'image_too_large'};
+}
 
 var $=function(id){return document.getElementById(id)};
 function esc(s){return escapeHtml(s)}
@@ -37,6 +66,7 @@ var CODE_TEXT={
   tier_required:'הסיור התלת-ממדי זמין ליועצי נדל״ן במסלול Elite פעיל.',
   insufficient_balance:'אין מספיק יתרה בארנק. טענו את הארנק ונסו שוב.',
   not_your_project:'הפרויקט אינו שייך לחשבון הזה.',
+  pdf_failed:'אי אפשר לקרוא את קובץ ה-PDF. נסו לשמור את התוכנית כתמונה.',
   mirror_source_invalid:'אי אפשר ליצור תמונת מראה מהדגם הזה.',
   forbidden:'אין לחשבון הזה הרשאה לפעולה.',
   unauthorized:'צריך להתחבר מחדש.',
@@ -184,7 +214,8 @@ async function openHome(){
       (kinds.length>1?'<div class="f"><label for="nKind">החשבון שמשלם</label><select id="nKind">'+kinds.map(function(k){return '<option value="'+k+'">'+KIND_NAME[k]+'</option>'}).join('')+'</select></div>':'')+
       '<div id="quoteBox"></div>'+
       '<div class="f"><label for="nName">שם הדגם</label><input id="nName" maxlength="120" placeholder="למשל: דגם A, 4 חדרים"></div>'+
-      '<div class="f"><label for="nFile">תמונת התוכנית (JPG, PNG או WebP, עד 6MB)</label><input id="nFile" type="file" accept="image/jpeg,image/png,image/webp"></div>'+
+      '<div class="f"><label for="nFile" id="nFileLbl">תמונת התוכנית (JPG, PNG או WebP, עד 6MB)</label><input id="nFile" type="file" accept="image/jpeg,image/png,image/webp"></div>'+
+      '<div class="f" id="nPageBox" hidden><label for="nPage">איזה עמוד הוא התוכנית?</label><select id="nPage"></select></div>'+
       '<p class="note">תוכנית חדה, ישרה ועם מידות כתובות נותנת את התוצאה המדויקת ביותר. אחרי הקריאה אפשר לכייל מידות ולתקן.</p>'+
       '<div class="ck"><input type="checkbox" id="nOk"><label for="nOk" id="nOkLbl"></label></div>'+
       '<div><button class="btn pri" id="nGo" type="button" disabled>יצירת הסיור</button></div>'+
@@ -196,16 +227,38 @@ async function openHome(){
     var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
-      html='<p class="msg">'+(price?'<b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק.':'<b>ללא חיוב</b> בחשבון הזה.')+' כולל '+(+q.renders_included||20)+' הדמיות.'+(price?' היתרה בארנק: '+money(bal)+'.':'')+'</p>';
+      html='<p class="msg">'+(price?'<b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק.':'<b>ללא חיוב</b> בחשבון הזה.')+(price?' היתרה בארנק: '+money(bal)+'.':'')+'</p>';
       if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
+    var pdfOk=!!q.eligible&&price===0;
+    $('nFile').accept='image/jpeg,image/png,image/webp'+(pdfOk?',application/pdf':'');
+    $('nFileLbl').textContent=pdfOk?'תמונה או PDF של התוכנית (JPG, PNG, WebP עד 6MB, או PDF)':'תמונת התוכנית (JPG, PNG או WebP, עד 6MB)';
     $('nOkLbl').textContent=price?'אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה':'אני מאשר/ת יצירת דגם, ללא חיוב';
     if(!keep)$('nOk').checked=false;gate();
   }
-  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
+  var pdfState=null,pdfBusy=false,autoName='';
+  function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length&&!pdfBusy)}
   ['nOk','nName','nFile'].forEach(function(id){$(id).addEventListener('input',gate);$(id).addEventListener('change',gate)});
   if($('nKind'))$('nKind').addEventListener('change',function(){quoteUi()});
+  /* בחירת קובץ: השם מתמלא משם הקובץ, וב-PDF נקבע העמוד (אפשר להחליף) */
+  $('nFile').addEventListener('change',async function(){
+    var f=this.files[0],out=$('nMsg');pdfState=null;$('nPageBox').hidden=true;
+    if(!f)return;
+    if(!$('nName').value.trim()||$('nName').value===autoName)$('nName').value=autoName=f.name.replace(/\.[^.]+$/,'').slice(0,120);
+    if(!isPdf(f))return gate();
+    var q=quotes[kind()]||{};
+    if(!(q.eligible&&priceOf(q)===0)){this.value='';return msg(out,'קובץ PDF זמין בשלב זה רק בחשבון ללא חיוב. שמרו את התוכנית כתמונה.',true)}
+    if(f.size>PDF_MAX){this.value='';return msg(out,'קובץ ה-PDF גדול מדי. עד 20MB.',true)}
+    pdfBusy=true;gate();msg(out,'פותחים את ה-PDF...');
+    try{
+      pdfState=await pdfOpen(f);
+      var opts='';for(var i=1;i<=pdfState.pages;i++)opts+='<option value="'+i+'">עמוד '+i+(i===pdfState.best&&pdfState.pages>1?' (נבחר אוטומטית)':'')+'</option>';
+      $('nPage').innerHTML=opts;$('nPage').value=pdfState.best;$('nPageBox').hidden=pdfState.pages<2;
+      msg(out,pdfState.pages>1?'ה-PDF כולל '+pdfState.pages+' עמודים. בחרנו את עמוד '+pdfState.best+', כי יש בו הכי הרבה מידות.':'');
+    }catch(e){this.value='';msg(out,'אי אפשר לקרוא את קובץ ה-PDF. נסו לשמור את התוכנית כתמונה.',true)}
+    pdfBusy=false;gate();
+  });
   quoteUi();
   /* חזרה מטעינת ארנק (?topup=). success אינו הוכחה שהכסף נכנס, רק שדף התשלום החזיר לכאן:
      היתרה נקראת מחדש כמה פעמים עד שהיא גדלה, והפרמטרים יוצאים מהכתובת */
@@ -231,9 +284,13 @@ async function openHome(){
   $('nGo').addEventListener('click',async function(){
     var file=$('nFile').files[0],btn=this,out=$('nMsg');
     if(!file)return;
-    if(file.size>MAX_FILE)return msg(out,'התמונה גדולה מדי. עד 6MB.',true);
+    if(!isPdf(file)&&file.size>MAX_FILE)return msg(out,'התמונה גדולה מדי. עד 6MB.',true);
     btn.disabled=true;msg(out,'קוראים את התוכנית. זה לוקח עד דקה, לא לסגור את הדף.');
     try{
+      if(isPdf(file)){
+        if(!pdfState)throw {error:'pdf_failed'};
+        file=await pdfToJpeg(pdfState.doc,+$('nPage').value||pdfState.best);
+      }
       var b64=await new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'')};fr.onerror=no;fr.readAsDataURL(file)});
       var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64});
       location.href=tourUrl(d.model_id,true);
