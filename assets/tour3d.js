@@ -54,7 +54,7 @@ function heText(e){
 }
 function tourUrl(id,edit){return '/tour3d?m='+encodeURIComponent(id)+(edit?'&edit=1':'')}
 /* ברירת המחדל רק עד שהמחיר מגיע מ-plan_model_quote; המחיר האמיתי ב-pricing_config */
-function priceOf(q){return +(q&&q.price)||49}
+function priceOf(q){return q&&q.price!=null&&isFinite(+q.price)?+q.price:49}
 function money(n){return '₪'+(Math.round(+n*100)/100).toLocaleString('he-IL')}
 function show(html){homeBody.innerHTML=html}
 function fail(text,linkHtml){show('<div class="card"><p class="msg bad">'+esc(text)+'</p>'+(linkHtml||'')+'</div>')}
@@ -195,11 +195,11 @@ async function openHome(){
     var k=kind(),q=quotes[k]||{},price=priceOf(q),bal=+q.balance||0,html='';
     if(!q.eligible)html='<p class="msg bad">'+(k==='agent'?'הסיור התלת-ממדי זמין במסלול Elite פעיל. ':'החשבון אינו פעיל. ')+'</p>'+(k==='agent'?'<a class="btn sm" href="/pricing">למסלולים</a>':'');
     else{
-      html='<p class="msg"><b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק. כולל '+(+q.renders_included||20)+' הדמיות. היתרה בארנק: '+money(bal)+'.</p>';
+      html='<p class="msg">'+(price?'<b>'+money(price)+' לדגם</b>, לפני מע״מ, מהארנק.':'<b>ללא חיוב</b> בחשבון הזה.')+' כולל '+(+q.renders_included||20)+' הדמיות.'+(price?' היתרה בארנק: '+money(bal)+'.':'')+'</p>';
       if(bal<price)html+='<a class="btn sm" href="/checkout?product='+(k==='agent'?'wallet':'developer_wallet')+'&amount=100'+(k==='agent'?'&return=tour3d':'')+'">טעינת הארנק</a>';
     }
     $('quoteBox').innerHTML=html;
-    $('nOkLbl').textContent='אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה';
+    $('nOkLbl').textContent=price?'אני מאשר/ת חיוב של '+money(price)+' מהארנק על הדגם הזה':'אני מאשר/ת יצירת דגם, ללא חיוב';
     if(!keep)$('nOk').checked=false;gate();
   }
   function gate(){var q=quotes[kind()]||{};$('nGo').disabled=!(q.eligible&&(+q.balance||0)>=priceOf(q)&&$('nOk').checked&&$('nName').value.trim()&&$('nFile').files.length)}
@@ -241,7 +241,7 @@ async function openHome(){
   homeBody.addEventListener('click',async function(e){
     var b=e.target.closest('[data-mirror]');if(!b)return;
     var q=quotes[b.dataset.kind]||{},out=$('listMsg');
-    if(!confirm('תמונת מראה היא דגם נוסף, בחיוב של '+money(priceOf(q))+' מהארנק. להמשיך?'))return;
+    var mp=priceOf(q);if(!confirm('תמונת מראה היא דגם נוסף, '+(mp?'בחיוב של '+money(mp)+' מהארנק':'ללא חיוב')+'. להמשיך?'))return;
     b.disabled=true;msg(out,'יוצרים את תמונת המראה...');
     try{
       var d=await callFn({action:'mirror',owner_kind:b.dataset.kind,source_model_id:b.dataset.mirror});
