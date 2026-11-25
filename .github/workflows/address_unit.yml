@@ -1,0 +1,37 @@
+name: כתובת ויחידה: הטריגר והודעת גבריאלה
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271116133000_property_unit_label.sql"
+      - "supabase/migrations/20271202100000_guard_duplicate_without_house_number.sql"
+      - "supabase/functions/whatsapp-webhook/address-unit.ts"
+      - "supabase/functions/whatsapp-webhook/listing-actions.ts"
+      - "scripts/address_unit_test.ts"
+      - ".github/workflows/address_unit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271116133000_property_unit_label.sql"
+      - "supabase/migrations/20271202100000_guard_duplicate_without_house_number.sql"
+      - "supabase/functions/whatsapp-webhook/address-unit.ts"
+      - "supabase/functions/whatsapp-webhook/listing-actions.ts"
+      - "scripts/address_unit_test.ts"
+      - ".github/workflows/address_unit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: כתובת ויחידה: הטריגר והודעת גבריאלה
+        run: node --experimental-strip-types scripts/address_unit_test.ts
