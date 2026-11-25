@@ -847,6 +847,19 @@ def _market_gate(ctx) -> Iterator[Finding]:
 MARKET_DEALS_THIN_RATIO = 0.2
 MARKET_DEALS_THIN_MEDIAN_MIN = 500
 MARKET_CITY_MIN_HOODS = 3
+# - ‏**"מעט" נמדד מול עיר באותו גודל, לא מול העיר הגדולה בשוק** (23.11.2026).
+#   מאז נכתבה ההערה למעלה נוספה `cities.population`, ושלוש שכונות חדלו להיות
+#   מבחן: ייבוא השכונות מ-GovMap נתן לכפר תבור (4,896 תושבים) 17 שכונות,
+#   ו-87 העסקאות שלה - 26 בשנה על 39 רחובות, אחרי סנכרון מלא ומוצלח - הושוו
+#   ל-1,656 של עפולה (74,024). לאלף תושבים זה 17.8 מול 22.4: אותו שוק.
+#   לכן הציפייה מעיר היא האוכלוסייה שלה כפול חציון העסקאות לאלף תושבים בערי
+#   השוק, ולא יותר מחציון העסקאות (המגבלה של GovMap חותכת עיר גדולה). כל תשעת
+#   הממצאים שהיו פתוחים באותו יום היו יישובים קטנים שסונכרנו בהצלחה 2-34
+#   ימים קודם (שוהם 90, אזור 76, קיסריה 42), כלומר ההצעה "להריץ עדכן עסקאות"
+#   כבר בוצעה והממצא לא היה יכול להיסגר. קריית ביאליק (52 אלף תושבים, 42
+#   עסקאות) נשארת ממצא.
+# - ‏20 עסקאות צפויות לפחות: מתחת לזה (קיבוץ של 900 תושבים) אין ממה לשפוט.
+MARKET_DEALS_THIN_EXPECTED_MIN = 20
 MARKET_DEALS_STALE_DAYS = 150
 # - ‏45 יום מהסנכרון המוצלח האחרון, ביישוב (פחות מ-500 עסקאות במאגר):
 #   "עסקאות ישנות" הוא ממצא רק כשהעדכון **לא רץ**. ‏12.11.2026: כל 392 ממצאי
@@ -1097,7 +1110,7 @@ def _market_data(ctx) -> Iterator[Finding]:
     cities = ctx.db.rows(
         """
         -- market_data:cities
-        select c.market_slug, c.name,
+        select c.market_slug, c.name, c.population,
                (select count(*) from public.neighborhoods n where n.city_id = c.id) as hoods,
                (select count(*) from public.neighborhoods n
                  where n.city_id = c.id
@@ -1129,16 +1142,27 @@ def _market_data(ctx) -> Iterator[Finding]:
         big = [r for r in rows if int(r.get("hoods") or 0) >= MARKET_CITY_MIN_HOODS]
         counts = sorted(int(r.get("deals") or 0) for r in big)
         median = counts[len(counts) // 2] if counts else 0
+        # עסקאות לאלף תושבים בערי השוק. בלי אוכלוסייה (מסד ישן, עיר שלא
+        # מולאה) הציפייה נשארת חציון העסקאות, כמו שהיה.
+        rates = sorted(1000.0 * int(r.get("deals") or 0) / int(r["population"])
+                       for r in big if int(r.get("population") or 0) > 0)
+        median_rate = rates[len(rates) // 2] if rates else 0
         for r in big:
             ctx.count()
             deals = int(r.get("deals") or 0)
-            if median >= MARKET_DEALS_THIN_MEDIAN_MIN and deals < median * MARKET_DEALS_THIN_RATIO:
+            population = int(r.get("population") or 0)
+            expected = median
+            if population and median_rate:
+                expected = min(median, round(population * median_rate / 1000.0))
+            if (median >= MARKET_DEALS_THIN_MEDIAN_MIN
+                    and expected >= MARKET_DEALS_THIN_EXPECTED_MIN
+                    and deals < expected * MARKET_DEALS_THIN_RATIO):
                 city = r.get("name") or ""
                 yield Finding(
                     area="health", code="market_city_deals_thin", severity="medium",
                     subject="market:%s:city:%s" % (slug, _slug_ascii(city)),
-                    title="ב%s (%s) רק %d עסקאות רשמיות, מול כ-%d בשאר ערי השוק"
-                          % (city, label, deals, median),
+                    title="ב%s (%s) רק %d עסקאות רשמיות, מול כ-%d שצפויות לעיר בגודלה"
+                          % (city, label, deals, expected),
                     detail="דוח ה-CMA של כל נכס בעיר נשען על המאגר הזה. עיר שהודבקה "
                            "במלואה מחזיקה עד 1,500 עסקאות (המגבלה של GovMap), ומספר "
                            "נמוך בהרבה הוא כמעט תמיד הדבקה של חיפוש מצומצם - רחוב, "
@@ -1148,7 +1172,9 @@ def _market_data(ctx) -> Iterator[Finding]:
                                "בלי סינון לשכונה או לרחוב. ‏docs/settlement-deals.md.",
                     metric=deals, metric_unit="עסקאות",
                     evidence={"market": slug, "city": city, "deals": deals,
-                              "market_median": median, "hoods": int(r.get("hoods") or 0)},
+                              "market_median": median, "expected": expected,
+                              "population": population or None,
+                              "hoods": int(r.get("hoods") or 0)},
                 )
 
         for r in rows:

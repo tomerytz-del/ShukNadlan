@@ -328,19 +328,41 @@ def _live(ctx) -> Iterator[Finding]:
         kb = len(body) / 1024
         encoding = (resp.headers.get("content-encoding") or "").lower()
 
+        # ‏**דגימה אחת איטית אינה דף איטי.** הבקשה הראשונה לכל כתובת מה-runner
+        # בארה"ב פוגשת צומת edge קר: ‏23.11.2026, שבע בקשות רצופות ל-/agencies
+        # נתנו 1,438ms ואז 492-841ms, ולדף הנכס 899ms ואז 330-555ms. כך ארבעה
+        # מששת ממצאי slow_ttfb נסגרו לבד בסריקה שאחריהם, בכל פעם על דף אחר.
+        # לכן דף שחצה את הסף נמדד שוב, והמספר הוא החציון - דף שבאמת איטי
+        # נשאר איטי גם בבקשה השנייה והשלישית. הבקשות הנוספות יוצאות רק
+        # כשהראשונה חצתה את הסף, כך שסריקה רגילה נשארת בשש בקשות.
+        samples = [ttfb_ms]
+        if ttfb_ms >= t.ttfb_warn_ms:
+            for _ in range(t.ttfb_resamples):
+                try:
+                    again = time.perf_counter()
+                    r2 = session.get(url, timeout=ctx.settings.http_timeout_s,
+                                     stream=True)
+                    samples.append((time.perf_counter() - again) * 1000)
+                    r2.content  # ‏מרוקן את הגוף, כדי שהחיבור יחזור למאגר
+                except Exception:  # noqa: BLE001
+                    break  # ‏דגימה שנכשלה אינה מדידה; נשארים עם מה שיש
+            ttfb_ms = sorted(samples)[len(samples) // 2]
+
         if ttfb_ms >= t.ttfb_warn_ms:
             yield Finding(
                 area="frontend", code="slow_ttfb",
                 severity="high" if ttfb_ms >= t.ttfb_high_ms else "medium",
                 subject=path.split("?", 1)[0],
                 title="תגובה איטית: %s — %.0fms" % (label, ttfb_ms),
-                detail="זמן עד הבייט הראשון %.0fms, הורדה מלאה %.0fms, %.0f KB "
-                       "בקובץ (לפני דחיסה)." % (ttfb_ms, total_ms, kb),
+                detail="זמן עד הבייט הראשון %.0fms (חציון של %d בקשות), הורדה "
+                       "מלאה של הראשונה %.0fms, %.0f KB בקובץ (לפני דחיסה)."
+                       % (ttfb_ms, len(samples), total_ms, kb),
                 suggestion="‏TTFB גבוה על דף סטטי פירושו שה-CDN לא הגיש מהמטמון. "
                            "לבדוק את כללי המטמון ואת אזור ההגשה.",
                 metric=round(ttfb_ms), metric_unit="ms",
                 evidence={"url": url, "total_ms": round(total_ms),
-                          "kb": round(kb, 1), "encoding": encoding},
+                          "kb": round(kb, 1), "encoding": encoding,
+                          "samples_ms": [round(x) for x in samples]},
             )
         elif total_ms >= t.page_ms_warn:
             yield Finding(
