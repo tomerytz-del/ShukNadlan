@@ -4,8 +4,8 @@
 -- 20271116100000 החריגה את play.review@shuknadlan.co.il לפי מייל. מאז נוסף
 -- agencies.is_demo (20271130130000), ונפתח משרד הדגמה שני, לצוות ההטמעה
 -- (demo-office-almog-elkobi). גם לו אין רישיון בכוונה, ובלי השינוי הזה
--- החשבון היה מקבל שתי תזכורות "להשלים רישיון". התנאי עובר לדגל של המשרד,
--- והמייל נשאר לצדו. שאר הפונקציה זהה להגדרה האחרונה.
+-- החשבון היה מקבל שתי תזכורות "להשלים רישיון". התנאי עובר לדגל של המשרד
+-- (משרד Google Play מסומן is_demo, ולכן תנאי המייל מיותר). השאר זהה.
 -- ============================================================================
 create or replace function public.license_reminder_candidates()
 returns table (
@@ -29,7 +29,6 @@ as $$
      where m.active
        and m.closed_at is null
        and not public.agent_license_ok(m.license_number, m.license_status)
-       and lower(coalesce(m.email, '')) <> 'play.review@shuknadlan.co.il'
        and not public.agency_is_demo(m.agency_id)
   ), due as (
     select j.*,
