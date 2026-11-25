@@ -1161,7 +1161,81 @@ for (const [name, pass] of richSeo.slice(-1)) {
   console.log(`${pass ? "✓" : "✗"} ${name}`);
 }
 
-const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length + richSeo.length;
+/* ---------------------------------------------------------------------------
+   ‏property_page_bundle: סבב אחד למסד, ושני הסבבים כגיבוי
+   ---------------------------------------------------------------------------
+   ‏הכשל כאן שקט לשני הכיוונים: גיבוי שרץ תמיד מחזיר את הסבב השני בלי שאיש
+   ישים לב, וגיבוי שלא רץ כשהפונקציה חסרה מפיל כל דף נכס ל-503. */
+const BUNDLE_ID = "11111111-1111-4111-8111-111111111111";
+const BUNDLE_PROP = {
+  title: "דירה", city: "עפולה", city_id: "afula", street: "הרצל", house_number: "12", property_type: "דירה",
+  rooms: 4, price: 1000000, deal_type: "sale", status: "active", images: [],
+  agent_id: "ag1", agencies: { name: "אדל נכסים", slug: "adel", logo_url: null },
+  neighborhoods: { name: "גבעת המורה", is_planned: false },
+};
+const sibling = (id: string, price: number) => ({
+  id, city: "עפולה", street: "הרצל", house_number: "12", property_type: "דירה",
+  rooms: 4, price, deal_type: "sale", title: "דירה",
+});
+async function bundleRun(reply: (url: string, init?: RequestInit) => Response | Promise<Response>) {
+  resetLastGood();
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const u = String(input instanceof Request ? input.url : input);
+    calls.push(u);
+    return await reply(u, init);
+  }) as typeof fetch;
+  const res = await handler(new Request(`https://shuknadlan.co.il/property?id=${BUNDLE_ID}`), {
+    next: async () => new Response(stripPage, { headers: { "content-type": "text/html" } }),
+  } as never);
+  return { res, html: await res.text(), calls, timing: res.headers.get("Server-Timing") || "" };
+}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+const full = await bundleRun(() => json({
+  found: true, property: BUNDLE_PROP, agent_display: "דנה לוי",
+  siblings: [sibling(BUNDLE_ID, 1000000), sibling("22222222-2222-4222-8222-222222222222", 1200000)],
+  hoods: [{ name: "גבעת המורה", city_slug: "afula", slug: "גבעת-המורה", props: 3 }],
+}));
+const gone = await bundleRun(() => json({ found: false }));
+const absent = await bundleRun((u) => {
+  if (u.includes("rpc/property_page_bundle")) return json({ code: "PGRST202" }, 404);
+  if (u.includes("agency_members_public")) return json({ display_name: "דנה" });
+  if (u.includes("offset=")) return json([]);
+  if (u.includes("neighborhood_pages_public")) return json({}, 406);
+  return json(BUNDLE_PROP);
+});
+const slow = await bundleRun((_u, init) =>
+  new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+  })
+);
+const down = await bundleRun(() => json({ message: "upstream" }, 503));
+const bundleChecks: [string, boolean][] = [
+  ["bundle: קריאה אחת למסד, והיא ל-property_page_bundle",
+    full.calls.length === 1 && full.calls[0].includes(`rpc/property_page_bundle?p_id=${BUNDLE_ID}`)],
+  ["bundle: הכותרת, המבדיל מהאחים ושם הסוכן/ת מהתשובה האחת",
+    full.res.status === 200 && /<h1 id="propTitle">דירה 4 חד׳ בהרצל 12, עפולה<\/h1>/.test(full.html)
+      && /<title>[^<]*₪1,000,000[^<]*<\/title>/.test(full.html) && full.html.includes("דנה לוי")],
+  ["bundle: Server-Timing אומר origin, db במסלול bundle, ו-total",
+    /^origin;dur=[\d.]+, db;dur=[\d.]+;desc="bundle", total;dur=[\d.]+$/.test(full.timing)],
+  ["bundle: found=false הוא 404 עם noindex, בלי סבב נוסף",
+    gone.res.status === 404 && NOINDEX.test(gone.html) && gone.calls.length === 1],
+  ["bundle: פונקציה שאינה במסד (404) אינה 'אין נכס' - שני הסבבים הישנים ממלאים",
+    absent.res.status === 200 && CANONICAL.test(absent.html) && !NOINDEX.test(absent.html)
+      && absent.calls.length > 1 && /desc="legacy"/.test(absent.timing)],
+  ["bundle: timeout הוא 503 בלי noindex ובלי סבב נוסף",
+    slow.res.status === 503 && !NOINDEX.test(slow.html) && slow.calls.length === 1],
+  ["bundle: 5xx מהמסד הוא 503 בלי noindex ובלי סבב נוסף",
+    down.res.status === 503 && !NOINDEX.test(down.html) && down.calls.length === 1],
+];
+for (const [name, pass] of bundleChecks) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length + richSeo.length + bundleChecks.length;
 if (failed) {
   console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);
