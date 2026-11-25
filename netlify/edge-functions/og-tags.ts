@@ -1063,27 +1063,100 @@ function hoodCardHtml(href: string, hood: string): string {
 /* רק שכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public (שכונה עם מודעה
    פעילה או חמש עסקאות), ושוק חי - אותו ‏neighborhoodIndexable כמו ב-sitemap ובדף
    עצמו. כשל, timeout או "אין" - בלי כרטיס, והנכס יוצא כרגיל. */
-async function hoodCard(p: Record<string, unknown>): Promise<string> {
+type HoodRow = { name?: string; city_slug?: string; slug?: string; props?: number };
+
+/* השם והעיר שלפיהם מחפשים את דף השכונה. null - אין מה לחפש. */
+function hoodLookup(p: Record<string, unknown>): { hood: string; city: string } | null {
   const hood = propertyHoodName(p);
   const city = String(p.city || "").trim();
-  if (!hood || !city || hood === city) return "";
+  return !hood || !city || hood === city ? null : { hood, city };
+}
+
+async function hoodRowLegacy(p: Record<string, unknown>): Promise<HoodRow | null> {
+  const key = hoodLookup(p);
+  if (!key) return null;
   const got = await sbFetch(
-    `rpc/neighborhood_pages_public?name=eq.${encodeURIComponent(hood)}` +
-      `&city=eq.${encodeURIComponent(city)}&select=city_slug,slug,props&limit=1`,
+    `rpc/neighborhood_pages_public?name=eq.${encodeURIComponent(key.hood)}` +
+      `&city=eq.${encodeURIComponent(key.city)}&select=city_slug,slug,props&limit=1`,
   );
-  if (got.kind !== "row") return "";
-  const row = got.row as { city_slug?: string; slug?: string; props?: number };
-  if (!row.city_slug || !row.slug) return "";
+  return got.kind === "row" ? got.row as HoodRow : null;
+}
+
+function hoodCard(p: Record<string, unknown>, row: HoodRow | null): string {
+  const key = hoodLookup(p);
+  if (!key || !row || !row.city_slug || !row.slug) return "";
   const lat = Number(p.lat), lng = Number(p.lng);
   const reg = registry();
   const market = reg && Number.isFinite(lat) && Number.isFinite(lng) && p.lat != null && p.lng != null
     ? reg.locate(lat, lng, true) // אותה צורה כמו renderHoodCard בדפדפן: רק שוק חי
     : null;
   if (!neighborhoodIndexable(Number(row.props || 0), market?.slug || "", liveMarketSlugs())) return "";
-  return hoodCardHtml(`/n/${encodeURIComponent(row.city_slug)}/${encodeURIComponent(row.slug)}`, hood);
+  return hoodCardHtml(`/n/${encodeURIComponent(row.city_slug)}/${encodeURIComponent(row.slug)}`, key.hood);
 }
 
-async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
+/* ---------- שליפת דף הנכס: סבב אחד, ושני סבבים כגיבוי ---------- */
+
+/* מה ש-propertyMeta צריך מהמסד. siblings: null הוא "לא יודעים" (בלי מבדיל). */
+type PropertyParts = {
+  p: Record<string, unknown>;
+  siblings: Record<string, unknown>[] | null;
+  agentDisplay: string;
+  hood: HoodRow | null;
+};
+
+/* ‏Server-Timing של דף הנכס: כמה עלה כל שלב, ובאיזה מסלול נשלף. */
+type Timing = { db?: number; path?: "bundle" | "legacy" };
+
+/* ‏property_page_bundle (‏20271201160000) מחזירה בסבב אחד את הנכס, האחים
+   באותו רחוב, שם הסוכן/ת ודף השכונה. "fallback" - התשובה אינה בצורה הזו
+   (הפונקציה עוד לא במסד, שגיאה, גוף אחר), ואז שני הסבבים הישנים. timeout
+   אינו fallback: מסד שלא ענה ב-1.2 שניות לא יענה גם לסבב נוסף. */
+type Bundled =
+  | { kind: "parts"; parts: PropertyParts }
+  | { kind: "missing" }
+  | { kind: "timeout" }
+  | { kind: "fallback" };
+
+async function propertyBundle(id: string): Promise<Bundled> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/property_page_bundle?p_id=${encodeURIComponent(id)}`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return { kind: "fallback" };
+    const data = await res.json() as Record<string, unknown> | null;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return { kind: "fallback" };
+    if (data.found === false) return { kind: "missing" };
+    const p = data.property as Record<string, unknown> | null;
+    if (data.found !== true || !p || typeof p !== "object") return { kind: "fallback" };
+    const key = hoodLookup(p);
+    const hoods = Array.isArray(data.hoods) ? data.hoods as HoodRow[] : [];
+    return {
+      kind: "parts",
+      parts: {
+        p,
+        siblings: Array.isArray(data.siblings) ? data.siblings as Record<string, unknown>[] : null,
+        agentDisplay: String(data.agent_display || ""),
+        hood: key ? hoods.find((h) => h && h.name === key.hood) || null : null,
+      },
+    };
+  } catch {
+    return { kind: ctrl.signal.aborted ? "timeout" : "fallback" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function propertyPartsLegacy(id: string): Promise<PropertyParts | "missing" | null> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
     "rooms,size_sqm,status,neighborhoods(name,is_planned)," +
@@ -1102,6 +1175,47 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   }
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const p = got.row;
+
+  /* הסוכן/ת והאחים באותה כתובת רצים יחד. כשל באחד אינו מפיל את הדף:
+     בלי סוכן/ת נשאר שם המשרד, ובלי אחים הכותרת נשארת בלי מבדיל. */
+  const agentP = p.agent_id
+    ? sbFetch(
+      `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
+    )
+    : Promise.resolve(null);
+  const [siblings, agent, hood] = await Promise.all([siblingRows(p), agentP, hoodRowLegacy(p)]);
+  return {
+    p,
+    siblings,
+    agentDisplay: agent && agent.kind === "row" ? String(agent.row.display_name || "") : "",
+    hood,
+  };
+}
+
+/* העמודות ש-property_page_bundle מחזירה ב-property הן אותה רשימה כמו cols
+   למעלה. עמודה חדשה נכנסת לשני המקומות. */
+async function propertyParts(id: string, timing?: Timing): Promise<PropertyParts | "missing" | null> {
+  const started = performance.now();
+  const done = (path: Timing["path"]) => {
+    if (timing) {
+      timing.db = performance.now() - started;
+      timing.path = path;
+    }
+  };
+  const got = await propertyBundle(id);
+  if (got.kind !== "fallback") {
+    done("bundle");
+    return got.kind === "parts" ? got.parts : got.kind === "missing" ? "missing" : null;
+  }
+  const legacy = await propertyPartsLegacy(id);
+  done("legacy");
+  return legacy;
+}
+
+async function propertyMeta(id: string, canonical: string, timing?: Timing): Promise<MetaResult> {
+  const parts = await propertyParts(id, timing);
+  if (!parts || parts === "missing") return parts;
+  const { p, siblings, agentDisplay } = parts;
 
   const title = publicHeadline(p);
   const hood = propertyHoodName(p) || p.sales_area || "";
@@ -1131,16 +1245,8 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const marketing = p.marketing_description_stale && p.description ? "" : p.marketing_description;
   const body = String(marketing || p.description || "").trim();
 
-  /* הסוכן/ת והאחים באותה כתובת רצים יחד. כשל באחד אינו מפיל את הדף:
-     בלי סוכן/ת נשאר שם המשרד, ובלי אחים הכותרת נשארת בלי מבדיל. */
-  const agentP = p.agent_id
-    ? sbFetch(
-      `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
-    )
-    : Promise.resolve(null);
-  const [siblings, agent, hoodHtml] = await Promise.all([siblingRows(p), agentP, hoodCard(p)]);
+  const hoodHtml = hoodCard(p, parts.hood);
   const suffix = siblings ? titleSuffix({ ...p, id }, siblings) : "";
-  const agentDisplay = agent && agent.kind === "row" ? String(agent.row.display_name || "") : "";
   const visible = propertyVisible(p, agentDisplay);
   const offMarket = !p.city_id && !inMarketBox(p.lat, p.lng);
 
@@ -2082,6 +2188,20 @@ function failureHeaders(base: Headers, status: number): Headers {
 }
 
 /* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
+/* ‏Server-Timing לדף הנכס: origin - ה-HTML הסטטי, db - המסד (desc: באיזה
+   מסלול), total - כל הפונקציה. נראה בלשונית Network ובכל curl, בלי כלי נוסף.
+   מספרים בלבד, בלי שום פרט של הנכס או של הגולש/ת. */
+function serverTiming(headers: Headers, originMs: number, timing: Timing, began: number): Headers {
+  const ms = (n: number) => n.toFixed(1);
+  const parts = [`origin;dur=${ms(originMs)}`];
+  if (timing.db !== undefined) parts.push(`db;dur=${ms(timing.db)};desc="${timing.path}"`);
+  parts.push(`total;dur=${ms(performance.now() - began)}`);
+  try {
+    headers.set("Server-Timing", parts.join(", "));
+  } catch { /* כותרות נעולות - הדף יוצא בלי המדידה */ }
+  return headers;
+}
+
 function missingProperty(html: string): string {
   let out = noindex(html);
   if (out.includes('id="notFoundState"')) return out;
@@ -2147,7 +2267,9 @@ export default async function handler(request: Request, context: Context) {
     }
   } catch { /* כתובת פגומה - ממשיכים לדף */ }
 
+  const began = performance.now();
   const res = await context.next();
+  const originMs = performance.now() - began;
 
   // רק HTML. תמונות, CSS ו-JS עוברים כמו שהם.
   const type = res.headers.get("content-type") || "";
@@ -2165,10 +2287,12 @@ export default async function handler(request: Request, context: Context) {
        ‏דף פירוט שהגיע **בלי המפתח שלו** (‏‎/property‎ בלי ‎?id=‎) אינו צריך
        קריאה למסד כדי שנדע שאין מאחוריו רשומה: זה "missing" ודאי. */
     let meta: MetaResult = null;
+    const timing: Timing = {};
+    const timed = (headers: Headers) => serverTiming(headers, originMs, timing, began);
     if (page.endsWith("/property")) {
       // ערך שאין בו UUID - 404 ודאי, בלי 400 מ-PostgREST שהופך ל-503
       const pid = propertyIdFrom(id);
-      meta = pid ? await propertyMeta(pid, `${SITE}/property?id=${pid}`) : "missing";
+      meta = pid ? await propertyMeta(pid, `${SITE}/property?id=${pid}`, timing) : "missing";
     } else if (page.endsWith("/agency")) {
       meta = slug ? await agencyMeta(slug, `${SITE}/agency?slug=${encodeURIComponent(slug)}`) : "missing";
     } else if (page.endsWith("/agent")) {
@@ -2188,8 +2312,11 @@ export default async function handler(request: Request, context: Context) {
     if (!meta) {
       if (!isProperty) return res;
       const prev = await recall(lastGoodKey(request.url));
-      if (prev) return prev;
-      return new Response(res.body, { status: 503, headers: failureHeaders(res.headers, 503) });
+      if (prev) {
+        timed(prev.headers);
+        return prev;
+      }
+      return new Response(res.body, { status: 503, headers: timed(failureHeaders(res.headers, 503)) });
     }
 
     const html = await res.text();
@@ -2197,7 +2324,8 @@ export default async function handler(request: Request, context: Context) {
        וכתבה נשארים 200 עם noindex. */
     if (meta === "missing" && (isProperty || page.endsWith("/agent") || page.endsWith("/agency"))) {
       const body = isProperty ? missingProperty(html) : noindex(html);
-      return new Response(body, { status: 404, headers: failureHeaders(res.headers, 404) });
+      const failed = failureHeaders(res.headers, 404);
+      return new Response(body, { status: 404, headers: isProperty ? timed(failed) : failed });
     }
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
@@ -2213,6 +2341,8 @@ export default async function handler(request: Request, context: Context) {
     if (isProperty && meta !== "missing") {
       await remember(lastGoodKey(request.url), response, waitUntilOf(context));
     }
+    // אחרי remember: העותק השמור אינו נושא זמנים של בקשה אחרת
+    if (isProperty) timed(response.headers);
     return response;
   } catch {
     return res; // הזרקה שנכשלה לא תשבור דף
