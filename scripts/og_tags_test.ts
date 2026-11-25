@@ -1211,6 +1211,7 @@ const slow = await bundleRun((_u, init) =>
     init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
   })
 );
+const down = await bundleRun(() => json({ message: "upstream" }, 503));
 const bundleChecks: [string, boolean][] = [
   ["bundle: קריאה אחת למסד, והיא ל-property_page_bundle",
     full.calls.length === 1 && full.calls[0].includes(`rpc/property_page_bundle?p_id=${BUNDLE_ID}`)],
@@ -1226,6 +1227,8 @@ const bundleChecks: [string, boolean][] = [
       && absent.calls.length > 1 && /desc="legacy"/.test(absent.timing)],
   ["bundle: timeout הוא 503 בלי noindex ובלי סבב נוסף",
     slow.res.status === 503 && !NOINDEX.test(slow.html) && slow.calls.length === 1],
+  ["bundle: 5xx מהמסד הוא 503 בלי noindex ובלי סבב נוסף",
+    down.res.status === 503 && !NOINDEX.test(down.html) && down.calls.length === 1],
 ];
 for (const [name, pass] of bundleChecks) {
   if (!pass) failed++;

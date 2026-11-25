@@ -1109,15 +1109,10 @@ type Timing = { db?: number; path?: "bundle" | "legacy" };
 
 /* ‏property_page_bundle (‏20271201160000) מחזירה בסבב אחד את הנכס, האחים
    באותו רחוב, שם הסוכן/ת ודף השכונה. "fallback" - התשובה אינה בצורה הזו
-   (הפונקציה עוד לא במסד, שגיאה, גוף אחר), ואז שני הסבבים הישנים. timeout
-   אינו fallback: מסד שלא ענה ב-1.2 שניות לא יענה גם לסבב נוסף. */
-type Bundled =
-  | { kind: "parts"; parts: PropertyParts }
-  | { kind: "missing" }
-  | { kind: "timeout" }
-  | { kind: "fallback" };
-
-async function propertyBundle(id: string): Promise<Bundled> {
+   (הפונקציה עוד לא במסד - 404, שגיאה שלה - 4xx, גוף אחר), ואז שני הסבבים
+   הישנים. null - לא יודעים: timeout או 5xx אינם fallback, כי מסד שלא ענה
+   לא יענה גם לשני סבבים נוספים. */
+async function propertyBundle(id: string): Promise<PropertyParts | "missing" | null | "fallback"> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -1132,25 +1127,23 @@ async function propertyBundle(id: string): Promise<Bundled> {
         signal: ctrl.signal,
       },
     );
-    if (!res.ok) return { kind: "fallback" };
+    if (res.status >= 500) return null;
+    if (!res.ok) return "fallback";
     const data = await res.json() as Record<string, unknown> | null;
-    if (!data || typeof data !== "object" || Array.isArray(data)) return { kind: "fallback" };
-    if (data.found === false) return { kind: "missing" };
+    if (!data || typeof data !== "object" || Array.isArray(data)) return "fallback";
+    if (data.found === false) return "missing";
     const p = data.property as Record<string, unknown> | null;
-    if (data.found !== true || !p || typeof p !== "object") return { kind: "fallback" };
+    if (data.found !== true || !p || typeof p !== "object") return "fallback";
     const key = hoodLookup(p);
     const hoods = Array.isArray(data.hoods) ? data.hoods as HoodRow[] : [];
     return {
-      kind: "parts",
-      parts: {
-        p,
-        siblings: Array.isArray(data.siblings) ? data.siblings as Record<string, unknown>[] : null,
-        agentDisplay: String(data.agent_display || ""),
-        hood: key ? hoods.find((h) => h && h.name === key.hood) || null : null,
-      },
+      p,
+      siblings: Array.isArray(data.siblings) ? data.siblings as Record<string, unknown>[] : null,
+      agentDisplay: String(data.agent_display || ""),
+      hood: key ? hoods.find((h) => h && h.name === key.hood) || null : null,
     };
   } catch {
-    return { kind: ctrl.signal.aborted ? "timeout" : "fallback" };
+    return ctrl.signal.aborted ? null : "fallback";
   } finally {
     clearTimeout(timer);
   }
@@ -1203,9 +1196,9 @@ async function propertyParts(id: string, timing?: Timing): Promise<PropertyParts
     }
   };
   const got = await propertyBundle(id);
-  if (got.kind !== "fallback") {
+  if (got !== "fallback") {
     done("bundle");
-    return got.kind === "parts" ? got.parts : got.kind === "missing" ? "missing" : null;
+    return got;
   }
   const legacy = await propertyPartsLegacy(id);
   done("legacy");
@@ -2188,14 +2181,17 @@ function failureHeaders(base: Headers, status: number): Headers {
 }
 
 /* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
-/* ‏Server-Timing לדף הנכס: origin - ה-HTML הסטטי, db - המסד (desc: באיזה
+/* ‏Server-Timing לדף נכס שנשאל עליו המסד: origin - ה-HTML הסטטי, db - המסד (desc: באיזה
    מסלול), total - כל הפונקציה. נראה בלשונית Network ובכל curl, בלי כלי נוסף.
    מספרים בלבד, בלי שום פרט של הנכס או של הגולש/ת. */
 function serverTiming(headers: Headers, originMs: number, timing: Timing, began: number): Headers {
+  if (timing.db === undefined) return headers; // דף אחר, או נכס בלי קריאה למסד
   const ms = (n: number) => n.toFixed(1);
-  const parts = [`origin;dur=${ms(originMs)}`];
-  if (timing.db !== undefined) parts.push(`db;dur=${ms(timing.db)};desc="${timing.path}"`);
-  parts.push(`total;dur=${ms(performance.now() - began)}`);
+  const parts = [
+    `origin;dur=${ms(originMs)}`,
+    `db;dur=${ms(timing.db)};desc="${timing.path}"`,
+    `total;dur=${ms(performance.now() - began)}`,
+  ];
   try {
     headers.set("Server-Timing", parts.join(", "));
   } catch { /* כותרות נעולות - הדף יוצא בלי המדידה */ }
@@ -2324,8 +2320,7 @@ export default async function handler(request: Request, context: Context) {
        וכתבה נשארים 200 עם noindex. */
     if (meta === "missing" && (isProperty || page.endsWith("/agent") || page.endsWith("/agency"))) {
       const body = isProperty ? missingProperty(html) : noindex(html);
-      const failed = failureHeaders(res.headers, 404);
-      return new Response(body, { status: 404, headers: isProperty ? timed(failed) : failed });
+      return new Response(body, { status: 404, headers: timed(failureHeaders(res.headers, 404)) });
     }
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
@@ -2342,7 +2337,7 @@ export default async function handler(request: Request, context: Context) {
       await remember(lastGoodKey(request.url), response, waitUntilOf(context));
     }
     // אחרי remember: העותק השמור אינו נושא זמנים של בקשה אחרת
-    if (isProperty) timed(response.headers);
+    timed(response.headers);
     return response;
   } catch {
     return res; // הזרקה שנכשלה לא תשבור דף
