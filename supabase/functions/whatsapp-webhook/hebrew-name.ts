@@ -21,6 +21,25 @@ export function phonesMatch(a: unknown, b: unknown): boolean {
 }
 
 /**
+ * שני טלפונים תקינים ושונים. כשיש לשני הכרטיסים טלפון והם שונים, שם משפחה זהה אינו סיבה לשאול "האם זה אותו
+ * אדם": אי אפשר לזהות כפילות בלי אותו שם או אותו טלפון (24.11.2026: "תומר כהן" מול "ציפורה כהן", כל אחד עם טלפון).
+ * בלי טלפון באחד הצדדים - ממשיכים לשאול.
+ */
+export function differentKnownPhones(a: unknown, b: unknown): boolean {
+  const ka = phoneKey(a);
+  const kb = phoneKey(b);
+  return ka !== "" && kb !== "" && ka !== kb;
+}
+
+/** מסיר מהתוצאות שאלות "אותו אדם?" (kind confirm) שבהן שני הכרטיסים נושאים טלפון שונה. כפילות ממש נשארת. */
+export function dropConfirmWithDifferentPhone<T extends { kind: string; phone: string | null }>(
+  hits: readonly T[],
+  inputPhone: unknown,
+): T[] {
+  return hits.filter((h) => !(h.kind === "confirm" && differentKnownPhones(inputPhone, h.phone)));
+}
+
+/**
  * י' באמצע המילה יורדת ("דויד"/"דוד"). י' בראש המילה ו-י' בסופה נשארות:
  * מחיקה של כולן הפכה את "ישי לוי" ל"לו" ואת "רוני" ל"רון".
  * אותו כלל ב-client_name_skeleton במיגרציה 20271029122000.
