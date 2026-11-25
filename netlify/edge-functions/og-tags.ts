@@ -1109,9 +1109,9 @@ type Timing = { db?: number; path?: "bundle" | "legacy" };
 
 /* ‏property_page_bundle (‏20271201160000) מחזירה בסבב אחד את הנכס, האחים
    באותו רחוב, שם הסוכן/ת ודף השכונה. "fallback" - התשובה אינה בצורה הזו
-   (הפונקציה עוד לא במסד - 404, שגיאה שלה - 4xx, גוף אחר), ואז שני הסבבים
-   הישנים. null - לא יודעים: timeout או 5xx אינם fallback, כי מסד שלא ענה
-   לא יענה גם לשני סבבים נוספים. */
+   (הפונקציה עוד לא במסד - 404, שגיאה בגוף שלה - 400, ‏406, או 200 בצורה אחרת),
+   ואז שני הסבבים הישנים. null - לא יודעים: timeout, כשל רשת, 401/403/429
+   ו-5xx אינם fallback, כי מסד שלא ענה לא יענה גם לשני סבבים נוספים. */
 async function propertyBundle(id: string): Promise<PropertyParts | "missing" | null | "fallback"> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -1127,8 +1127,13 @@ async function propertyBundle(id: string): Promise<PropertyParts | "missing" | n
         signal: ctrl.signal,
       },
     );
-    if (res.status >= 500) return null;
-    if (!res.ok) return "fallback";
+    // ‏406 אינו תשובה של הפונקציה (היא מחזירה jsonb); גם הוא אל המסלול שיודע לקרוא אותו
+    if (res.status === 400 || res.status === 404 || res.status === 406) {
+      // הסימן היחיד מלבד desc="legacy" שהפונקציה במסד חסרה או נכשלת
+      console.warn(`property_page_bundle: ${res.status}, חוזרים לשני סבבים`);
+      return "fallback";
+    }
+    if (!res.ok) return null;
     const data = await res.json() as Record<string, unknown> | null;
     if (!data || typeof data !== "object" || Array.isArray(data)) return "fallback";
     if (data.found === false) return "missing";
@@ -1143,7 +1148,7 @@ async function propertyBundle(id: string): Promise<PropertyParts | "missing" | n
       hood: key ? hoods.find((h) => h && h.name === key.hood) || null : null,
     };
   } catch {
-    return ctrl.signal.aborted ? null : "fallback";
+    return null;
   } finally {
     clearTimeout(timer);
   }
@@ -2180,10 +2185,10 @@ function failureHeaders(base: Headers, status: number): Headers {
   return headers;
 }
 
-/* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
 /* ‏Server-Timing לדף נכס שנשאל עליו המסד: origin - ה-HTML הסטטי, db - המסד (desc: באיזה
    מסלול), total - כל הפונקציה. נראה בלשונית Network ובכל curl, בלי כלי נוסף.
-   מספרים בלבד, בלי שום פרט של הנכס או של הגולש/ת. */
+   מספרים בלבד, בלי שום פרט של הנכס או של הגולש/ת. תשובת 200 נשמרת ב-CDN
+   עם הכותרת, ולכן הזמנים הם של הבקשה שמילאה את המטמון (‏age: 0). */
 function serverTiming(headers: Headers, originMs: number, timing: Timing, began: number): Headers {
   if (timing.db === undefined) return headers; // דף אחר, או נכס בלי קריאה למסד
   const ms = (n: number) => n.toFixed(1);
@@ -2198,6 +2203,7 @@ function serverTiming(headers: Headers, originMs: number, timing: Timing, began:
   return headers;
 }
 
+/* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
 function missingProperty(html: string): string {
   let out = noindex(html);
   if (out.includes('id="notFoundState"')) return out;

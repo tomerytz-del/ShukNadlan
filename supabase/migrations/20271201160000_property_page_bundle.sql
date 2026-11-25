@@ -50,8 +50,13 @@ as $fn$
     end,
     '^רחוב\s+', ''), '\s+', ' ', 'g'))
   from (
-    select btrim(coalesce(nullif(p_street, ''), p_address, '')) as raw,
-           btrim(coalesce(p_house_number, '')) as hn
+    -- ‏\s של JS כולל רווח קשיח (U+00A0) ושאר רווחי Unicode, ו-\s של Postgres
+    -- לא. מנרמלים אותם לרווח רגיל לפני הכול, אחרת כתובת שהודבקה מאתר אחר
+    -- נותנת כאן שם רחוב אחר מזה של הדפדפן.
+    select btrim(regexp_replace(coalesce(nullif(p_street, ''), p_address, ''),
+                 '[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]', ' ', 'g')) as raw,
+           btrim(regexp_replace(coalesce(p_house_number, ''),
+                 '[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]', ' ', 'g')) as hn
   ) m;
 $fn$;
 
@@ -97,8 +102,11 @@ as $fn$
                  p.video_url, p.video_poster_url, p.city_id, p.lat, p.lng
         ) t
       ),
+      -- התקרה של המסלול הישן: מעל 6,000 שורות אין מבדיל (null), ולא תשובה ענקית
       'siblings', case when k.city = '' or k.ptype = '' then null else (
-        select coalesce(jsonb_agg(to_jsonb(s) order by s.id), '[]'::jsonb) from (
+        select case when count(*) > 6000 then null
+                    else coalesce(jsonb_agg(to_jsonb(s) order by s.id), '[]'::jsonb) end
+          from (
           select x.id, x.street, x.address, x.house_number, x.city, x.rooms, x.size_sqm,
                  x.floor, x.deal_type, x.price, x.property_type, x.title
             from public.properties x
@@ -114,6 +122,7 @@ as $fn$
                      (x.street is null or x.street = '')
                      and (x.address is null or x.address = '')
                  end
+           limit 6001
         ) s
       ) end,
       'agent_display', (
