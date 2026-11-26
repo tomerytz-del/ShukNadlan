@@ -1629,8 +1629,7 @@ function csmRecording(p: URLSearchParams, q: URLSearchParams): Response {
   EdgeRuntime.waitUntil(csmProcessRecording({
     lineId: q.get("line") || "",
     from: q.get("from") || "",
-    agentId: q.get("agent") || "",
-    outbound: q.get("dir") === "out",
+    agentId: q.get("agent") || "",   // רק בחיוג יוצא (csmC2cBridge): יש מזהה סוכן/ת ואין מספר מתקשר
     voicemail: q.get("vm") === "1",
     callSid: p.get("CallSid") || "",
     recordingSid: p.get("RecordingSid") || "",
@@ -1641,7 +1640,7 @@ function csmRecording(p: URLSearchParams, q: URLSearchParams): Response {
 }
 
 async function csmProcessRecording(r: {
-  lineId: string; from: string; agentId: string; outbound: boolean; voicemail: boolean; callSid: string;
+  lineId: string; from: string; agentId: string; voicemail: boolean; callSid: string;
   recordingSid: string; recordingUrl: string; duration: number | null;
 }) {
   if (r.voicemail && (r.duration ?? 0) < VOICEMAIL_MIN_SEC) {
@@ -1673,7 +1672,7 @@ async function csmProcessRecording(r: {
   // הכותרת היא מה שמבדיל שיחה יוצאת (assets/crm-csm.js: csmCallIsOutbound) - בלי עמודה חדשה
   const { data: call, error } = await supabase.from("csm_calls").insert({
     staff_id: line.staff_id, agent_id: agent?.id ?? null, source: "phone", audio_path: path,
-    title: (r.voicemail ? "הודעה קולית מ-" : r.outbound ? "שיחה יוצאת ל-" : agent ? "שיחה עם " : "שיחה מ-") + who,
+    title: (r.voicemail ? "הודעה קולית מ-" : r.agentId ? "שיחה יוצאת ל-" : agent ? "שיחה עם " : "שיחה מ-") + who,
     twilio_call_sid: r.callSid, from_number: r.from || null, duration_sec: r.duration,
     voicemail: r.voicemail, line_id: line.id,
   }).select("id").single();
@@ -1759,16 +1758,9 @@ async function csmLineTask(req: Request, task: string): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
-// חיוג יוצא של אשת צוות ההטמעה (Click2Call) - "התקשרי" ב-/csm.
-//
-// Twilio מצלצלת קודם לנייד שלה (מהמספר הווירטואלי שלה), ואחרי שענתה מחברת אותה
-// לסוכן/ת בשיחה מוקלטת. הסוכן/ת רואה את המספר של ההטמעה ושומע/ת שהשיחה מוקלטת
-// (<Number url>, לפני החיבור). ההקלטה עוברת את אותו צינור של שיחה נכנסת
-// (csm-recording ← processCsmCall), עם dir=out ומזהה הסוכן/ת בכתובת.
-//
-// הסוכן/ת נבחר/ת ממי שהאזור מציג (אותו סינון של csm_agents_overview: פעיל/ה,
-// לא סגור/ה, לא מנהל/ת פלטפורמה), והטלפון שלו/ה לא יוצא מהשרת.
-// עלות: של הפלטפורמה (שתי רגליים), בלי ארנק ובלי תקרת דקות - כמו שאר הקו.
+// חיוג יוצא של אשת צוות ההטמעה (Click2Call): חיוג אחורה - Twilio מצלצלת אליה מהקו
+// שלה ואז מחברת לסוכן/ת בשיחה מוקלטת. הפירוט, הסינון והסיבות: docs/csm-adoption.md,
+// "חיוג יוצא". הטלפון של הסוכן/ת לא יוצא מהשרת, וההקלטה עוברת את צינור השיחה הנכנסת.
 // ---------------------------------------------------------------------------
 const csmC2cLast = new Map<string, number>();   // מרווח בין חיוגים, לכל אשת צוות (מאמץ סביר, לא נשמר בין מופעים)
 const CSM_C2C_GAP_MS = 15_000;
@@ -1783,22 +1775,21 @@ async function csmClick2Call(req: Request): Promise<Response> {
   if (mfa) return corsJson({ error: mfa.error }, mfa.status);
   if (!TWILIO_SID || !TWILIO_TOKEN) return corsJson({ error: "not_configured" }, 503);
 
-  const { data: staff } = await supabase.from("csm_staff")
-    .select("id, phone_e164, active").eq("user_id", uid).maybeSingle();
-  if (!staff?.active) return corsJson({ error: "not_allowed" }, 403);
   const body = await req.json().catch(() => ({}));
   const agentId = String(body?.agent_id || "");
   if (!/^[0-9a-f-]{36}$/i.test(agentId)) return corsJson({ error: "agent_not_found" }, 404);
+  const { data: staff } = await supabase.from("csm_staff")
+    .select("id, phone_e164, active").eq("user_id", uid).maybeSingle();
+  if (!staff?.active) return corsJson({ error: "not_allowed" }, 403);
 
-  const { data: line } = await supabase.from("csm_phone_lines")
-    .select("id, twilio_number").eq("staff_id", staff.id).eq("active", true).maybeSingle();
+  const [{ data: line }, { data: agent }] = await Promise.all([
+    supabase.from("csm_phone_lines").select("id, twilio_number").eq("staff_id", staff.id).eq("active", true).maybeSingle(),
+    supabase.from("agency_members").select("id, phone_e164, phone").eq("id", agentId).eq("active", true)
+      .is("closed_at", null).eq("is_platform_admin", false).maybeSingle(),
+  ]);
   if (!line) return corsJson({ error: "no_line" }, 409);
   const staffPhone = e164(staff.phone_e164 || "");
   if (!staffPhone) return corsJson({ error: "no_phone" }, 400);
-
-  const { data: agent } = await supabase.from("agency_members")
-    .select("id, phone_e164, phone").eq("id", agentId).eq("active", true)
-    .is("closed_at", null).eq("is_platform_admin", false).maybeSingle();
   if (!agent) return corsJson({ error: "agent_not_found" }, 404);
   const agentPhone = e164(agent.phone_e164 || agent.phone || "");
   if (!agentPhone) return corsJson({ error: "agent_no_phone" }, 400);
@@ -1808,7 +1799,7 @@ async function csmClick2Call(req: Request): Promise<Response> {
   if (now - (csmC2cLast.get(staff.id) ?? 0) < CSM_C2C_GAP_MS) return corsJson({ error: "rate_limited" }, 429);
   csmC2cLast.set(staff.id, now);
 
-  const bridge = `${PUBLIC_BASE}?event=csm-c2c&line=${encodeURIComponent(line.id)}&agent=${encodeURIComponent(agentId)}`;
+  const bridge = csmCb("csm-c2c", line.id, "", `&agent=${encodeURIComponent(agentId)}`);
   const res = await fetch(`${TW_API()}/Calls.json`, {
     method: "POST",
     headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
@@ -1837,7 +1828,7 @@ async function csmC2cBridge(q: URLSearchParams): Promise<Response> {
   if (!line?.active || !agent?.active || !target) {
     return xml(`<Say ${VOICE}>${escXml(MSG_C2C_FAILED)}</Say><Hangup/>`);
   }
-  const recCb = escXml(`${PUBLIC_BASE}?event=csm-recording&line=${encodeURIComponent(line.id)}&agent=${encodeURIComponent(agentId)}&dir=out`);
+  const recCb = escXml(csmCb("csm-recording", line.id, "", `&agent=${encodeURIComponent(agentId)}`));
   const action = escXml(`${PUBLIC_BASE}?event=csm-c2c-done`);
   const notice = escXml(`${PUBLIC_BASE}?event=csm-c2c-notice`);
   return xml(

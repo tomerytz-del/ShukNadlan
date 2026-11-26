@@ -768,7 +768,7 @@ const CSM_LINE_ERR = {
 /* חיוג מוקלט דרך המספר הווירטואלי (twilio-voice?task=csm-click2call): Twilio מצלצלת
    אליה ואחר כך מחברת לסוכן/ת. לאשת צוות בלבד - בפיקוח של מנהל/ת הפלטפורמה אין קו. */
 function csmC2cBtn(r){
-  if (!csmCtx().isStaff || !r || !r.agent_id || !r.phone) return '';
+  if (!csmCtx().isStaff || !r || !r.agent_id) return '';
   const who = escapeHtml(r.display_name || 'סוכן/ת');
   return `<button type="button" class="btn btn-icon btn-ghost" data-csm-c2c="${escapeHtml(r.agent_id)}" data-name="${who}" aria-label="חיוג מוקלט ל${who} דרך המספר של ההטמעה" title="חיוג מוקלט דרך המספר שלך">☎️</button>`;
 }
@@ -780,7 +780,7 @@ const CSM_C2C_ERR = {
   agent_no_phone:'אין לסוכן/ת טלפון במערכת.',
   same_number:'הטלפון של הסוכן/ת זהה לנייד שלך, ואי אפשר לחבר שיחה לעצמך.',
   rate_limited:'כבר חייגת הרגע. כדאי להמתין כמה שניות.',
-  not_configured:'Twilio עוד לא מוגדר במערכת.', twilio_failed:'Twilio לא הצליחה להתחיל את השיחה. אפשר לנסות שוב.',
+  twilio_failed:'Twilio לא הצליחה להתחיל את השיחה. אפשר לנסות שוב.',
   not_allowed:'החיוג זמין לצוות ההטמעה בלבד.', unauthorized:'פג תוקף החיבור. יש להתחבר מחדש.',
 };
 
@@ -1623,7 +1623,7 @@ function csmSetTab(tab){
       if (!confirm('המערכת תצלצל קודם אלייך, ואחרי שתעני תחבר אותך ל' + name + '. השיחה מוקלטת ומנותחת, והסוכן/ת שומע/ת על כך לפני החיבור. להמשיך?')) return;
       c2c.disabled = true;
       csmTwilio('csm-click2call', { agent_id: c2c.dataset.csmC2c }).then(r => {
-        if (r.error){ c2c.disabled = false; showToast(CSM_C2C_ERR[r.error] || 'לא יצאה שיחה: ' + heErr({ code:r.error, message:r.error })); return; }
+        if (r.error){ c2c.disabled = false; showToast(CSM_C2C_ERR[r.error] || CSM_LINE_ERR[r.error] || 'לא יצאה שיחה: ' + heErr({ code:r.error, message:r.error })); return; }
         showToast('מצלצלים אלייך עכשיו. אחרי שתעני תחובר/י ל' + name + '. ההקלטה והסיכום יגיעו ל"הקלטות".');
         setTimeout(() => { c2c.disabled = false; }, 15000);
       });
