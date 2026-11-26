@@ -420,20 +420,19 @@ function csmCardHtml(r){
         ${follow != null && follow >= 0 ? `<span class="csm-badge due">📅 קשר הבא ${follow === 0 ? 'היום' : 'עבר לפני ' + follow + ' ימים'}</span>` : ''}
       </div>` : ''}
       <div class="csm-stats">
-        <span title="הודעות לגבריאלה בשבוע האחרון">💬 ${r.gabriela_7d || 0}</span>
-        <span title="נכסים פעילים">🏠 ${r.active_listings || 0}</span>
-        <span title="לקוחות">👥 ${r.clients || 0}</span>
-        <span title="משימות פתוחות">✅ ${r.open_tasks || 0}</span>
-        ${r.last_clarity ? `<span title="דירוג בהדרכה">⭐ ${r.last_clarity}</span>` : ''}
+        <span>💬 <b>${r.gabriela_7d || 0}</b> הודעות לגבריאלה (7 ימים)</span>
+        <span>🏠 <b>${r.active_listings || 0}</b> נכסים פעילים</span>
+        <span>👥 <b>${r.clients || 0}</b> לקוחות</span>
+        <span>✅ <b>${r.open_tasks || 0}</b> משימות פתוחות</span>
+        ${r.last_clarity ? `<span>⭐ דירוג בהדרכה <b>${r.last_clarity}</b></span>` : ''}
       </div>
       ${r.last_weekly_goal ? `<div class="csm-card-goal">🎯 ${escapeHtml(r.last_weekly_goal)}</div>` : ''}
       <div class="csm-card-actions">
         <button type="button" class="btn btn-gold csm-card-main" data-csm-session="${escapeHtml(r.agent_id)}">${r.sessions ? 'פגישה נוספת' : 'פגישת הצלחה ראשונה'}</button>
-        ${r.phone ? `<a class="btn btn-icon btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${who}" title="התקשרות">📞</a>
-        ${csmC2cBtn(r)}
+        ${r.phone ? `${csmCallMenu(r)}
         <a class="btn btn-icon btn-wa" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${who} (נפתח בלשונית חדשה)" title="וואטסאפ">${CSM_WA_SVG}</a>` : ''}
         ${csmCtx().isStaff ? `<button type="button" class="btn btn-icon btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}" aria-label="קביעת פגישה עם ${who}" title="קביעת פגישה">📅</button>` : ''}
-        ${csmCtx().isStaff && csmCallCounts[r.agent_id] ? `<button type="button" class="btn btn-ghost" data-csm-agent-calls="${escapeHtml(r.agent_id)}" aria-label="ההקלטות של ${who}">🎙 הקלטות (${csmCallCounts[r.agent_id]})</button>` : ''}
+        ${csmCtx().isStaff && csmCallCounts[r.agent_id] ? `<button type="button" class="btn btn-ghost" data-csm-agent-calls="${escapeHtml(r.agent_id)}" aria-label="ההקלטות של ${who}">🎙 הקלטות של ${who} (${csmCallCounts[r.agent_id]})</button>` : ''}
       </div>
       ${csmContactHtml(r)}
     </article>`;
@@ -588,6 +587,7 @@ let csmCalls = [];
 let csmCallAgentFilter = '';   // הקלטות של סוכן/ת אחד/ת (מכפתור בכרטיס)
 let csmCallCounts = {};        // agent_id -> כמה הקלטות משויכות אליו/ה
 let csmCallOpen = null;
+let csmCallTab = 'summary';   // לשונית בשיחה הפתוחה: summary / mentor / transcript
 let csmCallPoll = null;
 
 async function csmLoadCalls(){
@@ -631,22 +631,45 @@ function csmCallsHtml(){
       <div class="csm-card-meta">${escapeHtml(new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}
         · ${c.source === 'whatsapp' ? 'מוואטסאפ' : c.source === 'phone' ? (c.voicemail ? 'הודעה קולית למספר שלך' : csmCallIsOutbound(c) ? 'שיחה יוצאת דרך המספר שלך' : 'שיחה למספר שלך') + (c.from_number ? ' מ-<span dir="ltr">' + escapeHtml(csmLocalPhone(c.from_number)) + '</span>' : '') : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
       ${c.status === 'failed' ? `<p class="csm-hint">${escapeHtml(c.error || '')} <button type="button" class="btn btn-ghost" data-csm-call-retry="${escapeHtml(c.id)}">לנסות שוב</button></p>` : ''}
+      ${open ? '' : csmCallTagsHtml(c)}
       ${a.summary && !open ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
       ${open ? csmCallDetailHtml(c) : ''}
     </article>`;
   }).join('');
-  return `<form class="csm-form" id="csmCallForm">
+  return `<details class="csm-more csm-upload"><summary class="btn btn-gold">⬆ העלאת הקלטה</summary>
+    <form class="csm-form" id="csmCallForm">
       <div class="field"><label for="csmCallFile">הקלטת שיחה (m4a, mp3, aac, ogg, wav - עד 25MB)</label>
-        <input type="file" id="csmCallFile" accept="audio/*,.m4a,.mp3,.aac,.ogg,.opus,.wav,.3gp,.webm" required></div>
+        <input type="file" id="csmCallFile" aria-label="קובץ הקלטה" accept="audio/*,.m4a,.mp3,.aac,.ogg,.opus,.wav,.3gp,.webm" required></div>
       <div class="csm-fb-row">
         <div class="field"><label for="csmCallTitle">כותרת</label><input type="text" id="csmCallTitle" maxlength="200" placeholder="למשל: שיחת היכרות עם מנהל המשרד"></div>
         <div class="field"><label for="csmCallAgent">עם מי (לא חובה)</label><select id="csmCallAgent"><option value="">לא משויכת</option>${csmAgentOptions()}</select></div>
       </div>
       <button type="submit" class="btn btn-gold">העלאה לתמלול וסיכום</button>
       <p class="csm-hint">אפשר גם לשלוח את ההקלטה לגבריאלה בוואטסאפ. ההקלטה עוברת ל-OpenAI לתמלול ולמודל לסיכום, ונשמרת באזור ההטמעה בלבד.</p>
-    </form>
+    </form></details>
     ${filterBar}
     ${list || '<div class="empty-state">' + (csmCallAgentFilter ? 'אין עוד הקלטות של הסוכן/ת הזה/זו.' : 'עוד אין הקלטות.') + '</div>'}`;
+}
+
+/* שורה סגורה: תגיות שמאפשרות למיין במבט (טון, התנגדויות, בלי מענה מלא, מצב המנטור) */
+function csmCallTagsHtml(c){
+  const a = c.analysis || {}, rv = c.review;
+  if (c.status !== 'done') return '';
+  const obj = rv && rv.objections ? rv.objections : null;
+  const open = obj ? obj.filter(o => o.handled !== 'well').length : 0;
+  const tags = [];
+  if (a.mood) tags.push(`<span class="csm-tag">${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</span>`);
+  if (obj) tags.push(`<span class="csm-tag">${obj.length} התנגדויות</span>`);
+  if (open) tags.push(`<span class="csm-tag rec">${open} בלי מענה מלא</span>`);
+  tags.push(rv ? '<span class="csm-tag seen">המנטור: מוכן</span>' : csmReviewPending(c) ? '<span class="csm-tag">המנטור: ממתין</span>' : c.review_error ? '<span class="csm-tag rec">המנטור: נכשל</span>' : '');
+  return `<div class="csm-call-tags">${tags.join('')}</div>`;
+}
+
+/* נגן: הקישור החתום נוצר רק בלחיצה (שעה), לא לכל שורה */
+function csmAudioHtml(c){
+  return c.audio_path
+    ? `<div class="csm-audio"><button type="button" class="btn btn-ghost" data-csm-audio="${escapeHtml(c.audio_path)}">▶ האזנה להקלטה</button></div>`
+    : '<p class="csm-hint">ההקלטה עצמה לא נשמרה, יש רק תמלול וסיכום.</p>';
 }
 
 function csmCallDetailHtml(c){
@@ -654,26 +677,37 @@ function csmCallDetailHtml(c){
   const sec = (t, items) => items && items.length ? `<h5>${escapeHtml(t)}</h5><ul>${items.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '';
   const stageLabel = k => (CSM_STAGES.find(s => s.key === k) || {}).label || '';
   const agent = c.agent_id ? csmRows.find(r => r.agent_id === c.agent_id) : null;
+  const rv = c.review;
+  // ההתנגדויות מופיעות פעם אחת: אצל המנטור, כשהוא עבר על השיחה (ושם יש לכל אחת תשובה)
+  const sumObjections = rv && (rv.objections || []).length ? null : a.objections;
+  const tab = ['summary', 'mentor', 'transcript'].includes(csmCallTab) ? csmCallTab : 'summary';
+  const rvCount = rv ? (rv.objections || []).length : 0;
+  const tabs = [['summary', 'סיכום', 0], ['mentor', 'המנטור', rvCount], ['transcript', 'תמלול', 0]];
+  const tabBar = `<div class="csm-tabs" role="tablist" aria-label="חלקי השיחה">${tabs.map(([k, lbl, n]) =>
+    `<button type="button" role="tab" data-csm-call-tab="${k}" aria-selected="${tab === k}">${lbl}${n ? ` <span class="csm-count">${n}</span>` : ''}</button>`).join('')}</div>`;
+  const summary = `
+    ${a.summary ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : '<p class="csm-hint">עוד אין סיכום.</p>'}
+    ${a.mood ? `<p class="csm-hint">הטון: ${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</p>` : ''}
+    ${sec('נקודות כאב', a.pains)}${sec('התנגדויות', sumObjections)}${sec('התחייבויות', a.commitments)}
+    ${sec('המלצות', a.recommendations)}
+    ${sec('הצעדים הבאים', (a.next_steps || []).map(x => x.action + (x.when ? ' (' + x.when + ')' : '')))}
+    ${(a.feedback_items || []).length ? `<h5>לפיתוח</h5><ul>${a.feedback_items.map((f, i) => `<li>${escapeHtml(f.title)} <button type="button" class="btn btn-ghost" data-csm-call-fb="${escapeHtml(c.id)}" data-i="${i}">להוסיף למשוב</button></li>`).join('')}</ul>` : ''}`;
+  const transcript = c.transcript
+    ? `<div class="csm-transcript">${escapeHtml(c.transcript)}</div>` : '<p class="csm-hint">אין תמלול.</p>';
+  const body = tab === 'mentor' ? (csmReviewHtml(c) || '<p class="csm-hint">המנטור עובר על שיחות אחרי שהתמלול מוכן.</p>')
+    : tab === 'transcript' ? transcript : summary;
   return `<div class="csm-call-detail">
-    <div class="csm-fb-row">
+    ${csmAudioHtml(c)}
+    ${tabBar}
+    <div class="csm-tab-body" role="tabpanel">${body}</div>
+    <div class="csm-call-actions csm-sticky">
+      ${a.suggested_stage || a.followup_date ? `<button type="button" class="btn btn-gold" data-csm-call-apply="${escapeHtml(c.id)}"${c.agent_id ? '' : ' disabled title="קודם לשייך לסוכן/ת"'}>
+        עדכון ${a.suggested_stage ? 'השלב ל"' + escapeHtml(stageLabel(a.suggested_stage)) + '"' : ''}${a.suggested_stage && a.followup_date ? ' ו' : ''}${a.followup_date ? 'מועד הקשר ל-' + escapeHtml(a.followup_date) : ''}</button>` : ''}
+      ${a.message_draft ? `<button type="button" class="btn btn-ghost" data-csm-copy="${escapeHtml(a.message_draft)}">העתקת הודעה לסוכן/ת</button>` : ''}
+      ${a.message_draft && agent && agent.phone ? `<a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(agent.phone))}?text=${encodeURIComponent(a.message_draft)}" target="_blank" rel="noopener noreferrer" aria-label="שליחה לסוכן/ת בוואטסאפ (נפתח בלשונית חדשה)">שליחה בוואטסאפ</a>` : ''}
       <select data-csm-call-agent="${escapeHtml(c.id)}" aria-label="שיוך לסוכן/ת"><option value="">לא משויכת</option>${csmAgentOptions().replace(`value="${escapeHtml(c.agent_id || '')}"`, `value="${escapeHtml(c.agent_id || '')}" selected`)}</select>
       <button type="button" class="btn btn-ghost" data-csm-call-del="${escapeHtml(c.id)}">מחיקה</button>
     </div>
-    ${a.summary ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
-    ${a.mood ? `<p class="csm-hint">הטון: ${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</p>` : ''}
-    ${sec('נקודות כאב', a.pains)}${sec('התנגדויות', a.objections)}${sec('התחייבויות', a.commitments)}
-    ${sec('המלצות', a.recommendations)}
-    ${sec('הצעדים הבאים', (a.next_steps || []).map(x => x.action + (x.when ? ' (' + x.when + ')' : '')))}
-    <div class="csm-call-actions">
-      ${a.suggested_stage || a.followup_date ? `<button type="button" class="btn btn-gold" data-csm-call-apply="${escapeHtml(c.id)}"${c.agent_id ? '' : ' disabled title="קודם לשייך לסוכן/ת"'}>
-        עדכון ${a.suggested_stage ? 'השלב ל"' + escapeHtml(stageLabel(a.suggested_stage)) + '"' : ''}${a.suggested_stage && a.followup_date ? ' ו' : ''}${a.followup_date ? 'מועד הקשר ל-' + escapeHtml(a.followup_date) : ''}</button>` : ''}
-    </div>
-    ${(a.feedback_items || []).length ? `<h5>לפיתוח</h5><ul>${a.feedback_items.map((f, i) => `<li>${escapeHtml(f.title)} <button type="button" class="btn btn-ghost" data-csm-call-fb="${escapeHtml(c.id)}" data-i="${i}">להוסיף למשוב</button></li>`).join('')}</ul>` : ''}
-    ${a.message_draft ? `<h5>הודעה מוצעת לסוכן/ת</h5><div class="csm-cmd"><code>${escapeHtml(a.message_draft)}</code>
-      <div class="csm-cmd-actions"><button type="button" class="btn btn-ghost" data-csm-copy="${escapeHtml(a.message_draft)}">העתקה</button>
-      ${agent && agent.phone ? `<a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(agent.phone))}?text=${encodeURIComponent(a.message_draft)}" target="_blank" rel="noopener noreferrer" aria-label="שליחה לסוכן/ת בוואטסאפ (נפתח בלשונית חדשה)">שליחה בוואטסאפ</a>` : ''}</div></div>` : ''}
-    ${csmReviewHtml(c)}
-    ${c.transcript ? `<details class="csm-more"><summary>התמלול המלא</summary><div class="csm-transcript">${escapeHtml(c.transcript)}</div></details>` : ''}
   </div>`;
 }
 
@@ -935,6 +969,19 @@ function csmC2cBtn(r){
   if (!csmCtx().isStaff || !r || !r.agent_id) return '';
   const who = escapeHtml(r.display_name || 'סוכן/ת');
   return `<button type="button" class="btn btn-icon btn-ghost" data-csm-c2c="${escapeHtml(r.agent_id)}" data-name="${who}" aria-label="חיוג מוקלט ל${who} דרך המספר של ההטמעה" title="חיוג מוקלט דרך המספר שלך">☎️</button>`;
+}
+
+/* כפתור התקשרות אחד עם שתי אפשרויות, וכל אחת מסבירה מה קורה (בלי לנחש בין שני טלפונים) */
+function csmCallMenu(r){
+  const who = escapeHtml(r.display_name || 'סוכן/ת');
+  const rec = csmC2cBtn(r)
+    ? `<button type="button" class="csm-menu-item" data-csm-c2c="${escapeHtml(r.agent_id)}" data-name="${who}"><b>מוקלט, דרך המספר של ההטמעה</b><small>מצלצל אלייך ואז מחבר. ההקלטה והסיכום יגיעו להקלטות</small></button>` : '';
+  if (!rec) return `<a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${who}">📞 התקשרות</a>`;
+  return `<details class="csm-call-menu"><summary class="btn btn-call" aria-label="התקשרות ל${who}, יש שתי אפשרויות">📞 התקשרות ▾</summary>
+    <div class="csm-menu-panel">
+      <a class="csm-menu-item" href="tel:${escapeHtml(r.phone)}"><b>מהנייד שלי</b><small>חיוג רגיל, בלי הקלטה</small></a>
+      ${rec}
+    </div></details>`;
 }
 
 const CSM_C2C_ERR = {
@@ -1785,6 +1832,7 @@ function csmSetTab(tab){
     if (c2c){
       const name = c2c.dataset.name || 'הסוכן/ת';
       if (!confirm('המערכת תצלצל קודם אלייך, ואחרי שתעני תחבר אותך ל' + name + '. השיחה מוקלטת ומנותחת, והסוכן/ת שומע/ת על כך לפני החיבור. להמשיך?')) return;
+      const menu = c2c.closest('details'); if (menu) menu.removeAttribute('open');
       c2c.disabled = true;
       csmTwilio('csm-click2call', { agent_id: c2c.dataset.csmC2c }).then(r => {
         if (r.error){ c2c.disabled = false; showToast(CSM_C2C_ERR[r.error] || CSM_LINE_ERR[r.error] || 'לא יצאה שיחה: ' + heErr({ code:r.error, message:r.error })); return; }
@@ -1916,7 +1964,28 @@ function csmSetTab(tab){
       return;
     }
     const callBtn = e.target.closest('[data-csm-call]');
-    if (callBtn){ csmCallOpen = csmCallOpen === callBtn.dataset.csmCall ? null : callBtn.dataset.csmCall; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
+    if (callBtn){
+      const id = callBtn.dataset.csmCall;
+      csmCallOpen = csmCallOpen === id ? null : id;
+      // שיחה שיש עליה ניתוח נפתחת על לשונית המנטור: שם התשובות, וזה מה שעושים עכשיו
+      const c = csmCalls.find(x => x.id === id);
+      csmCallTab = c && c.review ? 'mentor' : 'summary';
+      document.getElementById('csmBody').innerHTML = csmCallsHtml(); return;
+    }
+    const tabBtn = e.target.closest('[data-csm-call-tab]');
+    if (tabBtn){ csmCallTab = tabBtn.dataset.csmCallTab; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
+    const audioBtn = e.target.closest('[data-csm-audio]');
+    if (audioBtn){
+      audioBtn.disabled = true;
+      sb.storage.from('csm-calls').createSignedUrl(audioBtn.dataset.csmAudio, 3600).then(({ data, error }) => {
+        if (error || !data || !data.signedUrl){ audioBtn.disabled = false; showToast('לא הצלחנו לטעון את ההקלטה: ' + heErr(error || { message:'no url' })); return; }
+        const au = document.createElement('audio');
+        au.controls = true; au.preload = 'auto'; au.src = data.signedUrl; au.setAttribute('aria-label', 'הקלטת השיחה');
+        audioBtn.replaceWith(au);
+        au.play().catch(() => {});
+      });
+      return;
+    }
     const retry = e.target.closest('[data-csm-call-retry]');
     if (retry){
       retry.disabled = true;
