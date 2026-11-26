@@ -303,6 +303,7 @@ function csmTodayHtml(){
   const tile = (n, label, tab, tone) => `<button type="button" class="csm-kpi${tone ? ' is-' + tone : ''}" data-csm-tab="${tab}">
       <strong>${n}</strong><span>${escapeHtml(label)}</span></button>`;
   const phoneBtns = r => r && r.phone ? `<a class="btn btn-icon btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞</a>
+      ${csmC2cBtn(r)}
       <a class="btn btn-icon btn-wa" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(r.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">${CSM_WA_SVG}</a>` : '';
   const evRow = e => {
     const a = e.agent_id ? byAgent[e.agent_id] : null;
@@ -425,6 +426,7 @@ function csmCardHtml(r){
       <div class="csm-card-actions">
         <button type="button" class="btn btn-gold csm-card-main" data-csm-session="${escapeHtml(r.agent_id)}">${r.sessions ? 'פגישה נוספת' : 'פגישת הצלחה ראשונה'}</button>
         ${r.phone ? `<a class="btn btn-icon btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${who}" title="התקשרות">📞</a>
+        ${csmC2cBtn(r)}
         <a class="btn btn-icon btn-wa" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${who} (נפתח בלשונית חדשה)" title="וואטסאפ">${CSM_WA_SVG}</a>` : ''}
         ${csmCtx().isStaff ? `<button type="button" class="btn btn-icon btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}" aria-label="קביעת פגישה עם ${who}" title="קביעת פגישה">📅</button>` : ''}
       </div>
@@ -609,7 +611,7 @@ function csmCallsHtml(){
         <span class="csm-tag ${c.status === 'done' ? 'seen' : c.status === 'failed' ? 'rec' : ''}">${escapeHtml(CSM_CALL_STATUS[c.status] || c.status)}</span>
       </div>
       <div class="csm-card-meta">${escapeHtml(new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}
-        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : c.source === 'phone' ? (c.voicemail ? 'הודעה קולית למספר שלך' : 'שיחה למספר שלך') + (c.from_number ? ' מ-<span dir="ltr">' + escapeHtml(csmLocalPhone(c.from_number)) + '</span>' : '') : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
+        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : c.source === 'phone' ? (c.voicemail ? 'הודעה קולית למספר שלך' : csmCallIsOutbound(c) ? 'שיחה יוצאת דרך המספר שלך' : 'שיחה למספר שלך') + (c.from_number ? ' מ-<span dir="ltr">' + escapeHtml(csmLocalPhone(c.from_number)) + '</span>' : '') : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
       ${c.status === 'failed' ? `<p class="csm-hint">${escapeHtml(c.error || '')} <button type="button" class="btn btn-ghost" data-csm-call-retry="${escapeHtml(c.id)}">לנסות שוב</button></p>` : ''}
       ${a.summary && !open ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
       ${open ? csmCallDetailHtml(c) : ''}
@@ -732,6 +734,11 @@ async function csmLoadStaff(){
    מגיעים אליה בוואטסאפ (twilio-voice, ‏csmIncoming). של הפלטפורמה: בלי מסלול,
    ארנק או תקרת דקות. שתי דרכים: קנייה ב-Twilio (twilio-voice?task=csm-line-order),
    או העברת מספר קיים של הפלטפורמה, כמו הפיילוט (csm_phone_line_assign). */
+/* שיחה יוצאת (Click2Call) נשמרת עם כותרת "שיחה יוצאת ל-..." (twilio-voice, csmProcessRecording) */
+function csmCallIsOutbound(c){
+  return !!c && c.source === 'phone' && /^שיחה יוצאת/.test(c.title || '');
+}
+
 function csmLocalPhone(e164){
   const d = String(e164 || '').replace(/\D/g, '');
   return d.startsWith('972') ? '0' + d.slice(3) : String(e164 || '');
@@ -756,6 +763,25 @@ const CSM_LINE_ERR = {
   no_number_available:'אין כרגע מספר פנוי בקידומת הזו ב-Twilio. אפשר לנסות קידומת אחרת.',
   purchase_failed:'הקנייה ב-Twilio נכשלה. לא חויב דבר.', not_configured:'Twilio עוד לא מוגדר במערכת.',
   twilio_release_failed:'השחרור ב-Twilio נכשל. אפשר לנסות שוב.',
+};
+
+/* חיוג מוקלט דרך המספר הווירטואלי (twilio-voice?task=csm-click2call): Twilio מצלצלת
+   אליה ואחר כך מחברת לסוכן/ת. לאשת צוות בלבד - בפיקוח של מנהל/ת הפלטפורמה אין קו. */
+function csmC2cBtn(r){
+  if (!csmCtx().isStaff || !r || !r.agent_id || !r.phone) return '';
+  const who = escapeHtml(r.display_name || 'סוכן/ת');
+  return `<button type="button" class="btn btn-icon btn-ghost" data-csm-c2c="${escapeHtml(r.agent_id)}" data-name="${who}" aria-label="חיוג מוקלט ל${who} דרך המספר של ההטמעה" title="חיוג מוקלט דרך המספר שלך">☎️</button>`;
+}
+
+const CSM_C2C_ERR = {
+  no_line:'אין לך עדיין מספר וירטואלי, ובלעדיו אי אפשר לחייג מוקלט. לבקש מתומר.',
+  no_phone:'אין נייד בשורה שלך בצוות ההטמעה, ולכן אין לאן לצלצל. לעדכן ב"הגדרות".',
+  agent_not_found:'הסוכן/ת לא נמצא/ה או שאינו/ה פעיל/ה.',
+  agent_no_phone:'אין לסוכן/ת טלפון במערכת.',
+  same_number:'הטלפון של הסוכן/ת זהה לנייד שלך, ואי אפשר לחבר שיחה לעצמך.',
+  rate_limited:'כבר חייגת הרגע. כדאי להמתין כמה שניות.',
+  not_configured:'Twilio עוד לא מוגדר במערכת.', twilio_failed:'Twilio לא הצליחה להתחיל את השיחה. אפשר לנסות שוב.',
+  not_allowed:'החיוג זמין לצוות ההטמעה בלבד.', unauthorized:'פג תוקף החיבור. יש להתחבר מחדש.',
 };
 
 async function csmTwilio(task, body){
@@ -1290,6 +1316,7 @@ function csmAgendaHtml(toIso){
         <div class="csm-card-actions">
           ${e.meeting_url && live ? `<a class="btn btn-gold" href="${escapeHtml(e.meeting_url)}" target="_blank" rel="noopener noreferrer" aria-label="כניסה לפגישה (נפתח בלשונית חדשה)">כניסה לפגישה</a>` : ''}
           ${a && a.phone && live ? `<a class="btn btn-call" href="tel:${escapeHtml(a.phone)}" aria-label="התקשרות ל${escapeHtml(a.display_name || 'סוכן/ת')}">📞</a>
+            ${csmC2cBtn(a)}
             <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(a.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(a.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>` : ''}
           ${live && !csmGcalOn() ? `<a class="btn btn-ghost" href="${escapeHtml(csmGcalUrl(e, a))}" target="_blank" rel="noopener noreferrer" aria-label="הוספה ליומן Google (נפתח בלשונית חדשה)">📅 ליומן Google</a>` : ''}
           ${csmGcalOn() && e.google_sync_state === 'error' ? `<span class="csm-tag rec" title="${escapeHtml(e.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
@@ -1590,6 +1617,18 @@ function csmSetTab(tab){
       return;
     }
     if (e.target.closest('[data-csm-staff-cancel]')){ csmStaffEditId = null; csmLoadStaff(); return; }
+    const c2c = e.target.closest('[data-csm-c2c]');
+    if (c2c){
+      const name = c2c.dataset.name || 'הסוכן/ת';
+      if (!confirm('המערכת תצלצל קודם אלייך, ואחרי שתעני תחבר אותך ל' + name + '. השיחה מוקלטת ומנותחת, והסוכן/ת שומע/ת על כך לפני החיבור. להמשיך?')) return;
+      c2c.disabled = true;
+      csmTwilio('csm-click2call', { agent_id: c2c.dataset.csmC2c }).then(r => {
+        if (r.error){ c2c.disabled = false; showToast(CSM_C2C_ERR[r.error] || 'לא יצאה שיחה: ' + heErr({ code:r.error, message:r.error })); return; }
+        showToast('מצלצלים אלייך עכשיו. אחרי שתעני תחובר/י ל' + name + '. ההקלטה והסיכום יגיעו ל"הקלטות".');
+        setTimeout(() => { c2c.disabled = false; }, 15000);
+      });
+      return;
+    }
     const lineBuy = e.target.closest('[data-csm-line-buy]');
     if (lineBuy){
       const staffId = lineBuy.dataset.csmLineBuy;

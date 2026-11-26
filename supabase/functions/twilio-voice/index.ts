@@ -78,6 +78,10 @@ const MSG_VOICEMAIL_DONE = "תודה, ההודעה נשמרה.";
 const VOICEMAIL_MAX_SEC = 120;
 const VOICEMAIL_MIN_SEC = 2;
 const MSG_UNASSIGNED = "המספר אינו פעיל כרגע. תודה.";
+// חיוג יוצא של אשת צוות (csmClick2Call): ההודעה לסוכן/ת נשמעת לפני החיבור (כמו MSG_RECORDED)
+const MSG_C2C_NOTICE = "שלום, כאן צוות ההטמעה של שוק נדל״ן. השיחה מוקלטת לשיפור השירות.";
+const MSG_C2C_FAILED = "לא הצלחנו לחבר את השיחה. אפשר לנסות שוב מהאזור.";
+const MSG_C2C_NO_ANSWER = "הסוכן לא ענה. אפשר לנסות שוב מאוחר יותר.";
 
 const SITE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
@@ -1625,6 +1629,8 @@ function csmRecording(p: URLSearchParams, q: URLSearchParams): Response {
   EdgeRuntime.waitUntil(csmProcessRecording({
     lineId: q.get("line") || "",
     from: q.get("from") || "",
+    agentId: q.get("agent") || "",
+    outbound: q.get("dir") === "out",
     voicemail: q.get("vm") === "1",
     callSid: p.get("CallSid") || "",
     recordingSid: p.get("RecordingSid") || "",
@@ -1635,7 +1641,7 @@ function csmRecording(p: URLSearchParams, q: URLSearchParams): Response {
 }
 
 async function csmProcessRecording(r: {
-  lineId: string; from: string; voicemail: boolean; callSid: string;
+  lineId: string; from: string; agentId: string; outbound: boolean; voicemail: boolean; callSid: string;
   recordingSid: string; recordingUrl: string; duration: number | null;
 }) {
   if (r.voicemail && (r.duration ?? 0) < VOICEMAIL_MIN_SEC) {
@@ -1659,11 +1665,15 @@ async function csmProcessRecording(r: {
     .upload(path, bytes, { contentType: "audio/mpeg", upsert: true });
   if (upErr) throw new Error(`csm recording upload: ${upErr.message}`);
 
-  const agent = await csmAgentByPhone(r.from);
+  // חיוג יוצא: הסוכן/ת מגיע/ה במזהה (אין מספר מתקשר); נכנסת: לפי הטלפון
+  const agent = r.agentId
+    ? (await supabase.from("agency_members").select("id, display_name").eq("id", r.agentId).maybeSingle()).data
+    : await csmAgentByPhone(r.from);
   const who = agent?.display_name || localPhone(r.from) || "מספר חסוי";
+  // הכותרת היא מה שמבדיל שיחה יוצאת (assets/crm-csm.js: csmCallIsOutbound) - בלי עמודה חדשה
   const { data: call, error } = await supabase.from("csm_calls").insert({
     staff_id: line.staff_id, agent_id: agent?.id ?? null, source: "phone", audio_path: path,
-    title: (r.voicemail ? "הודעה קולית מ-" : agent ? "שיחה עם " : "שיחה מ-") + who,
+    title: (r.voicemail ? "הודעה קולית מ-" : r.outbound ? "שיחה יוצאת ל-" : agent ? "שיחה עם " : "שיחה מ-") + who,
     twilio_call_sid: r.callSid, from_number: r.from || null, duration_sec: r.duration,
     voicemail: r.voicemail, line_id: line.id,
   }).select("id").single();
@@ -1749,6 +1759,103 @@ async function csmLineTask(req: Request, task: string): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// חיוג יוצא של אשת צוות ההטמעה (Click2Call) - "התקשרי" ב-/csm.
+//
+// Twilio מצלצלת קודם לנייד שלה (מהמספר הווירטואלי שלה), ואחרי שענתה מחברת אותה
+// לסוכן/ת בשיחה מוקלטת. הסוכן/ת רואה את המספר של ההטמעה ושומע/ת שהשיחה מוקלטת
+// (<Number url>, לפני החיבור). ההקלטה עוברת את אותו צינור של שיחה נכנסת
+// (csm-recording ← processCsmCall), עם dir=out ומזהה הסוכן/ת בכתובת.
+//
+// הסוכן/ת נבחר/ת ממי שהאזור מציג (אותו סינון של csm_agents_overview: פעיל/ה,
+// לא סגור/ה, לא מנהל/ת פלטפורמה), והטלפון שלו/ה לא יוצא מהשרת.
+// עלות: של הפלטפורמה (שתי רגליים), בלי ארנק ובלי תקרת דקות - כמו שאר הקו.
+// ---------------------------------------------------------------------------
+const csmC2cLast = new Map<string, number>();   // מרווח בין חיוגים, לכל אשת צוות (מאמץ סביר, לא נשמר בין מופעים)
+const CSM_C2C_GAP_MS = 15_000;
+const CSM_C2C_RING_SEC = 30;
+
+async function csmClick2Call(req: Request): Promise<Response> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const { data: userData } = token ? await supabase.auth.getUser(token) : { data: null };
+  const uid = userData?.user?.id;
+  if (!uid) return corsJson({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(token);
+  if (mfa) return corsJson({ error: mfa.error }, mfa.status);
+  if (!TWILIO_SID || !TWILIO_TOKEN) return corsJson({ error: "not_configured" }, 503);
+
+  const { data: staff } = await supabase.from("csm_staff")
+    .select("id, phone_e164, active").eq("user_id", uid).maybeSingle();
+  if (!staff?.active) return corsJson({ error: "not_allowed" }, 403);
+  const body = await req.json().catch(() => ({}));
+  const agentId = String(body?.agent_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(agentId)) return corsJson({ error: "agent_not_found" }, 404);
+
+  const { data: line } = await supabase.from("csm_phone_lines")
+    .select("id, twilio_number").eq("staff_id", staff.id).eq("active", true).maybeSingle();
+  if (!line) return corsJson({ error: "no_line" }, 409);
+  const staffPhone = e164(staff.phone_e164 || "");
+  if (!staffPhone) return corsJson({ error: "no_phone" }, 400);
+
+  const { data: agent } = await supabase.from("agency_members")
+    .select("id, phone_e164, phone").eq("id", agentId).eq("active", true)
+    .is("closed_at", null).eq("is_platform_admin", false).maybeSingle();
+  if (!agent) return corsJson({ error: "agent_not_found" }, 404);
+  const agentPhone = e164(agent.phone_e164 || agent.phone || "");
+  if (!agentPhone) return corsJson({ error: "agent_no_phone" }, 400);
+  if (agentPhone === staffPhone) return corsJson({ error: "same_number" }, 400);
+
+  const now = Date.now();
+  if (now - (csmC2cLast.get(staff.id) ?? 0) < CSM_C2C_GAP_MS) return corsJson({ error: "rate_limited" }, 429);
+  csmC2cLast.set(staff.id, now);
+
+  const bridge = `${PUBLIC_BASE}?event=csm-c2c&line=${encodeURIComponent(line.id)}&agent=${encodeURIComponent(agentId)}`;
+  const res = await fetch(`${TW_API()}/Calls.json`, {
+    method: "POST",
+    headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      To: staffPhone, From: line.twilio_number, Url: bridge, Method: "POST", Timeout: String(CSM_C2C_RING_SEC),
+    }),
+  });
+  if (!res.ok) {
+    csmC2cLast.delete(staff.id);
+    console.error("csm click2call failed", res.status, (await res.text()).slice(0, 300));
+    return corsJson({ error: "twilio_failed" }, 502);
+  }
+  const call = await res.json().catch(() => ({}));
+  return corsJson({ success: true, call_sid: call?.sid ?? null });
+}
+
+/** הרגל הראשונה נענתה (אשת הצוות): מחברים אותה לסוכן/ת, בהקלטה. */
+async function csmC2cBridge(q: URLSearchParams): Promise<Response> {
+  const lineId = q.get("line") || "";
+  const agentId = q.get("agent") || "";
+  const [{ data: line }, { data: agent }] = await Promise.all([
+    supabase.from("csm_phone_lines").select("id, twilio_number, active").eq("id", lineId).maybeSingle(),
+    supabase.from("agency_members").select("display_name, phone_e164, phone, active").eq("id", agentId).maybeSingle(),
+  ]);
+  const target = e164(agent?.phone_e164 || agent?.phone || "");
+  if (!line?.active || !agent?.active || !target) {
+    return xml(`<Say ${VOICE}>${escXml(MSG_C2C_FAILED)}</Say><Hangup/>`);
+  }
+  const recCb = escXml(`${PUBLIC_BASE}?event=csm-recording&line=${encodeURIComponent(line.id)}&agent=${encodeURIComponent(agentId)}&dir=out`);
+  const action = escXml(`${PUBLIC_BASE}?event=csm-c2c-done`);
+  const notice = escXml(`${PUBLIC_BASE}?event=csm-c2c-notice`);
+  return xml(
+    `<Say ${VOICE}>${escXml("מחברים אותך אל " + (agent.display_name || "הסוכן"))}</Say>` +
+      `<Dial callerId="${escXml(line.twilio_number)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
+      `record="record-from-answer-dual" recordingStatusCallback="${recCb}" recordingStatusCallbackEvent="completed" ` +
+      `action="${action}" method="POST"><Number url="${notice}" method="POST">${escXml(target)}</Number></Dial>`,
+  );
+}
+
+/** הרגל השנייה נגמרה: הסוכן/ת לא ענה/תה - אומרים לה ומנתקים (בלי תא קולי והתראה: זו שיחה יוצאת). */
+function csmC2cDone(p: URLSearchParams): Response {
+  const st = p.get("DialCallStatus") || "";
+  if (st === "completed" || st === "answered") return xml("<Hangup/>");
+  return xml(`<Say ${VOICE}>${escXml(MSG_C2C_NO_ANSWER)}</Say><Hangup/>`);
+}
+
+// ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
 
@@ -1780,6 +1887,12 @@ Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
     return await csmLineTask(req, linesTask);
+  }
+
+  if (linesTask === "csm-click2call") {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
+    return await csmClick2Call(req);
   }
 
   if (url.searchParams.get("task") === "cleanup") {
@@ -1829,6 +1942,12 @@ Deno.serve(async (req: Request) => {
       return await csmDial(params, url.searchParams);
     case "csm-recording":
       return csmRecording(params, url.searchParams);
+    case "csm-c2c":
+      return await csmC2cBridge(url.searchParams);
+    case "csm-c2c-notice":
+      return xml(`<Say ${VOICE}>${escXml(MSG_C2C_NOTICE)}</Say>`);
+    case "csm-c2c-done":
+      return csmC2cDone(params);
     default:
       return new Response("unknown event", { status: 400 });
   }
