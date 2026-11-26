@@ -62,6 +62,8 @@ settled = ns["_unused_index_settled"]
 check("אינדקס שנראה לראשונה בסריקה הזו עדיין לא נספר", settled(None, 14) is False)
 check("אינדקס שמדווח 4 ימים עדיין לא נספר", settled(4.0, 14) is False)
 check("אינדקס שמדווח 14 ימים נספר", settled(14.0, 14) is True)
+check("קריאה שנכשלה אינה מורידה ממצאים ותיקים ל-info",
+      "watched is None" in SRC and "return None" in SRC)
 check("הממצא הצעיר יוצא info ולא low",
       'severity="low" if settled else "info"' in SRC)
 

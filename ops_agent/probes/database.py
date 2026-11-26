@@ -814,8 +814,11 @@ def _unused_indexes(ctx) -> Iterator[Finding]:
     )
     for row in rows:
         subject = "%s.%s" % (row["table_name"], row["index_name"])
-        days = watched.get(subject)
-        settled = _unused_index_settled(days, t.unused_index_min_age_days)
+        days = watched.get(subject) if watched is not None else None
+        # ‏`watched is None` = הקריאה עצמה נכשלה. אז לא יודעים כלום על הגיל,
+        # וחוזרים להתנהגות הישנה (‏low) במקום להוריד בשקט ממצאים ותיקים ל-info.
+        settled = (watched is None
+                   or _unused_index_settled(days, t.unused_index_min_age_days))
         yield Finding(
             area="cost", code="unused_index",
             severity="low" if settled else "info",
@@ -844,11 +847,14 @@ def _unused_index_settled(days: float | None, min_days: int) -> bool:
     return days is not None and days >= min_days
 
 
-def _unused_index_watch_days(ctx) -> dict[str, float]:
+def _unused_index_watch_days(ctx) -> dict[str, float] | None:
     """כמה ימים כל אינדקס כבר מדווח ברצף, לפי `first_seen` של הממצא הפתוח.
 
     ממצא שנסגר (האינדקס נקרא, או נמחק) ונפתח מחדש מקבל `first_seen` חדש
     ב-`store.py`, ולכן הספירה מתחילה מחדש - וזה הכיוון הנכון.
+
+    ‏`None` (ולא מילון ריק) כשהקריאה נכשלה: מילון ריק אומר "אף אינדקס לא
+    נצפה עדיין", וזה היה הופך כל ממצא ותיק ל-info בסריקה אחת.
     """
     if not ctx.db.has_table("ops_findings"):
         return {}
@@ -864,7 +870,7 @@ def _unused_index_watch_days(ctx) -> dict[str, float]:
             """
         )
     except Exception:  # noqa: BLE001
-        return {}
+        return None
     return {str(r["subject"]): float(r["days"] or 0.0) for r in rows}
 
 
