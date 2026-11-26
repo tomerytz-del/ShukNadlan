@@ -2222,6 +2222,8 @@
         return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
       },
       describe: function () { return sentenceText(st, areas, ctx); },
+      /* מה שהוקלד בשדה החופשי ופורש (ריק אם החיפוש היה בבורר בלבד). למונה החיפושים. */
+      typed: function () { return parsedText; },
       close: function () { close(false); },
     };
   }

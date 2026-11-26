@@ -903,6 +903,7 @@ function cleanSearchTerm(raw){
     if (t.length > 80) return null;          // טקסט ארוך מדי אינו מונח חיפוש
     if (t.indexOf('@') !== -1) return null;  // אימייל
     if (/[0-9]{9,}/.test(t)) return null;    // טלפון או ת"ז
+    if (/(?:[0-9][\s\-.]?){9,}/.test(t)) return null;   // טלפון עם מקפים או רווחים ("050-123-4567")
     return t;
   } catch(e){ return null; }
 }
@@ -922,7 +923,23 @@ function visitorSessionId(){
 
 function logSearchToDb(row){
   try{
-    fetch(SEARCH_EVENTS_URL, {
+    const body = {
+      source:       row.source,
+      term:         cleanSearchTerm(row.term),
+      /* ‏typed: מה שהוקלד בפועל. ‏term הוא המשפט שהחיפוש בנה, ומה שלא זוהה נעלם
+         ממנו ("חנות החשמל" ← "חנות"). אותו ניקוי, ואותן הגנות גם במסד. */
+      typed:        cleanSearchTerm(row.typed),
+      deal_type:    row.dealType || 'all',
+      category:     row.category || 'all',
+      filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
+      result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
+      /* ‏false = המשפט התייצב על אפס ואיש לא ביקש לראות. ברירת המחדל
+         היא true, כדי ששדה שנשכח ייספר כחיפוש רגיל ולא כמצב שהוסק. */
+      submitted:    row.submitted !== false,
+      session_id:   visitorSessionId()
+      /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
+    };
+    const send = (b) => fetch(SEARCH_EVENTS_URL, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -933,20 +950,13 @@ function logSearchToDb(row){
            מוסיף returning, שדורש select, וכל הכתיבה הייתה נכשלת ב-401. */
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({
-        source:       row.source,
-        term:         cleanSearchTerm(row.term),
-        deal_type:    row.dealType || 'all',
-        category:     row.category || 'all',
-        filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
-        result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
-        /* ‏false = המשפט התייצב על אפס ואיש לא ביקש לראות. ברירת המחדל
-           היא true, כדי ששדה שנשכח ייספר כחיפוש רגיל ולא כמצב שהוסק. */
-        submitted:    row.submitted !== false,
-        session_id:   visitorSessionId()
-        /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
-      }),
+      body: JSON.stringify(b),
       keepalive: true
+    });
+    /* האתר עולה לפני המיגרציה: בלי העמודה typed כל השורה נדחית, ולכן שולחים
+       שוב בלעדיה. מונה שמאבד חיפוש בגלל שדה חדש גרוע מהשדה החסר. */
+    send(body).then(function(r){
+      if (r && !r.ok && body.typed != null){ delete body.typed; return send(body); }
     })['catch'](function(){ /* אין רשת, או שהמיגרציה טרם רצה - מונה, לא תקלה */ });
   } catch(e){ /* מדידה לא שוברת אתר */ }
 }
@@ -1100,7 +1110,11 @@ function keepMarketRows(rows, spec){ return MS && MS.keepRows ? MS.keepRows(rows
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
    הנכסים החדשים — הסדר קובע גם את הקרוסלה וגם את הגריד שלמטה. */
-const PROPERTY_LIMIT = 300;
+/* ‏1,000 הוא התקרה של PostgREST (‏max-rows). ‏300 חתך נכסים ותיקים מהמפה ומהחיפוש
+   כבר ב-26.11.2026: 342 פעילים, ו-42 הוותיקים לא נטענו (נכס 1038, חנות להשכרה).
+   המסחרי נשלף בנפרד (‏loadCommercialProperties) ולכן לא נפגע, אבל מגורים ותיקים כן.
+   מעבר ל-1,000 צריך עימוד או facets במסד (docs/sentence-search.md, סעיף 2). */
+const PROPERTY_LIMIT = 1000;
 
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
@@ -7648,6 +7662,7 @@ function noteSentenceZero(results, st){
         source: 'sentence',
         submitted: false,
         term: term,
+        typed: sentence.typed(),
         dealType: st.deal || 'all',
         category: t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential'),
         filterCount: countActiveFilters(),
@@ -7684,6 +7699,7 @@ function showSentenceResults({ track = true, reveal = true, explicit = false } =
     logSearchToDb({
       source: 'sentence',
       term: sentence.describe(),
+      typed: sentence.typed(),
       dealType: st.deal || 'all',
       category: category,
       filterCount: countActiveFilters(),
