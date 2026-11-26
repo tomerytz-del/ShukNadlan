@@ -896,6 +896,14 @@ try {
    ============================================================ */
 const SEARCH_EVENTS_URL = SUPABASE_URL + '/rest/v1/search_events';
 
+/* ‏typed הוא טקסט שהוקלד כלשונו, ולכן מחמיר מ-term: גם טלפון עם מקפים או רווחים
+   ("050-123-4567"), שרצף של תשע ספרות אינו תופס. ‏term הוא המשפט שהחיפוש בנה, ומספרים
+   בו הם מחירים וחדרים - שם ההחמרה הייתה מאבדת שורות תקינות. */
+function cleanTypedSearch(raw){
+  const t = cleanSearchTerm(raw);
+  return t && !/(?:[0-9][\s\-.]?){9,}/.test(t) ? t : null;
+}
+
 function cleanSearchTerm(raw){
   try{
     const t = String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').toLowerCase();
@@ -922,7 +930,23 @@ function visitorSessionId(){
 
 function logSearchToDb(row){
   try{
-    fetch(SEARCH_EVENTS_URL, {
+    const body = {
+      source:       row.source,
+      term:         cleanSearchTerm(row.term),
+      /* ‏typed: מה שהוקלד בפועל. ‏term הוא המשפט שהחיפוש בנה, ומה שלא זוהה נעלם
+         ממנו ("חנות החשמל" ← "חנות"). אותו ניקוי, ואותן הגנות גם במסד. */
+      typed:        cleanTypedSearch(row.typed),
+      deal_type:    row.dealType || 'all',
+      category:     row.category || 'all',
+      filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
+      result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
+      /* ‏false = המשפט התייצב על אפס ואיש לא ביקש לראות. ברירת המחדל
+         היא true, כדי ששדה שנשכח ייספר כחיפוש רגיל ולא כמצב שהוסק. */
+      submitted:    row.submitted !== false,
+      session_id:   visitorSessionId()
+      /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
+    };
+    const send = (b) => fetch(SEARCH_EVENTS_URL, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -933,20 +957,13 @@ function logSearchToDb(row){
            מוסיף returning, שדורש select, וכל הכתיבה הייתה נכשלת ב-401. */
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({
-        source:       row.source,
-        term:         cleanSearchTerm(row.term),
-        deal_type:    row.dealType || 'all',
-        category:     row.category || 'all',
-        filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
-        result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
-        /* ‏false = המשפט התייצב על אפס ואיש לא ביקש לראות. ברירת המחדל
-           היא true, כדי ששדה שנשכח ייספר כחיפוש רגיל ולא כמצב שהוסק. */
-        submitted:    row.submitted !== false,
-        session_id:   visitorSessionId()
-        /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
-      }),
+      body: JSON.stringify(b),
       keepalive: true
+    });
+    /* האתר עולה לפני המיגרציה: בלי העמודה typed כל השורה נדחית, ולכן שולחים
+       שוב בלעדיה. מונה שמאבד חיפוש בגלל שדה חדש גרוע מהשדה החסר. */
+    send(body).then(function(r){
+      if (r && r.status === 400 && body.typed != null){ delete body.typed; return send(body); }
     })['catch'](function(){ /* אין רשת, או שהמיגרציה טרם רצה - מונה, לא תקלה */ });
   } catch(e){ /* מדידה לא שוברת אתר */ }
 }
@@ -1100,7 +1117,11 @@ function keepMarketRows(rows, spec){ return MS && MS.keepRows ? MS.keepRows(rows
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
    הנכסים החדשים — הסדר קובע גם את הקרוסלה וגם את הגריד שלמטה. */
-const PROPERTY_LIMIT = 300;
+/* ‏1,000 הוא התקרה של PostgREST (‏max-rows). ‏300 חתך נכסים ותיקים מהמפה ומהחיפוש
+   כבר ב-26.11.2026: 342 פעילים, ו-42 הוותיקים לא נטענו (נכס 1038, חנות להשכרה).
+   המסחרי נשלף בנפרד (‏loadCommercialProperties) ולכן לא נפגע, אבל מגורים ותיקים כן.
+   מעבר ל-1,000 צריך עימוד או facets במסד (docs/sentence-search.md, סעיף 2). */
+const PROPERTY_LIMIT = 1000;
 
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
@@ -1470,6 +1491,11 @@ const FALLBACK_COMMERCIAL = [
    שלושים, והתיבה מציגה את כולם בעימוד — ולכן הבריכה גדלה למשהו שהוא כל
    המלאי המסחרי בפועל ולא מדגם ממנו. */
 const COMMERCIAL_POOL = 120;
+const COMMERCIAL_WAIT_MS = 1200;
+
+/* נטענת פעם אחת: גם תיבת הנכסים וגם החיפוש במשפט ממתינים לאותה תשובה. */
+let commercialLoad = null;
+function commercialLoadOnce(){ return commercialLoad || (commercialLoad = loadCommercialProperties()); }
 
 async function loadCommercialProperties(){
   if (!sb) return FALLBACK_COMMERCIAL;
@@ -1515,9 +1541,14 @@ async function loadCommercialProperties(){
   /* שתי שורות ולא ‎ppSync(await …)‎: ב-JS צד שמאל של הקריאה מוערך *לפני*
      הארגומנט, כלומר השם נקרא עוד לפני ה-await — והוא מוגדר מאות שורות
      מתחת. שם זה נפל ב-TDZ, והמלאי המסחרי נשאר בחוץ. */
-  const items = await loadCommercialProperties();
+  const items = await commercialLoadOnce();
   ppCommercial = items;
   ppSync();
+  /* החיפוש במשפט צריך גם אותם: ראו searchPool. הרשימה הראשית עשויה להגיע אחרי
+     (אז היא כבר תכלול אותם) או לפני (אז מרעננים כאן). */
+  if (sentence && sentence.loaded() && items !== FALLBACK_COMMERCIAL){
+    sentence.setProperties(searchPool(allActiveProperties), { aliases: hoodAliases, groups: cityGroups });
+  }
 })();
 
 /* ---------- יריד הבתים הפתוחים: הרצועה שמעל תיבת הנכסים ----------
@@ -1711,6 +1742,18 @@ function ppSync(){
      אין מי שינסה שוב. שתי הטעינות אינן מסונכרנות, ולכן זה נפל פעם כן
      ופעם לא, תלוי מי הקדים. */
   if (!ppHashApplied) ppHashApplied = ppApplyHash();
+}
+
+/* המאגר של החיפוש במשפט: הרשימה הראשית (עד PROPERTY_LIMIT הפעילים החדשים) ועוד המלאי
+   המסחרי מהשאילתה הייעודית שלו (‏loadCommercialProperties). בלי זה חנות ותיקה
+   נחתכה מהרשימה הראשית כשיש הרבה מלאי חדש, והחיפוש "חנות החשמל" ענה "לא נמצא"
+   על נכס שמוצג בתיבה למטה (‏נכס 1038, 26.11.2026). נתוני ה-fallback אינם
+   נכנסים, כדי שנכסי דמו לא יופיעו בחיפוש. */
+function searchPool(main){
+  const list = main || [];
+  if (!ppCommercial || ppCommercial === FALLBACK_COMMERCIAL) return list;
+  const seen = new Set(list.map(p => p.id));
+  return list.concat(ppCommercial.filter(p => !seen.has(p.id)));
 }
 
 function renderHomeProps(properties){
@@ -4831,6 +4874,10 @@ try {
     // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המרכזים,
     // והטבלה מספקת את השמות והסימון הידני
     const [properties, hoods] = await Promise.all([loadProperties(), loadNeighborhoods()]);
+    /* המסחרי נשלף במקביל ובדרך כלל כבר הגיע. ממתינים לו עד COMMERCIAL_WAIT_MS כדי שהחיפוש
+       יקבל את המאגר השלם בטעינה אחת (‏?q=חנות החשמל מקישור, ‏sentenceDeepLink, נצרך בה).
+       אם איחר - searchPool משלים אותו בטעינה שנייה. */
+    await Promise.race([commercialLoadOnce(), new Promise(r => setTimeout(r, COMMERCIAL_WAIT_MS))]);
     hoodState.rows = hoods;
     hoodState.byId = new Map(hoods.map(h => [h.id, h]));
     // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: היא מזינה את
@@ -4853,7 +4900,7 @@ try {
     renderHomeProps(properties);
 
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
-    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases, groups: cityGroups });
+    if (sentence) sentence.setProperties(searchPool(properties), { aliases: hoodAliases, groups: cityGroups });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
     v10DefaultAll();
@@ -7631,6 +7678,7 @@ function noteSentenceZero(results, st){
         source: 'sentence',
         submitted: false,
         term: term,
+        typed: sentence.typed(),
         dealType: st.deal || 'all',
         category: t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential'),
         filterCount: countActiveFilters(),
@@ -7667,6 +7715,7 @@ function showSentenceResults({ track = true, reveal = true, explicit = false } =
     logSearchToDb({
       source: 'sentence',
       term: sentence.describe(),
+      typed: sentence.typed(),
       dealType: st.deal || 'all',
       category: category,
       filterCount: countActiveFilters(),

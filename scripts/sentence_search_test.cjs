@@ -46,6 +46,28 @@ function afterParse(text, st) {
   return { st: next, fields: r.fields, slots: C.slotsFor(next, AREAS, CTX).map(s => s.value) };
 }
 
+test('רחוב בלי "ב": "חנות החשמל" מסננת לרחוב, לא לכל החנויות', () => {
+  const shops = [
+    P({ id: 's1', deal_type: 'rent', category: 'commercial', property_type: 'חנויות/שטח מסחרי', street: 'החשמל', address: 'החשמל 3', title: 'חנות, מרכז העיר החשמל 3 - 75 מ"ר' }),
+    P({ id: 's2', deal_type: 'rent', category: 'commercial', property_type: 'חנויות/שטח מסחרי', street: 'הרצל', address: 'הרצל 4', title: 'חנות ברחוב הרצל' }),
+  ];
+  const areas = C.deriveAreas(shops, []);
+  const ctx = { areaIndex: areas.index, marketLabel: 'עפולה והעמק' };
+  const st = C.defaultState();
+  ['חנות החשמל', 'חנות בחשמל', 'החשמל חנות להשכרה'].forEach((t) => {
+    const r = C.compileQuery(t, st, areas, shops, ctx, []);
+    const hits = shops.filter((p) => C.matches(p, C.applyPatch(st, r.patch), ctx)).map((p) => p.id);
+    assert.deepStrictEqual(hits, ['s1'], t);
+  });
+  // מילה שמופיעה רק בכותרת ("שקטה") אינה רחוב
+  shops.push(P({ id: 's3', deal_type: 'rent', category: 'commercial', property_type: 'חנויות/שטח מסחרי', street: 'הנרקיס', address: 'הנרקיס 1', title: 'חנות שקטה בלב העיר' }));
+  const quiet = C.compileQuery('חנות שקטה', st, areas, shops, ctx, []);
+  assert.ok(!('area' in quiet.patch));
+  // שם שאין לו נכסים אינו הופך לאזור ריק
+  const none = C.compileQuery('חנות זזזזז', st, areas, shops, ctx, []);
+  assert.ok(!('area' in none.patch));
+});
+
 test('האזורים נגזרים מהמלאי, והיישוב העיקרי אינו אזור', () => {
   const labels = AREAS.map(a => a.label);
   assert.ok(labels.includes('גבעת המורה'));
