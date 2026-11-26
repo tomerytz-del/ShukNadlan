@@ -24,6 +24,7 @@ with (security_invoker = true) as
 with m as (
   select agent_id, created_at, direction, msg_type, body,
          lag(direction) over w as prev_dir,
+         lag(msg_type)  over w as prev_type,
          lag(body)      over w as prev_body,
          lead(direction)  over w as next_dir,
          lead(body)       over w as next_body,
@@ -31,7 +32,7 @@ with m as (
     from public.whatsapp_messages
    where created_at > now() - interval '14 days'
      and agent_id is not null
-  window w as (partition by agent_id order by created_at)
+  window w as (partition by agent_id order by created_at, id)
 ), q as (
   select (created_at at time zone 'Asia/Jerusalem')::date as day,
          (select array_agg(w)
@@ -43,8 +44,10 @@ with m as (
     from m
    where direction = 'in'
      and msg_type in ('text', 'audio')
-     and length(coalesce(body, '')) <= 20
-     and prev_dir = 'out' and next_dir = 'out'
+     -- הקלטה נספרת לפי התמלול שנשמר ב-body: בלי תמלול (תמלול שנכשל) אין מה למדוד
+     and length(coalesce(body, '')) between 1 and 20
+     -- שאלה שיצאה כתבנית (התראה) אינה שאלה של גבריאלה בשיחה
+     and prev_dir = 'out' and next_dir = 'out' and prev_type is distinct from 'template'
      and prev_body like '%?%'
      and next_at - created_at < interval '40 seconds'
      and length(coalesce(next_body, '')) < 260
