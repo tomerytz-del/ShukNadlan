@@ -2304,6 +2304,18 @@ function maybeShowWelcome(){
   wrap.querySelector('#welcomeGo').focus();
 }
 
+/* האם החשבון גם בצוות ההטמעה. ב-idle ולא בשרשרת הטעינה: לרוב הסוכנים אין
+   תשובה, ושום דבר בעלייה לא מחכה לה. csm_claim מחזירה null למי שאינה בצוות. */
+function detectCsmStaff(){
+  (window.requestIdleCallback || (fn => setTimeout(fn, 1500)))(async () => {
+    try {
+      const { data } = await sb.rpc('csm_claim');
+      const on = !!(data && data.id);
+      if (on !== csmStaff){ csmStaff = on; refreshNavCounts(); }
+    } catch {}
+  });
+}
+
 /* ---------- Dashboard ---------- */
 async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ה-user מגיע מה-session שכבר בידינו. קריאה ל-getUser() כאן הייתה סיבוב רשת
@@ -2669,6 +2681,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   };
   if (typeof coachLoad === 'function') armCoach();
   else crmNeedThen('coach', armCoach);
+  detectCsmStaff();
   // ארבע הטעינות של אזור המנהל/ת יצאו למעלה, לצד הטעינה הראשית
   if (managerLoadsP) await managerLoadsP;
   else document.getElementById('ethicsAgencyBlock').hidden = true;
@@ -28905,6 +28918,12 @@ const NAV_MINISITE = '__minisite';
 /* "דוח CMA" - פעולה ולא קטגוריה: פותח את הגיליון (openCmaPicker), כמו
    הפעולה המהירה בדף הבית. PROFESSIONAL ו-Elite בלבד, כמו הגייט במסד. */
 const NAV_CMA = '__cma';
+/* "אזור ההטמעה" - פעולה ולא קטגוריה: מעבירה ל-/csm באותה כניסה. מוצגת רק למי
+   שרשומה גם בצוות ההטמעה (csm_staff): csm_claim() מחזירה את הכרטיס שלה, ו-
+   detectCsmStaff מדליקה את הדגל אחרי שהדשבורד כבר למעלה, כדי שאף סוכן/ת לא
+   ימתין/תמתין לה בעלייה (docs/csm-adoption.md, "גם סוכנת"). */
+const NAV_CSM = '__csm';
+let csmStaff = false;
 
 const NAV_GROUPS = [
   { key:'daily', label:'עבודה יומית', icon:'briefcase', items:[
@@ -28933,6 +28952,8 @@ const NAV_GROUPS = [
       also:['accDealsLookup'], sub:'עסקאות שנסגרו באזור · מידע תכנוני', tabs:true },
     { acc:NAV_CMA,               label:'דוח CMA',           icon:'chart',    tab:'more',
       sub:'לנכס במערכת או לכל כתובת' },
+    { acc:NAV_CSM,               label:'אזור ההטמעה',       icon:'target',   tab:'more',
+      sub:'ההדרכה וההטמעה של הסוכנים' },
   ]},
   { key:'grow', label:'צמיחה', icon:'chart', items:[
     /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
@@ -29127,6 +29148,7 @@ function navItemVisible(item){
   if (item.acc === NAV_HOME) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
   if (item.acc === NAV_MINISITE) return dashView === 'agent' && !!currentAgent;
+  if (item.acc === NAV_CSM) return dashView === 'agent' && csmStaff;
   if (item.acc === NAV_CMA) return dashView === 'agent' && !!currentAgent
     && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium');
   // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
@@ -29328,7 +29350,7 @@ function sideNavKey(rail){
   const a = currentAgent || {};
   return JSON.stringify([dashView, rail, navTab, items, open, [...navHotNow].join(','),
     typeof coachLayerKinds === 'function' ? coachLayerKinds().length : 0,
-    a.credit_balance, a.tier, a.tier === 'free' ? quotaUsedThisCycle() : 0]);
+    a.credit_balance, a.tier, a.tier === 'free' ? quotaUsedThisCycle() : 0, csmStaff]);
 }
 
 function renderSideNav(){
@@ -29536,6 +29558,7 @@ function navGo(item){
   closeNavLayers();
   if (item.acc === NAV_MINISITE){ openMiniSite(); return; }
   if (item.acc === NAV_CMA){ openCmaPicker(); return; }
+  if (item.acc === NAV_CSM){ location.assign('/csm'); return; }
   if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
     setNavTab('home');
     return;
