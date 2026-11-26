@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20271201110000_gabriela_turn_timings.sql"
+      - "supabase/migrations/20271202130000_gabriela_reask_report.sql"
       - "supabase/migrations/20271201120000_gabriela_turn_timings_email.sql"
       - "supabase/functions/whatsapp-webhook/email-intake.ts"
       - "supabase/functions/whatsapp-webhook/agent.ts"
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/20271201110000_gabriela_turn_timings.sql"
+      - "supabase/migrations/20271202130000_gabriela_reask_report.sql"
       - "supabase/migrations/20271201120000_gabriela_turn_timings_email.sql"
       - "supabase/functions/whatsapp-webhook/email-intake.ts"
       - "supabase/functions/whatsapp-webhook/agent.ts"

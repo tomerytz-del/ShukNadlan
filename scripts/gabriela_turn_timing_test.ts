@@ -113,6 +113,15 @@ await test("agent.ts ו-index.ts מחוברים", () => {
   if (!/setTurnClock\(/.test(index) || !/recordTurnTiming\(/.test(index)) throw new Error("index");
 });
 
+await test("תצוגת השאלות החוזרות: service_role בלבד, security_invoker, וספירות בלבד", () => {
+  const sql = readFileSync("supabase/migrations/20271202130000_gabriela_reask_report.sql", "utf8");
+  if (!/with \(security_invoker = true\)/.test(sql)) throw new Error("security_invoker");
+  if (!/revoke all on public\.gabriela_reask_report from public, anon, authenticated/.test(sql)) throw new Error("revoke");
+  if (!/grant select on public\.gabriela_reask_report to service_role/.test(sql)) throw new Error("grant");
+  const finalSelect = sql.slice(sql.lastIndexOf("select day,"), sql.indexOf("group by day"));
+  if (/\b(agent_id|body|phone|wa_phone)\b/.test(finalSelect)) throw new Error("final select must be counts only");
+});
+
 if (failed) {
   console.log(`${failed} failed`);
   process.exit(1);
