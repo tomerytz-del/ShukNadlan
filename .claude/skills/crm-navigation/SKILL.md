@@ -35,7 +35,7 @@ description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GRO
 תיבת המשימות של הניהול אדומה רק כשפריט חרג מזמן היעד (`docs/admin-inbox.md`).
 כל בדיקה של "אדום" עוברת דרך `navAccHot(acc)`, ו-`navHotNow` נכנס ל-`sideNavKey`.
 
-**שורה שהיא פעולה ולא קטגוריה** (`NAV_MINISITE`, `NAV_CMA`): קבוע `__x`, ענף ב-
+**שורה שהיא פעולה ולא קטגוריה** (`NAV_MINISITE`, `NAV_CMA`, `NAV_CSM`): קבוע `__x`, ענף ב-
 `navItemVisible` וב-`navGo`, ושורה ב-`SENTINELS` של `check_crm_nav.py`. ופעולה
 שקישור צריך לפתוח (‏`?goto=cma`) נכנסת ל-`CRM_ACTIONS` - משם גם העזרה בחיפוש
 (`act`) והמנטור (`SYSTEM_MAP`) פותחים אותה (`docs/crm-navigation.md`).
