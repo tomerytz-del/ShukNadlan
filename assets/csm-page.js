@@ -61,6 +61,11 @@ function cleanAuthParamsFromUrl(){
   history.replaceState(null, '', location.pathname + (search ? '?' + search : '') + (dropHash ? '' : location.hash));
 }
 
+async function mfaIsPending(){
+  try { const { data } = await sb.rpc('mfa_status'); return !!(data && data.pending); }
+  catch { return false; }
+}
+
 /* ---------- הניתוב: מי מחובר/ת, והאם בצוות ---------- */
 let routed = null;     // ה-user.id שכבר נותב, כדי ש-SIGNED_IN חוזר לא יטען מחדש
 async function route(session){
@@ -78,13 +83,9 @@ async function route(session){
   $('csmWho').textContent = (data && data.display_name) || session.user.email || '';
   $('csmMeAv').textContent = ($('csmWho').textContent.trim()[0] || '').toUpperCase();
   if (!data || data.inactive){
-    /* חשבון שחייב אימות כניסה (מנהלת משרד עם נייד) ועוד לא אימת נראה במסד כאורח/ת,
-       ולכן csm_claim מחזירה null גם למי שכן בצוות. מסך האימות יושב ב-/crm, ובו
-       מאמתים פעם אחת - אחר כך אותו session פותח גם את האזור הזה (docs/mfa.md). */
-    let mfaPending = false;
-    if (!data){
-      try { const { data: m } = await sb.rpc('mfa_status'); mfaPending = !!(m && m.pending); } catch {}
-    }
+    /* חשבון שמחכה לאימות כניסה נראה במסד כאורח/ת, ולכן csm_claim מחזירה null גם
+       למי שכן בצוות (docs/mfa.md, docs/csm-adoption.md "גם סוכנת") */
+    const mfaPending = !data && await mfaIsPending();
     $('csmNoAccessText').textContent = mfaPending
       ? 'החשבון ' + (session.user.email || '') + ' מחייב אימות כניסה. יש להיכנס פעם אחת דרך /crm, לאמת בוואטסאפ, ואז לעבור לאזור ההטמעה מהתפריט.'
       : data && data.inactive

@@ -2304,15 +2304,18 @@ function maybeShowWelcome(){
   wrap.querySelector('#welcomeGo').focus();
 }
 
-/* האם החשבון גם בצוות ההטמעה. ב-idle ולא בשרשרת הטעינה: לרוב הסוכנים אין
-   תשובה, ושום דבר בעלייה לא מחכה לה. csm_claim מחזירה null למי שאינה בצוות. */
-function detectCsmStaff(){
+/* האם החשבון גם בצוות ההטמעה: פעם אחת למשתמש/ת, ב-idle ולא בשרשרת הטעינה
+   (לרוב הסוכנים אין תשובה, ושום דבר בעלייה לא ממתין לה). csm_claim מחזירה
+   null למי שאינה בצוות. */
+function detectCsmStaff(uid){
+  if (csmProbedFor === uid) return;
+  csmProbedFor = uid;
+  csmStaff = false;
   (window.requestIdleCallback || (fn => setTimeout(fn, 1500)))(async () => {
     try {
       const { data } = await sb.rpc('csm_claim');
-      const on = !!(data && data.id);
-      if (on !== csmStaff){ csmStaff = on; refreshNavCounts(); }
-    } catch {}
+      if (data && data.id && csmProbedFor === uid){ csmStaff = true; refreshNavCounts(); }
+    } catch { if (csmProbedFor === uid) csmProbedFor = null; }
   });
 }
 
@@ -2681,7 +2684,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   };
   if (typeof coachLoad === 'function') armCoach();
   else crmNeedThen('coach', armCoach);
-  detectCsmStaff();
+  detectCsmStaff(user.id);
   // ארבע הטעינות של אזור המנהל/ת יצאו למעלה, לצד הטעינה הראשית
   if (managerLoadsP) await managerLoadsP;
   else document.getElementById('ethicsAgencyBlock').hidden = true;
@@ -28918,12 +28921,11 @@ const NAV_MINISITE = '__minisite';
 /* "דוח CMA" - פעולה ולא קטגוריה: פותח את הגיליון (openCmaPicker), כמו
    הפעולה המהירה בדף הבית. PROFESSIONAL ו-Elite בלבד, כמו הגייט במסד. */
 const NAV_CMA = '__cma';
-/* "אזור ההטמעה" - פעולה ולא קטגוריה: מעבירה ל-/csm באותה כניסה. מוצגת רק למי
-   שרשומה גם בצוות ההטמעה (csm_staff): csm_claim() מחזירה את הכרטיס שלה, ו-
-   detectCsmStaff מדליקה את הדגל אחרי שהדשבורד כבר למעלה, כדי שאף סוכן/ת לא
-   ימתין/תמתין לה בעלייה (docs/csm-adoption.md, "גם סוכנת"). */
+/* "אזור ההטמעה" - פעולה ולא קטגוריה: מעבר ל-/csm, רק למי שרשומה גם ב-csm_staff
+   (detectCsmStaff, docs/csm-adoption.md "גם סוכנת"). */
 const NAV_CSM = '__csm';
 let csmStaff = false;
+let csmProbedFor = null;   // ה-user.id שכבר נבדק: loadDashboard רץ גם אחרי פעולות
 
 const NAV_GROUPS = [
   { key:'daily', label:'עבודה יומית', icon:'briefcase', items:[
