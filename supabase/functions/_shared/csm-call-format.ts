@@ -6,6 +6,7 @@
 // הורדה, תמלול, קריאה למודל ועדכון השורה - ב-csm-call.ts. docs/csm-adoption.md.
 // ============================================================================
 import { CSM_PLAYBOOK } from "./coach/playbook.ts";
+import { s } from "./csm-clean.ts";
 
 export const CSM_STAGE_KEYS = ["registered", "call_scheduled", "onboarded", "active_pilot", "champion", "at_risk"];
 const STAGE_HE: Record<string, string> = {
@@ -76,7 +77,6 @@ export function csmCallSystem(): string {
 ${CSM_PLAYBOOK}`;
 }
 
-const s = (v: unknown, max: number) => String(v ?? "").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().slice(0, max);
 const list = (v: unknown, max = 8, len = 300) =>
   (Array.isArray(v) ? v : []).map((x) => s(x, len)).filter(Boolean).slice(0, max);
 const ymd = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "").trim()) ? String(v).trim() : null);
