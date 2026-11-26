@@ -5149,7 +5149,7 @@ async function loadAdminSearchReport(){
 
      **נספר במבקרים ולא בחיפושים**, ולכן "אנשים" ולא "פעמים": אותו אדם
      יכול להגיע לאותו צירוף פעמיים, ושתי שורות היו קוראות לזה שניים. */
-  const termFacts = (rows, title) => {
+  const termFacts = (rows, title, key = 'term') => {
     if (!rows.length) return;
     block.appendChild(admEl('p', 'adm-legend', title));
     /* ‏`adm-facts-wide`: המונחים כאן הם משפטים שלמים ("אני רוצה למצוא
@@ -5158,7 +5158,7 @@ async function loadAdminSearchReport(){
     rows.forEach(row => {
       const fact = admEl('div', 'adm-fact');
       /* ‏textContent ולא innerHTML: זה טקסט שגולש/ת הקליד/ה */
-      fact.appendChild(admEl('span', 'adm-fact-lbl', row.term));
+      fact.appendChild(admEl('span', 'adm-fact-lbl', row[key]));
       fact.appendChild(admEl('span', 'adm-fact-val',
         plural(Number(row.people) || 0, 'מבקר/ת אחד/ת', 'מבקרים', admInt(row.people))));
       facts.appendChild(fact);
@@ -5172,6 +5172,11 @@ async function loadAdminSearchReport(){
      שכונה שיש בהם נכס בודד הם מלאי חסר בדיוק כמו אפס, והם לא היו
      מופיעים בשום מקום אחר בבלוק. */
   termFacts(Array.isArray(rep.single_terms) ? rep.single_terms : [], 'תוצאה אחת בלבד');
+
+  /* מה שהוקלד בפועל (‏typed), לא המשפט שהחיפוש בנה ממנו. ‏"חנות החשמל" נרשמת בשורות
+     שלמעלה כחנות בלי רחוב, וכאן היא כלשונה. רק חיפושים אחרי 26.11.2026. */
+  termFacts(Array.isArray(rep.typed_zero_terms) ? rep.typed_zero_terms : [], 'הוקלד ולא נמצא', 'typed');
+  termFacts(Array.isArray(rep.typed_terms) ? rep.typed_terms : [], 'מה שהוקלד בשדה החופשי', 'typed');
 
   host.appendChild(block);
   dashPanelsMeasure();

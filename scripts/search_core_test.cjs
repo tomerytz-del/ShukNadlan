@@ -76,6 +76,14 @@ test('שם מקום שלא זוהה: מה שאחרי "ב", בלי המילים �
   assert.strictEqual(SC.areaCandidate('דירה במחיר טוב', ex), null);
   assert.strictEqual(SC.areaCandidate('יוקה פארק', ex), null);
   assert.strictEqual(SC.areaCandidate('יוקה פארק', Object.assign({ whole: true }, ex)), 'יוקה פארק');
+  // bare: רחוב בלי "ב" - "חנות החשמל" (נכס 1038, 26.11.2026). רק מילים לא מוכרות, ברצף אחד
+  const bare = Object.assign({ bare: true }, ex);
+  assert.strictEqual(SC.areaCandidate('חנות החשמל', bare), 'החשמל');
+  assert.strictEqual(SC.areaCandidate('דירה הרצל', bare), 'הרצל');
+  assert.strictEqual(SC.areaCandidate('חנות להשכרה החשמל', bare), 'החשמל');
+  assert.strictEqual(SC.areaCandidate('חנות להשכרה', bare), null);
+  assert.strictEqual(SC.areaCandidate('דירה 4 חדרים עם מעלית', bare), null);
+  assert.strictEqual(SC.areaCandidate('חנות החשמל', ex), null);
 });
 
 test('מחסן הוא מאפיין רק במגורים', () => {

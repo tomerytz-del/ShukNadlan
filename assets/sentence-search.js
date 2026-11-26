@@ -762,7 +762,12 @@
       /* ‏"דירה ברחוב רום יעל עם ממד": זוהו סוג ומאפיין, והרחוב נזרק בשקט -
          החיפוש היה בכל האזור (21.10.2026). שם מקום שאינו שכונה, ושיש נכסים
          שהוא כתוב אצלם, הוא האזור. אחרת - הוא שם שלא זוהה (‏onAreaMiss). */
-      var cand = SC.areaCandidate(text, { exclude: [areas && areas.mainCity] });
+      var ex = { exclude: [areas && areas.mainCity] };
+      var cand = SC.areaCandidate(text, ex);
+      /* ‏bare ("חנות החשמל") - רק אם הוא רחוב או כתובת של נכס. בכותרת מספיק מילה כמו
+         "שקטה" ("דירה שקטה 4 חדרים") כדי לצמצם את החיפוש לנכס אחד. */
+      var bareCand = cand ? null : SC.areaCandidate(text, assign({ bare: true }, ex));
+      if (bareCand && props.some(function (p) { return SC.textHas([p.street, p.address].join(' '), bareCand); })) cand = bareCand;
       if (cand && filter(props, applyPatch(st, assign(patch, { area: 'text:' + cand })), ctx, 'price').length) {
         patch = assign(patch, { area: 'text:' + cand });
         fields = SLOT_ORDER.filter(function (sl) { return fields.indexOf(sl) >= 0 || sl === 'area'; });
@@ -2217,6 +2222,8 @@
         return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
       },
       describe: function () { return sentenceText(st, areas, ctx); },
+      /* מה שהוקלד בשדה החופשי ופורש (ריק אם החיפוש היה בבורר בלבד). למונה החיפושים. */
+      typed: function () { return parsedText; },
       close: function () { close(false); },
     };
   }
