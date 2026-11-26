@@ -52,6 +52,14 @@ def main():
         print("לא נמצאה הגדרה של התור או של השער")
         return 1
     q, g = property_conditions(queue[1]), property_conditions(gate[1])
+    if len(q) < 5 or len(g) < 5:
+        print("לא פוענחו תנאי ענף הנכסים (תור: %d, שער: %d). המבנה של אחת הפונקציות השתנה - עדכנו את הבדיקה, ולא נמשיך בלי ההצלבה." % (len(q), len(g)))
+        return 1
+    # ברירות המחדל של התור (ניסיונות וחלון) מול הליטרלים בשער - הנרמול למעלה מאחד אותם
+    defaults = re.search(r"p_max_attempts\s+smallint\s+default\s+(\d+).*?p_retry_after\s+interval\s+default\s+interval\s+'([^']+)'", queue[1], re.S | re.I)
+    if not defaults or (defaults.group(1), defaults.group(2)) != ("3", "20 hours"):
+        print("ברירות המחדל של התור (ניסיונות, חלון) שונו: %s. השער כותב 3 ו-20 שעות כליטרלים - עדכנו את שניהם." % (defaults.groups() if defaults else "לא נמצאו"))
+        return 1
     # הצלבה לפי קבוצת הפרדיקטים על p. (בלי הצטרפות לספק, שהיא באותו מבנה בשניהם)
     key = lambda xs: {re.sub(r"[\s()]", "", x) for x in xs}
     only_q, only_g = key(q) - key(g), key(g) - key(q)

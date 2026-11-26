@@ -35,6 +35,7 @@ on:
     paths:
       - "supabase/migrations/**"
       - "scripts/check_migration_versions.py"
+      - "scripts/check_geocode_gate.py"
       - ".github/workflows/migration_versions.yml"
   workflow_dispatch:
 

@@ -63,7 +63,7 @@ as $$
 $$;
 
 comment on function public.geocode_backfill_pending() is
-  'האם יש מה לגאוקד - השער של ה-cron. אותם תנאים כמו geocode_backfill_queue (כולל פין משוער, 20271202160000), בלי union ובלי מיון. scripts/check_geocode_gate.py מצליב.';
+  'האם יש מה לגאוקד - השער של ה-cron. אותם תנאים כמו geocode_backfill_queue (כולל פין משוער, 20271202160000), בלי union ובלי מיון, ודרך האינדקס market_deals_official_geocode_pending_idx לעסקאות. scripts/check_geocode_gate.py מצליב.';
 
 revoke all on function public.geocode_backfill_pending() from public, anon, authenticated;
 grant execute on function public.geocode_backfill_pending() to service_role;
