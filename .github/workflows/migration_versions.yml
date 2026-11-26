@@ -75,3 +75,8 @@ jobs:
           else
             python3 scripts/check_migration_versions.py
           fi
+
+      # ‏שער הגאוקוד מול התור (scripts/check_geocode_gate.py): שער צר מהתור
+      # משאיר נכסים בתור לנצח, בשקט. קורא קבצי מיגרציה בלבד.
+      - name: שער הגאוקוד זהה לתור
+        run: python3 scripts/check_geocode_gate.py
