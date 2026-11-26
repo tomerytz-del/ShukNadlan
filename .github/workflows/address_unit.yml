@@ -1,4 +1,4 @@
-name: כתובת ויחידה: הטריגר והודעת גבריאלה
+name: "כתובת ויחידה: הטריגר והודעת גבריאלה"
 
 on:
   pull_request:
@@ -33,5 +33,5 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      - name: כתובת ויחידה: הטריגר והודעת גבריאלה
+      - name: "כתובת ויחידה: הטריגר והודעת גבריאלה"
         run: node --experimental-strip-types scripts/address_unit_test.ts
