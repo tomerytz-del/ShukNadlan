@@ -598,7 +598,7 @@ async function csmLoadCalls(){
   const host = document.getElementById('csmBody');
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
   csmCalls = data || [];
-  host.innerHTML = csmCallsHtml();
+  csmRenderCalls();
   clearTimeout(csmCallPoll);
   // המנטור עובר על השיחה אחרי שהסיכום מוכן: ממשיכים לבדוק עד שהניתוח מגיע (או חמש דקות)
   if (csmCalls.some(c => c.status === 'pending' || c.status === 'processing' || csmReviewPending(c))){
@@ -613,7 +613,39 @@ async function csmLoadCallCounts(){
   (data || []).forEach(c => { csmCallCounts[c.agent_id] = (csmCallCounts[c.agent_id] || 0) + 1; });
 }
 
-function csmCallsHtml(){
+/* הלשונית מצוירת בשני חלקים: חלון ההעלאה נבנה פעם אחת ונשאר (קובץ שנבחר, שדות, פתוח/סגור),
+   והרשימה מתחלפת - בבדיקה החוזרת כל 4 שניות, בשיוך ובפתיחת שיחה. נגן שכבר נטען עובר
+   לרשימה החדשה כמו שהוא (העברה סינכרונית ב-DOM אינה עוצרת השמעה), ולכן ההאזנה לא נקטעת. */
+function csmRenderCalls(){
+  const host = document.getElementById('csmBody');
+  let list = document.getElementById('csmCallList');
+  if (!list || !host.contains(list)){
+    host.innerHTML = `<div id="csmCallUpload">${csmCallUploadHtml()}</div><div id="csmCallList"></div>`;
+    list = document.getElementById('csmCallList');
+  }
+  const players = [...list.querySelectorAll('audio[data-csm-audio-path]')];
+  list.innerHTML = csmCallListHtml();
+  players.forEach(au => {
+    const slot = list.querySelector(`[data-csm-audio="${CSS.escape(au.dataset.csmAudioPath)}"]`);
+    if (slot) slot.replaceWith(au);
+  });
+}
+
+function csmCallUploadHtml(){
+  return `<details class="csm-more csm-upload"><summary class="btn btn-gold">⬆ העלאת הקלטה</summary>
+    <form class="csm-form" id="csmCallForm">
+      <div class="field"><label for="csmCallFile">הקלטת שיחה (m4a, mp3, aac, ogg, wav - עד 25MB)</label>
+        <input type="file" id="csmCallFile" aria-label="קובץ הקלטה" accept="audio/*,.m4a,.mp3,.aac,.ogg,.opus,.wav,.3gp,.webm" required></div>
+      <div class="csm-fb-row">
+        <div class="field"><label for="csmCallTitle">כותרת</label><input type="text" id="csmCallTitle" maxlength="200" placeholder="למשל: שיחת היכרות עם מנהל המשרד"></div>
+        <div class="field"><label for="csmCallAgent">עם מי (לא חובה)</label><select id="csmCallAgent"><option value="">לא משויכת</option>${csmAgentOptions()}</select></div>
+      </div>
+      <button type="submit" class="btn btn-gold">העלאה לתמלול וסיכום</button>
+      <p class="csm-hint">אפשר גם לשלוח את ההקלטה לגבריאלה בוואטסאפ. ההקלטה עוברת ל-OpenAI לתמלול ולמודל לסיכום, ונשמרת באזור ההטמעה בלבד.</p>
+    </form></details>`;
+}
+
+function csmCallListHtml(){
   const names = Object.fromEntries(csmRows.map(r => [r.agent_id, r.display_name]));
   const shown = csmCallAgentFilter ? csmCalls.filter(c => c.agent_id === csmCallAgentFilter) : csmCalls;
   const filterBar = csmCallAgentFilter
@@ -636,18 +668,7 @@ function csmCallsHtml(){
       ${open ? csmCallDetailHtml(c) : ''}
     </article>`;
   }).join('');
-  return `<details class="csm-more csm-upload"><summary class="btn btn-gold">⬆ העלאת הקלטה</summary>
-    <form class="csm-form" id="csmCallForm">
-      <div class="field"><label for="csmCallFile">הקלטת שיחה (m4a, mp3, aac, ogg, wav - עד 25MB)</label>
-        <input type="file" id="csmCallFile" aria-label="קובץ הקלטה" accept="audio/*,.m4a,.mp3,.aac,.ogg,.opus,.wav,.3gp,.webm" required></div>
-      <div class="csm-fb-row">
-        <div class="field"><label for="csmCallTitle">כותרת</label><input type="text" id="csmCallTitle" maxlength="200" placeholder="למשל: שיחת היכרות עם מנהל המשרד"></div>
-        <div class="field"><label for="csmCallAgent">עם מי (לא חובה)</label><select id="csmCallAgent"><option value="">לא משויכת</option>${csmAgentOptions()}</select></div>
-      </div>
-      <button type="submit" class="btn btn-gold">העלאה לתמלול וסיכום</button>
-      <p class="csm-hint">אפשר גם לשלוח את ההקלטה לגבריאלה בוואטסאפ. ההקלטה עוברת ל-OpenAI לתמלול ולמודל לסיכום, ונשמרת באזור ההטמעה בלבד.</p>
-    </form></details>
-    ${filterBar}
+  return `    ${filterBar}
     ${list || '<div class="empty-state">' + (csmCallAgentFilter ? 'אין עוד הקלטות של הסוכן/ת הזה/זו.' : 'עוד אין הקלטות.') + '</div>'}`;
 }
 
@@ -672,30 +693,34 @@ function csmAudioHtml(c){
     : '<p class="csm-hint">ההקלטה עצמה לא נשמרה, יש רק תמלול וסיכום.</p>';
 }
 
-function csmCallDetailHtml(c){
+function csmCallTabBody(c, tab){
   const a = c.analysis || {};
   const sec = (t, items) => items && items.length ? `<h5>${escapeHtml(t)}</h5><ul>${items.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '';
-  const stageLabel = k => (CSM_STAGES.find(s => s.key === k) || {}).label || '';
-  const agent = c.agent_id ? csmRows.find(r => r.agent_id === c.agent_id) : null;
-  const rv = c.review;
+  if (tab === 'mentor') return csmReviewHtml(c) || '<p class="csm-hint">המנטור עובר על שיחות אחרי שהתמלול מוכן.</p>';
+  if (tab === 'transcript') return c.transcript ? `<div class="csm-transcript">${escapeHtml(c.transcript)}</div>` : '<p class="csm-hint">אין תמלול.</p>';
   // ההתנגדויות מופיעות פעם אחת: אצל המנטור, כשהוא עבר על השיחה (ושם יש לכל אחת תשובה)
+  const rv = c.review;
   const sumObjections = rv && (rv.objections || []).length ? null : a.objections;
-  const tab = ['summary', 'mentor', 'transcript'].includes(csmCallTab) ? csmCallTab : 'summary';
-  const rvCount = rv ? (rv.objections || []).length : 0;
-  const tabs = [['summary', 'סיכום', 0], ['mentor', 'המנטור', rvCount], ['transcript', 'תמלול', 0]];
-  const tabBar = `<div class="csm-tabs" role="tablist" aria-label="חלקי השיחה">${tabs.map(([k, lbl, n]) =>
-    `<button type="button" role="tab" data-csm-call-tab="${k}" aria-selected="${tab === k}">${lbl}${n ? ` <span class="csm-count">${n}</span>` : ''}</button>`).join('')}</div>`;
-  const summary = `
+  return `
     ${a.summary ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : '<p class="csm-hint">עוד אין סיכום.</p>'}
     ${a.mood ? `<p class="csm-hint">הטון: ${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</p>` : ''}
     ${sec('נקודות כאב', a.pains)}${sec('התנגדויות', sumObjections)}${sec('התחייבויות', a.commitments)}
     ${sec('המלצות', a.recommendations)}
     ${sec('הצעדים הבאים', (a.next_steps || []).map(x => x.action + (x.when ? ' (' + x.when + ')' : '')))}
     ${(a.feedback_items || []).length ? `<h5>לפיתוח</h5><ul>${a.feedback_items.map((f, i) => `<li>${escapeHtml(f.title)} <button type="button" class="btn btn-ghost" data-csm-call-fb="${escapeHtml(c.id)}" data-i="${i}">להוסיף למשוב</button></li>`).join('')}</ul>` : ''}`;
-  const transcript = c.transcript
-    ? `<div class="csm-transcript">${escapeHtml(c.transcript)}</div>` : '<p class="csm-hint">אין תמלול.</p>';
-  const body = tab === 'mentor' ? (csmReviewHtml(c) || '<p class="csm-hint">המנטור עובר על שיחות אחרי שהתמלול מוכן.</p>')
-    : tab === 'transcript' ? transcript : summary;
+}
+
+function csmCallDetailHtml(c){
+  const a = c.analysis || {};
+  const stageLabel = k => (CSM_STAGES.find(s => s.key === k) || {}).label || '';
+  const agent = c.agent_id ? csmRows.find(r => r.agent_id === c.agent_id) : null;
+  const rv = c.review;
+  const tab = ['summary', 'mentor', 'transcript'].includes(csmCallTab) ? csmCallTab : 'summary';
+  const rvCount = rv ? (rv.objections || []).length : 0;
+  const tabs = [['summary', 'סיכום', 0], ['mentor', 'המנטור', rvCount], ['transcript', 'תמלול', 0]];
+  const tabBar = `<div class="csm-tabs" role="tablist" aria-label="חלקי השיחה">${tabs.map(([k, lbl, n]) =>
+    `<button type="button" role="tab" data-csm-call-tab="${k}" aria-selected="${tab === k}">${lbl}${n ? ` <span class="csm-count">${n}</span>` : ''}</button>`).join('')}</div>`;
+  const body = csmCallTabBody(c, tab);
   return `<div class="csm-call-detail">
     ${csmAudioHtml(c)}
     ${tabBar}
@@ -874,6 +899,7 @@ async function csmUploadCall(){
   if (r.error) throw { code: r.error, message: r.error };
   csmCallOpen = data.id;
   showToast('ההקלטה עלתה. התמלול והסיכום לוקחים דקה-שתיים.');
+  return true;
 }
 
 /* ---------- צוות ההטמעה (מנהל/ת הפלטפורמה בלבד) ----------
@@ -1943,7 +1969,7 @@ function csmSetTab(tab){
     }
     const agentCalls = e.target.closest('[data-csm-agent-calls]');
     if (agentCalls){ csmCallAgentFilter = agentCalls.dataset.csmAgentCalls; csmTab = 'calls'; csmRender(); return; }
-    if (e.target.closest('[data-csm-calls-all]')){ csmCallAgentFilter = ''; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
+    if (e.target.closest('[data-csm-calls-all]')){ csmCallAgentFilter = ''; csmRenderCalls(); return; }
     const reviewBtn = e.target.closest('[data-csm-review]');
     if (reviewBtn){
       reviewBtn.disabled = true;
@@ -1970,17 +1996,26 @@ function csmSetTab(tab){
       // שיחה שיש עליה ניתוח נפתחת על לשונית המנטור: שם התשובות, וזה מה שעושים עכשיו
       const c = csmCalls.find(x => x.id === id);
       csmCallTab = c && c.review ? 'mentor' : 'summary';
-      document.getElementById('csmBody').innerHTML = csmCallsHtml(); return;
+      csmRenderCalls(); return;
     }
     const tabBtn = e.target.closest('[data-csm-call-tab]');
-    if (tabBtn){ csmCallTab = tabBtn.dataset.csmCallTab; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
+    if (tabBtn){
+      // רק גוף הלשונית מתחלף: הנגן והסרגל שמעליו ומתחתיו נשארים
+      csmCallTab = tabBtn.dataset.csmCallTab;
+      const c = csmCalls.find(x => x.id === csmCallOpen);
+      const detail = tabBtn.closest('.csm-call-detail');
+      if (!c || !detail){ csmRenderCalls(); return; }
+      detail.querySelectorAll('[data-csm-call-tab]').forEach(b => b.setAttribute('aria-selected', String(b === tabBtn)));
+      detail.querySelector('.csm-tab-body').innerHTML = csmCallTabBody(c, csmCallTab);
+      return;
+    }
     const audioBtn = e.target.closest('[data-csm-audio]');
     if (audioBtn){
       audioBtn.disabled = true;
       sb.storage.from('csm-calls').createSignedUrl(audioBtn.dataset.csmAudio, 3600).then(({ data, error }) => {
         if (error || !data || !data.signedUrl){ audioBtn.disabled = false; showToast('לא הצלחנו לטעון את ההקלטה: ' + heErr(error || { message:'no url' })); return; }
         const au = document.createElement('audio');
-        au.controls = true; au.preload = 'auto'; au.src = data.signedUrl; au.setAttribute('aria-label', 'הקלטת השיחה');
+        au.controls = true; au.preload = 'auto'; au.src = data.signedUrl; au.dataset.csmAudioPath = audioBtn.dataset.csmAudio; au.setAttribute('aria-label', 'הקלטת השיחה');
         audioBtn.replaceWith(au);
         au.play().catch(() => {});
       });
@@ -2054,7 +2089,7 @@ function csmSetTab(tab){
     const ca = e.target.closest('[data-csm-call-agent]');
     if (ca){
       const { error } = await sb.from('csm_calls').update({ agent_id: ca.value || null }).eq('id', ca.dataset.csmCallAgent);
-      if (error) showToast('השיוך לא נשמר: ' + heErr(error)); else { const c = csmCalls.find(x => x.id === ca.dataset.csmCallAgent); if (c) c.agent_id = ca.value || null; document.getElementById('csmBody').innerHTML = csmCallsHtml(); }
+      if (error) showToast('השיוך לא נשמר: ' + heErr(error)); else { const c = csmCalls.find(x => x.id === ca.dataset.csmCallAgent); if (c) c.agent_id = ca.value || null; csmRenderCalls(); }
       return;
     }
     const fv = e.target.closest('[data-csm-fb-vote]');
@@ -2098,8 +2133,14 @@ function csmSetTab(tab){
         return;
       }
       if (e.target.id === 'csmCallForm'){
+        const label = btn ? btn.textContent : '';
         if (btn) btn.textContent = 'מעלה…';
-        await csmUploadCall();
+        let ok = false;
+        try { ok = await csmUploadCall(); } finally { if (btn) btn.textContent = label; }
+        if (!ok) return;   // קובץ חסר או גדול מדי: החלון נשאר פתוח עם מה שנבחר
+        // החלון כבר לא מצויר מחדש, ולכן מנקים וסוגרים אותו כאן - רק אחרי הצלחה
+        e.target.reset();
+        const box = e.target.closest('details'); if (box) box.open = false;
         csmLoadCalls();
         return;
       }
