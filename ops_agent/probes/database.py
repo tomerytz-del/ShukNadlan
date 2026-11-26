@@ -360,14 +360,24 @@ _SAMPLE_SQL = r"""(
        and substring(query from '"public"\."([a-z_0-9]+)"\(') is not null
       then 'rpc: ' || substring(query from '"public"\."([a-z_0-9]+)"\(')
            || ' | ' || left(regexp_replace(query, '\s+', ' ', 'g'), 150)
+      when query like '%%net.http_post%%'
+       and substring(query from 'public\.([a-z_0-9]+)\(') is not null
+      then 'cron: ' || substring(query from 'public\.([a-z_0-9]+)\(')
+           || ' | ' || left(regexp_replace(query, '\s+', ' ', 'g'), 150)
       else left(regexp_replace(query, '\s+', ' ', 'g'), 200)
     end)"""
 
 
 def _rpc_name(sample: str | None) -> str | None:
-    """שם הפונקציה מדגימה שנבנתה ב-`_SAMPLE_SQL`, או None לשאילתה רגילה."""
-    if sample and sample.startswith("rpc: "):
-        return sample[5:].split(" | ", 1)[0].strip() or None
+    """שם הפונקציה מדגימה שנבנתה ב-`_SAMPLE_SQL`, או None לשאילתה רגילה.
+
+    ‏`cron: ` היא פקודת `net.http_post ... where public.<שער>()`. כל הפקודות
+    האלה מתחילות באותם 200 תווים, ושם השער - מה שבאמת עולה זמן - יושב
+    אחריהם (26.11.2026: ממצא על `notification_push_ready` בלי השם שלה).
+    """
+    for prefix in ("rpc: ", "cron: "):
+        if sample and sample.startswith(prefix):
+            return sample[len(prefix):].split(" | ", 1)[0].strip() or None
     return None
 
 
@@ -382,6 +392,16 @@ _CRON_COLD_START_HINT = (
     "מילישנייה בחיבור חם). אינדקס לא יעזור כאן. מה שמוריד את המספר הוא "
     "פחות הרצות - תדירות נמוכה יותר, או איחוד כמה משימות של כל דקה "
     "לפקודה אחת שרצה בחיבור אחד."
+)
+
+# פקודת cron שחצתה את סף ה"איטית" אינה חיבור קר (עשרות מילישניות): הזמן
+# הוא בפונקציית השער עצמה. ואיש אינו מחכה לה, ולכן השאלה היא זמן מסד.
+_CRON_GATE_HINT = (
+    "זו פקודת cron, והזמן הוא בפונקציית השער שבכותרת ולא בבקשת ה-HTTP. "
+    "להריץ explain analyze על גוף הפונקציה כשאילתה (לא על הקריאה לה, "
+    "שמסתירה את התוכנית), ולחפש פונקציה שרצה לכל שורה לפני הצמצום. "
+    "כמה נמדד בכל שעה: cron.job_run_details של ה-job. מחזור יומי שם "
+    "אינו החמרה, גם כש-prev_metric נמוך יותר - שתי סריקות מודדות שעות שונות."
 )
 
 # ‏`subject` של הממצא הוא טביעת האצבע של טקסט השאילתה, אבל
@@ -567,7 +587,9 @@ def _slow_queries(ctx) -> Iterator[Finding]:
                 detail="%d קריאות ביום, ממוצע %.1fms, %.0f שניות מסד ליום. %s"
                        % (m["calls_per_day"], m["mean_ms"], m["sec_per_day"],
                           _window_text(m)),
-                suggestion="להריץ explain analyze על השאילתה. ממוצע גבוה עם הרבה "
+                suggestion=_CRON_GATE_HINT
+                           if (m["sample"] or "").startswith("cron: ") else
+                           "להריץ explain analyze על השאילתה. ממוצע גבוה עם הרבה "
                            "קריאות הוא בדרך כלל אינדקס חסר או policy של RLS "
                            "שמחושב לכל שורה.",
                 metric=round(m["mean_ms"], 1), metric_unit="ms",
@@ -752,9 +774,17 @@ def _unused_indexes(ctx) -> Iterator[Finding]:
 
     הסינון על גיל האינדקס חשוב: אינדקס שנוצר אתמול "לא בשימוש" בהגדרה,
     וממצא עליו הוא רעש שמלמד להתעלם מהדוח.
+
+    ‏**אבל Postgres אינו שומר מתי אינדקס נוצר.** התנאי ב-SQL בודק את גיל
+    ה**סטטיסטיקה** (‏`stats_reset`), וזה דבר אחר: ב-22.11.2026 נפתח ממצא על
+    ‏`whatsapp_messages_phone_number_created_idx` ביום שבו המיגרציה שיצרה
+    אותו מוזגה, כי הסטטיסטיקה של המסד היא מיולי. לכן הגיל נמדד גם ממה
+    שהסוכן עצמו ראה: עד ש-`unused_index_min_age_days` עברו מ-`first_seen`,
+    הממצא הוא `info` (נרשם, לא נספר ולא נכנס לסבב היומי), ורק אחר כך `low`.
     """
     t = ctx.settings.thresholds
     ctx.count()
+    watched = _unused_index_watch_days(ctx)
     rows = ctx.db.rows(
         """
         select s.indexrelname as index_name,
@@ -779,18 +809,59 @@ def _unused_indexes(ctx) -> Iterator[Finding]:
         (t.unused_index_min_kb, t.unused_index_min_age_days),
     )
     for row in rows:
+        subject = "%s.%s" % (row["table_name"], row["index_name"])
+        days = watched.get(subject)
+        settled = _unused_index_settled(days, t.unused_index_min_age_days)
         yield Finding(
-            area="cost", code="unused_index", severity="low",
-            subject="%s.%s" % (row["table_name"], row["index_name"]),
+            area="cost", code="unused_index",
+            severity="low" if settled else "info",
+            subject=subject,
             title="אינדקס שלא נקרא: %s" % row["index_name"],
-            detail="על %s, תופס %d KB, אפס שימושים מאז איפוס הסטטיסטיקה."
-                   % (row["table_name"], row["kb"]),
+            detail="על %s, תופס %d KB, אפס שימושים מאז איפוס הסטטיסטיקה.%s"
+                   % (row["table_name"], row["kb"],
+                      "" if settled else
+                      " נצפה לראשונה לפני %d ימים - ייתכן שהוא פשוט חדש, "
+                      "ולכן עדיין לא נספר (%d ימים)."
+                      % (int(days or 0), t.unused_index_min_age_days)),
             suggestion="אינדקס לא בשימוש מאט כל INSERT ו-UPDATE בטבלה. לפני "
                        "מחיקה — לוודא שהוא לא נועד לשאילתה עונתית (דוח חודשי, "
                        "מיגרציה). המחיקה נעשית במיגרציה, לא ידנית.",
             metric=float(row["kb"]), metric_unit="KB",
             evidence={"table": row["table_name"]},
         )
+
+
+def _unused_index_settled(days: float | None, min_days: int) -> bool:
+    """האם האינדקס נצפה לא-בשימוש מספיק זמן כדי שזה יגיד משהו.
+
+    ‏`None` = הסריקה הראשונה שרואה אותו. אין דרך להבדיל אז בין אינדקס
+    חדש לבין ישן שרק עכשיו חצה את סף הגודל, ולכן מחכים בשני המקרים.
+    """
+    return days is not None and days >= min_days
+
+
+def _unused_index_watch_days(ctx) -> dict[str, float]:
+    """כמה ימים כל אינדקס כבר מדווח ברצף, לפי `first_seen` של הממצא הפתוח.
+
+    ממצא שנסגר (האינדקס נקרא, או נמחק) ונפתח מחדש מקבל `first_seen` חדש
+    ב-`store.py`, ולכן הספירה מתחילה מחדש - וזה הכיוון הנכון.
+    """
+    if not ctx.db.has_table("ops_findings"):
+        return {}
+    try:
+        rows = ctx.db.rows(
+            """
+            select subject,
+                   extract(epoch from (now() - first_seen)) / 86400.0 as days
+              from public.ops_findings
+             where code = 'unused_index'
+               and resolved_at is null
+               and subject is not null
+            """
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+    return {str(r["subject"]): float(r["days"] or 0.0) for r in rows}
 
 
 def _missing_fk_indexes(ctx) -> Iterator[Finding]:

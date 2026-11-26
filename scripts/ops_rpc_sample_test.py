@@ -30,7 +30,8 @@ def check(name, ok, detail=""):
 # הפונקציות הטהורות, בלי לייבא את המודול (הוא מושך psycopg2).
 ns: dict = {}
 for node in tree.body:
-    if isinstance(node, ast.FunctionDef) and node.name in ("_rpc_name", "_label"):
+    if isinstance(node, ast.FunctionDef) and node.name in (
+            "_rpc_name", "_label", "_unused_index_settled"):
         exec(compile(ast.Module([node], []), "database.py", "exec"), ns)
 
 rpc_name, label = ns["_rpc_name"], ns["_label"]
@@ -45,5 +46,23 @@ check("שאילתה רגילה: אין תוספת לכותרת", label({"sample"
 check("השאילתה משתמשת ב-_SAMPLE_SQL ולא בחיתוך עיוור",
       "{sample}" in SRC and "sample=_SAMPLE_SQL" in SRC,
       "ה-select ב-_slow_queries חזר לחתוך 200 תווים")
+
+# 26.11.2026: פקודת cron. כל הפקודות מתחילות באותם 200 תווים, ושם השער אחריהם.
+check("דגימת cron מחזירה את שם השער",
+      rpc_name("cron: notification_push_ready | select net.http_post( url") == "notification_push_ready")
+check("הכותרת של פקודת cron נושאת את השער",
+      label({"sample": "cron: showing_coord_ready | select net.http_post("}) == " (showing_coord_ready)")
+check("ה-SQL מזהה פקודת cron לפי net.http_post",
+      "'cron: '" in SRC and "%%net.http_post%%" in SRC)
+check("לפקודת cron איטית יש הנחיה משלה, לא 'אינדקס חסר'",
+      '_CRON_GATE_HINT' in SRC and 'startswith("cron: ")' in SRC)
+
+# 26.11.2026: אינדקס שנוצר השבוע דווח כ"לא בשימוש" כי נמדד גיל הסטטיסטיקה.
+settled = ns["_unused_index_settled"]
+check("אינדקס שנראה לראשונה בסריקה הזו עדיין לא נספר", settled(None, 14) is False)
+check("אינדקס שמדווח 4 ימים עדיין לא נספר", settled(4.0, 14) is False)
+check("אינדקס שמדווח 14 ימים נספר", settled(14.0, 14) is True)
+check("הממצא הצעיר יוצא info ולא low",
+      'severity="low" if settled else "info"' in SRC)
 
 sys.exit(1 if failed else 0)
