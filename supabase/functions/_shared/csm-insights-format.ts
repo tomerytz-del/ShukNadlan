@@ -7,11 +7,11 @@
 // לא על ידע כללי. בלי Deno ובלי npm:. ה-I/O ב-csm-insights.ts. docs/csm-adoption.md.
 // ============================================================================
 import { CSM_PLAYBOOK } from "./coach/playbook.ts";
-import { TOOLS } from "./coach/prompts.ts";
+import { TOOLS } from "./coach/tools.ts";
+import { arr, pick, s, strEnum } from "./csm-clean.ts";
 import { PROBLEM_TYPES, QUESTION_TOPICS, SCRIPT_STAGES } from "./csm-review-format.ts";
 
 export const MIN_REVIEWED_CALLS = 3;
-const strEnum = (o: Record<string, string>) => ({ type: "string", enum: Object.keys(o) });
 const strList = { type: "array", items: { type: "string" } };
 
 export const INSIGHTS_TOOL = {
@@ -99,9 +99,6 @@ ${TOOLS}
 ${CSM_PLAYBOOK}`;
 }
 
-const s = (v: unknown, max: number) => String(v ?? "").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().slice(0, max);
-const pick = (v: unknown, allowed: Record<string, string>, fallback: string) => (Object.prototype.hasOwnProperty.call(allowed, String(v)) ? String(v) : fallback);
-const arr = (v: unknown, max: number) => (Array.isArray(v) ? v : []).slice(0, max) as Record<string, unknown>[];
 const int = (v: unknown) => Math.max(0, Math.min(9999, Math.round(Number(v) || 0)));
 
 export type InsightsReport = {

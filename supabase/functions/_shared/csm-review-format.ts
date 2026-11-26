@@ -11,7 +11,8 @@
 // docs/csm-adoption.md, "המנטור עובר על השיחה".
 // ============================================================================
 import { CSM_PLAYBOOK } from "./coach/playbook.ts";
-import { TOOLS } from "./coach/prompts.ts";
+import { TOOLS } from "./coach/tools.ts";
+import { arr, pick, s, strEnum } from "./csm-clean.ts";
 
 /* רשימות סגורות. מפתח חדש = גם תווית כאן, גם בהסכמה (enum), וגם ב-crm-csm.js (CSM_PROBLEM_HE). */
 export const PROBLEM_TYPES: Record<string, string> = {
@@ -45,8 +46,6 @@ export const SCRIPT_STAGES: Record<string, string> = {
   opening: "פתיחה", discovery: "שאלות גילוי", demo: "הדגמה", objections: "התנגדויות", close: "סגירה והצעד הבא", followup: "המשך",
 };
 const HANDLED = ["well", "partial", "not_handled"] as const;
-
-const strEnum = (o: Record<string, string>) => ({ type: "string", enum: Object.keys(o) });
 
 export const REVIEW_TOOL = {
   name: "save_call_review",
@@ -135,10 +134,7 @@ ${TOOLS}
 ${CSM_PLAYBOOK}`;
 }
 
-const s = (v: unknown, max: number) => String(v ?? "").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().slice(0, max);
-const pick = (v: unknown, allowed: Record<string, string>, fallback: string) => (Object.prototype.hasOwnProperty.call(allowed, String(v)) ? String(v) : fallback);
 const handled = (v: unknown): "well" | "partial" | "not_handled" => (HANDLED as readonly string[]).includes(String(v)) ? String(v) as "well" : "not_handled";
-const arr = (v: unknown, max: number) => (Array.isArray(v) ? v : []).slice(0, max) as Record<string, unknown>[];
 
 export type CallReview = {
   verdict: string;

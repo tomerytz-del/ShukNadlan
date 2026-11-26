@@ -46,7 +46,7 @@ export async function csmAgentCard(service: SupabaseClient, agentId: string): Pr
   };
 }
 
-export type CallResult = { ok: true; analysis: CallAnalysis; agentName: string | null } | { ok: false; error: string };
+export type CallResult = { ok: true; analysis: CallAnalysis; agentName: string | null; card: Record<string, unknown> | null } | { ok: false; error: string };
 
 export async function processCsmCall(service: SupabaseClient, callId: string): Promise<CallResult> {
   const { data: call, error } = await service.from("csm_calls")
@@ -108,5 +108,5 @@ export async function processCsmCall(service: SupabaseClient, callId: string): P
   await service.from("csm_calls").update({
     status: "done", analysis, error: null, processed_at: new Date().toISOString(),
   }).eq("id", callId);
-  return { ok: true, analysis, agentName: (agentCard?.name as string) || null };
+  return { ok: true, analysis, agentName: (agentCard?.name as string) || null, card: agentCard };
 }

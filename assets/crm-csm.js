@@ -191,10 +191,12 @@ async function loadCsm(force){
   }
   if (csmLoaded && !force){ csmRender(); return; }
   if (!csmLoaded) host.innerHTML = '<div class="empty-state">טוען…</div>';
-  const { data, error } = await sb.rpc('csm_agents_overview');
+  const [{ data, error }] = await Promise.all([
+    sb.rpc('csm_agents_overview'),
+    csmCtx().isStaff ? csmLoadCallCounts() : null,
+  ]);
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
   csmRows = data || [];
-  if (csmCtx().isStaff) await csmLoadCallCounts();
   csmLoaded = true;
   if (!csmUnreadTimer) csmRefreshUnread();
   const atRisk = csmRows.filter(r => csmRisk(r) && r.stage !== 'champion').length;
@@ -599,9 +601,7 @@ async function csmLoadCalls(){
   host.innerHTML = csmCallsHtml();
   clearTimeout(csmCallPoll);
   // המנטור עובר על השיחה אחרי שהסיכום מוכן: ממשיכים לבדוק עד שהניתוח מגיע (או חמש דקות)
-  const reviewing = c => c.status === 'done' && c.transcript && !c.reviewed_at && c.processed_at
-    && Date.now() - Date.parse(c.processed_at) < 5 * 60 * 1000;
-  if (csmCalls.some(c => c.status === 'pending' || c.status === 'processing' || reviewing(c))){
+  if (csmCalls.some(c => c.status === 'pending' || c.status === 'processing' || csmReviewPending(c))){
     csmCallPoll = setTimeout(() => { if (csmTab === 'calls') csmLoadCalls(); }, 4000);
   }
 }
@@ -698,17 +698,22 @@ const CSM_SCRIPT_HE = { opening:'פתיחה', discovery:'שאלות גילוי',
 const CSM_HANDLED_HE = { well:'נענתה היטב', partial:'נענתה חלקית', not_handled:'לא נענתה' };
 const CSM_HANDLED_CLS = { well:'seen', partial:'', not_handled:'rec' };
 
+/* הניתוח רץ אחרי הסיכום: שיחה מוכנה, מתומללת, בלי ניתוח ובלי כשל, עד חמש דקות מהסיום */
+const csmReviewPending = c => c.status === 'done' && c.transcript && !c.review && !c.review_error && c.processed_at
+  && Date.now() - Date.parse(c.processed_at) < 5 * 60 * 1000;
+const csmRvList = (arr, f) => arr && arr.length ? `<ul class="csm-rv-list">${arr.map(f).join('')}</ul>` : '';
+const csmRvReply = (label, t) => t ? `<div class="csm-rv-reply"><em>${label}</em> ${escapeHtml(t)}</div>` : '';
+
 function csmReviewHtml(c){
   const rv = c.review;
   if (!rv){
     if (c.status !== 'done' || !c.transcript) return '';
-    const recent = c.processed_at && Date.now() - Date.parse(c.processed_at) < 5 * 60 * 1000;
-    return `<div class="csm-review"><h5>המנטור</h5><p class="csm-hint">${recent ? 'המנטור עובר על השיחה…' : 'המנטור עוד לא עבר על השיחה.'}
-      <button type="button" class="btn btn-ghost" data-csm-review="${escapeHtml(c.id)}">${recent ? 'להריץ עכשיו' : 'שיעבור על השיחה'}</button></p></div>`;
+    const pending = csmReviewPending(c);
+    return `<div class="csm-review"><h5>המנטור</h5><p class="csm-hint">${c.review_error ? escapeHtml(c.review_error) : pending ? 'המנטור עובר על השיחה…' : 'המנטור עוד לא עבר על השיחה.'}
+      <button type="button" class="btn btn-ghost" data-csm-review="${escapeHtml(c.id)}">${pending ? 'להריץ עכשיו' : c.review_error ? 'לנסות שוב' : 'שיעבור על השיחה'}</button></p></div>`;
   }
   const tag = (k, map, cls) => `<span class="csm-tag ${cls || ''}">${escapeHtml(map[k] || k)}</span>`;
-  const list = (arr, f) => arr && arr.length ? `<ul class="csm-rv-list">${arr.map(f).join('')}</ul>` : '';
-  const reply = (label, t) => t ? `<div class="csm-rv-reply"><em>${label}</em> ${escapeHtml(t)}</div>` : '';
+  const list = csmRvList, reply = csmRvReply;
   return `<div class="csm-review">
     <h5>המנטור עבר על השיחה</h5>
     ${rv.verdict ? `<p class="csm-fb-desc">${escapeHtml(rv.verdict)}</p>` : ''}
@@ -734,6 +739,7 @@ function csmReviewHtml(c){
 /* ---------- תובנות: מה חוזר בשיחות, והניתוח הכולל ----------
    הספירות מ-csm_insights_overview, והניתוח הכולל (תשובות להתנגדויות ושיפורים בתסריט) מ-
    csm_insight_reports, שנכתב ברקע ע"י csm-workspace (action = insights_report). */
+const CSM_MIN_REVIEWED = 3;   // כמו MIN_REVIEWED_CALLS ב-_shared/csm-insights-format.ts
 let csmInsightDays = 90;
 let csmInsightPoll = null;
 
@@ -762,7 +768,7 @@ function csmInsightsHtml(ov, rep){
       : '<p class="csm-hint">עוד אין נתונים.</p>';
   };
   const running = rep && rep.status === 'processing';
-  const canRun = reviewed >= 3 && !running;
+  const canRun = reviewed >= CSM_MIN_REVIEWED && !running;
   const days = [30, 90, 180].map(d => `<option value="${d}"${d === csmInsightDays ? ' selected' : ''}>${d} ימים</option>`).join('');
   return `<div class="csm-insights">
     <div class="csm-fb-row">
@@ -770,7 +776,7 @@ function csmInsightsHtml(ov, rep){
       <select data-csm-insights-days aria-label="טווח">${days}</select>
       <button type="button" class="btn btn-gold" data-csm-insights-run${canRun ? '' : ' disabled'}>${running ? 'מנתח…' : 'ניתוח כולל ושיפור תסריט'}</button>
     </div>
-    ${reviewed < 3 ? '<p class="csm-hint">לניתוח כולל צריך לפחות שלוש שיחות שנותחו. שיחות חדשות מנותחות לבד, ושיחות קודמות אפשר להריץ ב"הקלטות" ← "שיעבור על השיחה".</p>' : ''}
+    ${reviewed < CSM_MIN_REVIEWED ? '<p class="csm-hint">לניתוח כולל צריך לפחות שלוש שיחות שנותחו. שיחות חדשות מנותחות לבד, ושיחות קודמות אפשר להריץ ב"הקלטות" ← "שיעבור על השיחה".</p>' : ''}
     <h4 class="csm-sub">התנגדויות לפי סוג</h4>
     ${bars(ov.objections || [], r => CSM_PROBLEM_HE[r.problem_type] || r.problem_type || 'אחר', r => `נענו היטב ${n(r.handled)}, לא נענו ${n(r.missed)}`)}
     <h4 class="csm-sub">איך ענו</h4>
@@ -792,7 +798,7 @@ function csmInsightReportHtml(rep){
   if (rep.status === 'processing') return '<h4 class="csm-sub">הניתוח הכולל</h4><p class="csm-hint">המנטור עובר על כל השיחות. זה לוקח כדקה.</p>';
   if (rep.status === 'failed') return `<h4 class="csm-sub">הניתוח הכולל</h4><p class="csm-hint">${escapeHtml(rep.error || 'הניתוח נכשל.')}</p>`;
   const r = rep.report || {};
-  const list = (arr, f) => arr && arr.length ? `<ul class="csm-rv-list">${arr.map(f).join('')}</ul>` : '';
+  const list = csmRvList;
   const conf = { low:'ביטחון נמוך - מעט שיחות', medium:'ביטחון בינוני', high:'ביטחון גבוה' }[r.confidence] || '';
   return `<h4 class="csm-sub">הניתוח הכולל</h4>
     <p class="csm-fb-desc"><strong>${escapeHtml(r.headline || '')}</strong></p>

@@ -22,8 +22,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
-import { processCsmCall } from "../_shared/csm-call.ts";
-import { reviewCsmCall } from "../_shared/csm-review.ts";
+import { background } from "../_shared/background.ts";
+import { processAndReviewCsmCall, reviewCsmCall } from "../_shared/csm-review.ts";
 import { runInsightsReport } from "../_shared/csm-insights.ts";
 import {
   authUrl, CSM_STATE_PREFIX, disconnectStaff, GCAL_PUBLISHED, googleCalendarConfigured,
@@ -43,14 +43,6 @@ function corsHeaders() {
 }
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
-}
-
-/* עבודה ארוכה ממשיכה אחרי שהתשובה ל-/csm יצאה (תמלול של שעת שיחה אינו נכנס לבקשה רגילה) */
-async function background(work: Promise<unknown>) {
-  // deno-lint-ignore no-explicit-any
-  const rt = (globalThis as any).EdgeRuntime;
-  if (rt?.waitUntil) rt.waitUntil(work);
-  else await work;
 }
 
 Deno.serve(async (req: Request) => {
@@ -90,8 +82,7 @@ Deno.serve(async (req: Request) => {
     if (!call) return json({ error: "not_found" }, 404);
     if (call.status === "processing") return json({ ok: true, already: true });
     // תמלול של שעת שיחה וסיכום לוקחים יותר מבקשה סבירה - ממשיכים ברקע
-    const work = processCsmCall(service, id)
-      .then((res) => (res.ok ? reviewCsmCall(service, id) : null))
+    const work = processAndReviewCsmCall(service, id)
       .catch(async (err) => {
         console.error("csm call processing threw", err);
         await service.from("csm_calls").update({ status: "failed", error: "העיבוד נכשל. אפשר לנסות שוב." }).eq("id", id);

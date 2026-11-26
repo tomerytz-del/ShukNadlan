@@ -1,7 +1,7 @@
 -- ============================================================================
 -- תובנות מהקלטות של צוות ההטמעה: מה שהמנטור מוציא מכל שיחה, והזיכרון המצטבר
 --
---   1. csm_calls.review / reviewed_at: ניתוח המנטור לשיחה (התנגדויות, שאלות,
+--   1. csm_calls.review / reviewed_at / review_error: ניתוח המנטור לשיחה (התנגדויות, שאלות,
 --      חלופות שעלו, הערות על התסריט, ומה שהמנטור לא ידע). נכתב ב-service_role
 --      בלבד (_shared/csm-review.ts) אחרי שהסיכום הרגיל כבר שמור.
 --   2. csm_call_insights: אותו ניתוח כשורות מנורמלות, כדי לרכז לפי סוג בעיה, סוג
@@ -15,6 +15,8 @@
 
 alter table public.csm_calls add column if not exists review jsonb;
 alter table public.csm_calls add column if not exists reviewed_at timestamptz;
+-- סיבת הכשל של ניתוח המנטור (נמחקת בהצלחה): בלי זה "המנטור עובר על השיחה" לא נבדל מ"נכשל"
+alter table public.csm_calls add column if not exists review_error text;
 
 create table if not exists public.csm_call_insights (
   id             uuid primary key default gen_random_uuid(),
