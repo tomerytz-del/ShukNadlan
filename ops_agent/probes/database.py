@@ -375,10 +375,14 @@ def _rpc_name(sample: str | None) -> str | None:
     האלה מתחילות באותם 200 תווים, ושם השער - מה שבאמת עולה זמן - יושב
     אחריהם (26.11.2026: ממצא על `notification_push_ready` בלי השם שלה).
     """
-    for prefix in ("rpc: ", "cron: "):
-        if sample and sample.startswith(prefix):
-            return sample[len(prefix):].split(" | ", 1)[0].strip() or None
+    if sample and sample.startswith(("rpc: ", "cron: ")):
+        return sample.split(": ", 1)[1].split(" | ", 1)[0].strip() or None
     return None
+
+
+def _is_cron(m: dict) -> bool:
+    """פקודת cron (`net.http_post`), עם שער בכותרת או בלעדיו."""
+    return "net.http_post" in (m["sample"] or "")
 
 
 # פקודת cron (‏`net.http_post ... where <gate>()`) נמדדת בחיבור **קר**:
@@ -587,8 +591,7 @@ def _slow_queries(ctx) -> Iterator[Finding]:
                 detail="%d קריאות ביום, ממוצע %.1fms, %.0f שניות מסד ליום. %s"
                        % (m["calls_per_day"], m["mean_ms"], m["sec_per_day"],
                           _window_text(m)),
-                suggestion=_CRON_GATE_HINT
-                           if (m["sample"] or "").startswith("cron: ") else
+                suggestion=_CRON_GATE_HINT if _is_cron(m) else
                            "להריץ explain analyze על השאילתה. ממוצע גבוה עם הרבה "
                            "קריאות הוא בדרך כלל אינדקס חסר או policy של RLS "
                            "שמחושב לכל שורה.",
@@ -604,8 +607,7 @@ def _slow_queries(ctx) -> Iterator[Finding]:
                        "בלבד. %s"
                        % (m["sec_per_day"], m["calls_per_day"], m["mean_ms"],
                           _window_text(m)),
-                suggestion=_CRON_COLD_START_HINT
-                           if "net.http_post" in (m["sample"] or "") else
+                suggestion=_CRON_COLD_START_HINT if _is_cron(m) else
                            "כל קריאה נראית זולה, ולכן היא לא מופיעה בשום דוח "
                            "'שאילתות איטיות'. השאלה כאן אינה כמה היא לוקחת אלא "
                            "האם צריך לקרוא לה כל כך הרבה.",
@@ -781,6 +783,8 @@ def _unused_indexes(ctx) -> Iterator[Finding]:
     אותו מוזגה, כי הסטטיסטיקה של המסד היא מיולי. לכן הגיל נמדד גם ממה
     שהסוכן עצמו ראה: עד ש-`unused_index_min_age_days` עברו מ-`first_seen`,
     הממצא הוא `info` (נרשם, לא נספר ולא נכנס לסבב היומי), ורק אחר כך `low`.
+    התנאי על `stats_reset` נשאר, ותפקידו אחר: מיד אחרי איפוס סטטיסטיקה
+    ‏`idx_scan` הוא 0 לכל האינדקסים, ובלעדיו כולם היו נפתחים יחד.
     """
     t = ctx.settings.thresholds
     ctx.count()

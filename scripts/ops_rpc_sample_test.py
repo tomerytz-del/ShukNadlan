@@ -55,7 +55,7 @@ check("הכותרת של פקודת cron נושאת את השער",
 check("ה-SQL מזהה פקודת cron לפי net.http_post",
       "'cron: '" in SRC and "%%net.http_post%%" in SRC)
 check("לפקודת cron איטית יש הנחיה משלה, לא 'אינדקס חסר'",
-      '_CRON_GATE_HINT' in SRC and 'startswith("cron: ")' in SRC)
+      "suggestion=_CRON_GATE_HINT if _is_cron(m)" in SRC)
 
 # 26.11.2026: אינדקס שנוצר השבוע דווח כ"לא בשימוש" כי נמדד גיל הסטטיסטיקה.
 settled = ns["_unused_index_settled"]
