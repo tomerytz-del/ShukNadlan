@@ -762,7 +762,7 @@
       /* ‏"דירה ברחוב רום יעל עם ממד": זוהו סוג ומאפיין, והרחוב נזרק בשקט -
          החיפוש היה בכל האזור (21.10.2026). שם מקום שאינו שכונה, ושיש נכסים
          שהוא כתוב אצלם, הוא האזור. אחרת - הוא שם שלא זוהה (‏onAreaMiss). */
-      var cand = SC.areaCandidate(text, { exclude: [areas && areas.mainCity] });
+      var cand = SC.areaCandidate(text, { exclude: [areas && areas.mainCity], bare: true });
       if (cand && filter(props, applyPatch(st, assign(patch, { area: 'text:' + cand })), ctx, 'price').length) {
         patch = assign(patch, { area: 'text:' + cand });
         fields = SLOT_ORDER.filter(function (sl) { return fields.indexOf(sl) >= 0 || sl === 'area'; });

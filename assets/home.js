@@ -1518,6 +1518,11 @@ async function loadCommercialProperties(){
   const items = await loadCommercialProperties();
   ppCommercial = items;
   ppSync();
+  /* החיפוש במשפט צריך גם אותם: ראו searchPool. הרשימה הראשית עשויה להגיע אחרי
+     (אז היא כבר תכלול אותם) או לפני (אז מרעננים כאן). */
+  if (sentence && sentence.loaded() && items !== FALLBACK_COMMERCIAL){
+    sentence.setProperties(searchPool(allActiveProperties), { aliases: hoodAliases, groups: cityGroups });
+  }
 })();
 
 /* ---------- יריד הבתים הפתוחים: הרצועה שמעל תיבת הנכסים ----------
@@ -1711,6 +1716,18 @@ function ppSync(){
      אין מי שינסה שוב. שתי הטעינות אינן מסונכרנות, ולכן זה נפל פעם כן
      ופעם לא, תלוי מי הקדים. */
   if (!ppHashApplied) ppHashApplied = ppApplyHash();
+}
+
+/* המאגר של החיפוש במשפט: הרשימה הראשית (‏300 הפעילים החדשים) ועוד המלאי
+   המסחרי מהשאילתה הייעודית שלו (‏loadCommercialProperties). בלי זה חנות ותיקה
+   נחתכה מהרשימה הראשית כשיש הרבה מלאי חדש, והחיפוש "חנות החשמל" ענה "לא נמצא"
+   על נכס שמוצג בתיבה למטה (‏נכס 1038, 26.11.2026). נתוני ה-fallback אינם
+   נכנסים, כדי שנכסי דמו לא יופיעו בחיפוש. */
+function searchPool(main){
+  const list = main || [];
+  if (!ppCommercial || ppCommercial === FALLBACK_COMMERCIAL) return list;
+  const seen = new Set(list.map(p => p.id));
+  return list.concat(ppCommercial.filter(p => !seen.has(p.id)));
 }
 
 function renderHomeProps(properties){
@@ -4853,7 +4870,7 @@ try {
     renderHomeProps(properties);
 
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
-    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases, groups: cityGroups });
+    if (sentence) sentence.setProperties(searchPool(properties), { aliases: hoodAliases, groups: cityGroups });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
     v10DefaultAll();

@@ -619,6 +619,17 @@
       out = got.join(' ');
     }
     if (!out && opts.whole && words.length && words.length <= 3 && !words.some(known)) out = words.join(' ');
+    /* ‏bare: "חנות החשמל", "דירה הרצל" - שם בלי "ב" ובלי "ברחוב". המילים שאינן מוכרות,
+       ברצף אחד של עד שלוש (הראשון). מי שקורא עם bare מוודא שיש נכסים שהשם כתוב
+       אצלם (‏compileQuery), אחרת מילה לא מוכרת הייתה הופכת לאזור ריק. */
+    if (!out && opts.bare) {
+      for (var b = 0; b < words.length && !out; b++) {
+        if (known(words[b]) || AREA_LEAD.test(words[b])) continue;
+        var run = [];
+        for (var c = b; c < words.length && run.length < 3 && !known(words[c]) && !AREA_LEAD.test(words[c]); c++) run.push(words[c]);
+        out = run.join(' ');
+      }
+    }
     if (!out || out.length < 2) return null;
     var key = compactKey(out);
     if ((opts.exclude || []).some(function (x) { return x && compactKey(x) === key; })) return null;
