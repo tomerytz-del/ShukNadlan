@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { recentPushesNote } from "../supabase/functions/whatsapp-webhook/wa-reply-context.ts";
 import {
+  answersLastQuestion,
   clientOfferLine,
   closedNameLinks,
   isClearAnswer,
@@ -144,6 +145,39 @@ check("לחזור אינו שם לקוח", !agentSrc.includes("אפשר להוס
 // --- 3. עליזה בקפה קפה, לא תפריט על חגי ---
 
 const correction = "תתקני, הפגישה עם עליזה היא היום בקפה קפה. ולא עם חגי";
+// 25.11.2026: תשובה קצרה לשאלה שנשאלה שוב
+{
+  const now = Date.parse("2026-11-25T10:47:12Z");
+  const q: HistoryMsg[] = [
+    { role: "user", content: "תכניסי לקוח חדש ברק 0524845100", at: "2026-11-25T10:46:22Z" },
+    { role: "assistant", content: "תומר, פתחתי כרטיס לברק.\n\nבאיזו עיר הוא מחפש? אחרי שתגיד, אכין לו רשימה.", at: "2026-11-25T10:46:40Z" },
+  ];
+  const hint = answersLastQuestion(q, "עפולה", now) || "";
+  check("תשובה קצרה אחרי שאלה: השורה מופיעה ומצטטת את השאלה", hint.includes("באיזו עיר") && hint.includes("בלי לשאול שוב"));
+  check("אחרי 'כמה עמלה לרשום, באחוזים או בסכום?'", (answersLastQuestion([{ role: "assistant", content: "חסרה העמלה.\n\nכמה עמלה לרשום, באחוזים או בסכום?", at: "2026-11-25T10:56:19Z" }], "2%", Date.parse("2026-11-25T10:56:40Z")) || "").includes("כמה עמלה"));
+  check("הודעה ארוכה אינה תשובה קצרה", answersLastQuestion(q, "תכניסי לי גם לקוחה חדשה בשם רונית לוי עם תקציב של שני מיליון", now) === null);
+  check("הודעה שהיא שאלה אינה תשובה", answersLastQuestion(q, "באיזה שכונות?", now) === null);
+  check("בלי שאלה בסוף ההודעה האחרונה", answersLastQuestion([{ role: "assistant", content: "פתחתי כרטיס לברק, והוא מקבל התאמות מכל הערים.", at: "2026-11-25T10:46:40Z" }], "עפולה", now) === null);
+  check("ההודעה האחרונה בהיסטוריה אינה של גבריאלה", answersLastQuestion([...q, { role: "user", content: "רגע", at: "2026-11-25T10:47:00Z" }], "עפולה", now) === null);
+  check("שאלה שחלפה (יותר משעה) אינה נחשבת", answersLastQuestion(q, "עפולה", Date.parse("2026-11-25T12:00:00Z")) === null);
+  check("בלי חותמת זמן בהיסטוריה: אין שאלה פתוחה", answersLastQuestion([{ role: "assistant", content: "באיזו עיר?" }], "עפולה", now) === null
+    && answersLastQuestion([{ role: "user", content: "שלום" }, { role: "assistant", content: "באיזו עיר הוא מחפש?" }], "עפולה", now) === null);
+  check("חותמת שבורה: אין שאלה פתוחה", answersLastQuestion([{ role: "assistant", content: "באיזו עיר?", at: "לא תאריך" }], "עפולה", now) === null);
+  check("נכנסת ל-styleContext", styleContext([{ role: "assistant", content: "באיזו עיר הוא מחפש? אחרי שתגיד, אכין רשימה.", at: new Date().toISOString() }], "עפולה").includes("באיזו עיר"));
+  check("הודעה ריקה", answersLastQuestion(q, "   ", now) === null);
+  const del: HistoryMsg[] = [{ role: "assistant", content: "למחוק את הנכס? זה לא הפיך.", at: "2026-11-25T10:46:40Z" }];
+  check("סירוב או ביטול אינם תשובה לבצע", ["לא", "לא תודה", "עזוב", "ביטול", "תבטלי."].every((w) => answersLastQuestion(del, w, now) === null));
+  check("סירוב לפי תחילת ההודעה", ["לא, תשאירי אותו", "אל תמחקי", "עוד לא", "עוד לא, חכי", "לא!", "אל"].every((w) => answersLastQuestion(del, w, now) === null));
+  check("רגע, שנייה ודי הם עצירה", ["רגע", "רגע, חכי", "שנייה", "שניה אחת", "די", "די, עצרי"].every((w) => answersLastQuestion(del, w, now) === null));
+  check("מילה שמתחילה באותן אותיות אינה סירוב", ["לאה כהן", "אלה", "דיזנגוף 12", "רגעים", "דירה"].every((w) => (answersLastQuestion(q, w, now) || "").includes("באיזו עיר")));
+  check("'כן' כן נחשב", (answersLastQuestion(del, "כן", now) || "").includes("למחוק את הנכס"));
+  const link: HistoryMsg[] = [{ role: "assistant", content: "הנה דוח ה-CMA: https://shuknadlan.co.il/cma?k=abc123", at: "2026-11-25T10:46:40Z" }];
+  check("כתובת עם ? אינה שאלה", answersLastQuestion(link, "תודה", now) === null);
+  check("נקודה עשרונית אינה גבול משפט", (answersLastQuestion([{ role: "assistant", content: "התקציב הוא 1.8 מיליון, באיזו עיר?", at: "2026-11-25T10:46:40Z" }], "עפולה", now) || "").includes("התקציב הוא 1.8 מיליון"));
+  check("תחליף מדיה אינו תשובה", answersLastQuestion(q, "[תמונה] שלום", now) === null);
+  check("בלי חותמת בהיסטוריה שיש בה חותמות: לא טרייה", answersLastQuestion([{ role: "user", content: "שלום", at: "2026-11-25T10:00:00Z" }, { role: "assistant", content: "באיזו עיר?" }], "עפולה", now) === null);
+}
+
 const reading = likelyReading(correction) || "";
 check("קריאה אחת על עליזה", reading.includes("עליזה") && reading.includes("חגי") && reading.includes("בלי תפריט"), reading);
 check("ביטול מפורש אינו תיקון", likelyReading("תבטלי את הפגישה עם חגי") === null);
