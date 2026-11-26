@@ -590,6 +590,13 @@ let csmCallOpen = null;
 let csmCallTab = 'summary';   // לשונית בשיחה הפתוחה: summary / mentor / transcript
 let csmCallPoll = null;
 
+/* פותחים שיחה תמיד דרך כאן: שיחה שיש עליה ניתוח נפתחת על "המנטור" (שם התשובות), אחרת על "סיכום" */
+function csmOpenCall(id){
+  csmCallOpen = id || null;
+  const c = id ? csmCalls.find(x => x.id === id) : null;
+  csmCallTab = c && c.review ? 'mentor' : 'summary';
+}
+
 async function csmLoadCalls(){
   const { data, error } = await sb.from('csm_calls')
     .select('*')   // כולל review/reviewed_at: כוכבית, כדי שמסד בלי העמודות עדיין לא ישבור את הלשונית
@@ -623,8 +630,15 @@ function csmRenderCalls(){
     host.innerHTML = `<div id="csmCallUpload">${csmCallUploadHtml()}</div><div id="csmCallList"></div>`;
     list = document.getElementById('csmCallList');
   }
+  // בחירה פתוחה ברשימה (שיוך לסוכן/ת): לא מציירים מתחתיה; הבדיקה הבאה תצייר
+  const act = document.activeElement;
+  if (act && act.tagName === 'SELECT' && list.contains(act)) return;
+  const tr = list.querySelector('.csm-call.is-open .csm-transcript');
+  const trScroll = tr ? tr.scrollTop : 0;
   const players = [...list.querySelectorAll('audio[data-csm-audio-path]')];
   list.innerHTML = csmCallListHtml();
+  const tr2 = list.querySelector('.csm-call.is-open .csm-transcript');
+  if (tr2) tr2.scrollTop = trScroll;
   players.forEach(au => {
     const slot = list.querySelector(`[data-csm-audio="${CSS.escape(au.dataset.csmAudioPath)}"]`);
     if (slot) slot.replaceWith(au);
@@ -680,7 +694,7 @@ function csmCallTagsHtml(c){
   const open = obj ? obj.filter(o => o.handled !== 'well').length : 0;
   const tags = [];
   if (a.mood) tags.push(`<span class="csm-tag">${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</span>`);
-  if (obj) tags.push(`<span class="csm-tag">${obj.length} התנגדויות</span>`);
+  if (obj && obj.length) tags.push(`<span class="csm-tag">${obj.length} התנגדויות</span>`);
   if (open) tags.push(`<span class="csm-tag rec">${open} בלי מענה מלא</span>`);
   tags.push(rv ? '<span class="csm-tag seen">המנטור: מוכן</span>' : csmReviewPending(c) ? '<span class="csm-tag">המנטור: ממתין</span>' : c.review_error ? '<span class="csm-tag rec">המנטור: נכשל</span>' : '');
   return `<div class="csm-call-tags">${tags.join('')}</div>`;
@@ -707,6 +721,7 @@ function csmCallTabBody(c, tab){
     ${sec('נקודות כאב', a.pains)}${sec('התנגדויות', sumObjections)}${sec('התחייבויות', a.commitments)}
     ${sec('המלצות', a.recommendations)}
     ${sec('הצעדים הבאים', (a.next_steps || []).map(x => x.action + (x.when ? ' (' + x.when + ')' : '')))}
+    ${a.message_draft ? `<h5>הודעה מוצעת לסוכן/ת</h5><div class="csm-cmd"><code>${escapeHtml(a.message_draft)}</code></div>` : ''}
     ${(a.feedback_items || []).length ? `<h5>לפיתוח</h5><ul>${a.feedback_items.map((f, i) => `<li>${escapeHtml(f.title)} <button type="button" class="btn btn-ghost" data-csm-call-fb="${escapeHtml(c.id)}" data-i="${i}">להוסיף למשוב</button></li>`).join('')}</ul>` : ''}`;
 }
 
@@ -718,7 +733,7 @@ function csmCallDetailHtml(c){
   const tab = ['summary', 'mentor', 'transcript'].includes(csmCallTab) ? csmCallTab : 'summary';
   const rvCount = rv ? (rv.objections || []).length : 0;
   const tabs = [['summary', 'סיכום', 0], ['mentor', 'המנטור', rvCount], ['transcript', 'תמלול', 0]];
-  const tabBar = `<div class="csm-tabs" role="tablist" aria-label="חלקי השיחה">${tabs.map(([k, lbl, n]) =>
+  const tabBar = `<div class="csm-call-tabs" role="tablist" aria-label="חלקי השיחה">${tabs.map(([k, lbl, n]) =>
     `<button type="button" role="tab" data-csm-call-tab="${k}" aria-selected="${tab === k}">${lbl}${n ? ` <span class="csm-count">${n}</span>` : ''}</button>`).join('')}</div>`;
   const body = csmCallTabBody(c, tab);
   return `<div class="csm-call-detail">
@@ -895,9 +910,15 @@ async function csmUploadCall(){
     source: 'upload', audio_path: path,
   }).select('id').single();
   if (error) throw error;
+  // מכאן ההקלטה שמורה: מנקים וסוגרים את החלון, כדי ששליחה חוזרת לא תיצור שורה כפולה
+  const form = document.getElementById('csmCallForm');
+  if (form){ form.reset(); const box = form.closest('details'); if (box) box.open = false; }
+  csmCallOpen = data.id; csmCallTab = 'summary';
   const r = await csmApi({ action:'analyze_call', call_id: data.id });
-  if (r.error) throw { code: r.error, message: r.error };
-  csmCallOpen = data.id;
+  if (r.error){
+    csmLoadCalls();   // השורה קיימת ומסומנת שנכשלה, עם "לנסות שוב"
+    throw { code: r.error, message: 'ההקלטה נשמרה, אבל התמלול לא התחיל. אפשר ללחוץ "לנסות שוב" ברשימה.' };
+  }
   showToast('ההקלטה עלתה. התמלול והסיכום לוקחים דקה-שתיים.');
   return true;
 }
@@ -1957,7 +1978,7 @@ function csmSetTab(tab){
     if (ng){
       csmMarkRead([ng.dataset.id]);
       const go = ng.dataset.csmNotifGo;
-      if (go === 'calls') csmCallOpen = ng.dataset.call || null;
+      if (go === 'calls') csmOpenCall(ng.dataset.call);
       if (go === 'pipeline'){
         const r = csmRows.find(x => x.agent_id === ng.dataset.agent);
         csmFilter = r ? r.display_name || '' : '';
@@ -1992,10 +2013,7 @@ function csmSetTab(tab){
     const callBtn = e.target.closest('[data-csm-call]');
     if (callBtn){
       const id = callBtn.dataset.csmCall;
-      csmCallOpen = csmCallOpen === id ? null : id;
-      // שיחה שיש עליה ניתוח נפתחת על לשונית המנטור: שם התשובות, וזה מה שעושים עכשיו
-      const c = csmCalls.find(x => x.id === id);
-      csmCallTab = c && c.review ? 'mentor' : 'summary';
+      csmOpenCall(csmCallOpen === id ? null : id);
       csmRenderCalls(); return;
     }
     const tabBtn = e.target.closest('[data-csm-call-tab]');
@@ -2011,14 +2029,20 @@ function csmSetTab(tab){
     }
     const audioBtn = e.target.closest('[data-csm-audio]');
     if (audioBtn){
+      const path = audioBtn.dataset.csmAudio;
+      // הרשימה יכולה להצטייר מחדש בזמן ההמתנה לקישור: מחפשים את הכפתור הנוכחי, ולא מנגנים בלי נגן על המסך
+      const slot = () => document.querySelector(`#csmCallList [data-csm-audio="${CSS.escape(path)}"]`);
+      const fail = err => { const b = slot(); if (b) b.disabled = false; showToast('לא הצלחנו לטעון את ההקלטה: ' + heErr(err || { message:'no url' })); };
       audioBtn.disabled = true;
-      sb.storage.from('csm-calls').createSignedUrl(audioBtn.dataset.csmAudio, 3600).then(({ data, error }) => {
-        if (error || !data || !data.signedUrl){ audioBtn.disabled = false; showToast('לא הצלחנו לטעון את ההקלטה: ' + heErr(error || { message:'no url' })); return; }
+      sb.storage.from('csm-calls').createSignedUrl(path, 3600).then(({ data, error }) => {
+        if (error || !data || !data.signedUrl){ fail(error); return; }
+        const target = slot();
+        if (!target) return;   // השיחה נסגרה בינתיים
         const au = document.createElement('audio');
-        au.controls = true; au.preload = 'auto'; au.src = data.signedUrl; au.dataset.csmAudioPath = audioBtn.dataset.csmAudio; au.setAttribute('aria-label', 'הקלטת השיחה');
-        audioBtn.replaceWith(au);
+        au.controls = true; au.preload = 'auto'; au.src = data.signedUrl; au.dataset.csmAudioPath = path; au.setAttribute('aria-label', 'הקלטת השיחה');
+        target.replaceWith(au);
         au.play().catch(() => {});
-      });
+      }).catch(fail);
       return;
     }
     const retry = e.target.closest('[data-csm-call-retry]');
@@ -2138,9 +2162,6 @@ function csmSetTab(tab){
         let ok = false;
         try { ok = await csmUploadCall(); } finally { if (btn) btn.textContent = label; }
         if (!ok) return;   // קובץ חסר או גדול מדי: החלון נשאר פתוח עם מה שנבחר
-        // החלון כבר לא מצויר מחדש, ולכן מנקים וסוגרים אותו כאן - רק אחרי הצלחה
-        e.target.reset();
-        const box = e.target.closest('details'); if (box) box.open = false;
         csmLoadCalls();
         return;
       }
@@ -2188,6 +2209,16 @@ function csmSetTab(tab){
     } finally {
       if (btn) btn.disabled = false;
     }
+  });
+
+  // תפריט ההתקשרות בכרטיס: אחד פתוח בכל פעם, ונסגר בלחיצה בחוץ או ב-Escape
+  document.addEventListener('click', e => {
+    const mine = e.target.closest('.csm-call-menu');
+    document.querySelectorAll('.csm-call-menu[open]').forEach(d => { if (d !== mine) d.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.csm-call-menu[open]').forEach(d => { d.removeAttribute('open'); const s = d.querySelector('summary'); if (s) s.focus(); });
   });
 
   // העתקה - גם מתוך חלון הפגישה, שיושב מחוץ לקטגוריה
