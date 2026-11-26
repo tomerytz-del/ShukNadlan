@@ -218,3 +218,24 @@
 .csm-bars li .csm-hint{grid-column:1 / -1;margin:-2px 0 0}
 .csm-bar{display:block;height:8px;border-radius:99px;background:var(--paper-raised);overflow:hidden}
 .csm-bar i{display:block;height:100%;background:var(--teal);border-radius:99px}
+
+/* הקלטות: לשוניות, תגיות, נגן, סרגל פעולות; כרטיס: תפריט חיוג ומונים עם תווית */
+.csm-call-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.csm-call-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:8px 0 10px}
+.csm-call-tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;min-height:44px;font:inherit;font-weight:600;color:var(--ink-soft);cursor:pointer}
+.csm-call-tabs button[aria-selected="true"]{border-bottom-color:var(--teal);color:var(--ink);font-weight:800}
+.csm-count{display:inline-block;min-width:18px;padding:1px 7px;border-radius:999px;background:var(--teal);color:#fff;font-size:.72rem;text-align:center}
+.csm-audio{margin:4px 0}
+.csm-audio audio{width:100%;max-width:420px}
+.csm-call-actions.csm-sticky{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border-top:1px solid var(--line);padding:10px 0;margin-top:12px}
+.csm-call-actions.csm-sticky .btn,.csm-call-actions.csm-sticky select{min-height:44px}
+.csm-upload>summary{display:inline-flex;list-style:none;cursor:pointer;min-height:44px;align-items:center}
+.csm-upload>summary::-webkit-details-marker{display:none}
+.csm-call-menu{position:relative;display:inline-block}
+.csm-call-menu>summary{list-style:none;cursor:pointer;min-height:44px;display:inline-flex;align-items:center}
+.csm-call-menu>summary::-webkit-details-marker{display:none}
+.csm-menu-panel{position:absolute;inset-inline-start:0;top:100%;z-index:5;min-width:min(250px,calc(100vw - 32px));max-width:calc(100vw - 32px);margin-top:4px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 6px 18px rgba(18,40,64,.12);display:flex;flex-direction:column}
+.csm-menu-item{display:flex;flex-direction:column;gap:1px;text-align:start;background:none;border:0;border-radius:8px;padding:9px 12px;min-height:44px;font:inherit;color:var(--ink);text-decoration:none;cursor:pointer}
+.csm-menu-item:hover,.csm-menu-item:focus-visible{background:var(--paper-raised)}
+.csm-menu-item small{font-size:.75rem;color:var(--ink-soft)}
+.csm-card .csm-stats b{font-weight:800;color:var(--ink)}
