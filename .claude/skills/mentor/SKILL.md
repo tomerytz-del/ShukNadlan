@@ -203,3 +203,5 @@ python3 scripts/check_edge_types.py
 `CSM_SYSTEM` עם שאלה קבועה - ושורות "המנטור:" קבועות על ההתראות (`csm-tips.ts`), שעוברות
 את אותם כללי עריכה (כלל אצבע, בלי הבטחה).
 
+**המנטור עובר גם על הקלטות ההטמעה** (`csm-review.ts`, ‏`csm-insights.ts`) עם אותו `CSM_PLAYBOOK`, ועם `TOOLS` מ-`prompts.ts` (שיוצא לשם).
+`CSM_COMPETITORS` ב-`playbook.ts` הוא כללים בלי עובדות: חומר על מתחרים נכנס רק מתומר, ועד אז פער ידע. הסקיל `csm-adoption`, סעיף 6א.

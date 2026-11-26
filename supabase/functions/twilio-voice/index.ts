@@ -8,6 +8,7 @@ import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
 import { processCsmCall } from "../_shared/csm-call.ts";
+import { reviewCsmCall } from "../_shared/csm-review.ts";
 
 // ============================================================================
 // ‏twilio-voice — יומן שיחות: ניתוב, הקלטה, תמלול, סיכום (פיילוט)
@@ -1684,7 +1685,9 @@ async function csmProcessRecording(r: {
   // העותק היחיד נשאר אצלנו
   deleteTwilioRecording(r.recordingSid);
   // התמלול והניתוח; בסופם csm_calls_notify כותבת את ההתראה עם הסיכום
-  await processCsmCall(supabase, call.id as string);
+  const done = await processCsmCall(supabase, call.id as string);
+  // ואז המנטור עובר על השיחה (התנגדויות, שאלות, תסריט). כשל כאן אינו משנה את השיחה
+  if (done.ok) await reviewCsmCall(supabase, call.id as string).catch((e) => console.error("csm review threw", e));
 }
 
 /** קנייה ושחרור של מספר לאשת צוות - מנהל/ת הפלטפורמה בלבד (JWT). */

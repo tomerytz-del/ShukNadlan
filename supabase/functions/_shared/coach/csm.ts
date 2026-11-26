@@ -26,6 +26,22 @@ function anthropic(): Anthropic {
   return client ??= new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "" });
 }
 
+/* הזיכרון של המנטור: הניתוח הכולל האחרון של שיחות ההטמעה, בקיצור. אין ניתוח (או שהמיגרציה
+   עוד לא רצה) - null והמנטור עונה כמו קודם. */
+async function csmLearned(service: SupabaseClient): Promise<Row | null> {
+  const { data } = await service.from("csm_insight_reports").select("report, calls_count, created_at")
+    .eq("status", "done").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const r = data?.report as Row | undefined;
+  if (!r) return null;
+  const top = <T>(v: unknown, n: number) => ((Array.isArray(v) ? v : []) as T[]).slice(0, n);
+  return {
+    as_of: String(data?.created_at || "").slice(0, 10), calls: data?.calls_count, headline: r.headline, confidence: r.confidence,
+    objection_replies: top<Row>(r.objection_playbook, 6).map((o) => ({ type: o.problem_type, times: o.times, reply: o.best_reply })),
+    script_changes: top<Row>(r.script_improvements, 4).map((x) => ({ stage: x.stage, issue: x.issue, suggestion: x.suggestion })),
+    experiments: top<string>(r.next_experiments, 3),
+  };
+}
+
 export type CsmAskResult =
   | { answer: string; remaining: number }
   | { error: string; status: number; remaining?: number };
@@ -43,7 +59,7 @@ export async function askCsmMentor(
 
   const since24 = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const since12 = new Date(Date.now() - 12 * 3600 * 1000).toISOString();
-  const [{ count: used, error: usedErr }, { data: past }, overview, fb] = await Promise.all([
+  const [{ count: used, error: usedErr }, { data: past }, overview, fb, learned] = await Promise.all([
     service.from("csm_mentor_questions").select("id", { count: "exact", head: true })
       .eq("staff_id", me.id).gte("created_at", since24),
     service.from("csm_mentor_questions").select("question, answer")
@@ -52,6 +68,7 @@ export async function askCsmMentor(
     service.rpc("csm_agents_overview"),
     service.from("csm_feedback").select("title, category, severity, csm_feedback_votes(count)")
       .in("status", ["open", "planned", "in_progress"]).limit(200),
+    csmLearned(service),
   ]);
   if (usedErr || overview.error) return { error: "db_error", status: 500 };
   if (Number(used) >= CSM_DAILY) return { error: "coach_ask_quota", status: 429, remaining: 0 };
@@ -75,6 +92,7 @@ export async function askCsmMentor(
           role: "user",
           content: [
             { type: "text", text: JSON.stringify(data) },
+            ...(learned ? [{ type: "text" as const, text: "מה למדנו משיחות ההטמעה (הניתוח הכולל האחרון): " + JSON.stringify(learned) }] : []),
             { type: "text", text: "השאלה: " + question },
           ],
         },

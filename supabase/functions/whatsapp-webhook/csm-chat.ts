@@ -21,6 +21,7 @@ import { flattenTemplateParam } from "../_shared/wa-send.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText, senderStamp } from "./whatsapp.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
+import { reviewCsmCall } from "../_shared/csm-review.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
 import { transcribeMedia } from "./media-intake.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
@@ -266,6 +267,11 @@ export async function handleCsmMessage(opts: {
       const text = callAnalysisText(res.analysis) +
         "\n\nעם מי הייתה השיחה? כתבי את השם, ואשייך אותה ואעדכן את מועד הקשר. אחרי זה אפשר לכתוב \"שלחי לו\" ואשלח את ההודעה המוצעת (אחרי שתאשרי). הניתוח המלא גם באזור ההטמעה.";
       await reply(text);
+      // המנטור עובר על השיחה אחרי שהסיכום כבר אצלה, ברקע
+      // deno-lint-ignore no-explicit-any
+      const rt = (globalThis as any).EdgeRuntime;
+      const review = reviewCsmCall(supabase, call.id as string).catch((e) => console.error("csm review threw", e));
+      if (rt?.waitUntil) rt.waitUntil(review); else await review;
       // התור הבא צריך לדעת על איזו שיחה מדובר
       const history = await loadHistory(supabase, staff.id);
       await saveHistory(supabase, staff.id, [

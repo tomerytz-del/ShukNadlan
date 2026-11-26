@@ -205,3 +205,16 @@
   .csm-today-list li.csm-today-ev{flex-wrap:wrap}
   .csm-today-ev .csm-today-btns{flex-basis:100%;justify-content:flex-end}
 }
+
+/* המנטור עובר על השיחה, והלשונית "תובנות" (docs/csm-adoption.md) */
+.csm-review{margin:14px 0 0;border-top:1px solid var(--paper-raised);padding-top:10px}
+.csm-review h5,.csm-insights h5{margin:12px 0 4px;font-size:.84rem}
+.csm-rv-list{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:10px}
+.csm-rv-list li{padding:8px 10px;border:1px solid var(--paper-raised);border-radius:10px;font-size:.84rem;line-height:1.5}
+.csm-rv-reply{margin-top:6px;padding:6px 8px;border-inline-start:3px solid var(--teal);background:var(--paper-raised);border-radius:6px}
+.csm-rv-reply em{font-style:normal;font-weight:700;color:var(--teal)}
+.csm-bars{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:6px}
+.csm-bars li{display:grid;grid-template-columns:minmax(110px,170px) 1fr auto;gap:8px;align-items:center;font-size:.84rem}
+.csm-bars li .csm-hint{grid-column:1 / -1;margin:-2px 0 0}
+.csm-bar{display:block;height:8px;border-radius:99px;background:var(--paper-raised);overflow:hidden}
+.csm-bar i{display:block;height:100%;background:var(--teal);border-radius:99px}

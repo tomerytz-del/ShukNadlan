@@ -49,6 +49,12 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
+import {
+  cleanCallReview, csmReviewSystem, PROBLEM_TYPES, reviewInsightRows, REVIEW_TOOL, SOLUTION_TYPES,
+} from "../supabase/functions/_shared/csm-review-format.ts";
+import {
+  cleanInsightsReport, csmInsightsSystem, INSIGHTS_TOOL, MIN_REVIEWED_CALLS,
+} from "../supabase/functions/_shared/csm-insights-format.ts";
 import { CSM_KIND_TIPS, callFollowupHint, kindTipLine } from "../supabase/functions/whatsapp-webhook/csm-tips.ts";
 import { CSM_TIP_QUESTION } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { CSM_LINKS, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
@@ -761,6 +767,63 @@ check("אסימון שלא נמסר נשאר ('דירה A2', 'P9')", stripRefTok
 const leaked = cleanSummaryV2({ headline: "בוקר טוב", actions: [{ priority: "win", title: "לבדוק את P1", why: "P1 שקט 40 יום", impact: "+1", cta: null }] }, "agent", tokRefs as never);
 check("cleanSummaryV2 מנקה אסימונים בכותרת ובנימוק", leaked?.actions[0].title === "לבדוק את הנכס" && leaked?.actions[0].why === "הנכס שקט 40 יום", leaked?.actions[0]);
 
+
+// ---------------------------------------------------------------------------
+// המנטור עובר על שיחת הטמעה: ניתוח לשיחה, ריכוז ושיפור תסריט
+// ---------------------------------------------------------------------------
+{
+  const sys = csmReviewSystem();
+  check("ניתוח שיחה: הפרומפט נושא את רשימת הכלים, השיטה והכללים על חלופות",
+    sys.includes("הכלים שקיימים במערכת") && sys.includes(CSM_PLAYBOOK) && sys.includes("חלופות ומתחרים"));
+  check("ניתוח שיחה: בלי מקף ארוך באף פרומפט", !/[–—]/.test(sys) && !/[–—]/.test(csmInsightsSystem()));
+  check("מתחרים: אין טענה על מתחרה בשם בידע (אין חומר, ולכן פער ידע ולא ניחוש)",
+    !/(יד2|מדלן|madlan|yad2|רימקס|רי\/מקס|אנגלו)/i.test(CSM_PLAYBOOK) && CSM_PLAYBOOK.includes("knowledge_gaps"));
+  check("מתחרים: לא נכנס לשלושת מנטורי הסוכנים",
+    !askSystemPrompt("agent", "warm").includes("חלופות ומתחרים שסוכנים משתמשים בהן"));
+
+  // רשימות סגורות: מפתח לא מוכר נופל ל-other / none, לא נשמר כמות שהוא
+  const rv = cleanCallReview({
+    verdict: "הפתיחה חזקה — וההתנגדות על המחיר נשארה בלי מענה.",
+    objections: [
+      { quote: "אין לי זמן ללמוד מערכת", problem_type: "time", handled: "well", how_handled: "הראיתי הודעה אחת", suggested_reply: "כותבים לגבריאלה כמו לעוזרת", solution_type: "workflow_shortcut", system_feature: "גבריאלה", competitor: "" },
+      { quote: "זה יקר", problem_type: "nonsense", handled: "maybe", suggested_reply: "", solution_type: "invented" },
+      { quote: "x", problem_type: "price", handled: "well" },
+    ],
+    questions: [{ question: "האם הלקוחות שלי נראים למשרד?", topic: "data_privacy", answered: "partial", answer_given: "כן", suggested_answer: "לקוח שהוזן נשאר אצלך" }, { question: "", topic: "setup" }],
+    competitors: [{ name: "מערכת X", claimed_strength: "יש לה אפליקציה", reply_hint: "לשאול מה עושים בה" }, { name: "" }],
+    script_notes: [{ stage: "bogus", note: "לא נשאל מה הוא עושה היום", suggestion: "לפתוח בשאלה" }],
+    knowledge_gaps: ["מחיר של מערכת X", "ab"],
+  });
+  check("ניתוח שיחה: ללא סיכום נדחה", cleanCallReview({ objections: [] }) === null);
+  check("ניתוח שיחה: מקף ארוך בטקסט נוקה", !!rv && !/[–—]/.test(JSON.stringify(rv)), rv?.verdict);
+  check("ניתוח שיחה: פריט קצר מדי או ריק לא נשמר", rv?.objections.length === 2 && rv?.questions.length === 1 && rv?.competitors.length === 1 && rv?.knowledge_gaps.length === 1);
+  check("ניתוח שיחה: סוג בעיה לא מוכר נופל ל-other, פתרון ל-none, handled ל-not_handled",
+    rv?.objections[1].problem_type === "other" && rv?.objections[1].solution_type === "none" && rv?.objections[1].handled === "not_handled");
+  check("ניתוח שיחה: שלב תסריט לא מוכר נופל לברירת מחדל", rv?.script_notes[0].stage === "objections");
+  check("ניתוח שיחה: הסכמת הכלי נושאת את אותן רשימות סגורות כמו הניקוי",
+    JSON.stringify((REVIEW_TOOL.input_schema.properties.objections.items.properties.problem_type as { enum: string[] }).enum) === JSON.stringify(Object.keys(PROBLEM_TYPES))
+    && JSON.stringify((REVIEW_TOOL.input_schema.properties.objections.items.properties.solution_type as { enum: string[] }).enum) === JSON.stringify(Object.keys(SOLUTION_TYPES)));
+
+  const rows = rv ? reviewInsightRows(rv) : [];
+  check("ריכוז: שורה לכל התנגדות, שאלה, חלופה ופער ידע", rows.length === 2 + 1 + 1 + 1 && rows.filter((r) => r.kind === "objection").length === 2);
+  check("ריכוז: שדה ריק הוא null ולא מחרוזת ריקה", rows.every((r) => r.reply !== "" && r.system_feature !== "" && r.competitor !== ""));
+  check("ריכוז: שאלה נשמרת עם הנושא ועם התשובה המומלצת", rows.some((r) => r.kind === "question" && r.problem_type === "data_privacy" && r.reply === "לקוח שהוזן נשאר אצלך"));
+  check("ריכוז: חלופה נשמרת בשמה", rows.some((r) => r.kind === "competitor" && r.competitor === "מערכת X"));
+
+  const rep = cleanInsightsReport({
+    headline: "רוב ההתנגדויות הן על זמן", confidence: "high",
+    objection_playbook: [{ problem_type: "time", times: 7, best_reply: "כותבים לגבריאלה", why: "עבד ב-5 מ-7", evidence: ["אין לי זמן", "", "עוד אחד"], system_feature: "גבריאלה" }, { problem_type: "price", best_reply: "" }],
+    question_bank: [{ topic: "pricing", question: "כמה זה עולה?", recommended_answer: "לפי דף המחירים" }, { topic: "x" }],
+    script_improvements: [{ stage: "discovery", issue: "לא שואלים מה עושים היום", suggestion: "להתחיל בשאלה", example_line: "מה את עושה היום עם לקוח חדש?", based_on_calls: 4 }],
+    next_experiments: ["לפתוח בשאלה אחת", "ב", "ג ג ג", "ד ד ד", "ה ה ה"],
+  });
+  check("ניתוח כולל: בלי כותרת נדחה", cleanInsightsReport({ confidence: "low" }) === null);
+  check("ניתוח כולל: תשובה ריקה לא נשמרת, וציטוט ריק יורד", rep?.objection_playbook.length === 1 && rep.objection_playbook[0].evidence.length === 2);
+  check("ניתוח כולל: ניסויים עד שלושה, בלי קצרים", rep?.next_experiments.length === 3);
+  check("ניתוח כולל: שאלה בלי תשובה לא נכנסת לבנק", rep?.question_bank.length === 1);
+  check("ניתוח כולל: מינימום שיחות לניתוח הוא שלוש", MIN_REVIEWED_CALLS === 3);
+  check("ניתוח כולל: הסכמה נושאת את כל חלקי הדוח", ["objection_playbook", "question_bank", "script_improvements", "competitor_insights", "knowledge_gaps", "next_experiments"].every((k) => k in INSIGHTS_TOOL.input_schema.properties));
+}
 
 // ---------------------------------------------------------------------------
 check("addDays חוצה חודש", addDays("2026-09-28", 7) === "2026-10-05");
