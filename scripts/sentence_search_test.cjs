@@ -59,6 +59,10 @@ test('רחוב בלי "ב": "חנות החשמל" מסננת לרחוב, לא ל
     const hits = shops.filter((p) => C.matches(p, C.applyPatch(st, r.patch), ctx)).map((p) => p.id);
     assert.deepStrictEqual(hits, ['s1'], t);
   });
+  // מילה שמופיעה רק בכותרת ("שקטה") אינה רחוב
+  shops.push(P({ id: 's3', deal_type: 'rent', category: 'commercial', property_type: 'חנויות/שטח מסחרי', street: 'הנרקיס', address: 'הנרקיס 1', title: 'חנות שקטה בלב העיר' }));
+  const quiet = C.compileQuery('חנות שקטה', st, areas, shops, ctx, []);
+  assert.ok(!('area' in quiet.patch));
   // שם שאין לו נכסים אינו הופך לאזור ריק
   const none = C.compileQuery('חנות זזזזז', st, areas, shops, ctx, []);
   assert.ok(!('area' in none.patch));
