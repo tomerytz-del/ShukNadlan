@@ -115,7 +115,9 @@ test('כל קבוצת סוג נשענת על ערכים שבמסד', () => {
 });
 
 test('מאפיין שלא זוהה: מה שאחרי "עם", בלי מה שכבר מזוהה', () => {
-  assert.strictEqual(SC.featureCandidate('דירה עם גינה'), 'גינה');
+  assert.strictEqual(SC.featureCandidate('דירה עם בריכה'), 'בריכה');
+  // גינה היא כבר סוג (דירת גן), לא מאפיין שלא זוהה (27.11.2026)
+  assert.strictEqual(SC.featureCandidate('דירה עם גינה'), null);
   assert.strictEqual(SC.featureCandidate('משרד עם נוף לעמק בעפולה'), 'נוף לעמק');
   assert.strictEqual(SC.featureCandidate('דירה עם ממד'), null);
   assert.strictEqual(SC.featureCandidate('דירה עם 3 חדרים'), null);

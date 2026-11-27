@@ -373,6 +373,10 @@
     if (ctx && ctx.saleResidential && !t.commercial && p.category === 'commercial') return false;
     if (t.commercial && p.category !== 'commercial') return false;
     if (t.residential && p.category === 'commercial') return false;
+    /* ‏"דירה עם גינה" היא גם דירה רגילה שיש לה גינה (‏has_own_garden: שטח גינה בקומה נמוכה או גינה
+       בתיאור, 27.11.2026 - דירות בקומה 2 עם גינה צמודה). רק דירות, לא בתים. הדגל נטען בנפרד
+       (‏loadGardenIds ב-home.js) ובלעדיו הסוג הוא דירת גן בלבד. */
+    if (key === 'garden' && p.has_own_garden && SC.typePtypes('apt').indexOf(p.property_type) >= 0) return true;
     if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
     return true;
   }
