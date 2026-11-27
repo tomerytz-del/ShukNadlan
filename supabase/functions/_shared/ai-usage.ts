@@ -35,6 +35,8 @@ export type AiFeature =
   // אזור ההטמעה (docs/csm-adoption.md): מנטור ההטמעה, ניתוח הקלטות, וגבריאלה מול הצוות
   | "csm_mentor"
   | "csm_call"
+  | "csm_review"
+  | "csm_insights"
   | "gabriela_csm"
   // טיוטות תיאור לדפי השכונות (docs/neighborhood-pages.md)
   | "neighborhood_describe"

@@ -34,7 +34,19 @@ async function fail(service: SupabaseClient, id: string, message: string) {
   return { ok: false as const, error: message };
 }
 
-export type CallResult = { ok: true; analysis: CallAnalysis; agentName: string | null } | { ok: false; error: string };
+/** כרטיס הסוכן/ת למודל: שם, משרד, שלב ושימוש - בלי טלפון ומייל. null כשאינו בתיק ההטמעה. */
+export async function csmAgentCard(service: SupabaseClient, agentId: string): Promise<Record<string, unknown> | null> {
+  const { data: rows } = await service.rpc("csm_agents_overview");
+  const r = ((rows as Record<string, unknown>[] | null) ?? []).find((x) => x.agent_id === agentId);
+  if (!r) return null;
+  return {
+    name: r.display_name, office: r.agency_name, role: r.role, tier: r.tier, stage: r.stage,
+    gabriela_messages_7d: r.gabriela_7d, active_listings: r.active_listings, clients: r.clients,
+    sessions: r.sessions, weekly_goal: r.last_weekly_goal,
+  };
+}
+
+export type CallResult = { ok: true; analysis: CallAnalysis; agentName: string | null; card: Record<string, unknown> | null } | { ok: false; error: string };
 
 export async function processCsmCall(service: SupabaseClient, callId: string): Promise<CallResult> {
   const { data: call, error } = await service.from("csm_calls")
@@ -66,18 +78,7 @@ export async function processCsmCall(service: SupabaseClient, callId: string): P
   await service.from("csm_calls").update({ transcript }).eq("id", callId);
 
   // 3. הכרטיס של הסוכן/ת, כשהשיחה משויכת - בלי טלפון ומייל
-  let agentCard: Record<string, unknown> | null = null;
-  if (call.agent_id) {
-    const { data: rows } = await service.rpc("csm_agents_overview");
-    const r = ((rows as Record<string, unknown>[] | null) ?? []).find((x) => x.agent_id === call.agent_id);
-    if (r) {
-      agentCard = {
-        name: r.display_name, office: r.agency_name, role: r.role, tier: r.tier, stage: r.stage,
-        gabriela_messages_7d: r.gabriela_7d, active_listings: r.active_listings, clients: r.clients,
-        sessions: r.sessions, weekly_goal: r.last_weekly_goal,
-      };
-    }
-  }
+  const agentCard = call.agent_id ? await csmAgentCard(service, call.agent_id as string) : null;
 
   // 4. הניתוח
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return fail(service, callId, "הסיכום האוטומטי עדיין לא מופעל.");
@@ -107,5 +108,5 @@ export async function processCsmCall(service: SupabaseClient, callId: string): P
   await service.from("csm_calls").update({
     status: "done", analysis, error: null, processed_at: new Date().toISOString(),
   }).eq("id", callId);
-  return { ok: true, analysis, agentName: (agentCard?.name as string) || null };
+  return { ok: true, analysis, agentName: (agentCard?.name as string) || null, card: agentCard };
 }

@@ -22,7 +22,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
-import { processCsmCall } from "../_shared/csm-call.ts";
+import { background } from "../_shared/background.ts";
+import { processAndReviewCsmCall, reviewCsmCall } from "../_shared/csm-review.ts";
+import { runInsightsReport } from "../_shared/csm-insights.ts";
 import {
   authUrl, CSM_STATE_PREFIX, disconnectStaff, GCAL_PUBLISHED, googleCalendarConfigured,
 } from "../_shared/google-calendar.ts";
@@ -80,15 +82,42 @@ Deno.serve(async (req: Request) => {
     if (!call) return json({ error: "not_found" }, 404);
     if (call.status === "processing") return json({ ok: true, already: true });
     // תמלול של שעת שיחה וסיכום לוקחים יותר מבקשה סבירה - ממשיכים ברקע
-    const work = processCsmCall(service, id).catch(async (err) => {
-      console.error("csm call processing threw", err);
-      await service.from("csm_calls").update({ status: "failed", error: "העיבוד נכשל. אפשר לנסות שוב." }).eq("id", id);
-    });
-    // deno-lint-ignore no-explicit-any
-    const rt = (globalThis as any).EdgeRuntime;
-    if (rt?.waitUntil) rt.waitUntil(work);
-    else await work;
+    const work = processAndReviewCsmCall(service, id)
+      .catch(async (err) => {
+        console.error("csm call processing threw", err);
+        await service.from("csm_calls").update({ status: "failed", error: "העיבוד נכשל. אפשר לנסות שוב." }).eq("id", id);
+      });
+    await background(work);
     return json({ ok: true });
+  }
+
+  // ניתוח המנטור לשיחה שכבר מתומללת (שיחות מלפני התכונה, או ניתוח חוזר)
+  if (body.action === "review_call") {
+    const id = String(body.call_id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "missing_fields" }, 400);
+    const { data: call } = await service.from("csm_calls").select("id, status, transcript").eq("id", id).maybeSingle();
+    if (!call) return json({ error: "not_found" }, 404);
+    if (!call.transcript) return json({ error: "no_transcript" }, 409);
+    await background(reviewCsmCall(service, id).catch((err) => console.error("csm review threw", err)));
+    return json({ ok: true });
+  }
+
+  // הניתוח הכולל: שורה ב-csm_insight_reports שהדף קורא עד שהיא done או failed
+  if (body.action === "insights_report") {
+    const days = Math.min(365, Math.max(7, Math.round(Number(body.days) || 90)));
+    const recent = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: running } = await service.from("csm_insight_reports").select("id")
+      .eq("status", "processing").gte("created_at", recent).limit(1).maybeSingle();
+    if (running) return json({ ok: true, already: true, report_id: running.id });
+    const { data: row, error: insErr } = await service.from("csm_insight_reports")
+      .insert({ staff_id: staff.id, days }).select("id").single();
+    if (insErr || !row) return json({ error: "db_error" }, 500);
+    await background(runInsightsReport(service, row.id as string, days).catch(async (err) => {
+      console.error("csm insights threw", err);
+      await service.from("csm_insight_reports")
+        .update({ status: "failed", error: "הניתוח הכולל נכשל. אפשר לנסות שוב.", finished_at: new Date().toISOString() }).eq("id", row.id);
+    }));
+    return json({ ok: true, report_id: row.id });
   }
 
   if (body.action === "gcal_start") {

@@ -220,6 +220,10 @@ def main():
     # 4.5 חדרים בתוך הטווח.
     add(1, "דירה", 4.5, 1500000)
 
+    # תחילת מעקב ירידות המחיר מוצמדת להיום: בלי זה ברירת המחדל של הפונקציה (19.11.2026, 17:00)
+    # הייתה מגיעה לשבוע, ובדיקה שמצפה ל"אין חלון ירידות" נכשלה מאותה שעה על כל ריצה, גם על main.
+    psql("insert into public.app_config (key, value) values ('listing_price_history_since', now()::text) "
+         "on conflict (key) do update set value = excluded.value")
     ok = psql(f"""
       select concat_ws('|', r->>'status', r->>'sample', r->>'median_price', r->>'p25_price',
                        r->>'p75_price', r->>'min_price', r->>'max_price',
@@ -286,7 +290,8 @@ def main():
     """)
     # ירידות מוצגות רק אחרי 7 ימי מעקב: שלושה ימים - אין, עשרה - יש.
     psql("insert into public.app_config (key, value) values "
-         "('listing_price_history_since', (now() - interval '3 days')::text)")
+         "('listing_price_history_since', (now() - interval '3 days')::text) "
+         "on conflict (key) do update set value = excluded.value")
     expect(psql(f"""
       select coalesce((r->'price_drops'->>'listings'), 'none')
         from (select {stats('דירה', 4, 1200000)} as r) s
