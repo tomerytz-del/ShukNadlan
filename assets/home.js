@@ -1123,6 +1123,18 @@ function keepMarketRows(rows, spec){ return MS && MS.keepRows ? MS.keepRows(rows
    מעבר ל-1,000 צריך עימוד או facets במסד (docs/sentence-search.md, סעיף 2). */
 const PROPERTY_LIMIT = 1000;
 
+/* מזהי הנכסים שיש להם גינה (‏has_own_garden, עמודה מחושבת: שטח גינה בקומה 3 ומטה, או "גינה" בתיאור
+   שאינה משותפת). נשלף בנפרד ולא ב-PROPERTY_SELECT: **עמודה שאינה קיימת במסד מפילה את שליפת
+   הנכסים כולה והדף נופל לנתוני הדמו**, והאתר עולה לפני המיגרציה. כאן כישלון = אין נכסים נוספים. */
+async function loadGardenIds(){
+  if (!sb) return new Set();
+  try{
+    const { data, error } = await sb.from('properties').select('id').eq('status', 'active').eq('has_own_garden', true).limit(1000);
+    if (error || !Array.isArray(data)) return new Set();
+    return new Set(data.map(r => r.id));
+  } catch(e){ return new Set(); }
+}
+
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
@@ -4873,7 +4885,9 @@ try {
   (async function initPropertyUI(){
     // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המרכזים,
     // והטבלה מספקת את השמות והסימון הידני
-    const [properties, hoods] = await Promise.all([loadProperties(), loadNeighborhoods()]);
+    const [properties, hoods, gardenIds] = await Promise.all([loadProperties(), loadNeighborhoods(), loadGardenIds()]);
+    // ‏"דירה עם גינה" מוצאת גם דירה רגילה שיש לה גינה (‏sentence-search, typeMatches)
+    properties.forEach(p => { p.has_own_garden = gardenIds.has(p.id); });
     /* המסחרי נשלף במקביל ובדרך כלל כבר הגיע. ממתינים לו עד COMMERCIAL_WAIT_MS כדי שהחיפוש
        יקבל את המאגר השלם בטעינה אחת (‏?q=חנות החשמל מקישור, ‏sentenceDeepLink, נצרך בה).
        אם איחר - searchPool משלים אותו בטעינה שנייה. */

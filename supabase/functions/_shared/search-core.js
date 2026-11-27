@@ -275,14 +275,24 @@
     if (/דופלקס/.test(t)) return 'raw:דופלקס';
     if (/טריפלקס/.test(t)) return 'raw:טריפלקס';
     if (/סטודיו|לופט/.test(t)) return 'raw:סטודיו/לופט';
-    if (/דיר/.test(t)) return 'apt';
+    /* ‏"דירה עם גינה" היא דירת גן (תומר, 27.11.2026), וגם "4 חדרים עם גינה" בלי "דירה".
+       בית, וילה, פנטהאוז וכל סוג אחר שכבר זוהה למעלה נשארים כמו שהם ("בית עם גינה" הוא בית). */
+    if (/דיר/.test(t)) return gardenWanted(t) ? 'garden' : 'apt';
     /* אחרי "דיר", כמו מחסן: "דירה ליד המרכז הלוגיסטי" היא דירה. ‏norm מוריד
        את הגרשיים, ולכן "מרלו״ג" ו-"מרלו"ג" הם "מרלוג". לפני מחסן, כי "מחסן
        לוגיסטי" הוא מרלו״ג. */
     if (/מרלוג|לוגיסט/.test(t)) return 'logistics';
     // "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
     if (/(^| )מחסן( |$)|מחסנים/.test(t)) return 'warehouse';
+    if (gardenWanted(t)) return 'garden';
     return null;
+  }
+
+  /* גינה כבקשה: לא "בלי גינה", ולא גינה משותפת או ציבורית של הבניין */
+  var GARDEN_WORD = /(^| )ו?ב?גינה( |$)/;
+  function gardenWanted(t) {
+    if (/גינה (משותפת|ציבורית|שכונתית)/.test(t)) return false;
+    return wanted(t, GARDEN_WORD);
   }
 
   /* ← ערכי property_type, או null כשאין קבוצה (‏'commercial' - כל המסחרי) */
@@ -595,7 +605,7 @@
     'מחיר', 'תקציב', 'זול', 'זולה', 'גדול', 'גדולה', 'קטן', 'קטנה', 'חדש', 'חדשה', 'קומה', 'קומת', 'קרקע',
     'מעלית', 'חניה', 'חנייה', 'ממד', 'ממק', 'מרפסת', 'מרפסות', 'שמש', 'מרוהטת', 'מרוהט', 'משופצת', 'משופץ', 'מיזוג',
     'ו', 'או', 'של', 'את', 'יש', 'רוצה', 'רוצים', 'מחפש', 'מחפשת', 'מחפשים', 'אני', 'אנחנו', 'לי', 'לנו', 'גם', 'כל',
-    'אזור', 'האזור', 'שכונה', 'השכונה', 'העיר', 'עיר', 'מרכזי', 'מיידית', 'כניסה', 'מיידי', 'משפחה', 'זוג', 'ילדים',
+    'גינה', 'אזור', 'האזור', 'שכונה', 'השכונה', 'העיר', 'עיר', 'מרכזי', 'מיידית', 'כניסה', 'מיידי', 'משפחה', 'זוג', 'ילדים',
     'כולל', 'סורגים', 'מקלט', 'תקרה', 'גבוהה', 'מטבחון', 'ישיבות', 'אזעקה', 'מצלמות', 'קירור', 'מזגן', 'מיזוג',
     'נגישה', 'נגיש', 'מעליות', 'חניות', 'אולם', 'אולמות', 'מסחרי', 'עסק', 'חלל', 'וילה', 'קוטג', 'סטודיו', 'דופלקס',
   ].join('|') + ')$');
@@ -644,14 +654,15 @@
      ודוגמה בחוזה) ולא טבלה: מאפיין חדש נוגע בטופס הנכס ובמסד, לא רק במילה. */
   var FEATURE_LEAD = /^ו?(?:עם|כולל)$/;
   function featureCandidate(text) {
-    var words = areaKey(text).split(' ').filter(Boolean);
+    // "גינה" היא סוג (דירת גן), לא מאפיין: לא עוצרת את הסריקה ולא נרשמת ("דירה עם גינה ובריכה" ← "בריכה")
+    var words = areaKey(text).split(' ').filter(function (w) { return w && !GARDEN_WORD.test(' ' + w + ' '); });
     var known = function (w) { return /\d/.test(w) || KNOWN_WORD.test(w) || KNOWN_WORD.test(w.replace(/^[ובלה]/, '')); };
     for (var i = 0; i < words.length; i++) {
       if (!FEATURE_LEAD.test(words[i])) continue;
       var got = [];
       for (var j = i + 1; j < words.length && got.length < 2 && !known(words[j]); j++) got.push(words[j]);
       var out = got.join(' ');
-      if (out.length >= 2 && !featuresIn(out, { residential: true }).length) return out;
+      if (out.length >= 2 && !featuresIn(out, { residential: true }).length && !GARDEN_WORD.test(' ' + out + ' ')) return out;
     }
     return null;
   }
@@ -665,7 +676,7 @@
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,
     FEATURE_WORDS: FEATURE_WORDS, FEATURE_LABELS: FEATURE_LABELS, featuresIn: featuresIn, featuresNote: featuresNote,
     RENT_MAX: RENT_MAX, SALE_MIN: SALE_MIN, dealFromPrice: dealFromPrice, comparablePrice: comparablePrice,
-    FEATURE_CODES: FEATURE_CODES, knownFeature: knownFeature, featureCandidate: featureCandidate,
+    gardenWanted: gardenWanted, FEATURE_CODES: FEATURE_CODES, knownFeature: knownFeature, featureCandidate: featureCandidate,
     PROPERTY_TYPES: PROPERTY_TYPES, PTYPE_NAMES: PTYPE_NAMES, typeIn: typeIn, typePtypes: typePtypes, botTypes: botTypes,
   };
   root.SearchCore = SearchCore;

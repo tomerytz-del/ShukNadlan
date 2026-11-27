@@ -68,6 +68,27 @@ test('רחוב בלי "ב": "חנות החשמל" מסננת לרחוב, לא ל
   assert.ok(!('area' in none.patch));
 });
 
+test('"דירה עם גינה" היא דירת גן, ומוצאת גם דירה רגילה שיש לה גינה (has_own_garden)', () => {
+  const gardenApt = P({ id: 'g1', deal_type: 'sale', property_type: 'דירה', rooms: 4, price: 1500000, floor: 2, has_own_garden: true });
+  const plainApt = P({ id: 'g2', deal_type: 'sale', property_type: 'דירה', rooms: 4, price: 1500000, floor: 5, has_own_garden: false });
+  const gardenType = P({ id: 'g3', deal_type: 'sale', property_type: 'דירת גן', rooms: 4, price: 2000000 });
+  const house = P({ id: 'g4', deal_type: 'sale', property_type: "בית פרטי/קוטג'", rooms: 5, price: 2500000, has_own_garden: true });
+  const pool = [gardenApt, plainApt, gardenType, house];
+  const areas = C.deriveAreas(pool, []);
+  const ctx = { areaIndex: areas.index, marketLabel: 'עפולה והעמק' };
+  const st = C.defaultState();
+  ['דירה עם גינה', '4 חדרים עם גינה', 'גינה'].forEach((t) => {
+    const r = C.compileQuery(t, st, areas, pool, ctx, []);
+    assert.strictEqual(r.patch.type, 'garden', t);
+    const ids = pool.filter((p) => C.matches(p, C.applyPatch(st, r.patch), ctx)).map((p) => p.id);
+    assert.deepStrictEqual(ids, ['g1', 'g3'], t);   // לא דירה בלי גינה, ולא בית
+  });
+  // בלי הדגל (העמודה טרם נטענה) - דירת גן בלבד
+  const noFlag = pool.map((p) => Object.assign({}, p, { has_own_garden: undefined }));
+  const r2 = C.compileQuery('דירה עם גינה', st, areas, noFlag, ctx, []);
+  assert.deepStrictEqual(noFlag.filter((p) => C.matches(p, C.applyPatch(st, r2.patch), ctx)).map((p) => p.id), ['g3']);
+});
+
 test('האזורים נגזרים מהמלאי, והיישוב העיקרי אינו אזור', () => {
   const labels = AREAS.map(a => a.label);
   assert.ok(labels.includes('גבעת המורה'));
