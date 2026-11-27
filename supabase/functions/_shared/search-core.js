@@ -654,7 +654,8 @@
      ודוגמה בחוזה) ולא טבלה: מאפיין חדש נוגע בטופס הנכס ובמסד, לא רק במילה. */
   var FEATURE_LEAD = /^ו?(?:עם|כולל)$/;
   function featureCandidate(text) {
-    var words = areaKey(text).split(' ').filter(Boolean);
+    // "גינה" היא סוג (דירת גן), לא מאפיין: לא עוצרת את הסריקה ולא נרשמת ("דירה עם גינה ובריכה" ← "בריכה")
+    var words = areaKey(text).split(' ').filter(function (w) { return w && !GARDEN_WORD.test(' ' + w + ' '); });
     var known = function (w) { return /\d/.test(w) || KNOWN_WORD.test(w) || KNOWN_WORD.test(w.replace(/^[ובלה]/, '')); };
     for (var i = 0; i < words.length; i++) {
       if (!FEATURE_LEAD.test(words[i])) continue;
