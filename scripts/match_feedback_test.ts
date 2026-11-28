@@ -150,6 +150,11 @@ const run = async () => {
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
   check("pick other agent -> text", !!out?.text?.includes("כבר לא קיימת"), out);
 
+  f = fakeSb({}, { id: A1, score: 80, status: "dismissed", agent_clients: { full_name: "דנה", status: "active" }, properties: { title: "בית", status: "active" } });
+  out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
+  const undo = out?.outbox?.[0];
+  check("pick dismissed -> buttons with note", undo?.kind === "buttons" && undo.body.includes("מסומנת לא רלוונטית") && undo.buttons[0].id === `mfb:r:${A1}`, out);
+
   f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה", status: "active" }, properties: { title: "בית", status: "sold" } });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
   check("pick sold property -> gone", !!out?.text?.includes("כבר לא קיימת"), out);

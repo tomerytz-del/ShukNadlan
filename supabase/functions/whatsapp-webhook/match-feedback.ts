@@ -80,13 +80,21 @@ function names(row: { client_name: string | null; property_title: string | null 
   return { who: (row.client_name || "").trim() || "הלקוח/ה", what: (row.property_title || "").trim() || "הנכס" };
 }
 
-function ask(row: { alert_id: string; client_name: string | null; property_title: string | null; score: number | null }):
-  MatchFeedbackOut {
+function ask(row: {
+  alert_id: string;
+  client_name: string | null;
+  property_title: string | null;
+  score: number | null;
+  dismissed?: boolean;
+}): MatchFeedbackOut {
   const buttons = feedbackButtons(row.alert_id);
   if (!buttons) return { text: FAILED };
   const { who, what } = names(row);
   const pct = row.score != null ? ` (${row.score}%)` : "";
-  return { outbox: [{ kind: "buttons", body: `"${what}" ל${who}${pct}. רלוונטי?`, buttons }] };
+  // התאמה שסומנה "לא רלוונטי" (שורה ברשימה ישנה) נשארת לבחירה בכוונה: "רלוונטי"
+  // מחזיר אותה. כאן רק אומרים לסוכן/ת שהיא מסומנת.
+  const note = row.dismissed ? " כרגע מסומנת לא רלוונטית." : "";
+  return { outbox: [{ kind: "buttons", body: `"${what}" ל${who}${pct}.${note} רלוונטי?`, buttons }] };
 }
 
 /** הרשימה: שורה לכל התאמה, השם בכותרת (24) והנכס בתיאור (72). */
@@ -146,7 +154,7 @@ export async function matchFeedbackReply(
     // לקוח/ה או נכס שאינם פעילים - כמו ב-match_feedback_set: ההתאמה כבר לא קיימת.
     const { data, error } = await supabase
       .from("client_match_alerts")
-      .select("id, score, agent_clients(full_name, status), properties(title, status)")
+      .select("id, score, status, agent_clients(full_name, status), properties(title, status)")
       .eq("id", parsed.id)
       .eq("agent_id", agentId)
       .maybeSingle();
@@ -156,6 +164,7 @@ export async function matchFeedbackReply(
     }
     const row = data as unknown as {
       score: number | null;
+      status: string | null;
       agent_clients: { full_name: string | null; status: string | null } | null;
       properties: { title: string | null; status: string | null } | null;
     } | null;
@@ -165,6 +174,7 @@ export async function matchFeedbackReply(
       client_name: row.agent_clients?.full_name ?? null,
       property_title: row.properties?.title ?? null,
       score: row.score ?? null,
+      dismissed: row.status === "dismissed",
     });
   }
 
