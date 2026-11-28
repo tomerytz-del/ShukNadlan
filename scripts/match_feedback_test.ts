@@ -39,6 +39,8 @@ check("section <= 24", Array.from(MF_LIST_SECTION).length <= 24);
 // הכותרת ב-notification-push זהה לזו שנבדקה כאן
 const push = readFileSync("supabase/functions/notification-push/index.ts", "utf8");
 check("push crm title", push.includes(`const MATCH_CRM_TITLE = "📋 פתיחה ב-CRM";`));
+// הדגל נקרא עם שאר דגלי התקציר, ולא בשאילתה נפרדת
+check("flag in loadDigestFlags", push.includes(`matchFeedback: on("match_feedback_buttons_enabled")`));
 
 // המזהים
 check("parse r", JSON.stringify(parseMatchFeedbackButton(`mfb:r:${A1}`)) === JSON.stringify({ action: "relevant", id: A1 }));
@@ -110,40 +112,43 @@ const run = async () => {
 
   let f = fakeSb({ match_feedback_set: [{ client_name: "דנה", property_title: "בית" }] });
   let out = await matchFeedbackReply(f.sb, AGENT, `mfb:n:${A1}`);
-  check("dismiss text", out?.kind === "text" && out.text.includes("הורדתי"), out);
+  check("dismiss text", !!out?.text?.includes("הורדתי") && !out.outbox, out);
   check("dismiss rpc args", JSON.stringify(f.calls[0]) === JSON.stringify(
     { fn: "match_feedback_set", args: { p_agent: AGENT, p_alert: A1, p_feedback: "not_relevant" } }), f.calls);
 
   f = fakeSb({ match_feedback_set: [] });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:r:${A1}`);
-  check("gone -> text", out?.kind === "text" && out.text.includes("כבר לא קיימת"), out);
+  check("gone -> text", !!out?.text?.includes("כבר לא קיימת"), out);
 
   f = fakeSb({ match_feedback_set: new Error("boom") });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:r:${A1}`);
-  check("error -> crm hint", out?.kind === "text" && out.text.includes("CRM"), out);
+  check("error -> crm hint", !!out?.text?.includes("CRM"), out);
 
   f = fakeSb({ match_digest_alerts: [row(A1, 3), row(A2, 3, { client_name: "יוסי" })] });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:l:${N1}`);
-  check("list out", out?.kind === "list" && out.rows.length === 2 && out.rows[1].title === "יוסי", out);
-  check("list says more", out?.kind === "list" && out.body.includes("מתוך 3"), out);
+  const list = out?.outbox?.[0];
+  check("list out", list?.kind === "list" && list.rows.length === 2 && list.rows[1].title === "יוסי", out);
+  check("list says more", list?.kind === "list" && list.body.includes("מתוך 3"), out);
   check("list rpc scoped to agent", f.calls[0].args.p_agent === AGENT && f.calls[0].args.p_notification === N1);
 
   f = fakeSb({ match_digest_alerts: [row(A1, 1)] });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:l:${N1}`);
-  check("list of one -> buttons", out?.kind === "buttons" && out.buttons[0].id === `mfb:r:${A1}`, out);
+  const one1 = out?.outbox?.[0];
+  check("list of one -> buttons", one1?.kind === "buttons" && one1.buttons[0].id === `mfb:r:${A1}`, out);
 
   f = fakeSb({ match_digest_alerts: [] });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:l:${N1}`);
-  check("empty list -> text", out?.kind === "text", out);
+  check("empty list -> text", !!out?.text && !out.outbox, out);
 
-  f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה" }, properties: [{ title: "בית" }] });
+  f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה" }, properties: { title: "בית" } });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
-  check("pick -> buttons", out?.kind === "buttons" && out.body.includes('"בית" לדנה (80%)'), out);
+  const picked = out?.outbox?.[0];
+  check("pick -> buttons", picked?.kind === "buttons" && picked.body.includes('"בית" לדנה (80%)'), out);
   check("pick filtered by agent", f.filters.some(([k, v]) => k === "agent_id" && v === AGENT), f.filters);
 
   f = fakeSb({}, null);
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
-  check("pick other agent -> text", out?.kind === "text", out);
+  check("pick other agent -> text", !!out?.text?.includes("כבר לא קיימת"), out);
 
   // הוובהוק תופס את הכפתור לפני הכותרת שעוברת למודל
   const hook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");

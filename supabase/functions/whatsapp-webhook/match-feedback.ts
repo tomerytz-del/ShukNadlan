@@ -9,10 +9,13 @@
 //   mfb:p:<alert>         בחירת התאמה מהרשימה -> שני הכפתורים עליה
 //   mfb:l:<notification>  סיכום עם כמה התאמות -> רשימה לבחירה
 //
-// הקובץ מיובא גם מ-notification-push, ולכן אין בו ייבוא שאינו טיפוס.
-// ‏docs/client-matching.md, "משוב מהוואטסאפ".
+// אילו התאמות סיכום כיסה - notifications.match_alert_ids, שהסיכום כותב בעצמו.
+// הקובץ מיובא גם מ-notification-push, ולכן מה שהוא מייבא הוא טיפוסים או
+// photo-target.ts (בלי תלויות). ‏docs/client-matching.md, "משוב מהוואטסאפ".
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import type { OutboxItem } from "./lookup_turn.ts";
+import { clipTitle } from "./photo-target.ts";
 
 export const MF_RELEVANT = "👍 רלוונטי";
 export const MF_NOT_RELEVANT = "👎 לא רלוונטי";
@@ -23,6 +26,11 @@ export const MF_LIST_SECTION = "התאמות מהסיכום";
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const UUID_RE = new RegExp(`^${UUID}$`, "i");
 const BUTTON_RE = new RegExp(`^mfb:(r|n|p|l):(${UUID})$`, "i");
+const ACTIONS = { r: "relevant", n: "not_relevant", p: "pick", l: "list" } as const;
+
+const IN_CRM = "ב-CRM, בהתראות ההתאמה";
+const GONE = "ההתאמה הזו כבר לא קיימת אצלך (הלקוח/ה או הנכס נסגרו או נמחקו).";
+const FAILED = `לא הצלחתי לשמור את הסימון. אפשר לסמן את ההתאמה ${IN_CRM}.`;
 
 export type MatchRow = {
   alert_id: string;
@@ -35,27 +43,15 @@ export type MatchRow = {
 
 export type ReplyButton = { id: string; title: string };
 
-export type MatchFeedbackOut =
-  | { kind: "text"; text: string }
-  | { kind: "buttons"; body: string; buttons: ReplyButton[] }
-  | {
-    kind: "list";
-    body: string;
-    button: string;
-    section: string;
-    rows: { id: string; title: string; description: string }[];
-  };
+/** אותה צורה כמו listingActionReply: טקסט, או פריט אחד ל-sendOutbox. */
+export type MatchFeedbackOut = { text?: string; outbox?: OutboxItem[] };
 
 export function parseMatchFeedbackButton(
   buttonId: string,
-): { action: "relevant" | "not_relevant" | "pick" | "list"; id: string } | null {
+): { action: (typeof ACTIONS)[keyof typeof ACTIONS]; id: string } | null {
   const m = BUTTON_RE.exec(String(buttonId || "").trim());
   if (!m) return null;
-  const letter = m[1].toLowerCase();
-  return {
-    action: letter === "r" ? "relevant" : letter === "n" ? "not_relevant" : letter === "p" ? "pick" : "list",
-    id: m[2].toLowerCase(),
-  };
+  return { action: ACTIONS[m[1].toLowerCase() as keyof typeof ACTIONS], id: m[2].toLowerCase() };
 }
 
 /** שני הכפתורים על התאמה אחת. */
@@ -80,37 +76,39 @@ export function matchDigestButtons(notificationId: string, rows: MatchRow[]): Re
   return [{ id: `mfb:l:${notificationId.toLowerCase()}`, title: MF_MARK }];
 }
 
-function clip(text: string, max: number): string {
-  const chars = Array.from(text);
-  return chars.length <= max ? text : chars.slice(0, max - 1).join("") + "…";
+function names(row: { client_name: string | null; property_title: string | null }): { who: string; what: string } {
+  return { who: (row.client_name || "").trim() || "הלקוח/ה", what: (row.property_title || "").trim() || "הנכס" };
 }
 
-function matchLine(row: { client_name: string | null; property_title: string | null; score: number | null }): string {
-  const who = (row.client_name || "הלקוח/ה").trim();
-  const what = (row.property_title || "הנכס").trim();
+function ask(row: { alert_id: string; client_name: string | null; property_title: string | null; score: number | null }):
+  MatchFeedbackOut {
+  const buttons = feedbackButtons(row.alert_id);
+  if (!buttons) return { text: FAILED };
+  const { who, what } = names(row);
   const pct = row.score != null ? ` (${row.score}%)` : "";
-  return `"${what}" ל${who}${pct}`;
+  return { outbox: [{ kind: "buttons", body: `"${what}" ל${who}${pct}. רלוונטי?`, buttons }] };
 }
 
 /** הרשימה: שורה לכל התאמה, השם בכותרת (24) והנכס בתיאור (72). */
 export function matchListRows(rows: MatchRow[]): { id: string; title: string; description: string }[] {
-  return rows.slice(0, 10).filter((r) => UUID_RE.test(r.alert_id)).map((r) => ({
-    id: `mfb:p:${r.alert_id.toLowerCase()}`,
-    title: clip((r.client_name || "לקוח/ה").trim(), 24),
-    description: clip(
-      `"${(r.property_title || "נכס").trim()}"${r.score != null ? ` ${r.score}%` : ""}` +
-        (r.feedback === "relevant" ? " · סומן רלוונטי" : ""),
-      72,
-    ),
-  }));
+  return rows.slice(0, 10).map((r) => {
+    const { who, what } = names(r);
+    return {
+      id: `mfb:p:${r.alert_id.toLowerCase()}`,
+      title: clipTitle(who, 24),
+      description: clipTitle(
+        `"${what}"${r.score != null ? ` ${r.score}%` : ""}${r.feedback === "relevant" ? " · סומן רלוונטי" : ""}`,
+        72,
+      ),
+    };
+  });
 }
 
 export function feedbackDoneText(
   feedback: "relevant" | "not_relevant",
   row: { client_name: string | null; property_title: string | null },
 ): string {
-  const who = (row.client_name || "הלקוח/ה").trim();
-  const what = (row.property_title || "הנכס").trim();
+  const { who, what } = names(row);
   return feedback === "relevant"
     ? `סימנתי ש"${what}" רלוונטי ל${who}. אפשר לבקש ממני מיניסייט ל${who} עם הנכס.`
     : `הורדתי את "${what}" מההתאמות של ${who}. הוא לא יופיע שוב בסיכומים.`;
@@ -133,23 +131,17 @@ export async function matchFeedbackReply(
 ): Promise<MatchFeedbackOut | null> {
   const parsed = parseMatchFeedbackButton(buttonId);
   if (!parsed) return null;
-  const failed: MatchFeedbackOut = {
-    kind: "text",
-    text: "לא הצלחתי לשמור את הסימון. אפשר לסמן את ההתאמה ב-CRM, בהתראות ההתאמה.",
-  };
 
   if (parsed.action === "relevant" || parsed.action === "not_relevant") {
     const rows = await rpcRows<{ client_name: string | null; property_title: string | null }>(
       supabase, "match_feedback_set", { p_agent: agentId, p_alert: parsed.id, p_feedback: parsed.action },
     );
-    if (rows == null) return failed;
-    if (rows.length === 0) {
-      return { kind: "text", text: "ההתאמה הזו כבר לא קיימת אצלך (הלקוח/ה או הנכס נסגרו או נמחקו)." };
-    }
-    return { kind: "text", text: feedbackDoneText(parsed.action, rows[0]) };
+    if (rows == null) return { text: FAILED };
+    return { text: rows.length ? feedbackDoneText(parsed.action, rows[0]) : GONE };
   }
 
   if (parsed.action === "pick") {
+    // אחד-לרבים: PostgREST מחזיר את שני ה-embeds כאובייקט
     const { data, error } = await supabase
       .from("client_match_alerts")
       .select("id, score, agent_clients(full_name), properties(title)")
@@ -158,44 +150,37 @@ export async function matchFeedbackReply(
       .maybeSingle();
     if (error) {
       console.error("match pick failed", error.message);
-      return failed;
+      return { text: FAILED };
     }
-    const buttons = data ? feedbackButtons(String(data.id)) : null;
-    if (!data || !buttons) {
-      return { kind: "text", text: "ההתאמה הזו כבר לא קיימת אצלך (הלקוח/ה או הנכס נסגרו או נמחקו)." };
-    }
-    const one = (v: unknown, key: string): string | null => {
-      const row = Array.isArray(v) ? v[0] : v;
-      const val = row && typeof row === "object" ? (row as Record<string, unknown>)[key] : null;
-      return typeof val === "string" ? val : null;
+    if (!data) return { text: GONE };
+    const row = data as unknown as {
+      score: number | null;
+      agent_clients: { full_name: string | null } | null;
+      properties: { title: string | null } | null;
     };
-    const line = matchLine({
-      client_name: one(data.agent_clients, "full_name"),
-      property_title: one(data.properties, "title"),
-      score: typeof data.score === "number" ? data.score : null,
+    return ask({
+      alert_id: parsed.id,
+      client_name: row.agent_clients?.full_name ?? null,
+      property_title: row.properties?.title ?? null,
+      score: row.score ?? null,
     });
-    return { kind: "buttons", body: `${line}. רלוונטי?`, buttons };
   }
 
   const rows = await rpcRows<MatchRow>(
     supabase, "match_digest_alerts", { p_agent: agentId, p_notification: parsed.id, p_limit: 10 },
   );
-  if (rows == null) return failed;
-  if (rows.length === 0) {
-    return { kind: "text", text: "אין בסיכום הזה התאמות פתוחות לסימון. הרשימה המלאה ב-CRM, בהתראות ההתאמה." };
-  }
-  if (rows.length === 1) {
-    const buttons = feedbackButtons(rows[0].alert_id);
-    if (!buttons) return failed;
-    return { kind: "buttons", body: `${matchLine(rows[0])}. רלוונטי?`, buttons };
-  }
+  if (rows == null) return { text: FAILED };
+  if (rows.length === 0) return { text: `אין בסיכום הזה התאמות פתוחות לסימון. הרשימה המלאה ${IN_CRM}.` };
+  if (rows.length === 1) return ask(rows[0]);
   const total = Number(rows[0].total ?? rows.length);
-  const more = total > rows.length ? ` מוצגות ${rows.length} הראשונות מתוך ${total}, השאר ב-CRM.` : "";
+  const more = total > rows.length ? ` מוצגות ${rows.length} הראשונות מתוך ${total}, השאר ${IN_CRM}.` : "";
   return {
-    kind: "list",
-    body: `על איזו התאמה לסמן?${more}`,
-    button: MF_LIST_BUTTON,
-    section: MF_LIST_SECTION,
-    rows: matchListRows(rows),
+    outbox: [{
+      kind: "list",
+      body: `על איזו התאמה לסמן?${more}`,
+      button: MF_LIST_BUTTON,
+      section: MF_LIST_SECTION,
+      rows: matchListRows(rows),
+    }],
   };
 }

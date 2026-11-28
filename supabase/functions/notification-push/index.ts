@@ -569,12 +569,15 @@ function templateSummary(items: Item[], withUrls = true): string {
 
 async function loadDigestFlags(
   sb: { from: (table: string) => any },
-): Promise<{ less: boolean; topics: boolean; guardOn: boolean }> {
-  const off = { less: false, topics: false, guardOn: false };
+): Promise<{ less: boolean; topics: boolean; guardOn: boolean; matchFeedback: boolean }> {
+  const off = { less: false, topics: false, guardOn: false, matchFeedback: false };
   try {
     const { data, error } = await sb.from("pricing_config")
       .select("key, value")
-      .in("key", ["notif_digest_enabled", "notif_topic_group", "notification_burst_guard_enabled"]);
+      .in("key", [
+        "notif_digest_enabled", "notif_topic_group", "notification_burst_guard_enabled",
+        "match_feedback_buttons_enabled",
+      ]);
     if (error || !Array.isArray(data)) return off;
     const on = (key: string) => data.some((row: { key?: string; value?: unknown }) =>
       row.key === key && Number(row.value) === 1);
@@ -584,21 +587,10 @@ async function loadDigestFlags(
       less: digest,
       topics: digest && on("notif_topic_group"),
       guardOn: guardRow ? guardEnabled(guardRow.value) : false,
+      matchFeedback: on("match_feedback_buttons_enabled"),
     };
   } catch {
     return off;
-  }
-}
-
-async function matchFeedbackFlagOn(sb: { from: (table: string) => any }): Promise<boolean> {
-  try {
-    const { data, error } = await sb.from("pricing_config")
-      .select("value")
-      .eq("key", "match_feedback_buttons_enabled")
-      .maybeSingle();
-    return !error && Number(data?.value) === 1;
-  } catch {
-    return false;
   }
 }
 
@@ -612,9 +604,8 @@ async function matchFeedbackButtonsFor(
   sb: { rpc: (fn: string, args: Record<string, unknown>) => any },
   agentId: string,
   items: Item[],
-  mode: string,
 ): Promise<{ id: string; title: string }[] | null> {
-  if (mode === "template" || items.length !== 1 || items[0].type !== "match_digest") return null;
+  if (items.length !== 1 || items[0].type !== "match_digest") return null;
   const notificationId = String(items[0].id || "");
   if (!notificationId) return null;
   try {
@@ -642,7 +633,7 @@ async function sendWhatsapp(
   lessType: string | null,
   topics = false,
   cadenceOn = false,
-  matchBtns: { id: string; title: string }[] | null = null,
+  ownBtns: { id: string; title: string }[] | null = null,
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
@@ -655,7 +646,6 @@ async function sendWhatsapp(
 
   let payload: Record<string, unknown>;
   let soleBoard = false;
-  const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
   const embedded: { label: string; url: string }[] = [];
   const withoutUrls = (text: string) => {
@@ -800,42 +790,14 @@ async function sendWhatsapp(
         ],
       },
     };
-  } else if (nudgeBtns) {
-    // שלושה כפתורי תשובה על נכס אחד. אי אפשר לערבב אותם עם cta_url.
-    // "בלי תזכורת" נשאר בכרטיס ב-CRM: ל-Meta יש שלושה כפתורים.
+  } else if (ownBtns) {
+    // כפתורי תשובה שהפריט מביא בעצמו (תזכורת לנכס, משוב על התאמות). אי אפשר
+    // לערבב אותם עם cta_url, ולכן קישור ל-CRM הוא כפתור nav: בתוכם. הם גוברים
+    // על "פחות כאלה" ועל כפתור הקצב: ל-Meta יש שלושה.
     const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
-    const buttons = nudgeBtns.map((b) => ({
-      type: "reply",
-      reply: { id: b.id, title: b.title },
-    }));
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: { text: body },
-        action: { buttons },
-      },
-    };
-  } else if (matchBtns) {
-    // משוב על ההתאמות. גובר על "פחות כאלה" ועל כפתור הקצב: יש רק שלושה
-    // כפתורים, והקישור ל-CRM הוא השלישי (match-feedback.ts).
-    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
-    const crm = matchBtns.find((b) => parseNavId(b.id));
-    if (crm) tokens = clickRecords({ kind: "single", path: parseNavId(crm.id) as string, label: "" });
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: { text: body },
-        action: { buttons: matchBtns.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) },
-      },
-    };
+    const nav = ownBtns.map((b) => parseNavId(b.id)).find(Boolean);
+    if (nav) tokens = clickRecords({ kind: "single", path: nav, label: "" });
+    payload = replyButtonsMessage(to, body, ownBtns);
   } else if (mode !== "template" && (showingCloseNotifyButton(items) || lessType)) {
     const scn = showingCloseNotifyButton(items);
     // כפתור תשובה אחד. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
@@ -1179,7 +1141,6 @@ Deno.serve(async (req: Request) => {
   // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
   const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
   const digest = await loadDigestFlags(sb);
-  const matchFeedbackOn = await matchFeedbackFlagOn(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
     // תקרת התבניות. הדגל כבוי, או שהפונקציה עוד לא במיגרציה: שולחים כרגיל.
@@ -1366,11 +1327,11 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-      const matchBtns = matchFeedbackOn
-        ? await matchFeedbackButtonsFor(sb, String(row.agent_id), items, row.channel_mode)
-        : null;
+      // כפתורי תשובה שהפריט מביא בעצמו: תזכורת לנכס שלא פורסם, או משוב על התאמות.
+      const ownBtns = row.channel_mode === "template" ? null : nudgeReplyButtons(items) ??
+        (digest.matchFeedback ? await matchFeedbackButtonsFor(sb, String(row.agent_id), items) : null);
       const sent = await sendWhatsapp(
-        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn, matchBtns,
+        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn, ownBtns,
       );
       waId = sent.id;
       tokens = sent.tokens;

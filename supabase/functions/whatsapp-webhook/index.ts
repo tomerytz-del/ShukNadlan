@@ -26,7 +26,7 @@ import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } f
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
-import { matchFeedbackReply, type MatchFeedbackOut } from "./match-feedback.ts";
+import { matchFeedbackReply } from "./match-feedback.ts";
 import {
   answerBuildingDeveloperUnknown,
   markBuildingDeveloperDelivered,
@@ -2165,40 +2165,6 @@ async function sendCadenceDisabled(agentId: string, from: string): Promise<void>
   }], agentId);
 }
 
-/** תשובה לכפתור משוב על התאמה (match-feedback.ts): טקסט, שני כפתורים או רשימה. */
-async function sendMatchFeedback(agentId: string, from: string, out: MatchFeedbackOut): Promise<void> {
-  if (out.kind === "text") {
-    await reply(from, out.text, agentId);
-    return;
-  }
-  if (out.kind === "buttons") {
-    await replyButtons(from, out.body, out.buttons, agentId);
-    return;
-  }
-  let waMessageId: string | null = null;
-  let sendError: string | null = null;
-  try {
-    waMessageId = await sendList(from, out.body, out.button, out.section, out.rows);
-  } catch (err) {
-    sendError = String((err as Error)?.message || err);
-    console.error("match feedback list failed", err);
-  }
-  await supabase.from("whatsapp_messages").insert({
-    ...senderStamp(),
-    wa_message_id: waMessageId,
-    direction: "out",
-    wa_phone: from,
-    agent_id: agentId,
-    msg_type: "interactive",
-    body: `${out.body}\n[${out.rows.map((r) => r.title).join(" | ")}]`,
-    status: waMessageId ? "sent" : null,
-    error: sendError,
-  });
-  if (sendError) {
-    await reply(from, "לא הצלחתי לפתוח את הרשימה. אפשר לסמן את ההתאמות ב-CRM, בהתראות ההתאמה.", agentId);
-  }
-}
-
 async function sendCadenceTypeList(
   agentId: string,
   from: string,
@@ -2883,11 +2849,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       // (match-feedback.ts). המזהה נושא את ההתאמה, והתשובה קבועה ובלי מודל.
       const matchFb = await matchFeedbackReply(supabase, agent.id, buttonId);
       if (matchFb) {
-        await sendMatchFeedback(agent.id, from, matchFb);
-        if (matchFb.kind === "text") {
+        if (matchFb.text) {
+          await reply(from, matchFb.text, agent.id);
           rememberListingAction(conv, matchFb.text);
           await saveConversation(agent.id, from, conv);
         }
+        if (matchFb.outbox?.length) await sendOutbox(from, matchFb.outbox, agent.id);
         return;
       }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)

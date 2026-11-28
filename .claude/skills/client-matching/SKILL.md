@@ -185,9 +185,10 @@ description: קובץ הלקוחות ומנוע ההתאמות בריפו של �
 ## ‏4ה'. משוב מהוואטסאפ על ריכוז ההתאמות (‏`20271204100000`)
 
 ‏"👎 לא רלוונטי" הוא `status = 'dismissed'` ו"👍 רלוונטי" הוא `seen`, והשיפוט עצמו ב-`feedback` / `feedback_at` -
-נכתב **רק** ב-`match_feedback_set` (‏`service_role`, מסננת לפי סוכן/ת). אילו התאמות סיכום כיסה מחושב מחדש ב-
-`match_digest_alerts` מהחלון ומהתנאים של `client_match_digest_run`: **מי שמשנה את החלון או את התנאים בסיכום משנה
-גם שם**, אחרת הכפתור מסמן התאמה אחרת ממה שנכתב בהודעה, בלי שגיאה. הדגל `match_feedback_buttons_enabled`.
+נכתב **רק** ב-`match_feedback_set` (‏`service_role`, מסננת לפי סוכן/ת). אילו התאמות סיכום כיסה - הסיכום רושם בעצמו
+ב-`notifications.match_alert_ids`, ו-`match_digest_alerts` קוראת משם. **מי שמעתיק/ה את `client_match_digest_run`
+לגרסה חדשה שומר/ת על `v_alert_ids` ועל העמודה ב-insert**, אחרת כפתורי המשוב נעלמים בלי שגיאה (סיכום עם `null`
+יוצא בלי כפתורים). הדגל `match_feedback_buttons_enabled`.
 ‏`docs/client-matching.md`, "משוב מהוואטסאפ".
 
 ## ‏4ה. רמות שיתוף וסיכום ההתאמות (‏`20270426090000`)
