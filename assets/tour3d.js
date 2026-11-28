@@ -299,9 +299,8 @@ async function openHome(){
         file=await pdfToJpeg(pdfState.doc,+$('nPage').value||pdfState.best);
       }
       var b64=await new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'')};fr.onerror=no;fr.readAsDataURL(file)});
-      /* רשות: רק מה שמולא. הטווחים נבדקים שוב בשרת (parseHints), וערך שגוי מתעלמים ממנו */
-      var hints={},ar=parseFloat($('nArea').value),rm=parseFloat($('nRooms').value);
-      if(ar>0)hints.apartment_sqm=ar;if(rm>0)hints.rooms=rm;
+      /* רשות. הטווחים נבדקים רק בשרת (parseHints), וערך שגוי מתעלמים ממנו */
+      var hints={apartment_sqm:parseFloat($('nArea').value)||null,rooms:parseFloat($('nRooms').value)||null};
       var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64,hints:hints});
       location.href=tourUrl(d.model_id,true);
     }catch(e){msg(out,heText(e),true);btn.disabled=false}

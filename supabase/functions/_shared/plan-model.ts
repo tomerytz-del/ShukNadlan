@@ -53,7 +53,6 @@ export type PlanSettings = {
   declared_area_sqm: number | null;
   declared_balcony_sqm: number | null;
   checks: PlanCheck[];
-  user_hints?: PlanHints;
 };
 
 export class PlanReadError extends Error {
@@ -65,6 +64,8 @@ export class PlanReadError extends Error {
 }
 
 // סוג חדר -> שם ברירת מחדל, רצפה ודגלים. הרשימה סגורה: סוג שהמודל המציא הופך ל-"other".
+/** מה נספר כ"חדר" בספירה הישראלית (דירת 4 חדרים): סלון, שינה, סוויטה וממ"ד. מטבח, רחצה ומסדרון אינם. */
+const COUNTED_KINDS = ["living", "master", "bedroom", "mamad"];
 const ROOM_KINDS: Record<string, { name: string; f: Room["f"]; nc?: 1; bal?: 1; svc?: 1 }> = {
   living: { name: "סלון", f: "tile" },
   kitchen: { name: "מטבח", f: "tile" },
@@ -148,7 +149,7 @@ export function uncertainNotes(v: unknown): string[] {
   const out: string[] = [];
   for (const it of list(v, 6)) {
     const o = it as Record<string, unknown>;
-    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[—–]/g, "-").replace(/\s+/g, " ").trim().slice(0, 120);
+    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[\u2014\u2013\u2015]/g, "-").replace(/\s+/g, " ").trim().slice(0, 120);
     if (!text) continue;
     const about = typeof o.about === "string" ? UNCERTAIN_ABOUT[o.about] ?? "" : "";
     const note = about ? `${about}: ${text}` : text;
@@ -604,10 +605,9 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });
 
-  // ספירה ישראלית: סלון, חדרי שינה וממ"ד. מטבח, רחצה ומסדרון אינם נספרים. הפרש של חדר שלם ומעלה מסמן "בדקו",
-  // ולא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
+  // הפרש של חדר שלם ומעלה מסמן "בדקו" ולא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
   if (hints?.rooms != null) {
-    const found = rooms.filter((r) => r.id.startsWith("living") || r.id.startsWith("master") || r.id.startsWith("bedroom") || r.id.startsWith("mamad")).length;
+    const found = COUNTED_KINDS.reduce((n, k) => n + (counts[k] ?? 0), 0);
     if (Math.abs(found - hints.rooms) >= 1) checks.push({ code: "rooms_mismatch", declared: hints.rooms, found });
   }
   const unclear = uncertainNotes(raw.uncertain);
@@ -626,7 +626,6 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
       declared_area_sqm: declaredArea !== null && declaredArea > 0 ? declaredArea : null,
       declared_balcony_sqm: declaredBalcony !== null && declaredBalcony > 0 ? declaredBalcony : null,
       checks,
-      ...(hints ? { user_hints: hints } : {}),
     },
   };
 }

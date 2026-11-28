@@ -337,10 +337,8 @@ test("buildModel: שטח מהטופס ממלא חסר, ושטח כתוב בתו�
   const viaPlan = buildModel({ ...d, apartment_sqm: 16 }, W, H);
   assert.equal(viaHint.settings.declared_area_sqm, 16);
   assert.equal(viaHint.settings.scale, viaPlan.settings.scale);
-  assert.deepEqual(viaHint.settings.user_hints, { apartment_sqm: 16, rooms: null });
   const win = buildModel(sample(), W, H, { apartment_sqm: 99, rooms: null });
   assert.equal(win.settings.declared_area_sqm, 30);
-  assert.equal(buildModel(sample(), W, H).settings.user_hints, undefined);
 });
 
 test("buildModel: מספר חדרים שהוצהר מסמן 'בדקו' רק בהפרש של חדר שלם, ולא משנה את המודל", () => {
