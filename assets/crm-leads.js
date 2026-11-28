@@ -33,6 +33,14 @@ const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3,
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
   // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן ויד2: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
   'facebook_group', 'facebook_marketplace', 'madlan', 'yad2']);
+/* ליד שנפתח ממודעה בלוח (יד2/מדלן): אין אדם שפנה ומחכה לתשובה. הוא
+   נשאר ברשימה, אבל לא במונים, לא "לא נקרא" ולא ב"לחזור אליהם קודם". עותק של
+   lead_is_board() במסד (20271203120000), שמוציאה אותו גם מהמענה בדשבורדים. */
+const LEAD_BOARD_QUOTA = new Set(['yad2_free', 'madlan_free']);
+function leadIsBoard(l){ return LEAD_BOARD_QUOTA.has(l.quota_source); }
+/* ליד שמחכה למענה: מה שנספר במונים, מודגש כלא נקרא ונכנס ל"לחזור אליהם קודם".
+   הגדרה אחת לכל האתרים, כדי שהתג והרשימה לא יתפצלו. */
+function leadAwaitsReply(l){ return !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new' && !leadIsBoard(l); }
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -173,9 +181,12 @@ async function loadLeadCalls(leads){
 }
 
 /* ---------- הציור ---------- */
-/* סדר העדיפות: בעלים, נרכש, שיחה, אתר - ובתוך כל מקור החדש ביותר */
-function leadsPrioritySort(list){
-  return list.slice().sort((a, b) => (LEAD_PRIO[leadSrcKey(a)] - LEAD_PRIO[leadSrcKey(b)])
+/* סדר העדיפות: בעלים, נרכש, שיחה, אתר - ובתוך כל מקור החדש ביותר.
+   ‏boardLast: מודעות מהלוח אחרי השאר - רק בלשונית "חדשים", שבה הן מחכות לצד
+   לידים אמיתיים. ליד מהלוח שהסוכן/ת קידם/ה לשלב שומר על מקומו הרגיל. */
+function leadsPrioritySort(list, boardLast){
+  return list.slice().sort((a, b) => (boardLast ? leadIsBoard(a) - leadIsBoard(b) : 0)
+    || (LEAD_PRIO[leadSrcKey(a)] - LEAD_PRIO[leadSrcKey(b)])
     || (new Date(b.created_at) - new Date(a.created_at)));
 }
 
@@ -183,8 +194,7 @@ function leadsPrioritySort(list){
    ו"מחכה לך" בדף הבית (crm-home.js) קוראים מכאן, כדי שהסדר יהיה אותו סדר */
 function leadsPriorityGroups(){
   if (typeof allLeads === 'undefined' || !currentAgent) return [];
-  const fresh = allLeads.filter(l => !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new'
-    && (!l.agent_id || l.agent_id === currentAgent.id));
+  const fresh = allLeads.filter(l => leadAwaitsReply(l) && (!l.agent_id || l.agent_id === currentAgent.id));
   return groupLeadsByVisitor(leadsPrioritySort(fresh));
 }
 
@@ -208,7 +218,9 @@ function renderLeadsUnified(agentId){
   /* כל מונה כאן סופר פונים ולא שורות ב-leads, כמו הרשימה: פונה עם שתי
      פניות הוא כרטיס אחד, ו"4" מעל רשימה של 2 נקרא כבאג (docs/lead-card.md) */
   const people = list => groupLeadsByVisitor(list).length;
-  const nFresh = people(fresh), nActive = people(active);
+  // מודעות מהלוח לא בתג שבסרגל ובסיכום (nFresh). המונה של הלשונית "חדשים"
+  // סופר את מה שהיא מציגה, כולל אותן, אחרת "1" מעל ארבעה כרטיסים
+  const nFresh = people(active.filter(leadAwaitsReply)), nActive = people(active);
 
   accSetCount('accLeads', nFresh);
   syncLeadsSettings();
@@ -218,7 +230,7 @@ function renderLeadsUnified(agentId){
     : '');
 
   // הלשוניות
-  const counts = { new: nFresh, work: people(work), archive: people(archived),
+  const counts = { new: people(fresh), work: people(work), archive: people(archived),
                    demand: openDemandRows ? openDemandRows.filter(d => !d.mine).length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
@@ -246,7 +258,7 @@ function renderLeadsUnified(agentId){
   const filtered = pool.filter(l => inSrc(l, leadsSrc));
   const sorted = leadsTab === 'archive'
     ? filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    : leadsPrioritySort(filtered);
+    : leadsPrioritySort(filtered, leadsTab === 'new');
 
   // לידים של אותו/ה פונה יחד - הכרטיס של הדחוף, והשאר ב"פרטים"
   const groups = groupLeadsByVisitor(sorted);
@@ -338,7 +350,7 @@ function buildLeadPriorityCard(group, rank, agentId){
   const wants = leadWants(lead, call);
 
   const when = leadWhen(lead.created_at);
-  const unread = stage === 'new' && !archived;
+  const unread = leadAwaitsReply(lead);
   const phone = lead.display_phone || '';
   const el = document.createElement('article');
   el.className = 'ui-scope lp-card' + (urgent ? ' is-urgent' : '') + (unread ? ' is-unread' : '');
@@ -970,7 +982,7 @@ function renderClientsTop(){
   alignScrollTabs(document.getElementById('clientsKindTabs'));
 
   const leads = typeof allLeads !== 'undefined' ? allLeads : [];
-  const freshLeads = leads.filter(l => !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new');
+  const freshLeads = leads.filter(leadAwaitsReply);
   const callLeads = freshLeads.filter(l => l.lead_type === 'call').length;
   const link = document.getElementById('clientsLeadsLink');
   link.hidden = !freshLeads.length;
