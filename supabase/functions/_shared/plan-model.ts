@@ -513,11 +513,12 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   }
 
   // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל ----
-  // declaredArea: מה שכתוב בתוכנית, ורק הוא נשמר ומוצג (בעורך ובכותרת הציבורית). השטח מהטופס משמש לקנה המידה בלבד, כשאין
-  // שטח כתוב או שהקריאה שלו לא סבירה (12000 במקום 120): אחרת העורך היה "מאשר" את מה שהוקלד, והציבור היה רואה אותו כעובדה
+  // declaredArea: מה שכתוב בתוכנית, ורק הוא נשמר ומוצג (בעורך ובכותרת הציבורית). השטח מהטופס (hintArea) הוא מוצא אחרון לקנה
+  // המידה: **רק כשאין אף מידה כתובה**, ולא כמסנן של מידות כתובות. הוא הוקלד בידי מי שיכול לטעות, ושטח רחוק מהאמת היה גובר
+  // על מידות נכונות מהתוכנית. ואינו נשמר כ"שטח כתוב": אחרת העורך היה "מאשר" את מה שהוקלד, והציבור היה רואה אותו כעובדה
   const declaredArea = num(raw.apartment_sqm), declaredBalcony = num(raw.balcony_sqm);
   const plausible = (a: number | null): a is number => a !== null && a > 15 && a < 1500;
-  const areaForScale = plausible(declaredArea) ? declaredArea : hints?.apartment_sqm ?? null;
+  const hintArea = hints?.apartment_sqm ?? null;
   const ratios: number[] = [];
   for (const d of list(raw.dimensions, 8)) {
     const cm = num((d as Record<string, unknown>)?.cm), b = boxPx(d, W, H);
@@ -536,8 +537,8 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const tol = Math.max(8, Math.round(Math.max(W, H) * 0.018));
   const grid = roomGrid(rooms, tol, solids);
   const px2 = ownedArea(grid, (k) => !rooms[k].bal && !rooms[k].svc);
-  const byArea = plausible(areaForScale) && px2 > 0
-    ? Math.sqrt(areaForScale * 10000 / px2) : 0;
+  const fromArea = (a: number | null) => plausible(a) && px2 > 0 ? Math.sqrt(a * 10000 / px2) : 0;
+  const byArea = fromArea(declaredArea), byHint = fromArea(hintArea);
   const byDoor = doors.length ? 85 / median(doors) : 0;
   // מידה כתובה מתקבלת רק אם היא מסכימה עם השטח הכתוב (עד 35%): בפנטהאוז המידות הותאמו לקטעים
   // הלא נכונים ונתנו 4.6 ס"מ לפיקסל במקום כ-1.7, והרהיטים יצאו בגודל של צעצוע
@@ -552,6 +553,9 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     checks.push({ code: "scale_inconsistent" });
   } else if (sane(byArea)) {
     scale = byArea;
+    scaleSource = "area";
+  } else if (sane(byHint)) {
+    scale = byHint;
     scaleSource = "area";
   } else if (sane(byDoor)) {
     scale = byDoor;

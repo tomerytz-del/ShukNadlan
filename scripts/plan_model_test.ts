@@ -339,9 +339,15 @@ test("buildModel: שטח מהטופס ממלא חסר, ושטח כתוב בתו�
   assert.equal(viaHint.settings.scale_source, "area");
   assert.equal(viaHint.settings.declared_area_sqm, null);   // מה שהוקלד אינו "שטח כתוב": לא נשמר ולא מוצג
   assert.equal(viaPlan.settings.declared_area_sqm, 16);
-  // שטח שנקרא בטעות (12000 במקום 16, מחוץ לטווח הסביר) אינו חוסם את ההצהרה
+  // שטח שנקרא בטעות (12000 במקום 16, מחוץ לטווח הסביר): נפסל, ולא חוסם את ההצהרה
   const bad = buildModel({ ...d, apartment_sqm: 12000 }, W, H, { apartment_sqm: 16, rooms: null });
   assert.equal(bad.settings.scale, viaPlan.settings.scale);
+  // מידה כתובה גוברת על שטח מהטופס, גם כשהוא רחוק מאוד: ההצהרה אינה מסנן של מידות כתובות
+  const withDims = sample(); (withDims as { apartment_sqm: number | null }).apartment_sqm = null;
+  const far = buildModel(withDims, W, H, { apartment_sqm: 400, rooms: null });
+  assert.equal(far.settings.scale_source, "dimensions");
+  assert.equal(far.settings.scale, buildModel(withDims, W, H).settings.scale);
+  assert.equal(far.settings.checks.some((c) => c.code === "scale_inconsistent"), false);
   const win = buildModel(sample(), W, H, { apartment_sqm: 99, rooms: null });
   assert.equal(win.settings.declared_area_sqm, 30);
 });
