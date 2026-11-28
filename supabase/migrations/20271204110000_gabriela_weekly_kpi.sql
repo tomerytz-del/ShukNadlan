@@ -15,11 +15,15 @@
 --   pushes ...         - notification_push_log שיצאו (whatsapp_status='sent');
 --                       read_pct ו-failed_pct מתוך אלה שיש להן delivery_status.
 --   fail_131049        - כשל מסירה בקוד 131049 של Meta (מגבלת תבניות שיווקיות).
+--   agent_calls        - קריאות למודל בתורים (gabriela_agent + gabriela_agent_limited).
 --   agent_usd          - עלות המודל לעוזרת הסוכנים (gabriela_agent*, כולל חימום
---                       ותור מוגבל). **אותו תמחור בדיוק כמו ai_usage_costs** (הפאנל
+--                       ותור מוגבל). **אותו תמחור כמו ai_usage_costs** (הפאנל
 --                       "עלויות" ב-CRM, 20270622090000): מחיר לפי ההתאמה הארוכה
 --                       ביותר של שם המודל, units לפי unit_usd, ומטמון של שעה בלי
 --                       מחיר = input * 2. מי שמשנה את התמחור שם משנה גם כאן.
+--                       התמחור כאן לפי שורה ושם לפי קבוצה: שורה בלי מחיר חסרה כאן
+--                       מהסכום ושם הקבוצה כולה null, ולכן unpriced_calls סופר אותן.
+--   מנהלי/ות פלטפורמה מחוץ לכל העמודות (הודעות, עלות, קריאות וזמנים).
 --   prefix_tokens      - גודל הקידומת הקבועה (כלים + SYSTEM_STATIC), לפי קריאות
 --                       החימום, שאין בהן היסטוריה. 94% מכל קריאה ב-11.2026.
 --   *_p50_s / p90_s    - gabriela_turn_timings, תורים שהסתיימו ok (מ-24.11.2026).
@@ -36,6 +40,9 @@ with b as (
 lo as (
   select (min(week_start)::timestamp at time zone 'Asia/Jerusalem') as t from b
 ),
+-- מנהלי/ות פלטפורמה בודקים את גבריאלה, ולכן הם מחוץ לכל העמודות (הודעות, עלות
+-- וזמנים) - אחרת עלות להודעה הייתה זזה לפי כמה הם בדקו באותו שבוע.
+adm as (select id from public.agency_members where is_platform_admin),
 msg as (
   select wk.d - extract(dow from wk.d)::int as week_start,
          count(distinct m.agent_id) as agents, count(*) as inbound
@@ -44,7 +51,7 @@ msg as (
     cross join lateral (select (m.created_at at time zone 'Asia/Jerusalem')::date as d) wk
    where m.direction = 'in'
      and m.agent_id is not null
-     and m.agent_id not in (select id from public.agency_members where is_platform_admin)
+     and m.agent_id not in (select id from adm)
    group by 1
 ),
 push as (
@@ -63,7 +70,10 @@ push as (
 ),
 cost as (
   select wk.d - extract(dow from wk.d)::int as week_start,
-         count(*) filter (where l.feature = 'gabriela_agent') as agent_calls,
+         -- קריאות של תורים (וואטסאפ, ומייל/קובץ בתור המוגבל); החימום רק בעלות
+         count(*) filter (where l.feature in ('gabriela_agent', 'gabriela_agent_limited')) as agent_calls,
+         -- שורות בלי מחיר ב-ai_model_prices: העלות שלהן חסרה ב-agent_usd
+         count(*) filter (where pr.model is null) as unpriced_calls,
          round(sum(case
                  when pr.model is null then null
                  when l.units is not null then l.units * pr.unit_usd
@@ -89,6 +99,7 @@ cost as (
     ) pr on true
    where l.feature like 'gabriela_agent%'
      and l.model is not null and l.model <> 'copy'
+     and (l.agent_id is null or l.agent_id not in (select id from adm))
    group by 1
 ),
 tm as (
@@ -102,10 +113,11 @@ tm as (
                 filter (where t.kind = 'voice') / 1000)::numeric, 1) as voice_p50_s,
          round((percentile_cont(0.9) within group (order by t.total_ms)
                 filter (where t.kind = 'voice') / 1000)::numeric, 1) as voice_p90_s,
-         round(100.0 * avg((t.total_ms > 30000)::int), 1) as pct_over_30s
+         round(100.0 * count(*) filter (where t.total_ms > 30000) / nullif(count(*), 0), 1) as pct_over_30s
     from lo
     join public.gabriela_turn_timings t
       on t.created_at >= lo.t and t.outcome = 'ok' and t.kind in ('text', 'voice')
+     and (t.agent_id is null or t.agent_id not in (select id from adm))
     cross join lateral (select (t.created_at at time zone 'Asia/Jerusalem')::date as d) wk
    group by 1
 ),
@@ -127,6 +139,7 @@ select b.week_start,
        push.fail_131049,
        cost.agent_calls,
        cost.agent_usd,
+       cost.unpriced_calls,
        round(cost.agent_usd / nullif(msg.inbound, 0), 3) as usd_per_inbound,
        cost.prefix_tokens,
        tm.text_p50_s,
