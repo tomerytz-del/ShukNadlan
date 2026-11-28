@@ -335,8 +335,13 @@ test("buildModel: שטח מהטופס ממלא חסר, ושטח כתוב בתו�
   const d = sample(); d.dimensions = []; (d as { apartment_sqm: number | null }).apartment_sqm = null;
   const viaHint = buildModel(d, W, H, { apartment_sqm: 16, rooms: null });
   const viaPlan = buildModel({ ...d, apartment_sqm: 16 }, W, H);
-  assert.equal(viaHint.settings.declared_area_sqm, 16);
   assert.equal(viaHint.settings.scale, viaPlan.settings.scale);
+  assert.equal(viaHint.settings.scale_source, "area");
+  assert.equal(viaHint.settings.declared_area_sqm, null);   // מה שהוקלד אינו "שטח כתוב": לא נשמר ולא מוצג
+  assert.equal(viaPlan.settings.declared_area_sqm, 16);
+  // שטח שנקרא בטעות (12000 במקום 16, מחוץ לטווח הסביר) אינו חוסם את ההצהרה
+  const bad = buildModel({ ...d, apartment_sqm: 12000 }, W, H, { apartment_sqm: 16, rooms: null });
+  assert.equal(bad.settings.scale, viaPlan.settings.scale);
   const win = buildModel(sample(), W, H, { apartment_sqm: 99, rooms: null });
   assert.equal(win.settings.declared_area_sqm, 30);
 });
@@ -346,6 +351,7 @@ test("buildModel: מספר חדרים שהוצהר מסמן 'בדקו' רק בה
   const at = (rooms: number) => buildModel(sample(), W, H, { apartment_sqm: null, rooms }).settings.checks.find((c) => c.code === "rooms_mismatch");
   assert.deepEqual(at(4), { code: "rooms_mismatch", declared: 4, found: 2 });
   assert.equal(at(2), undefined);
+  assert.equal(at(1), undefined);   // נקראו יותר מהמוצהר: אין "חסר חדר" 
   assert.equal(at(2.5), undefined);
   assert.equal(buildModel(sample(), W, H, { apartment_sqm: null, rooms: 4 }).model.rooms.length, buildModel(sample(), W, H).model.rooms.length);
 });
@@ -353,15 +359,17 @@ test("buildModel: מספר חדרים שהוצהר מסמן 'בדקו' רק בה
 test("buildModel: 'לא היה ברור' מנוקה (בלי HTML ובלי מקף ארוך), מוגבל ל-6, ובלי כפילויות", () => {
   const raw = sample() as Record<string, unknown>;
   raw.uncertain = [
+    { about: "wall", note: "קיר <b>מוסתר</b> מאחורי הארון \u2014 לא בטוח." },
     { about: "wall", note: "קיר <b>מוסתר</b> מאחורי הארון \u2014 לא בטוח" },
-    { about: "wall", note: "קיר <b>מוסתר</b> מאחורי הארון \u2014 לא בטוח" },
+    { about: "constructor", note: "סוג שאינו ברשימה" },
     { about: "spaceship", note: "x".repeat(300) },
     { note: "   " }, { about: "opening", note: "" }, 5, null,
     ...Array.from({ length: 8 }, (_, i) => ({ about: "room", note: `חלל ${i}` })),
   ];
   const c = buildModel(raw, W, H).settings.checks.find((k) => k.code === "model_uncertain") as { notes: string[] };
   assert.ok(c && c.notes.length <= 6);
-  assert.equal(c.notes[0], "קיר: קיר b מוסתר /b מאחורי הארון - לא בטוח");
+  assert.equal(c.notes[0], "קיר: קיר b מוסתר /b מאחורי הארון - לא בטוח");   // בלי נקודה בסוף, והכפילות הוסרה
+  assert.ok(c.notes.includes("סוג שאינו ברשימה"), "about שאינו ברשימה לא נכנס לטקסט");
   assert.ok(c.notes.every((n) => !/[<>\u2014\u2013]/.test(n)), "בלי HTML ובלי מקף ארוך");
   assert.ok(c.notes.every((n) => n.length <= 130));
   assert.equal(new Set(c.notes).size, c.notes.length);

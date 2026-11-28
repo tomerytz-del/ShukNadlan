@@ -149,9 +149,9 @@ export function uncertainNotes(v: unknown): string[] {
   const out: string[] = [];
   for (const it of list(v, 6)) {
     const o = it as Record<string, unknown>;
-    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[\u2014\u2013\u2015]/g, "-").replace(/\s+/g, " ").trim().slice(0, 120);
+    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[\u2014\u2013\u2015]/g, "-").replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "").slice(0, 120);
     if (!text) continue;
-    const about = typeof o.about === "string" ? UNCERTAIN_ABOUT[o.about] ?? "" : "";
+    const about = typeof o.about === "string" && Object.hasOwn(UNCERTAIN_ABOUT, o.about) ? UNCERTAIN_ABOUT[o.about] : "";   // hasOwn: "constructor" אינו סוג
     const note = about ? `${about}: ${text}` : text;
     if (!out.includes(note)) out.push(note);
   }
@@ -513,8 +513,11 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   }
 
   // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל ----
-  // שטח שכתוב בתוכנית גובר. אם אין, השטח שהוצהר בטופס משמש לקנה המידה (הוא נבדק מול המידות כמו שטח כתוב)
-  const declaredArea = num(raw.apartment_sqm) ?? hints?.apartment_sqm ?? null, declaredBalcony = num(raw.balcony_sqm);
+  // declaredArea: מה שכתוב בתוכנית, ורק הוא נשמר ומוצג (בעורך ובכותרת הציבורית). השטח מהטופס משמש לקנה המידה בלבד, כשאין
+  // שטח כתוב או שהקריאה שלו לא סבירה (12000 במקום 120): אחרת העורך היה "מאשר" את מה שהוקלד, והציבור היה רואה אותו כעובדה
+  const declaredArea = num(raw.apartment_sqm), declaredBalcony = num(raw.balcony_sqm);
+  const plausible = (a: number | null): a is number => a !== null && a > 15 && a < 1500;
+  const areaForScale = plausible(declaredArea) ? declaredArea : hints?.apartment_sqm ?? null;
   const ratios: number[] = [];
   for (const d of list(raw.dimensions, 8)) {
     const cm = num((d as Record<string, unknown>)?.cm), b = boxPx(d, W, H);
@@ -533,8 +536,8 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const tol = Math.max(8, Math.round(Math.max(W, H) * 0.018));
   const grid = roomGrid(rooms, tol, solids);
   const px2 = ownedArea(grid, (k) => !rooms[k].bal && !rooms[k].svc);
-  const byArea = declaredArea !== null && declaredArea > 15 && declaredArea < 1500 && px2 > 0
-    ? Math.sqrt(declaredArea * 10000 / px2) : 0;
+  const byArea = plausible(areaForScale) && px2 > 0
+    ? Math.sqrt(areaForScale * 10000 / px2) : 0;
   const byDoor = doors.length ? 85 / median(doors) : 0;
   // מידה כתובה מתקבלת רק אם היא מסכימה עם השטח הכתוב (עד 35%): בפנטהאוז המידות הותאמו לקטעים
   // הלא נכונים ונתנו 4.6 ס"מ לפיקסל במקום כ-1.7, והרהיטים יצאו בגודל של צעצוע
@@ -605,10 +608,10 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });
 
-  // הפרש של חדר שלם ומעלה מסמן "בדקו" ולא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
+  // רק כשנקראו פחות חדרים מהמוצהר (חדר שלם ומעלה): ההודעה היא "בדקו שלא חסר חדר". לא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
   if (hints?.rooms != null) {
     const found = COUNTED_KINDS.reduce((n, k) => n + (counts[k] ?? 0), 0);
-    if (Math.abs(found - hints.rooms) >= 1) checks.push({ code: "rooms_mismatch", declared: hints.rooms, found });
+    if (hints.rooms - found >= 1) checks.push({ code: "rooms_mismatch", declared: hints.rooms, found });
   }
   const unclear = uncertainNotes(raw.uncertain);
   if (unclear.length) checks.push({ code: "model_uncertain", notes: unclear });
