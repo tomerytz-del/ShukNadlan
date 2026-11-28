@@ -7,6 +7,7 @@ import {
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts";
+import { matchDigestButtons, type MatchRow } from "../whatsapp-webhook/match-feedback.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { digestSummary, planTemplateSlots, templateTier } from "./template-priority.ts";
@@ -44,6 +45,8 @@ import {
   utilityTemplateMessage,
   clipUtf16,
   encodeNavId,
+  navIdOrBare,
+  parseNavId,
   OPEN_LEADS_PATH,
   withClick,
   withClickUrl,
@@ -587,6 +590,50 @@ async function loadDigestFlags(
   }
 }
 
+async function matchFeedbackFlagOn(sb: { from: (table: string) => any }): Promise<boolean> {
+  try {
+    const { data, error } = await sb.from("pricing_config")
+      .select("value")
+      .eq("key", "match_feedback_buttons_enabled")
+      .maybeSingle();
+    return !error && Number(data?.value) === 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * כפתורי משוב על ריכוז ההתאמות (match-feedback.ts), רק על סיכום שיוצא לבד
+ * ובתוך החלון. סיכום שכולו "נכס שלך מתאים ללקוח/ה של..." - בלי כפתורים.
+ * הכפתור השלישי פותח את הסיכום ב-CRM, כי כפתורי תשובה אינם מתערבבים עם cta_url.
+ * כל כשל - null, וההודעה יוצאת כמו קודם.
+ */
+async function matchFeedbackButtonsFor(
+  sb: { rpc: (fn: string, args: Record<string, unknown>) => any },
+  agentId: string,
+  items: Item[],
+  mode: string,
+): Promise<{ id: string; title: string }[] | null> {
+  if (mode === "template" || items.length !== 1 || items[0].type !== "match_digest") return null;
+  const notificationId = String(items[0].id || "");
+  if (!notificationId) return null;
+  try {
+    const { data, error } = await sb.rpc("match_digest_alerts", {
+      p_agent: agentId, p_notification: notificationId, p_limit: 1,
+    });
+    if (error || !Array.isArray(data)) return null;
+    const buttons = matchDigestButtons(notificationId, data as MatchRow[]);
+    if (!buttons) return null;
+    const path = itemPath(items[0]);
+    const nav = path ? navIdOrBare(path, "match_digest").id : null;
+    return nav ? [...buttons, { id: nav, title: MATCH_CRM_TITLE }] : buttons;
+  } catch {
+    return null;
+  }
+}
+
+const MATCH_CRM_TITLE = "📋 פתיחה ב-CRM";
+
 async function sendWhatsapp(
   to: string,
   name: string | null,
@@ -595,6 +642,7 @@ async function sendWhatsapp(
   lessType: string | null,
   topics = false,
   cadenceOn = false,
+  matchBtns: { id: string; title: string }[] | null = null,
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
@@ -769,6 +817,23 @@ async function sendWhatsapp(
         type: "button",
         body: { text: body },
         action: { buttons },
+      },
+    };
+  } else if (matchBtns) {
+    // משוב על ההתאמות. גובר על "פחות כאלה" ועל כפתור הקצב: יש רק שלושה
+    // כפתורים, והקישור ל-CRM הוא השלישי (match-feedback.ts).
+    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
+    const crm = matchBtns.find((b) => parseNavId(b.id));
+    if (crm) tokens = clickRecords({ kind: "single", path: parseNavId(crm.id) as string, label: "" });
+    payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: body },
+        action: { buttons: matchBtns.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) },
       },
     };
   } else if (mode !== "template" && (showingCloseNotifyButton(items) || lessType)) {
@@ -1114,6 +1179,7 @@ Deno.serve(async (req: Request) => {
   // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
   const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
   const digest = await loadDigestFlags(sb);
+  const matchFeedbackOn = await matchFeedbackFlagOn(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
     // תקרת התבניות. הדגל כבוי, או שהפונקציה עוד לא במיגרציה: שולחים כרגיל.
@@ -1300,8 +1366,11 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
+      const matchBtns = matchFeedbackOn
+        ? await matchFeedbackButtonsFor(sb, String(row.agent_id), items, row.channel_mode)
+        : null;
       const sent = await sendWhatsapp(
-        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn,
+        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn, matchBtns,
       );
       waId = sent.id;
       tokens = sent.tokens;
