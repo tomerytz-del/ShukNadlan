@@ -5,7 +5,7 @@ import { mfaGate } from "../_shared/mfa-gate.ts";
 import { geminiRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { base64ToBytes } from "../_shared/visualization.ts";
 import {
-  buildModel, imageSize, isPlanModel, mirrorModel, mirrorSettings, parsePlanReading, PLAN_READ_PROMPT,
+  buildModel, imageSize, isPlanModel, mirrorModel, mirrorSettings, parseHints, parsePlanReading, PLAN_READ_PROMPT,
   PlanReadError, validImageSize,
 } from "../_shared/plan-model.ts";
 
@@ -13,7 +13,7 @@ import {
 // דגם דירה תלת-ממדי: רכישה, קריאת התוכנית והיפוך מראה (docs/plan-3d-tour.md)
 //
 // ‏POST עם JWT של סוכן/ת או של יזם. שלוש פעולות:
-//   create   { owner_kind, name, project_id?, image_base64 }
+//   create   { owner_kind, name, project_id?, image_base64, hints?: { apartment_sqm?, rooms? } }
 //   mirror   { owner_kind, source_model_id, name? }
 //   plan_url { model_id }   - כתובת חתומה לתוכנית המקור, לבעלים בלבד
 //
@@ -286,7 +286,7 @@ Deno.serve(async (req: Request) => {
     if (markErr || !marked?.success) throw new Error(`mark reading: ${markErr?.message ?? marked?.error}`);
 
     const reading = await readPlan(apiKey, mime, b64, kind === "agent" ? ownerId : null);
-    const built = buildModel(reading, size.w, size.h);
+    const built = buildModel(reading, size.w, size.h, parseHints(body.hints));
     await completeModel(supabase, charged.modelId, built.model, built.settings);
     return json({ ok: true, model_id: charged.modelId, settings: built.settings, ...charged.receipt });
   } catch (e) {

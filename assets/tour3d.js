@@ -212,6 +212,9 @@ async function openHome(){
       (kinds.length>1?'<div class="f"><label for="nKind">החשבון שמשלם</label><select id="nKind">'+kinds.map(function(k){return '<option value="'+k+'">'+KIND_NAME[k]+'</option>'}).join('')+'</select></div>':'')+
       '<div id="quoteBox"></div>'+
       '<div class="f"><label for="nName">שם הדגם</label><input id="nName" maxlength="120" placeholder="למשל: דגם A, 4 חדרים"></div>'+
+      '<div class="row"><div class="f"><label for="nArea">שטח הדירה במ"ר (אם ידוע)</label><input id="nArea" type="number" inputmode="decimal" min="20" max="1000" step="0.1"></div>'+
+        '<div class="f"><label for="nRooms">מספר חדרים (אם ידוע)</label><input id="nRooms" type="number" inputmode="decimal" min="1" max="12" step="0.5" placeholder="למשל 4"></div></div>'+
+      '<p class="note">רשות. השטח עוזר לקבוע קנה מידה כשהתוכנית בלי מידות, ומספר החדרים מאפשר לסמן לכם אם חדר חסר בקריאה. הם לא משנים את מה שנקרא מהתוכנית.</p>'+
       '<div class="f"><label for="nFile" id="nFileLbl">תמונת התוכנית (JPG, PNG או WebP, עד 6MB)</label><input id="nFile" type="file" accept="image/jpeg,image/png,image/webp"></div>'+
       '<div class="f" id="nPageBox" hidden><label for="nPage">איזה עמוד הוא התוכנית?</label><select id="nPage"></select></div>'+
       '<p class="note">תוכנית חדה, ישרה ועם מידות כתובות נותנת את התוצאה המדויקת ביותר. אחרי הקריאה אפשר לכייל מידות ולתקן.</p>'+
@@ -296,7 +299,10 @@ async function openHome(){
         file=await pdfToJpeg(pdfState.doc,+$('nPage').value||pdfState.best);
       }
       var b64=await new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'')};fr.onerror=no;fr.readAsDataURL(file)});
-      var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64});
+      /* רשות: רק מה שמולא. הטווחים נבדקים שוב בשרת (parseHints), וערך שגוי מתעלמים ממנו */
+      var hints={},ar=parseFloat($('nArea').value),rm=parseFloat($('nRooms').value);
+      if(ar>0)hints.apartment_sqm=ar;if(rm>0)hints.rooms=rm;
+      var d=await callFn({action:'create',owner_kind:kind(),name:$('nName').value.trim(),image_base64:b64,hints:hints});
       location.href=tourUrl(d.model_id,true);
     }catch(e){msg(out,heText(e),true);btn.disabled=false}
   });

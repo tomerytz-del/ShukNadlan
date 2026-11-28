@@ -39,7 +39,12 @@ export type PlanCheck =
   | { code: "scale_estimated"; source: "area" | "door" | "default" }
   | { code: "scale_inconsistent" }
   | { code: "no_north" }
-  | { code: "walls_inferred" };
+  | { code: "walls_inferred" }
+  | { code: "rooms_mismatch"; declared: number; found: number }
+  | { code: "model_uncertain"; notes: string[] };
+
+/** מה שהמשתמש/ת הצהיר/ה בטופס (אופציונלי). משמש רק לאימות ולמילוי חסר, לא כהוראה למודל הראייה. */
+export type PlanHints = { apartment_sqm: number | null; rooms: number | null };
 
 export type PlanSettings = {
   scale: number;
@@ -48,6 +53,7 @@ export type PlanSettings = {
   declared_area_sqm: number | null;
   declared_balcony_sqm: number | null;
   checks: PlanCheck[];
+  user_hints?: PlanHints;
 };
 
 export class PlanReadError extends Error {
@@ -90,7 +96,8 @@ export const PLAN_READ_PROMPT =
   '  "dimensions": [{"cm": 0, "x1":0,"y1":0,"x2":0,"y2":0}],\n' +
   '  "north_deg": null,\n' +
   '  "apartment_sqm": null,\n' +
-  '  "balcony_sqm": null\n' +
+  '  "balcony_sqm": null,\n' +
+  '  "uncertain": [{"about": "wall|opening|room|dimension|scale|other", "note": "<משפט קצר בעברית>"}]\n' +
   "}\n" +
   `kind של חדר הוא אחד מ: ${Object.keys(ROOM_KINDS).join(", ")}.\n` +
   "כללים:\n" +
@@ -103,7 +110,8 @@ export const PLAN_READ_PROMPT =
   "7. apartment_sqm ו-balcony_sqm: רק אם השטח כתוב בתוכנית. אחרת null.\n" +
   "8. zones: בתוך חלל פתוח, מלבן סביב הריהוט המצויר של כל אזור: kitchen (משטח העבודה והארונות), dining (שולחן האוכל והכיסאות), living (הספה והשטיח). אלה אזורים ולא חדרים, ואין ביניהם קירות.\n" +
   "9. entrance: דלת הכניסה הראשית לדירה, כקטע על קו הקיר שלה (בדרך כלל ליד המילה כניסה או חץ). null אם אינה מסומנת.\n" +
-  "10. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
+  "10. uncertain: עד 6 דברים שלא היו ברורים בתוכנית (קיר שמוסתר מאחורי ריהוט, סימן שלא ברור אם הוא דלת, מידה שקשה לקרוא, חלל בלי שם). משפט קצר בעברית לכל אחד. עדיף לדווח על אי-ודאות מאשר לנחש בשקט. אם הכול ברור: רשימה ריקה.\n" +
+  "11. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
 
 const num = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
@@ -117,6 +125,37 @@ const median = (xs: number[]): number => {
 };
 
 const norm360 = (deg: number) => ((deg % 360) + 360) % 360;
+
+/**
+ * הצהרות מהטופס. שטח בין 20 ל-1,000 מ"ר; חדרים בין 1 ל-12 בקפיצות של חצי (ספירה ישראלית: 3.5, 4, 4.5).
+ * ערך מחוץ לטווח הוא null ולא שגיאה: הצהרה אופציונלית שגויה אינה סיבה לא לקרוא את התוכנית.
+ */
+export function parseHints(x: unknown): PlanHints | null {
+  const o = (x ?? {}) as Record<string, unknown>;
+  const a = num(o.apartment_sqm), r = num(o.rooms);
+  const apartment_sqm = a !== null && a >= 20 && a <= 1000 ? Math.round(a * 10) / 10 : null;
+  const rooms = r !== null && r >= 1 && r <= 12 ? Math.round(r * 2) / 2 : null;
+  return apartment_sqm === null && rooms === null ? null : { apartment_sqm, rooms };
+}
+
+const UNCERTAIN_ABOUT: Record<string, string> = { wall: "קיר", opening: "פתח", room: "חדר", dimension: "מידה", scale: "קנה מידה", other: "" };
+
+/**
+ * "מה לא היה ברור": טקסט שמודל כתב על תוכנית של מישהו אחר, ויוצג בעורך. לכן: בלי תווי בקרה ובלי סוגריים משולשים,
+ * בלי מקף ארוך (כלל האתר), באורך מוגבל, ובלי כפילויות. הדף מציג אותו ב-esc, וזו שכבה שנייה.
+ */
+export function uncertainNotes(v: unknown): string[] {
+  const out: string[] = [];
+  for (const it of list(v, 6)) {
+    const o = it as Record<string, unknown>;
+    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[—–]/g, "-").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!text) continue;
+    const about = typeof o.about === "string" ? UNCERTAIN_ABOUT[o.about] ?? "" : "";
+    const note = about ? `${about}: ${text}` : text;
+    if (!out.includes(note)) out.push(note);
+  }
+  return out;
+}
 
 /** גבולות הגודל של תמונת תוכנית. נבדק לפני החיוב (ב-Edge Function) וגם ב-buildModel. */
 export function validImageSize(w: number, h: number): boolean {
@@ -364,7 +403,7 @@ export function inferWalls(rooms: Room[], read: Wall[], g: Grid, tol: number, sc
   return { rooms: out, walls };
 }
 
-export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number): { model: PlanModel; settings: PlanSettings } {
+export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number, hints: PlanHints | null = null): { model: PlanModel; settings: PlanSettings } {
   const W = Math.round(imgW), H = Math.round(imgH);
   if (!validImageSize(W, H)) throw new PlanReadError("bad_image_size", "גודל התמונה אינו תקין");
   const checks: PlanCheck[] = [];
@@ -473,7 +512,8 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   }
 
   // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל ----
-  const declaredArea = num(raw.apartment_sqm), declaredBalcony = num(raw.balcony_sqm);
+  // שטח שכתוב בתוכנית גובר. אם אין, השטח שהוצהר בטופס משמש לקנה המידה (הוא נבדק מול המידות כמו שטח כתוב)
+  const declaredArea = num(raw.apartment_sqm) ?? hints?.apartment_sqm ?? null, declaredBalcony = num(raw.balcony_sqm);
   const ratios: number[] = [];
   for (const d of list(raw.dimensions, 8)) {
     const cm = num((d as Record<string, unknown>)?.cm), b = boxPx(d, W, H);
@@ -564,6 +604,15 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });
 
+  // ספירה ישראלית: סלון, חדרי שינה וממ"ד. מטבח, רחצה ומסדרון אינם נספרים. הפרש של חדר שלם ומעלה מסמן "בדקו",
+  // ולא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
+  if (hints?.rooms != null) {
+    const found = rooms.filter((r) => r.id.startsWith("living") || r.id.startsWith("master") || r.id.startsWith("bedroom") || r.id.startsWith("mamad")).length;
+    if (Math.abs(found - hints.rooms) >= 1) checks.push({ code: "rooms_mismatch", declared: hints.rooms, found });
+  }
+  const unclear = uncertainNotes(raw.uncertain);
+  if (unclear.length) checks.push({ code: "model_uncertain", notes: unclear });
+
   // בלי קנה מידה אמיתי אין לדעת אם מיטה נכנסת לחדר: לא מרהטים על ברירת מחדל
   const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale, zones, walls, tol);
   // אזור סלון אינו מקבל תווית: לחדר שהוא יושב בו כבר יש אחת
@@ -577,6 +626,7 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
       declared_area_sqm: declaredArea !== null && declaredArea > 0 ? declaredArea : null,
       declared_balcony_sqm: declaredBalcony !== null && declaredBalcony > 0 ? declaredBalcony : null,
       checks,
+      ...(hints ? { user_hints: hints } : {}),
     },
   };
 }

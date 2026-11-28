@@ -2,7 +2,7 @@
 // קוד טהור, רץ ב-node:  node --experimental-strip-types scripts/plan_model_test.ts
 import assert from "node:assert/strict";
 import {
-  autoFurnish, buildModel, imageSize, isPlanModel, mirrorModel, mirrorSettings, parsePlanReading, PlanReadError,
+  autoFurnish, buildModel, imageSize, isPlanModel, mirrorModel, mirrorSettings, parseHints, parsePlanReading, PlanReadError,
 } from "../supabase/functions/_shared/plan-model.ts";
 
 let passed = 0;
@@ -320,6 +320,55 @@ test("buildModel: גרעין הבניין נחצב מהסלון שעוטף או�
   const s = model.solids[0], cxm = (s[0] + s[2]) / 2, cym = (s[1] + s[3]) / 2;
   assert.ok(!model.rooms.some((r) => r.r.some((q) => cxm > q[0] && cxm < q[2] && cym > q[1] && cym < q[3])), "אין רצפה בתוך הגרעין");
   assert.ok(model.walls.some((w) => w.t === "ext" && w.h !== undefined && Math.abs(w.h - s[1]) <= 20 && w.a < cxm && w.b > cxm), "קיר בראש הגרעין");
+});
+
+test("parseHints: טווחים, חצי חדר, וערך שגוי הוא null ולא שגיאה", () => {
+  assert.deepEqual(parseHints({ apartment_sqm: 100.88, rooms: 4 }), { apartment_sqm: 100.9, rooms: 4 });
+  assert.deepEqual(parseHints({ apartment_sqm: "120", rooms: 3.4 }), { apartment_sqm: 120, rooms: 3.5 });
+  assert.deepEqual(parseHints({ apartment_sqm: 5, rooms: 40 }), null);
+  assert.deepEqual(parseHints({ apartment_sqm: 80, rooms: 0 }), { apartment_sqm: 80, rooms: null });
+  assert.equal(parseHints(null), null);
+  assert.equal(parseHints("x"), null);
+});
+
+test("buildModel: שטח מהטופס ממלא חסר, ושטח כתוב בתוכנית גובר עליו", () => {
+  const d = sample(); d.dimensions = []; (d as { apartment_sqm: number | null }).apartment_sqm = null;
+  const viaHint = buildModel(d, W, H, { apartment_sqm: 16, rooms: null });
+  const viaPlan = buildModel({ ...d, apartment_sqm: 16 }, W, H);
+  assert.equal(viaHint.settings.declared_area_sqm, 16);
+  assert.equal(viaHint.settings.scale, viaPlan.settings.scale);
+  assert.deepEqual(viaHint.settings.user_hints, { apartment_sqm: 16, rooms: null });
+  const win = buildModel(sample(), W, H, { apartment_sqm: 99, rooms: null });
+  assert.equal(win.settings.declared_area_sqm, 30);
+  assert.equal(buildModel(sample(), W, H).settings.user_hints, undefined);
+});
+
+test("buildModel: מספר חדרים שהוצהר מסמן 'בדקו' רק בהפרש של חדר שלם, ולא משנה את המודל", () => {
+  // בדוגמה: סלון וחדר שינה נספרים (המרפסת והחלל הלא מוכר לא)
+  const at = (rooms: number) => buildModel(sample(), W, H, { apartment_sqm: null, rooms }).settings.checks.find((c) => c.code === "rooms_mismatch");
+  assert.deepEqual(at(4), { code: "rooms_mismatch", declared: 4, found: 2 });
+  assert.equal(at(2), undefined);
+  assert.equal(at(2.5), undefined);
+  assert.equal(buildModel(sample(), W, H, { apartment_sqm: null, rooms: 4 }).model.rooms.length, buildModel(sample(), W, H).model.rooms.length);
+});
+
+test("buildModel: 'לא היה ברור' מנוקה (בלי HTML ובלי מקף ארוך), מוגבל ל-6, ובלי כפילויות", () => {
+  const raw = sample() as Record<string, unknown>;
+  raw.uncertain = [
+    { about: "wall", note: "קיר <b>מוסתר</b> מאחורי הארון \u2014 לא בטוח" },
+    { about: "wall", note: "קיר <b>מוסתר</b> מאחורי הארון \u2014 לא בטוח" },
+    { about: "spaceship", note: "x".repeat(300) },
+    { note: "   " }, { about: "opening", note: "" }, 5, null,
+    ...Array.from({ length: 8 }, (_, i) => ({ about: "room", note: `חלל ${i}` })),
+  ];
+  const c = buildModel(raw, W, H).settings.checks.find((k) => k.code === "model_uncertain") as { notes: string[] };
+  assert.ok(c && c.notes.length <= 6);
+  assert.equal(c.notes[0], "קיר: קיר b מוסתר /b מאחורי הארון - לא בטוח");
+  assert.ok(c.notes.every((n) => !/[<>\u2014\u2013]/.test(n)), "בלי HTML ובלי מקף ארוך");
+  assert.ok(c.notes.every((n) => n.length <= 130));
+  assert.equal(new Set(c.notes).size, c.notes.length);
+  const clean = sample() as Record<string, unknown>; clean.uncertain = [];
+  assert.equal(buildModel(clean, W, H).settings.checks.some((k) => k.code === "model_uncertain"), false);
 });
 
 console.log(`✓ ${passed} בדיקות של plan-model עברו`);
