@@ -78,7 +78,7 @@ select * from gabriela_weekly_kpi;   -- ראשון-שבת בשעון ישראל,
 | --- | --- |
 | `agents`, `inbound` | סוכנים שכתבו והודעות נכנסות, בלי מנהלי/ות פלטפורמה (כולל לחיצות כפתור) |
 | `pushes`, `read_pct`, `failed_pct`, `fail_131049` | התראות שיצאו בוואטסאפ, קריאה וכשל מתוך אלה עם סטטוס מסירה, וכשלי 131049 |
-| `agent_calls`, `agent_usd`, `usd_per_inbound` | קריאות ועלות של העוזרת לסוכנים (כולל חימום ותור מוגבל) |
+| `agent_calls`, `agent_usd`, `usd_per_inbound` | קריאות ועלות של העוזרת לסוכנים (כולל חימום ותור מוגבל). **אותו תמחור כמו `ai_usage_costs`** בפאנל "עלויות" (`docs/platform-costs.md`), ולכן המספרים צריכים להתאים. מי שמשנה את התמחור שם משנה גם כאן |
 | `prefix_tokens` | גודל הקידומת הקבועה (כלים + `SYSTEM_STATIC`) לפי קריאות החימום |
 | `text_*`, `voice_*`, `pct_over_30s` | זמני תגובה מהטבלה למעלה (מ-24.11.2026) |
 | `match_relevant`, `match_not_relevant` | משוב על התאמות מהוואטסאפ (`client_match_feedback`) |
