@@ -4,11 +4,14 @@
 --   1. מנהלי/ות פלטפורמה מחוץ גם להתראות (push) ולמשוב על התאמות (fb), כמו
 --      שהכותרת של 20271204110000 מבטיחה לכל העמודות. notification_push_log.agent_id
 --      ו-client_match_feedback.agent_id הם not null.
---   2. unpriced_calls סופר כל שורה שהעלות שלה null ב-agent_usd: גם מודל תואם בלי
---      המחיר הרלוונטי, ולא רק מודל שאין לו שורה (ב-28.11.2026 אין כאלה בפרודקשן).
+--   2. unpriced_calls סופר כל שורה שהעלות שלה null: העלות מחושבת פעם אחת לשורה
+--      (c.usd), ו-agent_usd ו-unpriced_calls נגזרים ממנה, כדי שלא ייפרדו. קודם נספר
+--      רק מודל בלי שורה, לא מודל תואם בלי המחיר (ב-28.11.2026 אין כאלה בפרודקשן).
+--   3. סוכנים של משרד הדגמה (agent_is_demo) מחוץ לכל העמודות, יחד עם מנהלי/ות
+--      הפלטפורמה ב-adm, כמו שאר הדוחות מ-20271130130000.
 --
 -- העתק מלא של ה-view מ-20271204110000, אותן עמודות באותו סדר (create or replace
--- view דורש זאת), ושלושה שינויים: שתי שורות סינון ותנאי ה-unpriced_calls.
+-- view דורש זאת). השינויים: adm, שתי שורות סינון, וה-lateral של c.usd.
 -- =============================================================================
 
 create or replace view public.gabriela_weekly_kpi
@@ -23,7 +26,8 @@ lo as (
 ),
 -- מנהלי/ות פלטפורמה בודקים את גבריאלה, ולכן הם מחוץ לכל העמודות (הודעות, עלות
 -- וזמנים) - אחרת עלות להודעה הייתה זזה לפי כמה הם בדקו באותו שבוע.
-adm as (select id from public.agency_members where is_platform_admin),
+-- ‏20271204120000: וגם סוכנים של משרד הדגמה, כמו שאר הדוחות (20271130130000).
+adm as (select id from public.agency_members where is_platform_admin or public.agent_is_demo(id)),
 msg as (
   select wk.d - extract(dow from wk.d)::int as week_start,
          count(distinct m.agent_id) as agents, count(*) as inbound
@@ -54,20 +58,9 @@ cost as (
   select wk.d - extract(dow from wk.d)::int as week_start,
          -- קריאות של תורים (וואטסאפ, ומייל/קובץ בתור המוגבל); החימום רק בעלות
          count(*) filter (where l.feature in ('gabriela_agent', 'gabriela_agent_limited')) as agent_calls,
-         -- שורות שה-case למטה מחזיר עליהן null: אין מודל תואם ב-ai_model_prices, או
-         -- שיש ואין לו המחיר הרלוונטי (unit_usd לשורה עם units, input_usd_mtok לטוקנים).
-         -- העלות שלהן חסרה ב-agent_usd.
-         count(*) filter (where pr.model is null
-                             or (l.units is not null and pr.unit_usd is null)
-                             or (l.units is null and pr.input_usd_mtok is null)) as unpriced_calls,
-         round(sum(case
-                 when pr.model is null then null
-                 when l.units is not null then l.units * pr.unit_usd
-                 when pr.input_usd_mtok is null then null
-                 else (k.u * pr.input_usd_mtok + k.cr * pr.cache_read_usd_mtok
-                       + k.cw * pr.cache_write_usd_mtok
-                       + k.cw1h * coalesce(pr.cache_write_1h_usd_mtok, pr.input_usd_mtok * 2)
-                       + k.o * pr.output_usd_mtok) / 1000000.0 end)::numeric, 2) as agent_usd,
+         -- שורות שהעלות שלהן null (c.usd): חסרות ב-agent_usd. אותו ביטוי לשתי העמודות.
+         count(*) filter (where c.usd is null) as unpriced_calls,
+         round(sum(c.usd)::numeric, 2) as agent_usd,
          round(avg(k.u + k.cr + k.cw + k.cw1h)
                filter (where l.feature = 'gabriela_agent_warm')) as prefix_tokens
     from lo
@@ -83,6 +76,16 @@ cost as (
        where l.model = mp.model or l.model like mp.model || '-%'
        order by length(mp.model) desc limit 1
     ) pr on true
+    cross join lateral (
+      select case
+               when pr.model is null then null
+               when l.units is not null then l.units * pr.unit_usd
+               when pr.input_usd_mtok is null then null
+               else (k.u * pr.input_usd_mtok + k.cr * pr.cache_read_usd_mtok
+                     + k.cw * pr.cache_write_usd_mtok
+                     + k.cw1h * coalesce(pr.cache_write_1h_usd_mtok, pr.input_usd_mtok * 2)
+                     + k.o * pr.output_usd_mtok) / 1000000.0 end as usd
+    ) c
    where l.feature like 'gabriela_agent%'
      and l.model is not null and l.model <> 'copy'
      and (l.agent_id is null or l.agent_id not in (select id from adm))
