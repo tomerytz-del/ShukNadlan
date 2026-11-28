@@ -26,6 +26,7 @@ import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } f
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
+import { matchFeedbackReply } from "./match-feedback.ts";
 import {
   answerBuildingDeveloperUnknown,
   markBuildingDeveloperDelivered,
@@ -2842,6 +2843,18 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           `ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
           `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
         await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
+        return;
+      }
+      // ‏"👍 רלוונטי" / "👎 לא רלוונטי" / "✅ סימון התאמות" על ריכוז ההתאמות
+      // (match-feedback.ts). המזהה נושא את ההתאמה, והתשובה קבועה ובלי מודל.
+      const matchFb = await matchFeedbackReply(supabase, agent.id, buttonId);
+      if (matchFb) {
+        if (matchFb.text) {
+          await reply(from, matchFb.text, agent.id);
+          rememberListingAction(conv, matchFb.text);
+          await saveConversation(agent.id, from, conv);
+        }
+        if (matchFb.outbox?.length) await sendOutbox(from, matchFb.outbox, agent.id);
         return;
       }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)

@@ -532,6 +532,14 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 ‏`status`, ‏`agent_id`) ו-`client_property_match` ללקוח/ה. קריאות הכלים אינן
 נשמרות - משחזרים ביד. ‏`docs/whatsapp-setup.md`, "כתיב קרוב וספירת התאמות".
 
+## משוב על ריכוז ההתאמות (`mfb:`, `match-feedback.ts`)
+
+‏`notification-push` מצמיד לסיכום `match_digest` (לבד, בתוך החלון, הדגל `match_feedback_buttons_enabled`)
+‏"👍 רלוונטי" / "👎 לא רלוונטי" או "✅ סימון התאמות" (רשימה), ו"📋 פתיחה ב-CRM" כשלישי. המזהה נושא את ההתאמה
+(`mfb:r|n|p:<alert>`) או את הסיכום (`mfb:l:<notification>`), ו-`matchFeedbackReply` תופס אותו בענף `interactive`
+**לפני** השורה שמעבירה את הכותרת למודל - גם כשהדגל כבוי. מי שמזיז/ה אותו אחריה שולח/ת לגבריאלה "👍 רלוונטי"
+בלי התאמה. ‏`scripts/match_feedback_test.ts` בודק את הסדר ואת אורכי הכותרות. הסקיל `client-matching`, ‏4ה'.
+
 ## המספר שולח גם עדכוני מיניסייט - והתשובות מגיעות לגבריאלה
 
 `client-showcase` (‏`action = wa_notify`) שולח מאותו מספר ללקוחות של סוכנים:

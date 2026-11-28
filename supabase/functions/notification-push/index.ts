@@ -7,6 +7,7 @@ import {
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts";
+import { matchDigestButtons, type MatchRow } from "../whatsapp-webhook/match-feedback.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { digestSummary, planTemplateSlots, templateTier } from "./template-priority.ts";
@@ -44,6 +45,8 @@ import {
   utilityTemplateMessage,
   clipUtf16,
   encodeNavId,
+  navIdOrBare,
+  parseNavId,
   OPEN_LEADS_PATH,
   withClick,
   withClickUrl,
@@ -566,12 +569,15 @@ function templateSummary(items: Item[], withUrls = true): string {
 
 async function loadDigestFlags(
   sb: { from: (table: string) => any },
-): Promise<{ less: boolean; topics: boolean; guardOn: boolean }> {
-  const off = { less: false, topics: false, guardOn: false };
+): Promise<{ less: boolean; topics: boolean; guardOn: boolean; matchFeedback: boolean }> {
+  const off = { less: false, topics: false, guardOn: false, matchFeedback: false };
   try {
     const { data, error } = await sb.from("pricing_config")
       .select("key, value")
-      .in("key", ["notif_digest_enabled", "notif_topic_group", "notification_burst_guard_enabled"]);
+      .in("key", [
+        "notif_digest_enabled", "notif_topic_group", "notification_burst_guard_enabled",
+        "match_feedback_buttons_enabled",
+      ]);
     if (error || !Array.isArray(data)) return off;
     const on = (key: string) => data.some((row: { key?: string; value?: unknown }) =>
       row.key === key && Number(row.value) === 1);
@@ -581,11 +587,45 @@ async function loadDigestFlags(
       less: digest,
       topics: digest && on("notif_topic_group"),
       guardOn: guardRow ? guardEnabled(guardRow.value) : false,
+      matchFeedback: on("match_feedback_buttons_enabled"),
     };
   } catch {
     return off;
   }
 }
+
+/**
+ * כפתורי משוב על ריכוז ההתאמות (match-feedback.ts), רק על סיכום שיוצא לבד
+ * ובתוך החלון. סיכום שכולו "נכס שלך מתאים ללקוח/ה של..." - בלי כפתורים.
+ * הכפתור השלישי פותח את הסיכום ב-CRM, כי כפתורי תשובה אינם מתערבבים עם cta_url.
+ * כל כשל - null, וההודעה יוצאת כמו קודם.
+ */
+async function matchFeedbackButtonsFor(
+  sb: { rpc: (fn: string, args: Record<string, unknown>) => any },
+  agentId: string,
+  items: Item[],
+): Promise<{ id: string; title: string }[] | null> {
+  if (items.length !== 1 || items[0].type !== "match_digest") return null;
+  const notificationId = String(items[0].id || "");
+  if (!notificationId) return null;
+  try {
+    const { data, error } = await sb.rpc("match_digest_alerts", {
+      p_agent: agentId, p_notification: notificationId, p_limit: 1,
+    });
+    if (error || !Array.isArray(data)) return null;
+    const buttons = matchDigestButtons(notificationId, data as MatchRow[]);
+    if (!buttons) return null;
+    // בלי כפתור ל-CRM אין להודעה דרך לפתוח את רשימת ההתאמות (כפתורי תשובה
+    // לא מתערבבים עם cta_url), ולכן בלי nav ההודעה יוצאת כמו קודם.
+    const path = itemPath(items[0]);
+    const nav = path ? navIdOrBare(path, "match_digest").id : null;
+    return nav ? [...buttons, { id: nav, title: MATCH_CRM_TITLE }] : null;
+  } catch {
+    return null;
+  }
+}
+
+const MATCH_CRM_TITLE = "📋 פתיחה ב-CRM";
 
 async function sendWhatsapp(
   to: string,
@@ -595,6 +635,7 @@ async function sendWhatsapp(
   lessType: string | null,
   topics = false,
   cadenceOn = false,
+  ownBtns: { id: string; title: string }[] | null = null,
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
@@ -607,7 +648,6 @@ async function sendWhatsapp(
 
   let payload: Record<string, unknown>;
   let soleBoard = false;
-  const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
   const embedded: { label: string; url: string }[] = [];
   const withoutUrls = (text: string) => {
@@ -752,25 +792,14 @@ async function sendWhatsapp(
         ],
       },
     };
-  } else if (nudgeBtns) {
-    // שלושה כפתורי תשובה על נכס אחד. אי אפשר לערבב אותם עם cta_url.
-    // "בלי תזכורת" נשאר בכרטיס ב-CRM: ל-Meta יש שלושה כפתורים.
+  } else if (ownBtns) {
+    // כפתורי תשובה שהפריט מביא בעצמו (תזכורת לנכס, משוב על התאמות). אי אפשר
+    // לערבב אותם עם cta_url, ולכן קישור ל-CRM הוא כפתור nav: בתוכם. הם גוברים
+    // על "פחות כאלה" ועל כפתור הקצב: ל-Meta יש שלושה.
     const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
-    const buttons = nudgeBtns.map((b) => ({
-      type: "reply",
-      reply: { id: b.id, title: b.title },
-    }));
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: { text: body },
-        action: { buttons },
-      },
-    };
+    const nav = ownBtns.map((b) => parseNavId(b.id)).find(Boolean);
+    if (nav) tokens = clickRecords({ kind: "single", path: nav, label: "" });
+    payload = replyButtonsMessage(to, body, ownBtns);
   } else if (mode !== "template" && (showingCloseNotifyButton(items) || lessType)) {
     const scn = showingCloseNotifyButton(items);
     // כפתור תשובה אחד. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
@@ -1300,8 +1329,11 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
+      // כפתורי תשובה שהפריט מביא בעצמו: תזכורת לנכס שלא פורסם, או משוב על התאמות.
+      const ownBtns = row.channel_mode === "template" ? null : nudgeReplyButtons(items) ??
+        (digest.matchFeedback ? await matchFeedbackButtonsFor(sb, String(row.agent_id), items) : null);
       const sent = await sendWhatsapp(
-        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn,
+        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn, ownBtns,
       );
       waId = sent.id;
       tokens = sent.tokens;

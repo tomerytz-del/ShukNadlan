@@ -26,6 +26,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/match_feedback_test.ts"
       - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
@@ -54,6 +55,7 @@ on:
       - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
+      - "scripts/match_feedback_test.ts"
       - "scripts/wa_agent_notify_priority_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
@@ -146,6 +148,11 @@ jobs:
 
       - name: תקציר התראות של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
+
+      # כפתורי רלוונטי / לא רלוונטי על ריכוז ההתאמות: מגבלות Meta, המזהים,
+      # והלחיצה שנתפסת לפני המודל (docs/client-matching.md, "משוב מהוואטסאפ").
+      - name: משוב על התאמות מהוואטסאפ
+        run: node --experimental-strip-types scripts/match_feedback_test.ts
 
       - name: סדר תבניות, 131049 ותקציר לסוכנים
         run: node --experimental-strip-types scripts/wa_agent_notify_priority_test.ts
