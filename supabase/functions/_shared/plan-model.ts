@@ -39,7 +39,12 @@ export type PlanCheck =
   | { code: "scale_estimated"; source: "area" | "door" | "default" }
   | { code: "scale_inconsistent" }
   | { code: "no_north" }
-  | { code: "walls_inferred" };
+  | { code: "walls_inferred" }
+  | { code: "rooms_mismatch"; declared: number; found: number }
+  | { code: "model_uncertain"; notes: string[] };
+
+/** מה שהמשתמש/ת הצהיר/ה בטופס (אופציונלי). משמש רק לאימות ולמילוי חסר, לא כהוראה למודל הראייה. */
+export type PlanHints = { apartment_sqm: number | null; rooms: number | null };
 
 export type PlanSettings = {
   scale: number;
@@ -59,6 +64,8 @@ export class PlanReadError extends Error {
 }
 
 // סוג חדר -> שם ברירת מחדל, רצפה ודגלים. הרשימה סגורה: סוג שהמודל המציא הופך ל-"other".
+/** מה נספר כ"חדר" בספירה הישראלית (דירת 4 חדרים): סלון, שינה, סוויטה וממ"ד. מטבח, רחצה ומסדרון אינם. */
+const COUNTED_KINDS = ["living", "master", "bedroom", "mamad"];
 const ROOM_KINDS: Record<string, { name: string; f: Room["f"]; nc?: 1; bal?: 1; svc?: 1 }> = {
   living: { name: "סלון", f: "tile" },
   kitchen: { name: "מטבח", f: "tile" },
@@ -90,7 +97,8 @@ export const PLAN_READ_PROMPT =
   '  "dimensions": [{"cm": 0, "x1":0,"y1":0,"x2":0,"y2":0}],\n' +
   '  "north_deg": null,\n' +
   '  "apartment_sqm": null,\n' +
-  '  "balcony_sqm": null\n' +
+  '  "balcony_sqm": null,\n' +
+  '  "uncertain": [{"about": "wall|opening|room|dimension|scale|other", "note": "<משפט קצר בעברית>"}]\n' +
   "}\n" +
   `kind של חדר הוא אחד מ: ${Object.keys(ROOM_KINDS).join(", ")}.\n` +
   "כללים:\n" +
@@ -103,7 +111,8 @@ export const PLAN_READ_PROMPT =
   "7. apartment_sqm ו-balcony_sqm: רק אם השטח כתוב בתוכנית. אחרת null.\n" +
   "8. zones: בתוך חלל פתוח, מלבן סביב הריהוט המצויר של כל אזור: kitchen (משטח העבודה והארונות), dining (שולחן האוכל והכיסאות), living (הספה והשטיח). אלה אזורים ולא חדרים, ואין ביניהם קירות.\n" +
   "9. entrance: דלת הכניסה הראשית לדירה, כקטע על קו הקיר שלה (בדרך כלל ליד המילה כניסה או חץ). null אם אינה מסומנת.\n" +
-  "10. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
+  "10. uncertain: עד 6 דברים שלא היו ברורים בתוכנית (קיר שמוסתר מאחורי ריהוט, סימן שלא ברור אם הוא דלת, מידה שקשה לקרוא, חלל בלי שם). משפט קצר בעברית לכל אחד. עדיף לדווח על אי-ודאות מאשר לנחש בשקט. אם הכול ברור: רשימה ריקה.\n" +
+  "11. אל תמציא: מה שלא רואים בתוכנית לא נכנס לתשובה.";
 
 const num = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
@@ -117,6 +126,37 @@ const median = (xs: number[]): number => {
 };
 
 const norm360 = (deg: number) => ((deg % 360) + 360) % 360;
+
+/**
+ * הצהרות מהטופס. שטח בין 20 ל-1,000 מ"ר; חדרים בין 1 ל-12 בקפיצות של חצי (ספירה ישראלית: 3.5, 4, 4.5).
+ * ערך מחוץ לטווח הוא null ולא שגיאה: הצהרה אופציונלית שגויה אינה סיבה לא לקרוא את התוכנית.
+ */
+export function parseHints(x: unknown): PlanHints | null {
+  const o = (x ?? {}) as Record<string, unknown>;
+  const a = num(o.apartment_sqm), r = num(o.rooms);
+  const apartment_sqm = a !== null && a >= 20 && a <= 1000 ? Math.round(a * 10) / 10 : null;
+  const rooms = r !== null && r >= 1 && r <= 12 ? Math.round(r * 2) / 2 : null;
+  return apartment_sqm === null && rooms === null ? null : { apartment_sqm, rooms };
+}
+
+const UNCERTAIN_ABOUT: Record<string, string> = { wall: "קיר", opening: "פתח", room: "חדר", dimension: "מידה", scale: "קנה מידה", other: "" };
+
+/**
+ * "מה לא היה ברור": טקסט שמודל כתב על תוכנית של מישהו אחר, ויוצג בעורך. לכן: בלי תווי בקרה ובלי סוגריים משולשים,
+ * בלי מקף ארוך (כלל האתר), באורך מוגבל, ובלי כפילויות. הדף מציג אותו ב-esc, וזו שכבה שנייה.
+ */
+export function uncertainNotes(v: unknown): string[] {
+  const out: string[] = [];
+  for (const it of list(v, 6)) {
+    const o = it as Record<string, unknown>;
+    const text = String(o?.note ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/[\u2014\u2013\u2015]/g, "-").replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "").slice(0, 120);
+    if (!text) continue;
+    const about = typeof o.about === "string" && Object.hasOwn(UNCERTAIN_ABOUT, o.about) ? UNCERTAIN_ABOUT[o.about] : "";   // hasOwn: "constructor" אינו סוג
+    const note = about ? `${about}: ${text}` : text;
+    if (!out.includes(note)) out.push(note);
+  }
+  return out;
+}
 
 /** גבולות הגודל של תמונת תוכנית. נבדק לפני החיוב (ב-Edge Function) וגם ב-buildModel. */
 export function validImageSize(w: number, h: number): boolean {
@@ -364,7 +404,7 @@ export function inferWalls(rooms: Room[], read: Wall[], g: Grid, tol: number, sc
   return { rooms: out, walls };
 }
 
-export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number): { model: PlanModel; settings: PlanSettings } {
+export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: number, hints: PlanHints | null = null): { model: PlanModel; settings: PlanSettings } {
   const W = Math.round(imgW), H = Math.round(imgH);
   if (!validImageSize(W, H)) throw new PlanReadError("bad_image_size", "גודל התמונה אינו תקין");
   const checks: PlanCheck[] = [];
@@ -473,7 +513,12 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   }
 
   // ---- קנה מידה (ס"מ לפיקסל): ממידות כתובות, אחרת משטח כתוב, אחרת מרוחב דלת, ואחרת ברירת מחדל ----
+  // declaredArea: מה שכתוב בתוכנית, ורק הוא נשמר ומוצג (בעורך ובכותרת הציבורית). השטח מהטופס (hintArea) הוא מוצא אחרון לקנה
+  // המידה: **רק כשאין אף מידה כתובה**, ולא כמסנן של מידות כתובות. הוא הוקלד בידי מי שיכול לטעות, ושטח רחוק מהאמת היה גובר
+  // על מידות נכונות מהתוכנית. ואינו נשמר כ"שטח כתוב": אחרת העורך היה "מאשר" את מה שהוקלד, והציבור היה רואה אותו כעובדה
   const declaredArea = num(raw.apartment_sqm), declaredBalcony = num(raw.balcony_sqm);
+  const plausible = (a: number | null): a is number => a !== null && a > 15 && a < 1500;
+  const hintArea = hints?.apartment_sqm ?? null;
   const ratios: number[] = [];
   for (const d of list(raw.dimensions, 8)) {
     const cm = num((d as Record<string, unknown>)?.cm), b = boxPx(d, W, H);
@@ -492,8 +537,8 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
   const tol = Math.max(8, Math.round(Math.max(W, H) * 0.018));
   const grid = roomGrid(rooms, tol, solids);
   const px2 = ownedArea(grid, (k) => !rooms[k].bal && !rooms[k].svc);
-  const byArea = declaredArea !== null && declaredArea > 15 && declaredArea < 1500 && px2 > 0
-    ? Math.sqrt(declaredArea * 10000 / px2) : 0;
+  const fromArea = (a: number | null) => plausible(a) && px2 > 0 ? Math.sqrt(a * 10000 / px2) : 0;
+  const byArea = fromArea(declaredArea), byHint = fromArea(hintArea);
   const byDoor = doors.length ? 85 / median(doors) : 0;
   // מידה כתובה מתקבלת רק אם היא מסכימה עם השטח הכתוב (עד 35%): בפנטהאוז המידות הותאמו לקטעים
   // הלא נכונים ונתנו 4.6 ס"מ לפיקסל במקום כ-1.7, והרהיטים יצאו בגודל של צעצוע
@@ -508,6 +553,9 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
     checks.push({ code: "scale_inconsistent" });
   } else if (sane(byArea)) {
     scale = byArea;
+    scaleSource = "area";
+  } else if (sane(byHint)) {
+    scale = byHint;
     scaleSource = "area";
   } else if (sane(byDoor)) {
     scale = byDoor;
@@ -563,6 +611,14 @@ export function buildModel(raw: Record<string, unknown>, imgW: number, imgH: num
 
   const northRaw = num(raw.north_deg);
   if (northRaw === null) checks.push({ code: "no_north" });
+
+  // רק כשנקראו פחות חדרים מהמוצהר (חדר שלם ומעלה): ההודעה היא "בדקו שלא חסר חדר". לא משנה את המודל: ייתכן שההצהרה שגויה ולא הקריאה
+  if (hints?.rooms != null) {
+    const found = COUNTED_KINDS.reduce((n, k) => n + (counts[k] ?? 0), 0);
+    if (hints.rooms - found >= 1) checks.push({ code: "rooms_mismatch", declared: hints.rooms, found });
+  }
+  const unclear = uncertainNotes(raw.uncertain);
+  if (unclear.length) checks.push({ code: "model_uncertain", notes: unclear });
 
   // בלי קנה מידה אמיתי אין לדעת אם מיטה נכנסת לחדר: לא מרהטים על ברירת מחדל
   const furniture = scaleSource === "default" ? [] : autoFurnish(rooms, scale, zones, walls, tol);

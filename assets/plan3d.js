@@ -1562,10 +1562,12 @@ function loop(now){
 var CHECK_TEXT={
   rooms_dropped:function(c){return c.n+' חללים לא זוהו והושמטו. השוו לתוכנית המקור.'},
   diagonal_walls:function(c){return c.n+' קירות אלכסוניים לא נכנסו למודל.'},
-  scale_estimated:function(c){return 'קנה המידה משוער ('+({area:'לפי השטח הכתוב',door:'לפי רוחב דלת',default:'ברירת מחדל'}[c.source]||'הערכה')+'). כיילו לפי מידה ידועה.'},
+  scale_estimated:function(c){return 'קנה המידה משוער ('+({area:'לפי שטח הדירה',door:'לפי רוחב דלת',default:'ברירת מחדל'}[c.source]||'הערכה')+'). כיילו לפי מידה ידועה.'},
   scale_inconsistent:function(){return 'המידות הכתובות בתוכנית אינן עקביות. כיילו לפי מידה ידועה.'},
   walls_inferred:function(){return 'הקירות הפנימיים והדלתות שוחזרו מגבולות החדרים, כי לא נקראו מהתוכנית. השוו לתוכנית המקור.'},
-  no_north:function(){return 'לא נמצא חץ צפון בתוכנית. הזינו את כיוון הצפון בלשונית "שמש".'}
+  no_north:function(){return 'לא נמצא חץ צפון בתוכנית. הזינו את כיוון הצפון בלשונית "שמש".'},
+  rooms_mismatch:function(c){return 'ציינתם '+c.declared+' חדרים, והתוכנית נקראה עם '+c.found+'. בדקו שלא חסר חדר.'},
+  model_uncertain:function(c){return 'לא היה ברור בקריאה: '+(Array.isArray(c.notes)?c.notes.join(' · '):'')+'. השוו לתוכנית המקור.'}
 };
 function fillChecks(){
   var box=$('checksBox');if(!box)return;
