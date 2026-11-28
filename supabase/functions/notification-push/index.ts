@@ -615,9 +615,11 @@ async function matchFeedbackButtonsFor(
     if (error || !Array.isArray(data)) return null;
     const buttons = matchDigestButtons(notificationId, data as MatchRow[]);
     if (!buttons) return null;
+    // בלי כפתור ל-CRM אין להודעה דרך לפתוח את רשימת ההתאמות (כפתורי תשובה
+    // לא מתערבבים עם cta_url), ולכן בלי nav ההודעה יוצאת כמו קודם.
     const path = itemPath(items[0]);
     const nav = path ? navIdOrBare(path, "match_digest").id : null;
-    return nav ? [...buttons, { id: nav, title: MATCH_CRM_TITLE }] : buttons;
+    return nav ? [...buttons, { id: nav, title: MATCH_CRM_TITLE }] : null;
   } catch {
     return null;
   }

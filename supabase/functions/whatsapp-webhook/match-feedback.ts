@@ -141,10 +141,12 @@ export async function matchFeedbackReply(
   }
 
   if (parsed.action === "pick") {
-    // אחד-לרבים: PostgREST מחזיר את שני ה-embeds כאובייקט
+    // שני ה-embeds רבים-לאחד, עם מפתח זר אחד כל אחד, ולכן PostgREST מחזיר
+    // אותם כאובייקט (הטיפוסים של הלקוח הלא-מוקלד אומרים מערך, ולכן ה-cast).
+    // לקוח/ה או נכס שאינם פעילים - כמו ב-match_feedback_set: ההתאמה כבר לא קיימת.
     const { data, error } = await supabase
       .from("client_match_alerts")
-      .select("id, score, agent_clients(full_name), properties(title)")
+      .select("id, score, agent_clients(full_name, status), properties(title, status)")
       .eq("id", parsed.id)
       .eq("agent_id", agentId)
       .maybeSingle();
@@ -152,12 +154,12 @@ export async function matchFeedbackReply(
       console.error("match pick failed", error.message);
       return { text: FAILED };
     }
-    if (!data) return { text: GONE };
     const row = data as unknown as {
       score: number | null;
-      agent_clients: { full_name: string | null } | null;
-      properties: { title: string | null } | null;
-    };
+      agent_clients: { full_name: string | null; status: string | null } | null;
+      properties: { title: string | null; status: string | null } | null;
+    } | null;
+    if (!row || row.agent_clients?.status !== "active" || row.properties?.status !== "active") return { text: GONE };
     return ask({
       alert_id: parsed.id,
       client_name: row.agent_clients?.full_name ?? null,

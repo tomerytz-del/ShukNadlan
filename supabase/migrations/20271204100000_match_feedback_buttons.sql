@@ -8,10 +8,13 @@
 -- ה-CRM. בלי סימון אין גם שום משוב למנוע ההתאמות.
 --
 -- ‏מה כאן:
---   1. feedback / feedback_at על client_match_alerts. "לא רלוונטי" הוא גם
---      status = 'dismissed' (הסמנטיקה הקיימת: לא מוצג שוב, ונשמר בטריגרי
---      הניקוי), ו"רלוונטי" הוא status = 'seen'. feedback נפרד מ-status כי
---      'seen' נכתב גם מצפייה ב-CRM ולא אומר שהסוכן/ת שפט/ה את ההתאמה.
+--   1. client_match_feedback: השיפוט, שורה לזוג לקוח/ה-נכס. "לא רלוונטי" הוא
+--      גם status = 'dismissed' על ההתאמה (הסמנטיקה הקיימת: לא מוצג שוב), ו"רלוונטי"
+--      הוא 'seen'. השיפוט בטבלה נפרדת ולא בעמודה על client_match_alerts, כי
+--      טריגרי הניקוי (20270609090000) וסגירת לקוח/ה מוחקים התאמות 'new'/'seen':
+--      "רלוונטי" היה נמחק בשינוי הדרישות הבא, ו"לא רלוונטי" (dismissed) נשאר -
+--      כלומר המשוב היה מוטה לשלילי בשקט. והטבלה כותבת רק מהוואטסאפ: הסרה ב-CRM
+--      משנה את status ולא את השיפוט.
 --   2. notifications.match_alert_ids: הסיכום רושם בעצמו אילו התאמות (הצד של
 --      הלקוחות שלי) הוא מכסה. לא משחזרים את החלון מהסיכום הקודם: סוכן/ת יכול/ה
 --      למחוק התראה מהפעמון, וחלון משוחזר היה מתרחב בשקט. סיכום ישן (null) -
@@ -26,27 +29,25 @@
 --      שכבר יצא לא ייפול למודל.
 -- =============================================================================
 
-alter table public.client_match_alerts
-  add column if not exists feedback    text,
-  add column if not exists feedback_at timestamptz;
+create table if not exists public.client_match_feedback (
+  client_id   uuid not null references public.agent_clients(id)  on delete cascade,
+  property_id uuid not null references public.properties(id)     on delete cascade,
+  agent_id    uuid not null references public.agency_members(id) on delete cascade,
+  feedback    text not null check (feedback in ('relevant', 'not_relevant')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  primary key (client_id, property_id)
+);
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-     where conname = 'client_match_alerts_feedback_check'
-       and conrelid = 'public.client_match_alerts'::regclass
-  ) then
-    alter table public.client_match_alerts
-      add constraint client_match_alerts_feedback_check
-      check (feedback is null or feedback in ('relevant', 'not_relevant'));
-  end if;
-end $$;
+comment on table public.client_match_feedback is
+  'משוב של הסוכן/ת על התאמה (רלוונטי / לא רלוונטי) מכפתור בוואטסאפ. שורה לזוג לקוח/ה-נכס; נשמרת גם כשההתאמה נמחקת. נכתב רק ב-match_feedback_set.';
 
-comment on column public.client_match_alerts.feedback is
-  'משוב של הסוכן/ת על ההתאמה: relevant / not_relevant. null = לא נשפטה. נכתב רק ב-match_feedback_set.';
-comment on column public.client_match_alerts.feedback_at is
-  'מתי נכתב feedback.';
+alter table public.client_match_feedback enable row level security;
+revoke all on table public.client_match_feedback from anon, authenticated;
+grant select, insert, update, delete on table public.client_match_feedback to service_role;
+
+create index if not exists client_match_feedback_property_idx on public.client_match_feedback (property_id);
+create index if not exists client_match_feedback_agent_idx on public.client_match_feedback (agent_id, updated_at desc);
 
 alter table public.notifications
   add column if not exists match_alert_ids uuid[];
@@ -328,13 +329,14 @@ stable
 security definer
 set search_path = ''
 as $$
-  select a.id, c.full_name, p.title, a.score, a.feedback, (count(*) over ())::int
+  select a.id, c.full_name, p.title, a.score, f.feedback, (count(*) over ())::int
     from public.notifications n
     cross join lateral unnest(n.match_alert_ids) as x(id)
     join public.client_match_alerts a
       on a.id = x.id and a.agent_id = p_agent and a.status <> 'dismissed'
     join public.agent_clients c on c.id = a.client_id and c.status = 'active'
     join public.properties p    on p.id = a.property_id and p.status = 'active'
+    left join public.client_match_feedback f on f.client_id = a.client_id and f.property_id = a.property_id
    where n.id = p_notification
      and n.agent_id = p_agent
      and n.type = 'match_digest'
@@ -349,10 +351,11 @@ comment on function public.match_digest_alerts(uuid, uuid, int) is
   'ההתאמות הפתוחות שסיכום match_digest אחד כיסה (notifications.match_alert_ids). service_role בלבד: notification-push והוובהוק.';
 
 -- ---------------------------------------------------------------------------
--- הכתיבה. רק התאמה של p_agent; התאמה של סוכן/ת אחר/ת מחזירה אפס שורות.
+-- הכתיבה. רק התאמה של p_agent, ורק כשהלקוח/ה והנכס עדיין פעילים (כפתור מהודעה
+-- ישנה על נכס שנמכר מחזיר אפס שורות, והוובהוק אומר שההתאמה כבר לא קיימת).
 -- "לא רלוונטי" = dismissed. "רלוונטי" = seen, ומחזיר התאמה שסומנה בטעות
 -- כלא רלוונטית (dismissed -> seen), כי זו בדיוק הלחיצה שמתקנת אותה.
--- ערך אחר נדחה באילוץ client_match_alerts_feedback_check.
+-- ערך אחר נדחה באילוץ של client_match_feedback.
 -- ---------------------------------------------------------------------------
 create or replace function public.match_feedback_set(
   p_agent    uuid,
@@ -367,17 +370,24 @@ language sql
 security definer
 set search_path = ''
 as $$
-  update public.client_match_alerts a
-     set feedback    = p_feedback,
-         feedback_at = now(),
-         status      = case when p_feedback = 'not_relevant' then 'dismissed' else 'seen' end,
-         seen_at     = coalesce(a.seen_at, now())
-    from public.agent_clients c, public.properties p
-   where a.id = p_alert
-     and a.agent_id = p_agent
-     and c.id = a.client_id
-     and p.id = a.property_id
-  returning c.full_name, p.title;
+  with a as (
+    update public.client_match_alerts a
+       set status  = case when p_feedback = 'not_relevant' then 'dismissed' else 'seen' end,
+           seen_at = coalesce(a.seen_at, now())
+      from public.agent_clients c, public.properties p
+     where a.id = p_alert
+       and a.agent_id = p_agent
+       and c.id = a.client_id and c.status = 'active'
+       and p.id = a.property_id and p.status = 'active'
+    returning a.client_id, a.property_id, c.full_name, p.title
+  ),
+  f as (
+    insert into public.client_match_feedback (client_id, property_id, agent_id, feedback)
+    select a.client_id, a.property_id, p_agent, p_feedback from a
+    on conflict (client_id, property_id) do update
+      set feedback = excluded.feedback, agent_id = excluded.agent_id, updated_at = now()
+  )
+  select a.full_name, a.title from a;
 $$;
 
 revoke all on function public.match_feedback_set(uuid, uuid, text) from public, anon, authenticated;
@@ -385,3 +395,31 @@ grant execute on function public.match_feedback_set(uuid, uuid, text) to service
 
 comment on function public.match_feedback_set(uuid, uuid, text) is
   'משוב רלוונטי / לא רלוונטי על התאמה, מכפתור בוואטסאפ. service_role בלבד; הסינון לפי סוכן/ת בפונקציה.';
+
+-- ---------------------------------------------------------------------------
+-- לחיצה על משוב היא פעולה של הסוכן/ת על הכרטיס, ולכן נספרת כפעילות במדיניות
+-- השמירה (הסקיל client-matching). העתק מלא מ-20270505090000 (md5 של הגוף זהה
+-- לפרודקשן, bb8ce629..., נבדק 28.11.2026), ושורה אחת נוספת בסוף.
+-- ---------------------------------------------------------------------------
+create or replace function public._client_last_activity(p_client uuid)
+returns timestamptz
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select greatest(
+    (select greatest(c.created_at, c.updated_at) from public.agent_clients c where c.id = p_client),
+    (select max(greatest(a.created_at, a.updated_at, a.due_at, a.completed_at, a.client_responded_at))
+       from public.agent_agenda_items a where a.client_id = p_client),
+    (select max(k.created_at) from public.agent_calls k where k.client_id = p_client),
+    (select max(greatest(s.created_at, s.updated_at, s.last_viewed_at))
+       from public.client_showcases s where s.client_id = p_client),
+    (select max(greatest(g.created_at, g.sent_at, g.signed_at))
+       from public.agreements g where p_client = any(g.client_ids)),
+    (select max(greatest(x.created_at, x.signed_at))
+       from public.agreement_signers x where x.client_id = p_client),
+    (select max(f.updated_at) from public.client_match_feedback f where f.client_id = p_client)
+  );
+$$;
+revoke all on function public._client_last_activity(uuid) from public, anon, authenticated;

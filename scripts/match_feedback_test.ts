@@ -140,7 +140,7 @@ const run = async () => {
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:l:${N1}`);
   check("empty list -> text", !!out?.text && !out.outbox, out);
 
-  f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה" }, properties: { title: "בית" } });
+  f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה", status: "active" }, properties: { title: "בית", status: "active" } });
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
   const picked = out?.outbox?.[0];
   check("pick -> buttons", picked?.kind === "buttons" && picked.body.includes('"בית" לדנה (80%)'), out);
@@ -149,6 +149,10 @@ const run = async () => {
   f = fakeSb({}, null);
   out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
   check("pick other agent -> text", !!out?.text?.includes("כבר לא קיימת"), out);
+
+  f = fakeSb({}, { id: A1, score: 80, agent_clients: { full_name: "דנה", status: "active" }, properties: { title: "בית", status: "sold" } });
+  out = await matchFeedbackReply(f.sb, AGENT, `mfb:p:${A1}`);
+  check("pick sold property -> gone", !!out?.text?.includes("כבר לא קיימת"), out);
 
   // הוובהוק תופס את הכפתור לפני הכותרת שעוברת למודל
   const hook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");

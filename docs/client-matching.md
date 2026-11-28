@@ -403,7 +403,11 @@ p_waive_features)`: מאפיין שברשימה מותר שיחסר, והוא ע
   ועל כפתור הקצב: ל-Meta יש שלושה, והקישור ל-CRM הוא השלישי (כפתורי תשובה לא מתערבבים עם `cta_url`).
 * **"לא רלוונטי" הוא `status = 'dismissed'`** - הסמנטיקה הקיימת: לא מוצג שוב, נשמר בטריגרי הניקוי, ויורד מתגית
   "N לקוחות מתאימים" בכרטיס הנכס. **"רלוונטי" הוא `seen`**, ומחזיר התאמה שסומנה בטעות כלא רלוונטית.
-  השיפוט עצמו ב-`feedback` (‏`relevant` / `not_relevant`) ו-`feedback_at`, נפרד מ-`status` כי `seen` נכתב גם מצפייה.
+  השיפוט עצמו בטבלה `client_match_feedback` (שורה לזוג לקוח/ה-נכס, `relevant` / `not_relevant`), ולא בעמודה על
+  ההתאמה: טריגרי הניקוי וסגירת לקוח/ה מוחקים התאמות `new`/`seen`, ולכן "רלוונטי" היה נמחק בשינוי הדרישות הבא
+  ו"לא רלוונטי" נשאר - משוב מוטה לשלילי בשקט. הטבלה נכתבת רק מהוואטסאפ: הסרה ב-CRM משנה את `status` ולא את השיפוט.
+  כפתור מהודעה ישנה על לקוח/ה או נכס שאינם פעילים עונה שההתאמה כבר לא קיימת, ולא מסמן. משוב נספר כפעילות
+  בכרטיס (`_client_last_activity`, ‏`docs/data-retention.md`).
 * **אילו התאמות סיכום כיסה - הסיכום רושם בעצמו**, ב-`notifications.match_alert_ids` (‏`client_match_digest_run`,
   הצד של הלקוחות שלי, לפי ציון). `match_digest_alerts(agent, notification, limit)` קוראת משם את מה שעדיין פתוח
   (לקוח/ה ונכס פעילים, בלי `dismissed`). לא משחזרים חלון מהסיכום הקודם: סוכן/ת יכול/ה למחוק התראה מהפעמון, וחלון
@@ -418,8 +422,8 @@ p_waive_features)`: מאפיין שברשימה מותר שיחסר, והוא ע
 **המדידה:**
 
 ```sql
-select date_trunc('week', feedback_at) w, feedback, count(*)
-  from client_match_alerts where feedback_at is not null group by 1, 2 order by 1;
+select date_trunc('week', updated_at) w, feedback, count(*)
+  from client_match_feedback group by 1, 2 order by 1;
 ```
 
 `scripts/match_feedback_test.ts` (מגבלות Meta, המזהים, והלחיצה שנתפסת לפני הכותרת שעוברת למודל).
